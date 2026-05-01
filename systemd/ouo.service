@@ -1,0 +1,23 @@
+[Unit]
+Description=UoDemo Server (ouo)
+After=network.target
+
+[Service]
+Type=simple
+User=ouo
+Group=ouo
+WorkingDirectory=/opt/ouo/run
+ExecStart=/bin/sh -c 'exec $OUO_WRAPPER /opt/ouo/run/ouo $OUO_OPTS'
+EnvironmentFile=-/etc/default/ouo
+LimitCORE=infinity
+ExecReload=/bin/kill -HUP $MAINPID
+OnFailure=ouo-coredump@%n.service
+Restart=on-failure
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ouo
+
+[Install]
+WantedBy=multi-user.target

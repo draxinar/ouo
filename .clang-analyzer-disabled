@@ -1,0 +1,10 @@
+deadcode.DeadStores
+core.NullDereference
+unix.Malloc
+unix.MallocSizeof
+core.NonNullParamChecker
+core.CallAndMessage
+core.UndefinedBinaryOperatorResult
+core.uninitialized.Assign
+core.uninitialized.UndefReturn
+core.FixedAddressDereference

@@ -1,0 +1,9 @@
+[Unit]
+Description=Extract stack trace after %i crash
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ouo/ouo-coredump.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ouo-coredump

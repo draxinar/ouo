@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup ouo savegame files every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

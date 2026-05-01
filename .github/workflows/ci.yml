@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install toolchain
+        run: dnf install -y gcc make
+
+      - name: Build
+        run: make WERROR=1
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/checkout@v4
+        with:
+          repository: draxinar/rundir
+          path: rundir
+
+      - name: Link rundir
+        run: ln -s "$GITHUB_WORKSPACE/rundir" "$GITHUB_WORKSPACE/../.rundir"
+
+      - name: Install toolchain
+        run: dnf install -y gcc make iproute
+
+      - name: Build
+        run: make
+
+      - name: Smoke test
+        run: ci/smoke-test.sh
+
+  asan-smoke-test:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/checkout@v4
+        with:
+          repository: draxinar/rundir
+          path: rundir
+
+      - name: Link rundir
+        run: ln -s "$GITHUB_WORKSPACE/rundir" "$GITHUB_WORKSPACE/../.rundir"
+
+      - name: Install toolchain
+        run: dnf install -y gcc make iproute libasan
+
+      - name: Build (ASAN)
+        run: make ASAN=1
+
+      - name: Smoke test (ASAN)
+        run: ci/smoke-test.sh
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install toolchain and cppcheck
+        run: dnf install -y gcc make cppcheck
+
+      - name: Run cppcheck
+        run: make cppcheck
+
+  clang-analyze:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install toolchain and clang analyzer
+        run: dnf install -y clang clang-analyzer make
+
+      - name: Run clang static analyzer
+        run: make clang-analyze
+
+  format-check:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install git
+        run: dnf install -y git
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install clang-format
+        run: dnf install -y clang-tools-extra
+
+      - name: Check formatting
+        run: clang-format --dry-run --Werror *.c *.h

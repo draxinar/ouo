@@ -1,0 +1,19 @@
+# /etc/default/ouo - ouo server configuration
+
+# Per-server directory under .rundir/ for world state
+#SERVERNAME=britannia
+
+# Command-line options passed to ouo (see ./ouo -help)
+#OUO_OPTS=
+
+# Wrapper command prepended to the server binary
+#OUO_WRAPPER=
+
+# Web status directory (used by ouo-status.sh)
+#OUO_WEBDIR=
+
+# Backup settings (used by ouo-backup.sh)
+#OUO_BACKUP_DIR=/opt/ouo/backups
+#OUO_BACKUP_KEEP_HOURS=48
+#OUO_BACKUP_KEEP_DAYS=30
+#OUO_BACKUP_KEEP_WEEKS=52

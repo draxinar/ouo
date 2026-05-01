@@ -1,0 +1,9 @@
+[Unit]
+Description=Backup ouo savegame files
+
+[Service]
+Type=oneshot
+User=ouo
+Group=ouo
+ExecStart=/opt/ouo/ouo-backup.sh
+EnvironmentFile=-/etc/default/ouo

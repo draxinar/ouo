@@ -1,0 +1,7 @@
+[Unit]
+Description=Update ouo web status
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ouo/ouo-status.sh
+EnvironmentFile=-/etc/default/ouo

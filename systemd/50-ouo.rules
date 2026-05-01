@@ -1,0 +1,7 @@
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "ouo.service" &&
+        subject.user == "ouo") {
+        return polkit.Result.YES;
+    }
+});

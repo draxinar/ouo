@@ -1,0 +1,44 @@
+BasedOnStyle: LLVM
+
+# Tabs for indentation, spaces for mid-line alignment.
+UseTab: ForIndentation
+IndentWidth: 8
+
+# Preserves existing header decls; forces wrap on pathological expressions.
+ColumnLimit: 180
+
+# Return type on its own line, function name at column 0.
+BreakAfterReturnType: TopLevelDefinitions
+
+# Braces on next line for functions only.
+BreakBeforeBraces: Linux
+
+# No paren-column alignment for wrapped args.
+AlignAfterOpenBracket: DontAlign
+
+# Align hand-aligned #define tables.
+AlignConsecutiveMacros:
+  Enabled: true
+
+# Pad macro continuation backslashes to the longest line + 1 space,
+# not out to ColumnLimit.
+AlignEscapedNewlines: Left
+
+# Preserve existing trailing comment alignment.
+AlignTrailingComments:
+  Kind: Leave
+
+# Don't indent goto labels.
+IndentGotoLabels: false
+
+# Don't sort includes.
+SortIncludes: Never
+
+# Continuation indent for wrapped lines.
+ContinuationIndentWidth: 8
+
+# Keep closing brace of multi-line braced initializers on its own line.
+Cpp11BracedListStyle: false
+
+# Don't reflow comments.
+ReflowComments: false

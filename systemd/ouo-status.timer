@@ -1,0 +1,9 @@
+[Unit]
+Description=Update ouo web status every minute
+
+[Timer]
+OnBootSec=10s
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target
