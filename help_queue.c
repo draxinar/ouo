@@ -2653,12 +2653,14 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		return;
 	}
 
-	// Custom: .decay [mode] - switch decay mode for testing
+	// Custom: .decay <mode> - switch decay mode for testing
 	// mode 0 = debug, 1 = normal, 2 = off, 3 = fast test (~3s item lifetime)
 	if (strncmp(cmd, "decay", 5) == 0 && CPlayer_IsEditing(player)) {
-		int mode = 3;
-		if (cmd[5] == ' ')
-			mode = atoi(cmd + 6);
+		if (cmd[5] != ' ') {
+			CPlayer_SystemMessage(player, ".decay <0-3> - set decay (0=debug 1=normal 2=off 3=fast)");
+			return;
+		}
+		int mode = atoi(cmd + 6);
 		CWorld_InitDecay(mode);
 		char dmsg[64];
 		snprintf(dmsg, sizeof(dmsg), "Decay set to mode %d", mode);
@@ -2718,7 +2720,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			CPlayer_SystemMessage(player, ".speed 1|3|5 - set move speed");
 			CPlayer_SystemMessage(player, ".time H - set world hour (0-23)");
 			CPlayer_SystemMessage(player, ".role [+/-godmode|gamemaster|counselor]");
-			CPlayer_SystemMessage(player, ".decay [0-3] - set decay (0=debug 1=normal 2=off 3=fast)");
+			CPlayer_SystemMessage(player, ".decay <0-3> - set decay (0=debug 1=normal 2=off 3=fast)");
 			CPlayer_SystemMessage(player, ".msg TEXT - broadcast system message to all players");
 			CPlayer_SystemMessage(player, ".placehouse - create small house at your location");
 			CPlayer_SystemMessage(player, ".itemhp [VALUE] - click weapon/armor (serial form still accepted)");
