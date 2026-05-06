@@ -121,6 +121,7 @@ static void GM_TargetRemove(CPlayer *player, uint8_t type, uint32_t serial, uint
 static void GM_TargetTele(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetMTele(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetMKill(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
+static void GM_TargetMRemove(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetInfo(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetScripts(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetResources(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
@@ -1833,6 +1834,16 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		return;
 	}
 
+	// Custom: .mremove - repeating click-to-remove (press Esc to stop)
+	if (strcmp(cmd, "mremove") == 0 && CPlayer_IsEditing(player)) {
+		uint8_t tbuf[20];
+		player->targetCallback = GM_TargetMRemove;
+		PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
+		SendPacketToPlayer(player, tbuf, -1);
+		CPlayer_SystemMessage(player, "Select target to remove (Esc to stop)");
+		return;
+	}
+
 	// Custom: .remove - target an entity and delete it
 	if (strcmp(cmd, "remove") == 0 && CPlayer_IsEditing(player)) {
 		uint8_t tbuf[20];
@@ -2680,6 +2691,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			CPlayer_SystemMessage(player, ".kill - kill target mobile");
 			CPlayer_SystemMessage(player, ".mkill - repeating click kill");
 			CPlayer_SystemMessage(player, ".remove - delete target entity");
+			CPlayer_SystemMessage(player, ".mremove - repeating click remove");
 			CPlayer_SystemMessage(player, ".rename NAME - rename target mobile");
 			CPlayer_SystemMessage(player, ".say TEXT - make target speak");
 			CPlayer_SystemMessage(player, ".walk - make NPC walk to destination");
@@ -3860,6 +3872,36 @@ GM_TargetMKill(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint1
 	}
 
 	// Re-send target cursor for next kill
+	uint8_t tbuf[20];
+	PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
+	SendPacketToPlayer(player, tbuf, -1);
+}
+
+static void
+GM_TargetMRemove(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z)
+{
+	USED(type);
+	USED(x);
+	USED(y);
+	USED(z);
+	if (serial == 0) {
+		player->targetCallback = NULL;
+		CPlayer_SystemMessage(player, "Multi-remove done");
+		return;
+	}
+	CItem *target = CWorld_FindBySerial(g_World, serial);
+	if (target == NULL) {
+		CPlayer_SystemMessage(player, "Entity not found");
+	} else if (VT_IsPlayer(target)) {
+		CPlayer_SystemMessage(player, "Cannot remove a player");
+	} else {
+		char msg[80];
+		snprintf(msg, sizeof(msg), "Removed 0x%08X", serial);
+		CWorld_DeleteEntity(g_World, target);
+		CPlayer_SystemMessage(player, msg);
+	}
+
+	// Re-send target cursor for next remove
 	uint8_t tbuf[20];
 	PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
 	SendPacketToPlayer(player, tbuf, -1);
