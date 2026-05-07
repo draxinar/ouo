@@ -540,8 +540,8 @@ closeTracking(CItem *player, CList *trackList)
  * Handles tracking type selection UI callback. Called when the player
  * selects a creature type (animal/monster/person) in the tracking
  * type picker dialog. Queries both NPC and item spatial maps within
- * 200 tiles of the player's location, filters by the selected type
- * and the player's tracking skill difficulty, excludes owned pets
+ * a skill-scaled range of the player's location, filters by the selected
+ * type and the player's tracking skill difficulty, excludes owned pets
  * (myBoss list), then sends a creature picker dialog or a message.
  *
  * filter: CLocation* - pointer to the player's location, passed as
@@ -552,6 +552,14 @@ closeTracking(CItem *player, CList *trackList)
  * categoryTypeId: OBJPICKER response typeId encoding the creature
  *        category the player picked (0x2122=animal, 0x20D8=monster,
  *        0x2106=person).
+ *
+ * MODIFIED (FEAT_SKILL_TRACKING): the binary's 200-tile radius and
+ * tier cutoffs at raw skill 20/40 (display 2.0/4.0) are demo values
+ * tuned for the tutwisp dragon-tracking step. With the feature on,
+ * range becomes a flat 20 tiles and the cutoffs become 200/400
+ * (display 20.0/40.0). These are plausible production-style values
+ * but arbitrary: no authoritative Origin source documents what the
+ * non-demo numbers should be.
  */
 void
 Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int categoryTypeId, CLocation *filter)
@@ -567,6 +575,8 @@ Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int cat
 	const char *typePlural;
 	int skillValue;
 	int difficulty;
+	int range;
+	int tier2Cutoff, tier3Cutoff;
 	int outCreatureType, outDifficulty, outCreatureClass;
 	int dir;
 	CString *nameStr;
@@ -612,18 +622,29 @@ Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int cat
 	typeFlag = 0;
 	CVector_Constructor(&entityList, &typeFlag);
 
-	// Range query on NPC and item maps (200 tile radius).
-	CEntityMap_RangeQuery(g_NPCMap, &entityList, (int16_t)filter->x, (int16_t)filter->y, 200);
-	CEntityMap_RangeQuery(g_ItemMap, &entityList, (int16_t)filter->x, (int16_t)filter->y, 200);
-
 	// Get tracking skill value (skill 0x26 = 38 = Tracking).
 	skillValue = CMobile_GetTotalSkill((CMobile *)player, 0x26);
 
+	// Pick range and tier cutoffs (binary: range=200, tiers at 20/40).
+	if (feat(FEAT_SKILL_TRACKING)) {
+		range = 20;
+		tier2Cutoff = 200;
+		tier3Cutoff = 400;
+	} else {
+		range = 200;
+		tier2Cutoff = 20;
+		tier3Cutoff = 40;
+	}
+
+	// Range query on NPC and item maps.
+	CEntityMap_RangeQuery(g_NPCMap, &entityList, (int16_t)filter->x, (int16_t)filter->y, range);
+	CEntityMap_RangeQuery(g_ItemMap, &entityList, (int16_t)filter->x, (int16_t)filter->y, range);
+
 	// Compute difficulty threshold from skill level.
 	difficulty = 1;
-	if (skillValue > 40)
+	if (skillValue > tier3Cutoff)
 		difficulty = 3;
-	else if (skillValue > 20)
+	else if (skillValue > tier2Cutoff)
 		difficulty = 2;
 
 	// Iterate entity list, filter, add to output and result lists.
