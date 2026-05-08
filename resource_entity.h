@@ -80,8 +80,8 @@ void CResourceEntity_AddNodeScaled(
         CItem *entity, uint16_t id, int8_t type, int32_t value1, int32_t value2, int32_t value3, int zeroFlag, int notifyFlag, int scaleFactor); // 0x0048604A
 void CResourceEntity_CopyNodeScaled(CItem *entity, CResourceNode *src, int zeroFlag, int notifyFlag, int scaleFactor); // 0x004860F5
 void CResourceEntity_DetachFromSpatial(CItem *item); // 0x0048840D
-int CResourceEntity_AddToTagList(CItem *entity, const char *name, int type, uint32_t value); // 0x0048F1B0
-int CResourceEntity_IsInTagList(CItem *entity, const char *name, int type, uint32_t value); // 0x0048F21F
+int CResourceEntity_AddToTagList(CItem *entity, const char *name, int type, uintptr_t value); // 0x0048F1B0
+int CResourceEntity_IsInTagList(CItem *entity, const char *name, int type, uintptr_t value); // 0x0048F21F
 CItem *CResourceEntity_IsInTagListStr(CItem *entity, CString *name, uint32_t value); // 0x0048F26A
 void CResourceEntity_ResetTemplateIndex(CItem *item); // 0x004912A0
 void *CResourceEntity_ScalarDelete(CResourceEntity *self, int flags); // 0x00491340

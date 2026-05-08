@@ -752,7 +752,7 @@ CResourceEntity_DetachFromSpatial(CItem *item)
  * when appended, 0 when it was already there.
  */
 int
-CResourceEntity_AddToTagList(CItem *entity, const char *name, int type, uint32_t value)
+CResourceEntity_AddToTagList(CItem *entity, const char *name, int type, uintptr_t value)
 {
 	CList *list;
 	TagNode *node;
@@ -775,7 +775,7 @@ CResourceEntity_AddToTagList(CItem *entity, const char *name, int type, uint32_t
  * Returns 1 if (type, value) is present in the CList tag.
  */
 int
-CResourceEntity_IsInTagList(CItem *entity, const char *name, int type, uint32_t value)
+CResourceEntity_IsInTagList(CItem *entity, const char *name, int type, uintptr_t value)
 {
 	CList *list;
 
