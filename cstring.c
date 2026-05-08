@@ -163,6 +163,11 @@ CString_ConstructorFromChar(CString *s, char c)
  * (str = s->data + prefixLen); MSVC's left-to-right strcpy happens to
  * work on Windows but is UB per C. Using memmove handles the overlap
  * correctly everywhere.
+ *
+ * FIXED: When str == NULL and s->data is also NULL, the binary's
+ * Clear2 (0x004D4260) only clears existing buffers, so s->data stays
+ * NULL and the next strcasecmp/strcpy on the CString segfaults.
+ * Allocate a 1-byte "" buffer so the CString is always valid.
  */
 char *
 CString_AssignInternal(CString *s, const char *str)
@@ -170,6 +175,10 @@ CString_AssignInternal(CString *s, const char *str)
 	int needed;
 
 	if (str == NULL) {
+		if (s->data == NULL) {
+			s->capacity = (s->refCount > 0) ? s->refCount : 1;
+			s->data = (char *)malloc(s->capacity);
+		}
 		if (s->data != NULL)
 			s->data[0] = '\0';
 		s->length = 0;
