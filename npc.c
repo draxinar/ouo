@@ -44,6 +44,7 @@ static void CNPC_ScavengerPickup(CItem *self); // 0x00432831
 static void CNPC_IdleScan(CItem *self); // 0x00432997
 static void CNPC_EcologyTick(CItem *self); // Custom
 static void CNPC_PreyFleeScan(CItem *self, int range, int fodderType); // Custom
+static void CNPC_DepositScavengedAtShelter(CItem *self); // Custom
 static void CNPC_SeekShelterHandler(CNPC *npc); // Custom
 static void CNPC_SeekDesiresHandler(CNPC *npc); // Custom
 static void CNPC_PurseDesiresHandler(CNPC *npc); // Custom
@@ -6157,6 +6158,51 @@ CNPC_PreyFleeScan(CItem *self, int range, int fodderType)
 }
 
 /*
+ * Custom - CNPC_DepositScavengedAtShelter
+ *
+ * Drops every movable child of self's container at homeLoc.
+ * Completes Raph Koster's "they SHOULD be picking the item up,
+ * taking it back to their shelter location, and leaving it there"
+ * loop for scavenger NPCs - CNPC_ScavengerPickup is the pickup half.
+ *
+ * Snapshot-then-drop mirrors CContainer_DecayPlace so iteration is
+ * safe across VT_DROP_AT_FEET unlinking each item from the container.
+ */
+static void
+CNPC_DepositScavengedAtShelter(CItem *self)
+{
+	CContainer *container;
+	CVector vec;
+	char typeFlag = 0;
+	CItem *iter;
+	uintptr_t *ptr;
+
+	container = (CContainer *)self;
+	if (container->contents == NULL)
+		return;
+
+	CVector_Constructor(&vec, &typeFlag);
+
+	iter = container->contents;
+	while (iter != NULL) {
+		CVector_PushBack(&vec, (uintptr_t)iter);
+		iter = iter->spatialNext;
+	}
+
+	ptr = (uintptr_t *)vec.begin;
+	while (ptr != (uintptr_t *)vec.end) {
+		CItem *child = (CItem *)*ptr;
+		if (((int (*)(void *, void *))VT_FN(child, VT_IS_MOVEABLE))(child, self)) {
+			((void (*)(void *))VT_FN(child, VT_HIDE))(child);
+			((void (*)(void *, CLocation *))VT_FN(child, VT_DROP_AT_FEET))(child, &((CNPC *)self)->homeLoc);
+		}
+		ptr++;
+	}
+
+	CVector_Destructor(&vec);
+}
+
+/*
  * Custom - CNPC_EcologyTick
  *
  * Wrapper around CNPC_IdleScan that translates between HandleStates
@@ -6212,6 +6258,19 @@ CNPC_EcologyTick(CItem *self)
 	}
 
 	CNPC_IdleScan(self);
+
+	// Custom scavenger deposit-at-shelter: per Raph Koster, "they
+	// SHOULD be picking the item up, taking it back to their shelter
+	// location, and leaving it there." CNPC_ScavengerPickup (called
+	// from IdleScan) is the pickup half; this is the deposit half.
+	// Fires when the scavenger is idle-wandering at homeLoc with
+	// carried items.
+	if (npc->aiState == 0xa && CNPC_GetScavengerTag(self) > 0 && !CLocation_IsInvalid(&npc->homeLoc)) {
+		int dx = (int)(int16_t)npc->homeLoc.x - (int)(int16_t)self->resourceEntity.entity.location.x;
+		int dy = (int)(int16_t)npc->homeLoc.y - (int)(int16_t)self->resourceEntity.entity.location.y;
+		if (abs(dx) <= 1 && abs(dy) <= 1)
+			CNPC_DepositScavengedAtShelter(self);
+	}
 
 	// Custom prey-flee scan: per Raph Koster, "everything was supposed
 	// to flee things that might eat them," but the IdleScan gate only
