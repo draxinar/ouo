@@ -8586,9 +8586,31 @@ DispatchDoubleClickMobile(CPlayer *player, uint32_t serial, CLocation *loc, CIte
 /*
  * 0x004DC350 - UseLight
  *
- * MODIFIED: binary is a no-op stub. We toggle the light source art ID
- * between lit and unlit states using the Script_setType pattern
+ * MODIFIED: binary is a no-op stub. We toggle the light source art
+ * ID between lit and unlit states using the Script_setType pattern
  * (VT_DETACH_SPATIAL, SetBodyType, VT_RETURN_TO_TRACKED).
+ *
+ * The HasScripts guard below exists for one specific reason: lit
+ * lanterns (0x0A22, 0x0A15, 0x0A1A) appear as orphans in dynamic0.mul
+ * - 22 instances placed pre-lit in inns and rooms - and are NOT in
+ * scripts/objscr.txt. We can't add them: torch.m's Q532 (trigger
+ * creation) would set fuel=100 and schedule the decay callback, and
+ * 50 real-world minutes after every server start Q49C would setType
+ * each one to its unlit form. Decorations extinguishing themselves
+ * is not what we want.
+ *
+ * So lanterns stay in C's LightToggleLookup (0x0A25<->0x0A22 etc.)
+ * to handle the pre-lit orphans. But the *unlit* lantern IDs ARE in
+ * objscr.txt (2584/2589/2597), so a scripted unlit lantern's click
+ * runs Q659 which setType's the bodyType to lit and the script
+ * transfers; without this guard, the dispatch would fall through to
+ * UseLight, find the now-lit bodyType in pairs, and toggle it back -
+ * a double-flip with no visible change.
+ *
+ * Skip when any script is attached - the script is the authoritative
+ * use-handler. The C path then covers items the script never
+ * touches (wall torches, sconces, lamp posts, lit-frame variants)
+ * and the lit-lantern orphans described above.
  */
 #if 0
 // Original binary no-op stub (COMPLETED)
@@ -8603,6 +8625,9 @@ UseLight(CItem *entity)
 {
 	uint16_t graphic;
 	uint16_t toggled;
+
+	if (entity->tagList != NULL && CTagListManager_HasScripts(entity->tagList))
+		return;
 
 	graphic = entity->resourceEntity.entity.bodyType;
 	toggled = LightToggleLookup(graphic);
@@ -9152,16 +9177,22 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
  * Custom - LightToggleLookup
  *
  * Returns the toggled art ID for a light source, or 0 if not found.
- * Bidirectional: works for both lit and unlit art IDs.
+ * Canonical pairs are bidirectional: clicking either side toggles to
+ * the other. Lit-frame variants (additional flickering frames in UO
+ * art for the same light) toggle to the unlit side of their canonical
+ * pair; the canonical lit graphic is used when relighting.
+ *
+ * The 0x0A28 <-> 0x0A0F pair is deliberately omitted: it conflicts
+ * with the new-player candle, where a setBodyType-only flip from the
+ * equippable 0x0A0F to the stackable 0x0A28 leaves the resulting
+ * item with stack quantity 0 and the move/pickup path refuses it.
+ * The vendor-stack flow (0x0A28 -> Q659 -> new 0x0A0F) is handled
+ * entirely by torch.m and doesn't need a C entry.
  */
 static uint16_t
 LightToggleLookup(uint16_t graphic)
 {
 	static const uint16_t pairs[][2] = {
-		{ 0x0A26, 0x0B1A },  // candle
-		{ 0x0A27, 0x0B1D },  // candle (variant)
-		{ 0x0A28, 0x0A0F },  // short candle
-		{ 0x0A29, 0x0B26 },  // candelabra
 		{ 0x0A25, 0x0A22 },  // lantern
 		{ 0x0A18, 0x0A15 },  // lantern (variant)
 		{ 0x0A1D, 0x0A1A },  // hanging lantern
@@ -9173,13 +9204,41 @@ LightToggleLookup(uint16_t graphic)
 		{ 0x0B23, 0x0B22 },  // lamp post 2
 		{ 0x0B25, 0x0B24 },  // lamp post 3
 	};
-	int i;
+	static const uint16_t lit_variants[][2] = {
+		{ 0x0B1B, 0x0B1A },  // candle
+		{ 0x0B1C, 0x0B1A },  // candle
+		{ 0x0B1E, 0x0B1D },  // small candelabra
+		{ 0x0B1F, 0x0B1D },  // small candelabra
+		{ 0x0B27, 0x0B26 },  // large candelabra
+		{ 0x0B28, 0x0B26 },  // large candelabra
+		{ 0x0A23, 0x0A22 },  // lantern
+		{ 0x0A24, 0x0A22 },  // lantern
+		{ 0x0A16, 0x0A15 },  // lantern (variant)
+		{ 0x0A17, 0x0A15 },  // lantern (variant)
+		{ 0x0A1B, 0x0A1A },  // hanging lantern
+		{ 0x0A1C, 0x0A1A },  // hanging lantern
+		{ 0x0A08, 0x0A07 },  // wall torch (east)
+		{ 0x0A0D, 0x0A09 },  // wall torch (south)
+		{ 0x0A0E, 0x0A09 },  // wall torch (south)
+		{ 0x09FB, 0x09FD },  // wall sconce
+		{ 0x09FE, 0x09FD },  // wall sconce
+		{ 0x09FF, 0x09FD },  // wall sconce
+	};
+	int i, j;
 
 	for (i = 0; i < (int)nelem(pairs); i++) {
 		if (graphic == pairs[i][0])
 			return pairs[i][1];
 		if (graphic == pairs[i][1])
 			return pairs[i][0];
+	}
+	for (i = 0; i < (int)nelem(lit_variants); i++) {
+		if (graphic != lit_variants[i][0])
+			continue;
+		for (j = 0; j < (int)nelem(pairs); j++) {
+			if (pairs[j][1] == lit_variants[i][1])
+				return pairs[j][0];
+		}
 	}
 	return 0;
 }
