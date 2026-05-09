@@ -6479,8 +6479,13 @@ CNPC_SeekDesiresHandler(CNPC *npc)
  * Custom - CNPC_PurseDesiresHandler
  *
  * FEAT_ECOLOGY implementation of NPC_STATE_PURSE_DESIRES. Closely
- * mirrors CNPC_PurseShelterHandler but adds hoarder-loop semantics
- * per Koster's "dragons carry gold back to lair" note.
+ * mirrors CNPC_PurseShelterHandler. The deposit-at-shelter step is
+ * unconditional: every desire-pursuit completion anchors the lair
+ * (if not already set) and drops the accumulated value at homeLoc.
+ * Per Raph Koster: "the philosophy was always 'make one generic
+ * behavior and data-drive it.'" Dragons accumulate gold at their
+ * lair via their high GOLD desire; smaller scavengers accumulate
+ * too, just less. No special-case <objvar int hoarder 1> needed.
  *
  *   1. With behavior 0x800 already set, run ResourceWanderPost
  *      (loiter ticker).
@@ -6489,14 +6494,11 @@ CNPC_SeekDesiresHandler(CNPC *npc)
  *   3. Otherwise locate the target's type-3 node for
  *      npc->resourceType, consume resourceRate from value3, and
  *      add it to homeInfo3 as the cumulative loot counter.
- *   4. If the NPC is hoarder-tagged (<objvar int hoarder 1>), the
- *      first consumption establishes homeLoc as the lair. For a
- *      gold hoarder, a physical gold pile is spawned at homeLoc
- *      matching the current homeInfo3 counter (Koster's "dragons
- *      accumulated gold in their lairs"). The counter is reset
- *      to zero and the NPC re-enters SEEK_DESIRES to loop.
- *   5. Otherwise (non-hoarder): mark 0x800 behavior and drop into
- *      ResourceWanderPost the same way shelter consumption does.
+ *   4. Anchor homeLoc on first consumption if invalid. For a gold
+ *      desire, drop a physical gold pile at homeLoc matching the
+ *      current homeInfo3 counter, reset the counter to zero, and
+ *      re-enter SEEK_DESIRES to loop. Other resource types keep
+ *      accumulating in homeInfo3 without a visible drop.
  */
 static void
 CNPC_PurseDesiresHandler(CNPC *npc)
@@ -6505,7 +6507,6 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 	CItem *target;
 	CResourceNode *node;
 	int amount;
-	int hoarder;
 
 	npc->speechCounter = 0;
 
@@ -6551,39 +6552,26 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 	npc->homeInfo2 = npc->resourceRate;
 	npc->homeInfo3 += npc->resourceRate;
 
-	hoarder = 0;
-	if (CResourceEntity_HasTag(self, "hoarder", 0))
-		CResourceEntity_GetTagInt(self, "hoarder", &hoarder);
-
-	if (hoarder > 0) {
-		// First consumption for a hoarder anchors the lair at the
-		// current location. Subsequent drops land here even as the
-		// hoarder roams after further resources.
-		if (CLocation_IsInvalid(&npc->homeLoc)) {
-			CLocation_SetLoc(&npc->homeLoc, &self->resourceEntity.entity.location);
-		}
-
-		// Physical drop: gold only. Other resource types keep
-		// accumulating in homeInfo3 without a visible drop.
-		if (npc->homeInfo3 > 0 && (int)npc->homeInfo1 == g_ResTypeId_Gold && !CLocation_IsInvalid(&npc->homeLoc)) {
-			CItem *pile = CWorld_CreateItem(g_World, 0xEED);
-			if (pile != NULL) {
-				CResourceEntity_AddNodeScaled(pile, (uint16_t)g_ResTypeId_Gold, 3, (int)npc->homeInfo3, 0, (int)npc->homeInfo3, 0, 1, 1);
-				((void (*)(void *, CLocation *))VT_FN(pile, VT_DROP_AT_FEET))(pile, &npc->homeLoc);
-			}
-			npc->homeInfo3 = 0;
-		}
-
-		npc->resourceTargetSerial = 0;
-		npc->resourceAITarget = 0;
-		npc->scanTimer = 0;
-		CNPC_ShouldProcess(npc);
-		CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
-		return;
+	// Unified deposit-at-shelter: every consumption anchors the lair
+	// (if not already set) and drops the accumulated value at homeLoc.
+	if (CLocation_IsInvalid(&npc->homeLoc)) {
+		CLocation_SetLoc(&npc->homeLoc, &self->resourceEntity.entity.location);
 	}
 
-	((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x800);
+	// Physical drop: gold only. Other resource types keep accumulating
+	// in homeInfo3 without a visible drop.
+	if (npc->homeInfo3 > 0 && (int)npc->homeInfo1 == g_ResTypeId_Gold && !CLocation_IsInvalid(&npc->homeLoc)) {
+		CItem *pile = CWorld_CreateItem(g_World, 0xEED);
+		if (pile != NULL) {
+			CResourceEntity_AddNodeScaled(pile, (uint16_t)g_ResTypeId_Gold, 3, (int)npc->homeInfo3, 0, (int)npc->homeInfo3, 0, 1, 1);
+			((void (*)(void *, CLocation *))VT_FN(pile, VT_DROP_AT_FEET))(pile, &npc->homeLoc);
+		}
+		npc->homeInfo3 = 0;
+	}
 
+	npc->resourceTargetSerial = 0;
+	npc->resourceAITarget = 0;
+	npc->scanTimer = 0;
 	CNPC_ShouldProcess(npc);
-	CNPC_ResourceWanderPost(npc);
+	CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
 }
