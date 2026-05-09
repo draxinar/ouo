@@ -13,10 +13,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <poll.h>
 #ifdef __linux__
 #include <sys/epoll.h>
 #endif
 #include <arpa/inet.h>
+
+#ifndef MSG_NOSIGNAL
+#define MSG_NOSIGNAL 0
+#endif
 
 #include "dat.h"
 #include "huffman.h"
