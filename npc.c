@@ -43,6 +43,7 @@ static void CNPC_ScanForTargets(CItem *self, int range, int isPredator, int isFl
 static void CNPC_ScavengerPickup(CItem *self); // 0x00432831
 static void CNPC_IdleScan(CItem *self); // 0x00432997
 static void CNPC_EcologyTick(CItem *self); // Custom
+static void CNPC_PreyFleeScan(CItem *self, int range, int fodderType); // Custom
 static void CNPC_SeekShelterHandler(CNPC *npc); // Custom
 static void CNPC_SeekDesiresHandler(CNPC *npc); // Custom
 static void CNPC_PurseDesiresHandler(CNPC *npc); // Custom
@@ -6101,6 +6102,61 @@ found_path_8dir:
 }
 
 /*
+ * Custom - CNPC_PreyFleeScan
+ *
+ * Per Raph Koster: "everything was supposed to flee things that
+ * might eat them." This is the prey-flee path that "didn't fit
+ * cleanly into the basic state machine; 'thing that eats you' isn't
+ * a resource type so there was nothing clean to hang it off of."
+ * Wired here as a Custom helper called from CNPC_EcologyTick when
+ * the NPC has a `foddertype` tag and IdleScan didn't already
+ * transition to a higher-priority state.
+ *
+ * Walks the NPC range-query map for entities within `range` tiles,
+ * tests each for a `predator` tag matching `fodderType`, and on first
+ * match sets patrolTarget away from the threat (10x displacement
+ * inversion, mirroring ScanForTargets' aversion-flee branch) and
+ * sets aiState to 2 (IdleScan RUNAWAY numbering).
+ */
+static void
+CNPC_PreyFleeScan(CItem *self, int range, int fodderType)
+{
+	CList resultList;
+	CListNode *node;
+	CItem *entity;
+	int dx, dy;
+	int predatorTag;
+
+	CList_Constructor(&resultList);
+	CEntityMap_RangeQueryToList(g_NPCMap, &resultList, (int)(int16_t)self->resourceEntity.entity.location.x, (int)(int16_t)self->resourceEntity.entity.location.y, range);
+
+	for (node = resultList.head; node != NULL; node = node->next) {
+		entity = CWorld_FindBySerial(g_World, node->value);
+		if (entity == NULL || entity == self)
+			continue;
+		if (VT_IsHidden(entity))
+			continue;
+		predatorTag = CNPC_GetPredatorTag(entity);
+		if (predatorTag == 0 || predatorTag != fodderType)
+			continue;
+
+		// Match - flee from this threat. Mirror ScanForTargets' aversion
+		// branch: patrolTarget = self_loc + (self_loc - threat_loc) * 10,
+		// i.e., 10x away from the threat.
+		CLocation_SetLoc(&((CNPC *)self)->patrolTarget, &self->resourceEntity.entity.location);
+		dx = (int16_t)entity->resourceEntity.entity.location.x - (int16_t)self->resourceEntity.entity.location.x;
+		dy = (int16_t)entity->resourceEntity.entity.location.y - (int16_t)self->resourceEntity.entity.location.y;
+		((CNPC *)self)->patrolTarget.x += (int16_t)(dx * 10 * -1);
+		((CNPC *)self)->patrolTarget.y += (int16_t)(dy * 10 * -1);
+		((CNPC *)self)->isWalking = 1;
+		((CNPC *)self)->aiState = 2;
+		break;
+	}
+
+	CList_Clear(&resultList);
+}
+
+/*
  * Custom - CNPC_EcologyTick
  *
  * Wrapper around CNPC_IdleScan that translates between HandleStates
@@ -6156,6 +6212,20 @@ CNPC_EcologyTick(CItem *self)
 	}
 
 	CNPC_IdleScan(self);
+
+	// Custom prey-flee scan: per Raph Koster, "everything was supposed
+	// to flee things that might eat them," but the IdleScan gate only
+	// fires ScanForTargets for predator/packing/flying NPCs - so pure
+	// prey with `aversionPower` set never actually scans for predators.
+	// Wire foddertype-driven prey-flee here. Runs only if IdleScan
+	// didn't already transition to a higher-priority state (pursuit/
+	// flee/eating/following).
+	if (npc->aiState == 0xa && CResourceEntity_HasTag(self, "foddertype", 0)) {
+		int fodderType = 0;
+		CResourceEntity_GetTagInt(self, "foddertype", &fodderType);
+		if (fodderType > 0)
+			CNPC_PreyFleeScan(self, 20, fodderType);
+	}
 
 	// Exit translation: IdleScan state -> HandleStates state
 	switch (npc->aiState) {
