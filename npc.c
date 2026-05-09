@@ -6316,6 +6316,7 @@ CNPC_SeekShelterHandler(CNPC *npc)
 			npc->resourceTargetSerial = 0;
 			npc->resourceAITarget = 0;
 			npc->isWalking = 1;
+			Entity_ExecuteEvent(&self->resourceEntity.entity, 0x0D, (uintptr_t)0); // foundshelter (home-return: target=0 sentinel for cached home)
 			CNPC_SetState(npc, NPC_STATE_PURSE_SHELTER);
 			return;
 		}
@@ -6329,6 +6330,7 @@ CNPC_SeekShelterHandler(CNPC *npc)
 		}
 	}
 	if (!hasPref) {
+		Entity_ExecuteEvent(&self->resourceEntity.entity, 0x0A); // failshelter
 		CNPC_SetState(npc, NPC_STATE_IDLE);
 		return;
 	}
@@ -6375,6 +6377,7 @@ CNPC_SeekShelterHandler(CNPC *npc)
 
 	if (candidateCount == 0) {
 		npc->scanTimer = 8;
+		Entity_ExecuteEvent(&self->resourceEntity.entity, 0x0A); // failshelter
 		CNPC_SetState(npc, NPC_STATE_IDLE);
 		return;
 	}
@@ -6386,6 +6389,7 @@ CNPC_SeekShelterHandler(CNPC *npc)
 	npc->resourceAITarget = 1;
 	CLocation_SetLoc(&npc->patrolTarget, &candidates[chosen]->resourceEntity.entity.location);
 	npc->isWalking = 1;
+	Entity_ExecuteEvent(&self->resourceEntity.entity, 0x0D, (uintptr_t)npc->resourceTargetSerial); // foundshelter
 	CNPC_SetState(npc, NPC_STATE_PURSE_SHELTER);
 }
 
@@ -6523,6 +6527,7 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 	}
 
 	if (nearestDesire < 0) {
+		Entity_ExecuteEvent(&self->resourceEntity.entity, 0x09); // faildesire
 		CNPC_SetState(npc, NPC_STATE_IDLE);
 		return;
 	}
@@ -6542,6 +6547,7 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 	npc->ltype = NPC_STATE_PURSE_DESIRES;
 	npc->stateInfo2 = NPC_STATE_IDLE;
 	npc->isWalking = 1;
+	Entity_ExecuteEvent(&self->resourceEntity.entity, 0x0C, (uintptr_t)npc->resourceTargetSerial); // founddesire
 	CNPC_SetState(npc, NPC_STATE_PURSE_DESIRES);
 }
 
@@ -6577,6 +6583,7 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 	CItem *target;
 	CResourceNode *node;
 	int amount;
+	uint32_t consumedSerial;
 
 	npc->speechCounter = 0;
 
@@ -6639,9 +6646,11 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 		npc->homeInfo3 = 0;
 	}
 
+	consumedSerial = npc->resourceTargetSerial;
 	npc->resourceTargetSerial = 0;
 	npc->resourceAITarget = 0;
 	npc->scanTimer = 0;
+	Entity_ExecuteEvent(&self->resourceEntity.entity, 0x34, (uintptr_t)consumedSerial); // acquiredesire
 	CNPC_ShouldProcess(npc);
 	CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
 }
