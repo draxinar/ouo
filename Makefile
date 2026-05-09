@@ -55,6 +55,7 @@ OFILES=\
 	filemanager.o\
 	fns.o\
 	gamecentmon.o\
+	gm_player_menu.o\
 	gmedit.o\
 	help_queue.o\
 	huffman.o\
@@ -149,6 +150,7 @@ HFILES=\
 	fns.h\
 	gamecentmon.h\
 	gm_names.h\
+	gm_player_menu.h\
 	gmedit.h\
 	help_queue.h\
 	huffman.h\

@@ -27,6 +27,7 @@
 #include "entitymanager.h"
 #include "feature.h"
 #include "gamecentmon.h"
+#include "gm_player_menu.h"
 #include "gmedit.h"
 #include "help_queue.h"
 #include "io.h"
@@ -2596,6 +2597,13 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 		}
 
 		CList_Append(&textList, 2, (uintptr_t)&tempString);
+	}
+
+	// Custom: route GM player-menu gump (id GM_PLAYER_MENU_GUMP_ID) to its
+	// C handler instead of the Wombat script event.
+	if (gumpID == GM_PLAYER_MENU_GUMP_ID) {
+		GM_HandlePlayerMenuResponse(this, buttonID);
+		goto done;
 	}
 
 	Entity_ExecuteEvent(&entity->resourceEntity.entity, GumpResponse, (uintptr_t)gumpID, (uintptr_t)this->mobile.container.item.serial, (int)buttonID, &switchList, &textList);

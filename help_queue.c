@@ -17,6 +17,7 @@
 #include "dynamic.h"
 #include "egg.h"
 #include "gm_names.h"
+#include "gm_player_menu.h"
 #include "help_queue.h"
 #include "main.h"
 #include "multi.h"
@@ -1181,6 +1182,20 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		if (cmd[2] != '\0' && cmd[2] == ' ')
 			gmName = cmd + 3;
 		CHelpQueue_GmTransfer(q, player, gmName);
+		return;
+	}
+
+	// Custom: .players - opens GM player-menu gump
+	if (strcmp(cmd, "players") == 0 && CPlayer_IsEditing(player)) {
+		GM_OpenPlayerMenu(player);
+		return;
+	}
+
+	// Custom: .gotoplayer <name|0xSERIAL|decimal_serial> - teleport adjacent
+	// to a connected player. Must be checked before .goto, which prefix-
+	// matches "goto".
+	if (strncmp(cmd, "gotoplayer ", 11) == 0 && CPlayer_IsEditing(player)) {
+		GM_GotoPlayerCommand(player, cmd + 11);
 		return;
 	}
 
@@ -2749,6 +2764,8 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		if (CPlayer_IsEditing(player)) {
 			CPlayer_SystemMessage(player, "GM commands:");
 			CPlayer_SystemMessage(player, ".go <X Y [Z]|name|list> - teleport to coords/location/list all");
+			CPlayer_SystemMessage(player, ".players - open connected-player teleport menu");
+			CPlayer_SystemMessage(player, ".gotoplayer <name|0xSERIAL> - teleport adjacent to a connected player");
 			CPlayer_SystemMessage(player, ".tele - click to teleport");
 			CPlayer_SystemMessage(player, ".mtele - repeating click teleport");
 			CPlayer_SystemMessage(player, ".kill - kill target mobile");
