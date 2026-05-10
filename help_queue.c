@@ -845,8 +845,12 @@ GM_TargetKill(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16
 		CPlayer_SystemMessage(player, "Already dead");
 		return;
 	}
-	// Trigger death through vtable OnDeathWrap (same as combat)
+	// Mirror combat death (combat.c:1415-1422 / 0x004B... DamageHelper):
+	// OnDeathWrap creates the corpse and runs death events but does not
+	// remove the mobile; the caller deletes it for non-players.
 	((void (*)(void *, void *, int))VT_FN(target, VT_ON_DEATH_WRAP))(target, player, 1);
+	if (!VT_IsPlayer(target))
+		((void (*)(void *))VT_FN(target, VT_DELETE))(target);
 	char msg[80];
 	snprintf(msg, sizeof(msg), "Killed 0x%08X", serial);
 	CPlayer_SystemMessage(player, msg);
@@ -3867,7 +3871,12 @@ GM_TargetMKill(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint1
 	} else if (VT_IsDead(target)) {
 		CPlayer_SystemMessage(player, "Already dead");
 	} else {
+		// Same fix as GM_TargetKill: OnDeathWrap creates the corpse
+		// but does not remove the mobile; combat (combat.c:1415-1422)
+		// VT_DELETEs the mobile after, and so must we for non-players.
 		((void (*)(void *, void *, int))VT_FN(target, VT_ON_DEATH_WRAP))(target, player, 1);
+		if (!VT_IsPlayer(target))
+			((void (*)(void *))VT_FN(target, VT_DELETE))(target);
 		char msg[80];
 		snprintf(msg, sizeof(msg), "Killed 0x%08X", serial);
 		CPlayer_SystemMessage(player, msg);
