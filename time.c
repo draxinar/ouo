@@ -695,6 +695,36 @@ CTimeManager_DayAdvance(void)
 }
 
 /*
+ * Helper - FindScriptClassByTimerFilter
+ *
+ * Diagnostic helper for CTimeManager_DispatchEventList. Walks every
+ * loaded CScript and returns the first one whose trigHandlers[14]
+ * chain owns a CTrigger with filterData == filter. CTriggers are
+ * shared between parent and child classes via "inherits" (which
+ * pointer-copies trigHandlers heads), so the match is the script
+ * class that defines or inherits this exact filter pointer - good
+ * enough to identify which script type is leaking subscriptions.
+ * Returns NULL if no script class matches (e.g. the CScript was
+ * unloaded via TriggerEdit reload).
+ */
+static const char *
+FindScriptClassByTimerFilter(const void *filter)
+{
+	CScript *sc;
+	CTrigger *trig;
+
+	if (filter == NULL)
+		return NULL;
+	for (sc = g_ScriptManager.head; sc != NULL; sc = sc->nextLoaded) {
+		for (trig = (CTrigger *)sc->trigHandlers[14]; trig != NULL; trig = trig->next) {
+			if (trig->filterData == filter)
+				return sc->name;
+		}
+	}
+	return NULL;
+}
+
+/*
  * 0x004D8A53 - CTimeManager::DispatchEventList
  *
  * Walks a time-event subscription list and enqueues event 0x0E for each
@@ -705,8 +735,10 @@ CTimeManager_DayAdvance(void)
  * CTimeEventNode survives past CScriptInstance_Clear (which sets
  * node->entity=NULL and scriptClassPtr=0xABCD before queuing the node
  * for deferred free), the next dispatch SIGSEGVs in CMobile_GetSerial.
- * Fix: skip and log nodes whose entity is NULL or whose attach node
- * has been poisoned.
+ * Fix: skip and log nodes whose entity is NULL or whose attach node has
+ * been poisoned. The log resolves node->data (the trigger filterData
+ * pointer) back to the owning script class via FindScriptClassByTimerFilter
+ * so the leak can be traced to a specific script type.
  */
 static void
 CTimeManager_DispatchEventList(CTimeEventNode *head)
@@ -724,8 +756,10 @@ CTimeManager_DispatchEventList(CTimeEventNode *head)
 		if (entity == NULL || (uintptr_t)data->scriptClassPtr == 0xABCD) {
 			char msg[256];
 			int poisoned = (uintptr_t)data->scriptClassPtr == 0xABCD;
-			snprintf(msg, sizeof(msg), "stale subscription node=%p data=%p entity=%p scriptClassPtr=%p expr='%s'%s", (void *)node, (void *)data, (void *)entity,
-			        (void *)data->scriptClassPtr, node->data != NULL ? node->data : "(null)", poisoned ? " (Clear ran, unregister leaked)" : "");
+			const char *scriptName = FindScriptClassByTimerFilter(node->data);
+			snprintf(msg, sizeof(msg), "stale subscription node=%p data=%p entity=%p scriptClassPtr=%p script=%s expr='%s'%s", (void *)node, (void *)data,
+			        (void *)entity, (void *)data->scriptClassPtr, scriptName != NULL ? scriptName : "(unknown)", node->data != NULL ? node->data : "(null)",
+			        poisoned ? " (Clear ran, unregister leaked)" : "");
 			EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "time", "stale", msg);
 			node = g_savedEventNext;
 			continue;
