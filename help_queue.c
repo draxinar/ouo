@@ -18,6 +18,7 @@
 #include "egg.h"
 #include "gm_names.h"
 #include "help_queue.h"
+#include "main.h"
 #include "multi.h"
 #include "npc.h"
 #include "packet_handler.h"
@@ -2669,6 +2670,51 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		char dmsg[64];
 		snprintf(dmsg, sizeof(dmsg), "Decay set to mode %d", mode);
 		CPlayer_SystemMessage(player, dmsg);
+		return;
+	}
+
+	// Custom: .initspawn on [seconds]|off|status - control g_IsInitialSpawn
+	// for tests. Boot auto-enables it briefly so the world populates from
+	// empty; tests that need to observe steady-state respawn must disable
+	// it deterministically. "on" turns it back on with a short deadline
+	// (default 30s, optional [seconds] in [1,3600]) so the burst
+	// self-terminates; no arg or "status" reports state.
+	if (strncmp(cmd, "initspawn", 9) == 0 && (cmd[9] == 0 || cmd[9] == ' ') && CPlayer_IsEditing(player)) {
+		const char *arg = cmd + 9;
+		while (*arg == ' ')
+			arg++;
+		char rmsg[128];
+		if (*arg == 0 || strcmp(arg, "status") == 0) {
+			uint32_t now = GetTickCount_UO();
+			int remain = 0;
+			if (g_AutoInitialSpawnDeadline > now)
+				remain = (int)((g_AutoInitialSpawnDeadline - now) / 1000);
+			snprintf(rmsg, sizeof(rmsg), "InitSpawn: enabled=%d auto_remain=%ds", g_IsInitialSpawn, remain);
+		} else if (strncmp(arg, "on", 2) == 0 && (arg[2] == 0 || arg[2] == ' ')) {
+			int secs = 30;
+			const char *rest = arg + 2;
+			while (*rest == ' ')
+				rest++;
+			if (*rest != 0) {
+				int parsed = atoi(rest);
+				if (parsed < 1 || parsed > 3600) {
+					snprintf(rmsg, sizeof(rmsg), "InitSpawn: seconds must be 1..3600");
+					CPlayer_SystemMessage(player, rmsg);
+					return;
+				}
+				secs = parsed;
+			}
+			g_IsInitialSpawn = 1;
+			g_AutoInitialSpawnDeadline = GetTickCount_UO() + (uint32_t)secs * 1000;
+			snprintf(rmsg, sizeof(rmsg), "InitSpawn: enabled (auto-off in %ds)", secs);
+		} else if (strcmp(arg, "off") == 0) {
+			g_IsInitialSpawn = 0;
+			g_AutoInitialSpawnDeadline = 0;
+			snprintf(rmsg, sizeof(rmsg), "InitSpawn: disabled");
+		} else {
+			snprintf(rmsg, sizeof(rmsg), ".initspawn on [seconds]|off|status");
+		}
+		CPlayer_SystemMessage(player, rmsg);
 		return;
 	}
 
