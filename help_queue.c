@@ -24,6 +24,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "resource_regrowth.h"
 #include "skill.h"
 #include "taglist.h"
 #include "template.h"
@@ -2670,6 +2671,16 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		char dmsg[64];
 		snprintf(dmsg, sizeof(dmsg), "Decay set to mode %d", mode);
 		CPlayer_SystemMessage(player, dmsg);
+		return;
+	}
+
+	// Custom: .regrow - fire the gamewide resource regrowth tick
+	// once, synchronously. Normally invoked by the periodic hook in
+	// time.c every ~68 minutes; this lets a GM (or the test suite)
+	// fast-forward without waiting.
+	if (strcmp(cmd, "regrow") == 0 && CPlayer_IsEditing(player)) {
+		ResourceRegrowthTick();
+		CPlayer_SystemMessage(player, "Resource regrowth tick fired");
 		return;
 	}
 

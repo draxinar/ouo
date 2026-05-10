@@ -84,6 +84,7 @@ OFILES=\
 	res.o\
 	resbank.o\
 	resource_entity.o\
+	resource_regrowth.o\
 	resquery.o\
 	scommand.o\
 	serial_list.o\

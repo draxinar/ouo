@@ -33,9 +33,11 @@
 #include "bboard.h"
 #include "wombat_exec.h"
 #include "defcon.h"
+#include "feature.h"
 #include "gamecentmon.h"
 #include "main.h"
 #include "resbank.h"
+#include "resource_regrowth.h"
 
 static void StaticInit_TimeManager(void); // 0x00467893
 static int CLightManager_GetMoonLightContribution(void); // 0x00473C9E
@@ -463,6 +465,13 @@ CTimeManager_Update(void)
 		SaveDynamic0();
 		Account_SaveAll();
 	}
+
+	// Custom: gamewide resource-regrowth tick every 16384 ticks
+	// (~68 min). Applies value3 = min(value1, value3 + value2) to
+	// every type=3 resource node on every CItem (skipping eggs and
+	// mobiles).
+	if (feat(FEAT_RESOURCE_REGROWTH) && (tickCount & 0x3FFF) == 0 && tickCount != 0)
+		ResourceRegrowthTick();
 }
 
 /*

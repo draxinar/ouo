@@ -38,6 +38,7 @@ static const struct FeatEntry featTable[] = {
 	{ "spawn_budget",      FEAT_SPAWN_BUDGET },
 	{ "spawn_strict_tags", FEAT_SPAWN_STRICT_TAGS },
 	{ "skill_tracking",    FEAT_SKILL_TRACKING },
+	{ "resource_regrowth", FEAT_RESOURCE_REGROWTH },
 };
 // clang-format on
 
