@@ -684,6 +684,13 @@ CTimeManager_DayAdvance(void)
  * Walks a time-event subscription list and enqueues event 0x0E for each
  * subscribed entity. Saves the next pointer in g_savedEventNext so the
  * unregister path can keep iteration valid if a node is freed.
+ *
+ * FIXED: Binary dereferences data->entity unconditionally. If a
+ * CTimeEventNode survives past CScriptInstance_Clear (which sets
+ * node->entity=NULL and scriptClassPtr=0xABCD before queuing the node
+ * for deferred free), the next dispatch SIGSEGVs in CMobile_GetSerial.
+ * Fix: skip and log nodes whose entity is NULL or whose attach node
+ * has been poisoned.
  */
 static void
 CTimeManager_DispatchEventList(CTimeEventNode *head)
@@ -698,6 +705,15 @@ CTimeManager_DispatchEventList(CTimeEventNode *head)
 		g_savedEventNext = node->next;
 		data = (ScriptAttachNode *)node->id;
 		entity = (CMobile *)data->entity;
+		if (entity == NULL || (uintptr_t)data->scriptClassPtr == 0xABCD) {
+			char msg[256];
+			int poisoned = (uintptr_t)data->scriptClassPtr == 0xABCD;
+			snprintf(msg, sizeof(msg), "stale subscription node=%p data=%p entity=%p scriptClassPtr=%p expr='%s'%s", (void *)node, (void *)data, (void *)entity,
+			        (void *)data->scriptClassPtr, node->data != NULL ? node->data : "(null)", poisoned ? " (Clear ran, unregister leaked)" : "");
+			EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "time", "stale", msg);
+			node = g_savedEventNext;
+			continue;
+		}
 		serial = CMobile_GetSerial(entity);
 		EventRingBuffer_Enqueue(serial, 0x0E, (uintptr_t)data);
 		node = g_savedEventNext;
