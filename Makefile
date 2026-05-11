@@ -227,20 +227,20 @@ clean:
 	rm -f *.o ouo
 
 install: $(TARG)
-	install -d /opt/ouo/run
-	install -m 755 $(TARG) /opt/ouo/run/$(TARG)
-	install -m 755 systemd/ouo-status.sh /opt/ouo/ouo-status.sh
-	install -m 755 systemd/ouo-coredump.sh /opt/ouo/ouo-coredump.sh
-	install -m 755 systemd/ouo-backup.sh /opt/ouo/ouo-backup.sh
-	install -d /etc/systemd/system /etc/polkit-1/rules.d
-	install -m 644 systemd/ouo.service /etc/systemd/system/
-	install -m 644 systemd/ouo-coredump@.service /etc/systemd/system/
-	install -m 644 systemd/ouo-status.service /etc/systemd/system/
-	install -m 644 systemd/ouo-status.timer /etc/systemd/system/
-	install -m 644 systemd/ouo-backup.service /etc/systemd/system/
-	install -m 644 systemd/ouo-backup.timer /etc/systemd/system/
-	install -m 644 systemd/50-ouo.rules /etc/polkit-1/rules.d/
-	test -f /etc/default/ouo || install -m 644 systemd/ouo.default /etc/default/ouo
+	install -d $(DESTDIR)/opt/ouo/run
+	install -m 755 $(TARG) $(DESTDIR)/opt/ouo/run/$(TARG)
+	install -m 755 systemd/ouo-status.sh $(DESTDIR)/opt/ouo/ouo-status.sh
+	install -m 755 systemd/ouo-coredump.sh $(DESTDIR)/opt/ouo/ouo-coredump.sh
+	install -m 755 systemd/ouo-backup.sh $(DESTDIR)/opt/ouo/ouo-backup.sh
+	install -d $(DESTDIR)/etc/systemd/system $(DESTDIR)/etc/polkit-1/rules.d
+	install -m 644 systemd/ouo.service $(DESTDIR)/etc/systemd/system/
+	install -m 644 systemd/ouo-coredump@.service $(DESTDIR)/etc/systemd/system/
+	install -m 644 systemd/ouo-status.service $(DESTDIR)/etc/systemd/system/
+	install -m 644 systemd/ouo-status.timer $(DESTDIR)/etc/systemd/system/
+	install -m 644 systemd/ouo-backup.service $(DESTDIR)/etc/systemd/system/
+	install -m 644 systemd/ouo-backup.timer $(DESTDIR)/etc/systemd/system/
+	install -m 644 systemd/50-ouo.rules $(DESTDIR)/etc/polkit-1/rules.d/
+	test -f $(DESTDIR)/etc/default/ouo || install -m 644 systemd/ouo.default $(DESTDIR)/etc/default/ouo
 
 format:
 	clang-format -i *.c *.h
