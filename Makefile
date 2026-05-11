@@ -232,14 +232,15 @@ install: $(TARG)
 	install -m 755 systemd/ouo-status.sh $(DESTDIR)/opt/ouo/ouo-status.sh
 	install -m 755 systemd/ouo-coredump.sh $(DESTDIR)/opt/ouo/ouo-coredump.sh
 	install -m 755 systemd/ouo-backup.sh $(DESTDIR)/opt/ouo/ouo-backup.sh
-	install -d $(DESTDIR)/etc/systemd/system $(DESTDIR)/etc/polkit-1/rules.d
+	install -d $(DESTDIR)/etc/systemd/system
 	install -m 644 systemd/ouo.service $(DESTDIR)/etc/systemd/system/
 	install -m 644 systemd/ouo-coredump@.service $(DESTDIR)/etc/systemd/system/
 	install -m 644 systemd/ouo-status.service $(DESTDIR)/etc/systemd/system/
 	install -m 644 systemd/ouo-status.timer $(DESTDIR)/etc/systemd/system/
 	install -m 644 systemd/ouo-backup.service $(DESTDIR)/etc/systemd/system/
 	install -m 644 systemd/ouo-backup.timer $(DESTDIR)/etc/systemd/system/
-	install -m 644 systemd/50-ouo.rules $(DESTDIR)/etc/polkit-1/rules.d/
+	install -d $(DESTDIR)/usr/share/polkit-1/rules.d
+	install -m 644 systemd/50-ouo.rules $(DESTDIR)/usr/share/polkit-1/rules.d/
 	test -f $(DESTDIR)/etc/default/ouo || install -m 644 systemd/ouo.default $(DESTDIR)/etc/default/ouo
 
 format:
