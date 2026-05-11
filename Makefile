@@ -27,7 +27,6 @@ CFLAGS+=-Werror
 endif
 
 TARG=ouo
-DESTDIR=/opt/ouo
 
 OFILES=\
 	account.o\
@@ -228,11 +227,11 @@ clean:
 	rm -f *.o ouo
 
 install: $(TARG)
-	install -d $(DESTDIR)/run
-	install -m 755 $(TARG) $(DESTDIR)/run/$(TARG)
-	install -m 755 systemd/ouo-status.sh $(DESTDIR)/ouo-status.sh
-	install -m 755 systemd/ouo-coredump.sh $(DESTDIR)/ouo-coredump.sh
-	install -m 755 systemd/ouo-backup.sh $(DESTDIR)/ouo-backup.sh
+	install -d /opt/ouo/run
+	install -m 755 $(TARG) /opt/ouo/run/$(TARG)
+	install -m 755 systemd/ouo-status.sh /opt/ouo/ouo-status.sh
+	install -m 755 systemd/ouo-coredump.sh /opt/ouo/ouo-coredump.sh
+	install -m 755 systemd/ouo-backup.sh /opt/ouo/ouo-backup.sh
 	install -d /etc/systemd/system /etc/polkit-1/rules.d
 	install -m 644 systemd/ouo.service /etc/systemd/system/
 	install -m 644 systemd/ouo-coredump@.service /etc/systemd/system/
