@@ -241,7 +241,8 @@ install: $(TARG)
 	install -m 644 systemd/ouo-backup.timer $(DESTDIR)/etc/systemd/system/
 	install -d $(DESTDIR)/usr/share/polkit-1/rules.d
 	install -m 644 systemd/50-ouo.rules $(DESTDIR)/usr/share/polkit-1/rules.d/
-	test -f $(DESTDIR)/etc/default/ouo || install -m 644 systemd/ouo.default $(DESTDIR)/etc/default/ouo
+	test -f $(DESTDIR)/etc/default/ouo || install -d $(DESTDIR)/etc/default && \
+		install -m 644 systemd/ouo.default $(DESTDIR)/etc/default/ouo
 
 format:
 	clang-format -i *.c *.h
