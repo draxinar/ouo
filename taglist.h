@@ -80,7 +80,7 @@ int CTagListManager_HasTagDefs(CTagListManager *mgr); // 0x004CE186
 int CTagListManager_HasScripts(CTagListManager *mgr); // 0x004CE19F
 void CTagListManager_WalkScriptNodes(CTagListManager *mgr, CVector *list); // 0x004CE1B7
 void CTagListManager_GetTagDefList(CTagListManager *mgr, CVector *list); // 0x004CE1F5
-int CTagListManager_GetTriggers(CTagListManager *tagList, CVector *scriptVec, CVector *trigVec, int eventType); // 0x004CE234
+int CTagListManager_GetTriggers(CTagListManager *tagList, CItem *entity, CVector *scriptVec, CVector *trigVec, int eventType); // 0x004CE234
 void ObjVarData_CollectEntries(CTagListManager *objVarData, CVector *list, int type); // 0x004CE2CF
 TagNode *TagList_FindByName(CTagListManager *mgr, const char *name); // 0x004CE32F
 TagNode *TagList_FindByPrefix(CTagListManager *mgr, const char *prefix); // 0x004CE380

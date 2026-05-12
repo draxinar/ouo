@@ -483,7 +483,7 @@ CWombatManager_GetScriptsForObj(CItem *entity, CVector *scriptVec, CVector *trig
 	tagList = entity->tagList;
 	if (tagList == NULL)
 		return 0;
-	return CTagListManager_GetTriggers(tagList, scriptVec, trigVec, eventType);
+	return CTagListManager_GetTriggers(tagList, entity, scriptVec, trigVec, eventType);
 }
 /*
  * 0x004CDEEA - CEntity::SetObjVar
@@ -652,17 +652,21 @@ FindLoadedScriptByPtr(const CScript *target)
  * check ((rand() & 0x3FF) < filter). Matching (script, trigger) pairs
  * are pushed into the output vectors. Returns the match count.
  *
- * FIXED: Binary dereferences node->scriptClassPtr->trigHandlers[eventType]
- * unconditionally. If a stale ScriptAttachNode lingers in the scriptList
- * (CScriptInstance_Clear poisons scriptClassPtr to 0xABCD before pool
- * return, or the underlying CScript was freed via TriggerEdit reload),
- * the deref of trigHandlers[eventType] or the resulting trig pointer
- * SIGSEGVs. Fix: skip and log nodes whose scriptClassPtr is NULL,
- * poisoned, or no longer in g_ScriptManager.head. Mirrors the
- * CTimeManager_DispatchEventList stale-subscription guard.
+ * FIXED: Binary signature is (tagList, scriptVec, trigVec, eventType)
+ * and dereferences node->scriptClassPtr->trigHandlers[eventType]
+ * unconditionally. If a stale ScriptAttachNode lingers in the
+ * scriptList (CScriptInstance_Clear poisons scriptClassPtr to 0xABCD
+ * before pool return, or the underlying CScript was freed via
+ * TriggerEdit reload), the deref of trigHandlers[eventType] or the
+ * resulting trig pointer SIGSEGVs. Fix: skip and log nodes whose
+ * scriptClassPtr is NULL, poisoned, or no longer in
+ * g_ScriptManager.head, and thread the owning entity through from
+ * CWombatManager_GetScriptsForObj so the log line names the entity
+ * (serial + bodyType). Mirrors the CTimeManager_DispatchEventList
+ * stale-subscription guard.
  */
 int
-CTagListManager_GetTriggers(CTagListManager *tagList, CVector *scriptVec, CVector *trigVec, int eventType)
+CTagListManager_GetTriggers(CTagListManager *tagList, CItem *entity, CVector *scriptVec, CVector *trigVec, int eventType)
 {
 	ScriptAttachNode *node;
 	CScript *bsc;
@@ -674,10 +678,13 @@ CTagListManager_GetTriggers(CTagListManager *tagList, CVector *scriptVec, CVecto
 	for (node = tagList->scriptList; node != NULL; node = node->next) {
 		bsc = (CScript *)node->scriptClassPtr;
 		if (bsc == NULL || (uintptr_t)bsc == 0xABCD || FindLoadedScriptByPtr(bsc) == NULL) {
-			char msg[256];
+			char msg[320];
 			int poisoned = (uintptr_t)bsc == 0xABCD;
-			snprintf(msg, sizeof(msg), "stale ScriptAttachNode tagList=%p node=%p scriptClassPtr=%p eventType=%d%s", (void *)tagList, (void *)node, (void *)bsc,
-			        eventType, poisoned ? " (Clear ran, not removed from scriptList)" : " (CScript not in g_ScriptManager)");
+			uint32_t entSerial = entity != NULL ? entity->serial : 0;
+			uint32_t entBody = entity != NULL ? entity->resourceEntity.entity.bodyType : 0;
+			snprintf(msg, sizeof(msg), "stale ScriptAttachNode entity=%p serial=0x%08X bodyType=0x%04X tagList=%p node=%p scriptClassPtr=%p eventType=%d%s",
+			        (void *)entity, entSerial, entBody, (void *)tagList, (void *)node, (void *)bsc, eventType,
+			        poisoned ? " (Clear ran, not removed from scriptList)" : " (CScript not in g_ScriptManager)");
 			EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "taglist", "stale", msg);
 			continue;
 		}
