@@ -1737,9 +1737,11 @@ const uint16_t g_TokenVariants[TOKEN_TYPE_COUNT][5] = {
 };
 
 /*
- * Trigger name strings - text-based token names extracted from binary.
- * Binary: string pointers at g_TokenTypeTable[type].str for tokens 0x42..0x88.
- * These appear literally in compiled bytecodes; MatchToken uses strncmp.
+ * Trigger name strings - text-based token names. In UoDemo.exe these
+ * live as the .str field (offset +0x08) of g_TokenTypeTable's 12-byte
+ * entries at 0x00611318, rows 0x42..0x88. The C source exposes them
+ * as a flat array indexed by token type. They appear literally in
+ * compiled bytecodes; MatchToken uses strncmp.
  */
 const char *g_TriggerNames[TOKEN_TYPE_COUNT] = {
 	[TR_SPEECH] = "TR_SPEECH",
