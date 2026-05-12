@@ -173,11 +173,14 @@ enum {
 };
 
 /*
- * 0x00611318 - TokenTypeEntry
+ * TokenTypeEntry
  *
- * One row of the token-type table (12 bytes): maps a script token id
- * to its name and a flag indicating whether matching goes through the
- * variant table or falls back to a direct string compare.
+ * One row of g_TokenTypeTable (12 bytes): maps a script token id to its
+ * name and a flag indicating whether matching goes through the variant
+ * table or falls back to a direct string compare. The table itself
+ * (g_TokenTypeTable at 0x00611318) is 138 entries; the C source uses
+ * g_TriggerNames as a derived view of the .str column for rows
+ * 0x42..0x88.
  */
 __extension__ typedef struct TokenTypeEntry TokenTypeEntry;
 struct TokenTypeEntry {
@@ -1044,8 +1047,8 @@ extern const char *g_TriggerNames[TOKEN_TYPE_COUNT];
 extern const int g_TypeTokenIds[WTYPE_COUNT];
 extern const char g_WombatTypeCodes[WTYPE_COUNT];
 extern const int g_WombatTypeSizes[WTYPE_COUNT];
-extern const char *g_TriggerEventNames[TRIGGER_EVENT_COUNT];
-extern const char *g_womTypeNames[];
+extern const char *g_TriggerEventNames[TRIGGER_EVENT_COUNT]; // 0x005EE45C
+extern const char *g_womTypeNames[];        // 0x005EFD48
 extern const OperatorEntry g_OperatorTable[OPERATOR_COUNT];
 extern int g_ScriptReturnFlag;
 extern int g_NumHints;
@@ -1125,5 +1128,49 @@ void CSdbStr_Destructor(CSdbStr *s);
 void CScriptStringDB_PushBack(CScriptStringDB *db, CSdbStr *elem);
 void CScriptStringDB_Free(CScriptStringDB *db);
 void FreeResultChain(ResultNode *chain);
+
+/*
+ * Documentation-only address annotations for binary structures that the
+ * C source does not expose as a single variable. These have no
+ * declaration here (intentionally) so the r2 names extractor uses the
+ * comment name and not a nearby declaration.
+ */
+
+/*
+ * 0x005EE1EC - g_TypeTable
+ *
+ * Type table: 8 entries x 20 bytes. Columns:
+ *   tokenType (+0x00) -> g_TypeTokenIds[]
+ *   name      (+0x04) -> entries point into g_womTypeNames
+ *   code      (+0x08) -> g_WombatTypeCodes[]
+ *   size      (+0x0C) -> g_WombatTypeSizes[]
+ *   index     (+0x10) -> implicit (0..7)
+ */
+
+/*
+ * 0x00611318 - g_TokenTypeTable
+ *
+ * Token-type table: 138 entries of TokenTypeEntry (12 bytes each). The
+ * .str field (offset +0x08) for rows 0x42..0x88 is exposed by the C
+ * source as g_TriggerNames.
+ */
+
+/*
+ * 0x00427DF7 - g_ParseTriggerJumpTable
+ *
+ * Inline switch jump table used by ParseTrigger (0x00427436): 45 dword
+ * entries indexed via the dispatch byte table at 0x00427EAB. Each
+ * handler calls AddVarToScope for the trigger's implicit parameter
+ * variables. The C source reconstructs the per-event variable lists
+ * as g_TriggerParamTable.
+ */
+
+/*
+ * 0x00427EAB - g_ParseTriggerDispatch
+ *
+ * Inline dispatch byte table used by ParseTrigger (0x00427436): 68
+ * one-byte entries mapping event index (0..67) to a handler slot in
+ * g_ParseTriggerJumpTable at 0x00427DF7.
+ */
 
 #endif /* WOMBAT_H_ */

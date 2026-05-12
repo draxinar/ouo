@@ -73,9 +73,10 @@ int g_ScriptRecursionDepth = 0;
 /*
  * Per-event trigger parameter table.
  *
- * Extracted from the binary's ParseTrigger switch. The original uses a
- * 68-entry dispatch byte table to pick from a 45-entry jump table that
- * calls AddVarToScope with the trigger's variables and types.
+ * Extracted from the binary's ParseTrigger (0x00427436) switch. The
+ * original uses a 68-entry dispatch byte table at 0x00427EAB to pick
+ * from a 45-entry jump table at 0x00427DF7; each handler calls
+ * AddVarToScope with the trigger's variables and types.
  *
  * Type codes: 0=int, 1=string, 2=ustring, 3=loc, 4=obj, 5=list
  *
