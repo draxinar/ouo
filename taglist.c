@@ -8,6 +8,7 @@
  */
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -15,6 +16,7 @@
 #include "dat.h"
 
 #include "item.h"
+#include "log.h"
 #include "nodepool.h"
 #include "objvar.h"
 #include "taglist.h"
@@ -621,12 +623,43 @@ CTagListManager_GetTagDefList(CTagListManager *mgr, CVector *list)
 }
 
 /*
+ * Helper - FindLoadedScriptByPtr
+ *
+ * Diagnostic helper for CTagListManager_GetTriggers. Walks the loaded
+ * script list and returns the matching CScript's name pointer if target
+ * is still a live CScript. Returns NULL when target was destroyed and
+ * freed (so dereferencing its name field is unsafe).
+ */
+static const char *
+FindLoadedScriptByPtr(const CScript *target)
+{
+	CScript *sc;
+
+	if (target == NULL || (uintptr_t)target == 0xABCD)
+		return NULL;
+	for (sc = g_ScriptManager.head; sc != NULL; sc = sc->nextLoaded) {
+		if (sc == target)
+			return sc->name;
+	}
+	return NULL;
+}
+
+/*
  * 0x004CE234 - CTagListManager::GetTriggers
  *
  * Walks each attached script's trigger chain for the given event type.
  * Triggers with filter==0x3E8 always match; others use a probability
  * check ((rand() & 0x3FF) < filter). Matching (script, trigger) pairs
  * are pushed into the output vectors. Returns the match count.
+ *
+ * FIXED: Binary dereferences node->scriptClassPtr->trigHandlers[eventType]
+ * unconditionally. If a stale ScriptAttachNode lingers in the scriptList
+ * (CScriptInstance_Clear poisons scriptClassPtr to 0xABCD before pool
+ * return, or the underlying CScript was freed via TriggerEdit reload),
+ * the deref of trigHandlers[eventType] or the resulting trig pointer
+ * SIGSEGVs. Fix: skip and log nodes whose scriptClassPtr is NULL,
+ * poisoned, or no longer in g_ScriptManager.head. Mirrors the
+ * CTimeManager_DispatchEventList stale-subscription guard.
  */
 int
 CTagListManager_GetTriggers(CTagListManager *tagList, CVector *scriptVec, CVector *trigVec, int eventType)
@@ -640,6 +673,14 @@ CTagListManager_GetTriggers(CTagListManager *tagList, CVector *scriptVec, CVecto
 	count = 0;
 	for (node = tagList->scriptList; node != NULL; node = node->next) {
 		bsc = (CScript *)node->scriptClassPtr;
+		if (bsc == NULL || (uintptr_t)bsc == 0xABCD || FindLoadedScriptByPtr(bsc) == NULL) {
+			char msg[256];
+			int poisoned = (uintptr_t)bsc == 0xABCD;
+			snprintf(msg, sizeof(msg), "stale ScriptAttachNode tagList=%p node=%p scriptClassPtr=%p eventType=%d%s", (void *)tagList, (void *)node, (void *)bsc,
+			        eventType, poisoned ? " (Clear ran, not removed from scriptList)" : " (CScript not in g_ScriptManager)");
+			EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "taglist", "stale", msg);
+			continue;
+		}
 		trig = (CTrigger *)bsc->trigHandlers[eventType];
 		while (trig != NULL) {
 			if (trig->filter != 0x3E8) {
