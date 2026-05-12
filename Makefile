@@ -6,7 +6,7 @@ GIT_VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo 
 CFLAGS+=-Wall -Wextra -Wpedantic -O0 -g -std=c99 -pthread -D_POSIX_C_SOURCE=200809L
 CFLAGS+=-DOUO_VERSION='"$(GIT_VERSION)"'
 CFLAGS+=$(EXTRA_CFLAGS)
-LDFLAGS+=-pthread
+LDFLAGS+=-pthread -lm
 
 ifdef M32
 CFLAGS+=-m32
@@ -27,7 +27,6 @@ CFLAGS+=-Werror
 endif
 
 TARG=ouo
-DESTDIR=/opt/ouo
 
 OFILES=\
 	account.o\
@@ -219,7 +218,7 @@ HFILES=\
 all: $(TARG)
 
 $(TARG): $(OFILES) $(HFILES)
-	$(LD) $(LDFLAGS) -o $(TARG) $(OFILES) -lm
+	$(LD) $(LDFLAGS) -o $(TARG) $(OFILES)
 
 %.o: %.c $(HFILES)
 	$(CC) -c $(CFLAGS) $*.c
@@ -228,20 +227,22 @@ clean:
 	rm -f *.o ouo
 
 install: $(TARG)
-	install -d $(DESTDIR)/run
-	install -m 755 $(TARG) $(DESTDIR)/run/$(TARG)
-	install -m 755 systemd/ouo-status.sh $(DESTDIR)/ouo-status.sh
-	install -m 755 systemd/ouo-coredump.sh $(DESTDIR)/ouo-coredump.sh
-	install -m 755 systemd/ouo-backup.sh $(DESTDIR)/ouo-backup.sh
-	install -d /etc/systemd/system /etc/polkit-1/rules.d
-	install -m 644 systemd/ouo.service /etc/systemd/system/
-	install -m 644 systemd/ouo-coredump@.service /etc/systemd/system/
-	install -m 644 systemd/ouo-status.service /etc/systemd/system/
-	install -m 644 systemd/ouo-status.timer /etc/systemd/system/
-	install -m 644 systemd/ouo-backup.service /etc/systemd/system/
-	install -m 644 systemd/ouo-backup.timer /etc/systemd/system/
-	install -m 644 systemd/50-ouo.rules /etc/polkit-1/rules.d/
-	test -f /etc/default/ouo || install -m 644 systemd/ouo.default /etc/default/ouo
+	install -d $(DESTDIR)/opt/ouo/run
+	install -m 755 $(TARG) $(DESTDIR)/opt/ouo/run/$(TARG)
+	install -m 755 systemd/ouo-status.sh $(DESTDIR)/opt/ouo/ouo-status.sh
+	install -m 755 systemd/ouo-coredump.sh $(DESTDIR)/opt/ouo/ouo-coredump.sh
+	install -m 755 systemd/ouo-backup.sh $(DESTDIR)/opt/ouo/ouo-backup.sh
+	install -d $(DESTDIR)/usr/lib/systemd/system
+	install -m 644 systemd/ouo.service $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 systemd/ouo-coredump@.service $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 systemd/ouo-status.service $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 systemd/ouo-status.timer $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 systemd/ouo-backup.service $(DESTDIR)/usr/lib/systemd/system/
+	install -m 644 systemd/ouo-backup.timer $(DESTDIR)/usr/lib/systemd/system/
+	install -d $(DESTDIR)/usr/share/polkit-1/rules.d
+	install -m 644 systemd/50-ouo.rules $(DESTDIR)/usr/share/polkit-1/rules.d/
+	install -d $(DESTDIR)/etc/default
+	test -f $(DESTDIR)/etc/default/ouo || install -m 644 systemd/ouo.default $(DESTDIR)/etc/default/ouo
 
 format:
 	clang-format -i *.c *.h
