@@ -332,6 +332,12 @@ CNPC_GetPackingTag(CItem *entity)
  * on every return; without it the uninitialized CList.head crashed in
  * free(). Never noticed in the binary because this function was dead
  * code (IdleScan was never called).
+ *
+ * FIXED: the binary dereferences the result of CWorld_FindBySerial
+ * without a NULL check, so a stale serial in the spatial map crashes
+ * the vtable load. Skip NULL entities, matching the pattern in every
+ * other CWorld_FindBySerial caller in this file (and in the Custom
+ * CNPC_PreyFleeScan helper). Also dead-code in the binary.
  */
 static void
 CNPC_ScanForTargets(CItem *self, int range, int isPredator, int isFlying, int isPacking)
@@ -361,6 +367,9 @@ CNPC_ScanForTargets(CItem *self, int range, int isPredator, int isFlying, int is
 
 	for (node = resultList.head; node != NULL; node = node->next) {
 		entity = CWorld_FindBySerial(g_World, node->value);
+
+		if (entity == NULL)
+			continue;
 
 		if (VT_IsHidden(entity))
 			continue;
