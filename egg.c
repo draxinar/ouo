@@ -18,6 +18,8 @@
 #include "dat.h"
 #include "defcon.h"
 #include "egg.h"
+#include "resbank.h"
+#include "time.h"
 #include "feature.h"
 #include "io.h"
 #include "packet_handler.h"
@@ -36,6 +38,76 @@ static void CResourceTypeManager_Constructor(void); // 0x004A85E4
 int g_SpawnEnabled;               // 0x00621398
 int g_IsInitialSpawn;             // 0x006E7654
 int g_SpawningInProgress;         // 0x006E72EC
+
+/*
+ * CUSTOM: per-NPC home-location respawn queue (reservation pattern).
+ *
+ * The pre-stub OSI design had `Spawn_ScheduleRespawn(loc, info1, info2)`
+ * record a single-NPC respawn at the dying NPC's home location after a
+ * timed delay. Stubbed to a no-op in the demo binary. Under
+ * FEAT_PERNPC_RESPAWN we reintroduce that path: every NPC death enqueues a
+ * fire-time stamped (template, x, y, z) entry; PendingNPCRespawn_Tick
+ * (called from the spawn block in time.c) walks the list each tick and
+ * fires any entry whose deadline has elapsed via SpawnAtPointForLocation.
+ *
+ * The queue is the AUTHORITATIVE respawn clock: CountMobilesInBox
+ * (resbank.c) counts pending entries as live mobiles, so the slot is
+ * reserved against SpawnTick's random walker until the entry fires.
+ * Without that reservation the random walker would fill the slot within
+ * 8 s of any kill and the per-NPC fire would be rejected by the density
+ * gate. State is in-memory only - a restart drops the queue and the
+ * random walker repopulates from scratch.
+ */
+PendingNPCRespawn *g_pendingNPCRespawnHead;
+int g_PerNPCRespawnDelayMs = 1024 * 1000; // ~17 min, matches 1 RespawnTimerCheck cycle
+
+void
+PendingNPCRespawn_Enqueue(uint16_t templateId, int16_t x, int16_t y, int8_t z)
+{
+	PendingNPCRespawn *p;
+
+	p = (PendingNPCRespawn *)malloc(sizeof(*p));
+	if (p == NULL)
+		return;
+	p->templateId = templateId;
+	p->x = x;
+	p->y = y;
+	p->z = z;
+	p->fireTickMs = GetTickCount_UO() + (uint32_t)g_PerNPCRespawnDelayMs;
+	p->next = g_pendingNPCRespawnHead;
+	g_pendingNPCRespawnHead = p;
+}
+
+void
+PendingNPCRespawn_Tick(void)
+{
+	PendingNPCRespawn **pp;
+	uint32_t now;
+
+	now = GetTickCount_UO();
+	pp = &g_pendingNPCRespawnHead;
+
+	while (*pp != NULL) {
+		PendingNPCRespawn *p = *pp;
+		if ((int32_t)(p->fireTickMs - now) > 0) {
+			pp = &p->next;
+			continue;
+		}
+		// Unlink BEFORE checking density so this entry's reservation
+		// slot in CountMobilesInBox isn't double-counted.
+		*pp = p->next;
+		// Drop the entry if the target sub-region is at cap.
+		// SpawnAtPointForLocation -> SpawnAtPoint has no density check
+		// of its own (it is the binary's direct-spawn API used by
+		// scripts), so without this gate the queue would compound
+		// spawns beyond cap on every cycle and templates like lich /
+		// skeleton / zombie / spider grow monotonically while the
+		// server idles.
+		if (!DensityAtCapForRespawn(p->templateId, p->x, p->y))
+			(void)SpawnAtPointForLocation(p->templateId, (uint16_t)p->x, (uint16_t)p->y, p->z, 6);
+		free(p);
+	}
+}
 
 /*
  * Binary: bitmap at 0x0063D8F8. Indexed by artID >> 5, bit tested with 1 << (artID & 0x1F).

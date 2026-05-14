@@ -422,6 +422,13 @@ CTimeManager_Update(void)
 		CResBankManager_RespawnTimerCheck();
 	CResBankManager_ProcessRespawnChunks();
 
+	// CUSTOM (FEAT_PERNPC_RESPAWN): fire per-NPC home-location respawns
+	// whose deadline has elapsed. Runs after RespawnTimerCheck so any
+	// FEAT_SPAWN_BUDGET per-resource budget refund is in place by the
+	// time we retry the spawn at the dead NPC's home tile.
+	if (feat(FEAT_PERNPC_RESPAWN))
+		PendingNPCRespawn_Tick();
+
 	if ((tickCount & 0x7F) == 0)
 		WeatherManager_UpdateWeather();
 

@@ -20,6 +20,7 @@
 #include "container.h"
 #include "containerhandle.h"
 #include "dynamic.h"
+#include "egg.h"
 #include "feature.h"
 #include "listensocket.h"
 #include "magicfactory.h"
@@ -530,6 +531,14 @@ parseargs(int argc, char **argv)
 		} else if (strcmp(argv[i], "-features") == 0 && i + 1 < argc) {
 			Features_Parse(argv[i + 1]);
 			i++;
+		} else if (strcmp(argv[i], "-spawn-cooldown") == 0 && i + 1 < argc) {
+			int s = atoi(argv[i + 1]);
+			if (s >= 0 && s <= 86400) {
+				g_PerNPCRespawnDelayMs = s * 1000;
+			} else {
+				fprintf(stderr, "invalid spawn-cooldown: %s (seconds, 0-86400)\n", argv[i + 1]);
+			}
+			i++;
 		} else if (strcmp(argv[i], "-version") == 0) {
 			printf("ouo %s\n", OUO_VERSION);
 			exit(0);
@@ -544,6 +553,7 @@ parseargs(int argc, char **argv)
 			       "  -fast N           skill/stat gain multiplier (1-100)\n"
 			       "  -watchdog MS      enable infinite-loop watchdog (timeout ms, min 1000)\n"
 			       "  -features LIST    feature flags (all, none, or comma-separated)\n"
+			       "  -spawn-cooldown N per-NPC respawn delay in seconds (default 1024)\n"
 			       "  -version          print version and exit\n"
 			       "  -help             print this help and exit\n");
 			exit(0);

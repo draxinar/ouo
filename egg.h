@@ -188,6 +188,21 @@ __extension__ typedef struct TerrainRule TerrainRule;
 
 extern int g_FindSpawnDirTable[4]; // 0x0061BBB8
 extern int g_SpawnEnabled; // 0x00621398
+
+// CUSTOM: per-NPC home-location respawn queue (see egg.c).
+typedef struct PendingNPCRespawn {
+	struct PendingNPCRespawn *next;
+	uint16_t templateId;
+	int16_t x, y;
+	int8_t z;
+	uint32_t fireTickMs;
+} PendingNPCRespawn;
+
+extern PendingNPCRespawn *g_pendingNPCRespawnHead;
+extern int g_PerNPCRespawnDelayMs;
+
+void PendingNPCRespawn_Enqueue(uint16_t templateId, int16_t x, int16_t y, int8_t z);
+void PendingNPCRespawn_Tick(void);
 extern uint32_t g_HarvestableBodyTypes[]; // 0x00621A20
 extern uint32_t g_ValidateInWorldBitmap[512]; // 0x0063D8F8
 extern uint32_t g_BodyTypeSerials[13]; // 0x0064B36C

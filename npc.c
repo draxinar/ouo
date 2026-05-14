@@ -1359,16 +1359,41 @@ CResourceMobile_Destructor(CNPC *npc)
 
 	NPC_RemoveFromHash(npc);
 
-	if (feat(FEAT_SPAWN_BUDGET)) {
+	if (feat(FEAT_SPAWN_BUDGET) || feat(FEAT_PERNPC_RESPAWN)) {
 		uint16_t ti = (uint16_t)CResourceEntity_GetTemplateIndex(item);
 		if (ti != 0xFFFF) {
 			NPCTemplate *tmpl = CResManager_GetTemplateByID(ti);
 			if (tmpl != NULL) {
+				CResBankRegion *region = NULL;
 				CResourceNode *nd;
+				int hasType3 = 0;
+
+				if (feat(FEAT_SPAWN_BUDGET))
+					region = CResBankManager_GetRegionByLocation(item->resourceEntity.entity.location.x, item->resourceEntity.entity.location.y);
+
 				for (nd = tmpl->resourceNodes; nd != NULL; nd = nd->next) {
 					if (nd->type != 3 || nd->id == 0)
 						continue;
-					CResBankManager_ScheduleRespawnForTemplate(&item->resourceEntity.entity.location, nd->id, nd->value1, ti);
+					if (feat(FEAT_SPAWN_BUDGET)) {
+						CResBankManager_ScheduleRespawnForTemplate(&item->resourceEntity.entity.location, nd->id, nd->value1, ti);
+						if (region != NULL && region != g_ResBankManager.noRegion)
+							CResBankRegion_SubtractFromSpawnedCount(region, nd->id, nd->value1);
+					}
+					hasType3 = 1;
+				}
+				// Per-NPC respawn only for NPCs that were created
+				// DIRECTLY in a sub-region listed in the template's
+				// <region>. NPCs created via a parent spawner's
+				// <eq> directive (e.g. Undead Group's lich child
+				// at the spawner's tile in CEMETERY_MOONGLOW,
+				// outside any LICH_* bbox) come from a separate
+				// mechanism and would compound past cap if both
+				// fired in parallel.
+				if (hasType3 && feat(FEAT_PERNPC_RESPAWN)) {
+					int16_t *cloc = (int16_t *)&item->resourceEntity.nextInContainer;
+					if (LocationInTemplateSubRegion(ti, cloc[0], cloc[1])) {
+						PendingNPCRespawn_Enqueue(ti, cloc[0], cloc[1], (int8_t)cloc[2]);
+					}
 				}
 			}
 		}

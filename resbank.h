@@ -249,6 +249,9 @@ extern const uint8_t g_FieldCaseTable[48];
 
 void LoadAll_ResBankDistrib(void); // 0x004341BD
 int CResBankRegion_GetQuantity(CResBankRegion *this, int index); // 0x00434220
+int CResBankRegion_HasSpawnEntry(CResBankRegion *region, uint16_t templateId); // Helper
+int LocationInTemplateSubRegion(uint16_t templateId, int16_t x, int16_t y); // Helper
+int DensityAtCapForRespawn(uint16_t templateId, int16_t x, int16_t y); // Helper
 void *CResBankMagicCtx_Copy(CResListNode **dst, CResListNode **src); // 0x0043F2D0
 void CResBankMagicCtx_PostInit(CResListNode **obj); // 0x00461F80
 void CResBankManager_Init(void); // 0x004AD217

@@ -753,6 +753,32 @@ CResBankRegion_GetQuantity(CResBankRegion *this, int index)
 }
 
 /*
+ * Helper - CResBankRegion_HasSpawnEntry
+ *
+ * Returns 1 if region has a direct spawn entry for templateId. Used by
+ * the FEAT_SPAWN_BUDGET per-NPC respawn queue (npc.c death path) to
+ * skip indirectly-spawned templates - e.g. liches that have no direct
+ * cemetery entry and only appear via the Undead Group parent spawner
+ * (template 1579 + poi_cleanup script). Without this gate, enqueueing
+ * per-NPC respawns for indirectly-spawned mobs runs in parallel with
+ * the parent's spawn mechanism and over-spawns monotonically over
+ * hours, accumulating dozens of liches in a cemetery.
+ */
+int
+CResBankRegion_HasSpawnEntry(CResBankRegion *region, uint16_t templateId)
+{
+	int i;
+
+	if (region == NULL)
+		return 0;
+	for (i = 0; i < region->entryCount; i++) {
+		if (region->spawnEntries[i].templateId == templateId)
+			return 1;
+	}
+	return 0;
+}
+
+/*
  * 0x0043F2D0 - CResBankMagicCtx::Copy
  *
  * Copies a pointer from *src to *dst.
@@ -1913,44 +1939,48 @@ CResBankRegion_AddToField103D8(CResBankRegion *region, int index, int32_t amount
 /*
  * 0x004AF03A - ResBankLimitCheck
  *
- * Binary stub that always returns 1. The 7 bytes at 0x004AF040 overwrote
- * the argument-to-locals initialization, leaving the CResourceNode walk
- * at 0x004AF047-0x004AF0A0 unreachable. That dead code would test each
- * type==3 node's template against CheckTemplateOverLimit and the region
- * count table, returning 0 when over-limit.
+ * Binary stub: 7 bytes at 0x004AF040 overwrote the argument-to-locals
+ * initialization with `mov eax, 1; jmp 0x004AF0A5 (done)`, making the
+ * CResourceNode walk at 0x004AF047-0x004AF0A0 unreachable. The dead
+ * code tested each type==3 node's template against CheckTemplateOverLimit
+ * and the region count table, returning 0 when over-limit.
+ *
+ * FIXED (FEAT_SPAWN_BUDGET): restore the dead-code path so the per-region
+ * `quantities[]` budget actually gates vendor stock and other item
+ * creation through CTemplateManager_SpawnVendorStock (caller at
+ * resbank.c:5248). When the feature is off we keep the binary stub.
  */
 int
 ResBankLimitCheck(void *arg1, void *arg2)
 {
-	CResourceNode *node = NULL;
-	int32_t *countTable = NULL;
+	if (feat(FEAT_SPAWN_BUDGET)) {
+		CItem *entity = (CItem *)arg1;
+		CLocation *loc = (CLocation *)arg2;
+		CResBankRegion *region;
+		CResourceNode *node;
+
+		if (entity == NULL || loc == NULL)
+			return 1;
+
+		region = CResBankManager_GetRegionByLocation((int16_t)loc->x, (int16_t)loc->y);
+		if (region == NULL || region == g_ResBankManager.noRegion)
+			return 1;
+
+		for (node = entity->resourceEntity.firstChild; node != NULL; node = node->next) {
+			if (node->id == 0)
+				continue;
+			if ((int8_t)node->type != 3)
+				continue;
+			if (CheckTemplateOverLimit(node->id))
+				continue;
+			if (region->quantities[node->id] < 0)
+				return 0;
+		}
+		return 1;
+	}
 
 	USED(arg1);
 	USED(arg2);
-
-	// Binary: 0x004AF040..0x004AF045, stub overwrote initialization.
-	// mov eax, 1; jmp 0x004AF0A5 (done).
-	goto done;
-
-	// Dead code: 0x004AF047-0x004AF09E.
-	// The initialization that would have set node (from entity's
-	// resource node list) and countTable (from region quantities)
-	// was overwritten by the stub bytes above.
-loop:
-	node = node->next;
-	if (node == NULL)
-		goto done;
-	if (node->id == 0)
-		goto loop;
-	if ((int8_t)node->type != 3)
-		goto loop;
-	if (CheckTemplateOverLimit(node->id))
-		goto loop;
-	if (countTable[node->id] < 0)
-		return 0;
-	goto loop;
-
-done:
 	return 1;
 }
 
@@ -2026,13 +2056,13 @@ CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, in
 		// already running. When the countdown expires, InitRespawn
 		// calls AddToQuantity with the total accumulated amount.
 		//
-		// Binary uses 0x3A (58 cycles x ~17 min = ~16.5 hours).
-		// With correctly-sized quantities from gen_resbank.py, the
-		// budget actually depletes when NPCs are alive, so the
-		// countdown controls respawn delay. Use 4 cycles (~68 min).
+		// Binary uses 0x3A (58 cycles x ~17 min = ~16.5 hours), which
+		// is impractical for live play. Use 1 cycle (~17 min) - one
+		// natural RespawnTimerCheck tick - so a killed slot reopens
+		// for the next steady-state SpawnTick after the timer fires.
 		region->respawnAmount[templateIndex] += (uint16_t)amount;
 		if (region->respawnCountdown[templateIndex] == 0)
-			region->respawnCountdown[templateIndex] = 4;
+			region->respawnCountdown[templateIndex] = 1;
 		return;
 	}
 
@@ -2493,6 +2523,7 @@ CResBankRegion_SpawnAtPoint(CResBankRegion *region, uint16_t templateId, uint16_
 					if (nd->type != 3 || nd->id == 0)
 						continue;
 					CResBankRegion_SubtractFromQuantity(region, nd->id, nd->value1);
+					CResBankRegion_AddToSpawnedCount(region, nd->id, nd->value1);
 				}
 			}
 		}
@@ -2554,6 +2585,7 @@ CResBankRegion_SpawnAtPointInBox(CResBankRegion *region, uint16_t templateId, Su
 				if (nd->type != 3 || nd->id == 0)
 					continue;
 				CResBankRegion_SubtractFromQuantity(region, nd->id, nd->value1);
+				CResBankRegion_AddToSpawnedCount(region, nd->id, nd->value1);
 			}
 		}
 	}
@@ -2586,7 +2618,124 @@ CountMobilesInBox(uint16_t templateId, int x1, int y1, int z1, int x2, int y2, i
 		if (mx >= x1 && my >= y1 && mz >= z1 && mx <= x2 && my <= y2 && mz <= z2)
 			count++;
 	}
+	// CUSTOM (FEAT_PERNPC_RESPAWN): pending per-NPC respawn entries reserve
+	// their slot in the density count - the entry's home tile counts as
+	// occupied until PendingNPCRespawn_Tick fires and unlinks it. Without
+	// this, SpawnTick's random walker would fill a dead NPC's slot within
+	// 8 s and the per-NPC fire would be rejected by the density gate, so
+	// the queue would be a no-op safety net instead of the authoritative
+	// respawn clock. The walk is skipped when the queue is inactive.
+	if (feat(FEAT_PERNPC_RESPAWN)) {
+		PendingNPCRespawn *p;
+		for (p = g_pendingNPCRespawnHead; p != NULL; p = p->next) {
+			if (p->templateId != templateId)
+				continue;
+			if ((int)p->x >= x1 && (int)p->x <= x2 && (int)p->y >= y1 && (int)p->y <= y2 && (int)p->z >= z1 && (int)p->z <= z2)
+				count++;
+		}
+	}
 	return count;
+}
+
+/*
+ * Helper - LocationInTemplateSubRegion
+ *
+ * CUSTOM: returns 1 if (x, y) lies inside a sub-region that directly
+ * spawns templateId in the region. Identifies "direct-spawned" NPCs
+ * (created by SpawnInSubRegion at a home tile in one of the template's
+ * own sub-regions) versus "indirect" NPCs created by parent spawners
+ * (e.g. Undead Group's lich child at CEMETERY_MOONGLOW's spawner spot,
+ * outside any LICH_* bbox). Used by the per-NPC death-path gate so
+ * indirect NPCs don't enter the per-NPC respawn queue at all - their
+ * parent spawner handles respawn.
+ */
+int
+LocationInTemplateSubRegion(uint16_t templateId, int16_t x, int16_t y)
+{
+	CResBankRegion *region;
+	int i, j;
+	ResSpawnEntry *entry;
+	SubRegion *sub;
+
+	region = CResBankManager_GetRegionByLocation(x, y);
+	if (region == NULL || region == g_ResBankManager.noRegion)
+		return 0;
+
+	entry = NULL;
+	for (i = 0; i < region->entryCount; i++) {
+		if (region->spawnEntries[i].templateId == templateId) {
+			entry = &region->spawnEntries[i];
+			break;
+		}
+	}
+	if (entry == NULL)
+		return 0;
+
+	for (j = 0; j < entry->numSubRegions; j++) {
+		sub = (SubRegion *)((char *)region->templateDb + entry->subRegionIds[j] * sizeof(SubRegion));
+		if ((int)x >= (int)sub->x1 && (int)x <= (int)sub->x2 && (int)y >= (int)sub->y1 && (int)y <= (int)sub->y2)
+			return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Helper - DensityAtCapForRespawn
+ *
+ * CUSTOM: returns 1 if the sub-region containing (x, y) is already at or
+ * above its density cap for templateId. The per-NPC respawn queue
+ * (egg.c PendingNPCRespawn_Tick) uses this to gate SpawnAtPointForLocation -
+ * SpawnAtPoint deliberately has no density check (it is the binary's
+ * "direct spawn here" API used by scripts), so without this gate the
+ * queue compounds spawns beyond cap on every cycle.
+ */
+int
+DensityAtCapForRespawn(uint16_t templateId, int16_t x, int16_t y)
+{
+	CResBankRegion *region;
+	int i, j;
+	ResSpawnEntry *entry;
+	SubRegion *sub;
+	int existing;
+	int cap;
+
+	region = CResBankManager_GetRegionByLocation(x, y);
+	if (region == NULL || region == g_ResBankManager.noRegion)
+		return 0;
+
+	entry = NULL;
+	for (i = 0; i < region->entryCount; i++) {
+		if (region->spawnEntries[i].templateId == templateId) {
+			entry = &region->spawnEntries[i];
+			break;
+		}
+	}
+	if (entry == NULL)
+		return 0;
+
+	for (j = 0; j < entry->numSubRegions; j++) {
+		sub = (SubRegion *)((char *)region->templateDb + entry->subRegionIds[j] * sizeof(SubRegion));
+		if ((int)x < (int)sub->x1 || (int)x > (int)sub->x2)
+			continue;
+		if ((int)y < (int)sub->y1 || (int)y > (int)sub->y2)
+			continue;
+
+		cap = entry->scalingWts[j];
+		if (cap == 0) {
+			int dx = (int)sub->x2 - (int)sub->x1;
+			int dy = (int)sub->y2 - (int)sub->y1;
+			int area = dx * dy;
+			cap = area / 0xA00;
+			if (cap <= 0)
+				cap = 1;
+		}
+
+		existing = CountMobilesInBox(templateId, (int)sub->x1, (int)sub->y1, (int)sub->z1, (int)sub->x2, (int)sub->y2, (int)sub->z2);
+		return existing >= cap;
+	}
+
+	return 0;
 }
 
 /*
