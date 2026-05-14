@@ -61,6 +61,7 @@ struct NamedResource {
 
 extern CConfig g_Config;
 extern int g_DebugGM;
+extern int g_DebugTest;
 extern int g_GainMultiplier;
 
 void Config_Constructor(void); // 0x00467590

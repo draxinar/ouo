@@ -92,6 +92,7 @@ enum PlayerFlag {
 	PlayerIsDead = 0x4000,
 	PlayerIsCounselor = 0x8000,
 	PlayerIsGold = 0x20000,
+	PlayerIsTestCenter = 0x40000, // CUSTOM: -test flag (narrow self-admin tier)
 };
 
 /*
@@ -312,5 +313,8 @@ uint8_t CPlayer_GetMovementType_VT(CPlayer *self); // 0x0048B5D7
 void CPlayer_AddToAggressorList_VT(CItem *this, CItem *attacker, CItem *controller, uint32_t controllerSerial); // 0x0048FAC5
 void CItem_SetMurderCount(CItem *entity, int newCount); // 0x0048FF6F
 void SendPacketToPlayer(CPlayer *player, uint8_t *buf, int size);
+
+int CPlayer_IsTestCenter(CPlayer *this); // CUSTOM
+void CPlayer_AddTestCenterKit(CPlayer *this, CItem *backpack); // CUSTOM
 
 #endif /* PLAYER_H_ */

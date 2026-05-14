@@ -70,4 +70,6 @@ void CHelpQueue_DecrCounselors(CHelpQueue *this, CPlayer *player); // 0x0044F497
 void StdHelpList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x0044F530
 void StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004696D0
 
+void TC_CommandDispatch(CPlayer *player, const char *text); // CUSTOM (-test)
+
 #endif /* HELP_QUEUE_H_ */

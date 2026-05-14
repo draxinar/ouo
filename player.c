@@ -708,6 +708,11 @@ NewPlayer(char *name, uint16_t locX, uint16_t locY, uint8_t locZ, uint8_t genre,
 
 	CPlayer_InitStartingEquipment(player);
 
+	// Custom: -test starter kit (5000 gold + filled spellbook + reagent bag)
+	// goes into the backpack we just created.
+	if (g_DebugTest && backpack != NULL)
+		CPlayer_AddTestCenterKit(player, backpack);
+
 	// MODIFIED 0x00450996: binary uses (g_Config.x, g_Config.y, 0) which ignores
 	// the client's city selection; use locX/locY/locZ to honor the start
 	// location chosen during character creation in newer clients.
@@ -5841,4 +5846,60 @@ CItem_GetMurderCount(CItem *entity)
 
 	CResourceEntity_GetTagInt(entity, "murderCount", &count);
 	return count;
+}
+
+/*
+ * Custom - CPlayer_IsTestCenter
+ *
+ * Returns 1 if PlayerIsTestCenter flag (pflags bit 0x40000) is set.
+ * Granted at login when the server runs with -test.
+ */
+int
+CPlayer_IsTestCenter(CPlayer *this)
+{
+	return (this->pflags & PlayerIsTestCenter) != 0;
+}
+
+/*
+ * Custom - CPlayer_AddTestCenterKit
+ *
+ * Drops the Test Center starter kit on the new character: 10000 gold in
+ * the bank box, plus a spellbook filled with all 64 spells and a bag
+ * containing 100 of each of the 8 standard reagents in the backpack.
+ * Called from NewPlayer right after the backpack is created and
+ * InitStartingEquipment runs, only when g_DebugTest is set.
+ */
+void
+CPlayer_AddTestCenterKit(CPlayer *this, CItem *backpack)
+{
+	static const uint16_t reagents[] = { 0x0F7A, 0x0F7B, 0x0F84, 0x0F85, 0x0F86, 0x0F88, 0x0F8C, 0x0F8D };
+	CItem *bank;
+	uint32_t goldSer, bookSer, bagSer;
+	int g, i;
+
+	// 10000 gold pile into the bank box (FixBank creates it if needed)
+	FixBank(&this->mobile);
+	bank = this->mobile.equipment[29];
+	if (bank != NULL) {
+		goldSer = Script_createGlobalObjectIn(0x0EED, bank->serial);
+		if (goldSer != 0)
+			Script_addGlobalQuantity(goldSer, 9999);
+	}
+
+	// Filled spellbook (graphic 0x0EFA, spells 0x1F2D..0x1F6C - 64 spells)
+	bookSer = Script_createGlobalObjectIn(0x0EFA, backpack->serial);
+	if (bookSer != 0) {
+		for (g = 0x1F2D; g <= 0x1F6C; g++)
+			Script_createGlobalObjectIn(g, bookSer);
+	}
+
+	// Reagent bag (100 of each)
+	bagSer = Script_createGlobalObjectIn(0x0E76, backpack->serial);
+	if (bagSer != 0) {
+		for (i = 0; i < (int)(sizeof(reagents) / sizeof(reagents[0])); i++) {
+			uint32_t ser = Script_createGlobalObjectIn(reagents[i], bagSer);
+			if (ser != 0)
+				Script_addGlobalQuantity(ser, 99);
+		}
+	}
 }

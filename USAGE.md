@@ -113,3 +113,5 @@ or restart it.
 `plevel` and `flags` are applied in `Player_Login` and cleared on logout, so they affect every character on the account on every login. Already-connected users must disconnect and reconnect for a change to take effect.
 
 The `-gm` server flag auto-applies GameMaster + GodMode to every player at login, overriding access.list. Useful for local testing; do not use in production.
+
+The `-test` server flag enables Test Center mode. Every player at login gets the `PlayerIsTestCenter` permission tier, which unlocks a small `.command` set (`.set`, `.set list`, `.where`, `.help`, `.resurrect`) for self-administration without granting full GM editing. New characters created while the server runs with `-test` receive a starter kit at creation time: 10000 gold in the bank box, plus a spellbook filled with all 64 spells and a bag containing 100 of each of the 8 standard reagents in the backpack. For full GM powers, use `-gm` instead; the two flags can be combined.

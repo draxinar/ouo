@@ -24,6 +24,7 @@ static char *strdup_ServerSide(const char *src); // 0x00468A1E
 
 CConfig g_Config;
 int g_DebugGM = 0;
+int g_DebugTest = 0;
 int g_GainMultiplier = 1;
 
 // 0x00698440 - shared line buffer filled by GetLine

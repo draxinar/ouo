@@ -509,6 +509,8 @@ parseargs(int argc, char **argv)
 			i++;
 		} else if (strcmp(argv[i], "-gm") == 0) {
 			g_DebugGM = 1;
+		} else if (strcmp(argv[i], "-test") == 0) {
+			g_DebugTest = 1;
 		} else if (strcmp(argv[i], "-fast") == 0 && i + 1 < argc) {
 			int m = atoi(argv[i + 1]);
 			if (m >= 1 && m <= 100)
@@ -538,6 +540,7 @@ parseargs(int argc, char **argv)
 			       "  -a IP             server address for relay packets\n"
 			       "  -p PORT           listen port (default: 2593)\n"
 			       "  -gm               enable GM mode for all players\n"
+			       "  -test             enable Test Center mode for all players\n"
 			       "  -fast N           skill/stat gain multiplier (1-100)\n"
 			       "  -watchdog MS      enable infinite-loop watchdog (timeout ms, min 1000)\n"
 			       "  -features LIST    feature flags (all, none, or comma-separated)\n"
@@ -575,6 +578,8 @@ parseargs(int argc, char **argv)
 			n += snprintf(buf + n, sizeof(buf) - n, " nocrypt");
 		if (g_DebugGM)
 			n += snprintf(buf + n, sizeof(buf) - n, " gm");
+		if (g_DebugTest)
+			n += snprintf(buf + n, sizeof(buf) - n, " test");
 		if (g_GainMultiplier > 1)
 			n += snprintf(buf + n, sizeof(buf) - n, " fast=%dx", g_GainMultiplier);
 		if (g_WatchdogEnabled)

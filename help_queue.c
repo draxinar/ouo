@@ -5122,3 +5122,103 @@ CHelpQueue_RemoveNode(CHelpQueue *q, CHelpRequestNode *target)
 		}
 	}
 }
+
+/*
+ * Custom - TC_CommandDispatch
+ *
+ * Dispatch table for Test Center players (-test flag). Narrow surface
+ * (.set / .set list / .where / .help / .resurrect, all self-targeted)
+ * that reuses the same primitives as GmCommandDispatch. TC players never
+ * reach GmCommandDispatch, so GM-only commands are unreachable by
+ * construction.
+ */
+void
+TC_CommandDispatch(CPlayer *player, const char *text)
+{
+	char cmd[256];
+
+	if (text[0] == '\0')
+		return;
+	strncpy(cmd, text + 1, 254);
+	cmd[255] = '\0';
+
+	// .set <stat|skill|list> [value] - self only
+	if (strncmp(cmd, "set ", 4) == 0) {
+		const char *arg = cmd + 4;
+		const char *p;
+		int nlen;
+
+		p = arg;
+		while (*p && *p != ' ')
+			p++;
+		nlen = (int)(p - arg);
+		if (nlen == 4 && strncasecmp(arg, "list", 4) == 0) {
+			char line[256];
+			int pos = 0;
+			int i;
+			CPlayer_SystemMessage(player, "Skills:");
+			for (i = 0; i < MAX_SKILLS; i++) {
+				const char *sn = CSkillManager_GetSkillName(&g_SkillManager, (int8_t)i);
+				if (!sn)
+					continue;
+				char entry[100];
+				int elen = snprintf(entry, sizeof(entry), "%d=%s", i, sn);
+				if (pos + elen + 2 > (int)sizeof(line)) {
+					CPlayer_SystemMessage(player, line);
+					pos = 0;
+				}
+				if (pos > 0)
+					line[pos++] = ' ';
+				memcpy(line + pos, entry, elen);
+				pos += elen;
+				line[pos] = '\0';
+			}
+			if (pos > 0)
+				CPlayer_SystemMessage(player, line);
+			return;
+		}
+
+		int sType, sSkillId, sVal, sHasVal;
+		char sStrArg[64];
+		char smsg[80];
+		GM_ParseSetArgs(arg, &sType, &sSkillId, &sVal, &sHasVal, sStrArg, sizeof(sStrArg));
+		if (sType < 0) {
+			CPlayer_SystemMessage(player, ".set <stat|skill|list> [VALUE]");
+			return;
+		}
+		GM_ApplySet((CItem *)&player->mobile, sType, sSkillId, sVal, sHasVal, sStrArg, smsg, sizeof(smsg));
+		CPlayer_SystemMessage(player, smsg);
+		return;
+	}
+
+	// .where - self position
+	if (strcmp(cmd, "where") == 0) {
+		ShowEntityLocation((CItem *)player);
+		return;
+	}
+
+	// .resurrect - self-resurrect when dead
+	if (strcmp(cmd, "resurrect") == 0) {
+		if (!CPlayer_IsDead(player)) {
+			CPlayer_SystemMessage(player, "You are not dead");
+			return;
+		}
+		CPlayer_ProcessDeath(player);
+		CPlayer_InstantResurrect(player);
+		CPlayer_SystemMessage(player, "Resurrected");
+		return;
+	}
+
+	// .help - print the TC subset
+	if (strcmp(cmd, "help") == 0) {
+		CPlayer_SystemMessage(player, "Test Center commands:");
+		CPlayer_SystemMessage(player, ".set <stat|skill> [VALUE] - set self stat/skill (e.g. .set str 100, .set magery 1000)");
+		CPlayer_SystemMessage(player, ".set list - list all skill names and IDs");
+		CPlayer_SystemMessage(player, ".where - report your position");
+		CPlayer_SystemMessage(player, ".resurrect - resurrect yourself if dead");
+		CPlayer_SystemMessage(player, ".help - this message");
+		return;
+	}
+
+	CPlayer_SystemMessage(player, "Unknown Test Center command. Type .help for the list.");
+}

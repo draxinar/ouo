@@ -2120,6 +2120,11 @@ Player_Login(CPlayer *this, uint32_t addr)
 		CPlayer_EnableEditing(this);
 		this->pflags |= PlayerIsGameMaster;
 	}
+
+	// Custom: enable Test Center mode if -test flag is set. Narrow
+	// self-admin tier (set/where/help/resurrect), separate from GM.
+	if (g_DebugTest)
+		this->pflags |= PlayerIsTestCenter;
 }
 
 /*
@@ -2825,6 +2830,11 @@ HandlePacket_SPEECH(CPlayer *this, uint8_t *buf)
 	if (CPlayer_IsCounselor(this) || CPlayer_IsGameMaster(this)) {
 		if (text[0] == '.' || text[0] == '=') {
 			GmCommandDispatch(&g_HelpQueue, this, text);
+			return;
+		}
+	} else if (CPlayer_IsTestCenter(this)) {
+		if (text[0] == '.' || text[0] == '=') {
+			TC_CommandDispatch(this, text);
 			return;
 		}
 	}
