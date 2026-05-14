@@ -430,20 +430,20 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 	case 8: {
 		// Set region respawn g_Config.
 		CResBankRegion *region;
-		int32_t oldField234, oldMaxRespawnTime;
+		int32_t oldMinRespawnTime, oldMaxRespawnTime;
 
 		region = g_ResBankManager.hashTable[flags & 0xFF];
 		if (region == NULL)
 			return;
 
-		oldField234 = region->minRespawnTime;
+		oldMinRespawnTime = region->minRespawnTime;
 		oldMaxRespawnTime = region->maxRespawnTime;
 
 		region->minRespawnTime = resourceIndex & 0xFFFF;
 		region->maxRespawnTime = (int32_t)param;
 
 		// If values changed, refresh.
-		if (oldField234 != (int)(resourceIndex & 0xFFFF) || oldMaxRespawnTime != (int32_t)param)
+		if (oldMinRespawnTime != (int)(resourceIndex & 0xFFFF) || oldMaxRespawnTime != (int32_t)param)
 			RefreshResourceRegions();
 		return;
 	}
