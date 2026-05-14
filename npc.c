@@ -705,8 +705,9 @@ CNPC_DoWalk(CNPC *this, int mode, CLocation *loc)
 /*
  * 0x00461700 - CGuard::CGuard
  *
- * No-args guard constructor used by the save loader. Links the guard
- * into the NPC list and sets state=IDLE, npcSfx=0xFFFF.
+ * No-args guard constructor used by the save loader. Bumps vtable from
+ * CResourceMobile to CNPC (binary 0x005EECF0, our g_vtable_CGuard),
+ * links into the NPC list, sets state=IDLE, npcSfx=0xFFFF.
  */
 void
 CGuard_Constructor(CNPC *npc)
@@ -717,8 +718,8 @@ CGuard_Constructor(CNPC *npc)
 	CEntity_SetType(&mob->container.item.resourceEntity.entity, ETYPE_GUARD);
 
 	npc->nextNPC = g_NPCListHead;
-	if (g_NPCListHead != NULL)
-		g_NPCListHead->prevNPC = npc;
+	if (npc->nextNPC != NULL)
+		npc->nextNPC->prevNPC = npc;
 	g_NPCListHead = npc;
 	npc->prevNPC = NULL;
 
@@ -730,8 +731,9 @@ CGuard_Constructor(CNPC *npc)
 /*
  * 0x004617B4 - CNPC::CNPC
  *
- * Full-args NPC constructor: links the NPC into the global list,
- * sets state=IDLE, npcSfx=0xFFFF, then places the body at loc.
+ * Full-args NPC constructor: bumps vtable from CResourceMobile to CNPC
+ * (binary 0x005EECF0, our g_vtable_CGuard), links into the global NPC
+ * list, sets state=IDLE, npcSfx=0xFFFF, then places the body at loc.
  */
 void
 CNPC_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc)
@@ -739,13 +741,11 @@ CNPC_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc)
 	CMobile *mob = &npc->mobile;
 
 	CResourceMobile_Init(mob);
-
-	// CNPC and guard share ETYPE_NPC initially;
-	// CTemplateManager_CreateEntity sets ETYPE_GUARD after.
+	CEntity_SetType(&mob->container.item.resourceEntity.entity, ETYPE_GUARD);
 
 	npc->nextNPC = g_NPCListHead;
-	if (g_NPCListHead != NULL)
-		g_NPCListHead->prevNPC = npc;
+	if (npc->nextNPC != NULL)
+		npc->nextNPC->prevNPC = npc;
 	g_NPCListHead = npc;
 	npc->prevNPC = NULL;
 

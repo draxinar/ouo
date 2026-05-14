@@ -717,12 +717,10 @@ VT_Init(void)
 	g_vtable_CResourceMobile.fn[VT_CLR_BEHAVIOR / 4] = (vfunc_t)CNPC_ClrBehavior_VT;
 
 	// CNPC: inherits CResourceMobile
-	// Binary 0x005EECF0: guard NPC vtable (used by CNPC_Constructor)
+	// Binary 0x005EECF0: guard NPC vtable (used by CNPC_Constructor and
+	// CGuard_Constructor, both of which bump vtable from CResourceMobile).
 	vt_copy(&g_vtable_CNPC, &g_vtable_CResourceMobile);
 	// ScalarDeletingDestructor: slot 0 (0x00) = 0x00461DA0
-	// Binary vtable at 0x005EECF0 has NULL at slot 0; CNPC_ScalarDelete
-	// is wired to prevent null-pointer crash when deleting guard NPCs
-	// (demo binary never deletes guards).
 	g_vtable_CNPC.fn[VT_DTOR / 4] = (vfunc_t)CNPC_ScalarDelete;
 	// DropAtFeet: slot 1 (0x04) = 0x0046197C
 	g_vtable_CNPC.fn[VT_DROP_AT_FEET / 4] = (vfunc_t)CNPC_DropAtFeet_VT;
