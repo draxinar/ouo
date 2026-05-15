@@ -1008,7 +1008,7 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
 
 	item = &this->mobile.container.item;
 
-	elapsed = GetTickCount_UO() - this->movementTimers[this->movementIndex];
+	elapsed = CTimeManager_GetTickCount() - this->movementTimers[this->movementIndex];
 
 	// 0x0045102b: vtable[0x214] GetSpeed, compute 500/speed (dead code -
 	// result stored in local but never used)
@@ -1050,7 +1050,7 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
 
 		CTerrainManager_MovePlayer(item, (int)(direction & 0xFF), sequence);
 
-		this->movementTimers[this->movementIndex] = GetTickCount_UO();
+		this->movementTimers[this->movementIndex] = CTimeManager_GetTickCount();
 		this->movementIndex = (this->movementIndex + 1) % 5;
 		return 1;
 	}
@@ -1838,7 +1838,7 @@ CPlayer_SetStamina_VT(CPlayer *self, int value)
 
 	old = self->mobile.stamina;
 	self->mobile.stamina = (uint32_t)value;
-	if (self->mobile.stamina > self->mobile.maxStamina)
+	if ((int32_t)self->mobile.stamina > (int32_t)self->mobile.maxStamina)
 		self->mobile.stamina = self->mobile.maxStamina;
 	if ((int32_t)self->mobile.stamina < 0)
 		self->mobile.stamina = 0;

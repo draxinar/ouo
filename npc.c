@@ -5771,7 +5771,7 @@ CNPC_HandleCorpseEat(CNPC *npc, CItem *corpse)
 static void
 CNPC_WalkAnimDispatch(CMobile *mob)
 {
-	if ((mob->movementType & 0xFF) == 2)
+	if (CMobile_GetMovementType(mob) == 2)
 		CNPC_SetRunState(mob, 1);
 	else
 		CNPC_SetRunState(mob, 0);

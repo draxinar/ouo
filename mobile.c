@@ -846,7 +846,7 @@ CMobile_GetSpeed(CMobile *this)
 {
 	int dex, speed;
 
-	dex = CMobile_GetStat(this, 1); // DEX
+	dex = (int16_t)CMobile_GetStat(this, 1); // DEX
 	speed = dex * 40 / 100 + 35;
 	if (speed > 163)
 		speed = 163;
@@ -2222,7 +2222,7 @@ CMobile_SetStamina(CMobile *this, int newStamina)
 
 	old = this->stamina;
 	this->stamina = (uint32_t)newStamina;
-	if (this->stamina > this->maxStamina)
+	if ((int32_t)this->stamina > (int32_t)this->maxStamina)
 		this->stamina = this->maxStamina;
 	if (newStamina < 0)
 		this->stamina = 0;
@@ -3541,7 +3541,7 @@ CMobile_HandleStaminaDrain(CMobile *this, int movementWeight)
 			// GetStamina * 100 / GetMaxStamina (binary has no div-by-zero guard)
 			beforePct = CMobile_GetStamina(mount) * 100 / CMobile_GetMaxStamina(mount);
 
-			CMobile_HandleStaminaDrain(mount, movementWeight);
+			((void (*)(void *, int))VT_FN((CItem *)mount, VT_HANDLE_STAM_DRAIN))(mount, movementWeight);
 
 			afterPct = CMobile_GetStamina(mount) * 100 / CMobile_GetMaxStamina(mount);
 
@@ -3550,9 +3550,9 @@ CMobile_HandleStaminaDrain(CMobile *this, int movementWeight)
 				if (VT_IsPlayer((CItem *)this))
 					CPlayer_SystemMessage((CPlayer *)this, "Your horse is very fatigued.");
 			}
-		}
 
-		drainAmount = drainAmount / 3;
+			drainAmount = drainAmount / 3;
+		}
 	}
 
 	this->staminaLossCounter += drainAmount;
