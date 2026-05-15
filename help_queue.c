@@ -30,6 +30,7 @@
 #include "taglist.h"
 #include "template.h"
 #include "time.h"
+#include "utils.h"
 #include "vtable.h"
 #include "weapon.h"
 #include "wombat_compile.h"
@@ -1492,6 +1493,106 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		SendPacketToPlayer(player, tbuf, -1);
 		char msg[80];
 		snprintf(msg, sizeof(msg), "Select location to spawn %s (#%d)", g_TemplateNames[templateId] ? g_TemplateNames[templateId] : "?", templateId);
+		CPlayer_SystemMessage(player, msg);
+		return;
+	}
+
+	// Custom: .morph - show current body
+	// Custom: .morph list - list creature body names from gm_body_names
+	// Custom: .morph <id|name|off> - change player body indefinitely (polymorph)
+	// Names resolve through gm_body_names, generated from templatestable.dat
+	// with body defines expanded via bank/defines. Numeric IDs are taken as
+	// bodyType directly. off|none|0 reverts to the player's natural body
+	// (0x190 + sex). Bodies are deduplicated by name, so multiple entries
+	// can share the same human-readable label (e.g. dragon = 12 or 59).
+	if (strcmp(cmd, "morph list") == 0 && CPlayer_IsEditing(player)) {
+		char line[256];
+		int pos = 0;
+		int i, j;
+		CPlayer_SystemMessage(player, "Morph names:");
+		for (i = 0; i < (int)GM_BODY_NAMES_COUNT; i++) {
+			const char *nm = gm_body_names[i].name;
+			int dup = 0;
+			for (j = 0; j < i; j++) {
+				if (strcasecmp(gm_body_names[j].name, nm) == 0) {
+					dup = 1;
+					break;
+				}
+			}
+			if (dup)
+				continue;
+			int len = (int)strlen(nm);
+			if (pos + len + 3 > (int)sizeof(line)) {
+				CPlayer_SystemMessage(player, line);
+				pos = 0;
+			}
+			if (pos > 0) {
+				line[pos++] = ',';
+				line[pos++] = ' ';
+			}
+			memcpy(line + pos, nm, len);
+			pos += len;
+			line[pos] = '\0';
+		}
+		if (pos > 0)
+			CPlayer_SystemMessage(player, line);
+		return;
+	}
+	if (strcmp(cmd, "morph") == 0 && CPlayer_IsEditing(player)) {
+		char msg[120];
+		snprintf(msg, sizeof(msg), "Body=0x%04X. Usage: .morph <id|name|off>", player->mobile.container.item.resourceEntity.entity.bodyType);
+		CPlayer_SystemMessage(player, msg);
+		return;
+	}
+	if (strncmp(cmd, "morph ", 6) == 0 && CPlayer_IsEditing(player)) {
+		const char *arg = cmd + 6;
+		int bodyType = -1;
+		char msg[120];
+
+		if (strcasecmp(arg, "off") == 0 || strcasecmp(arg, "none") == 0 || strcmp(arg, "0") == 0) {
+			bodyType = (int)player->mobile.sex + 0x190;
+		} else if (isdigit((unsigned char)arg[0]) || arg[0] == '-' || (arg[0] == '0' && arg[1] == 'x')) {
+			int n;
+			if (sscanf(arg, "%i", &n) == 1 && n > 0 && n < 0x10000)
+				bodyType = n;
+		} else {
+			// Multiple bodies can share a name (e.g. dragon = 12 or 59
+			// because the DRAGONS define expanded to both). Collect every
+			// exact match and pick one at random so the choice mirrors the
+			// weighted random the binary uses when spawning the template.
+			// Fall back to a prefix match if no exact match exists.
+			int matches[GM_BODY_NAMES_COUNT];
+			int nMatches = 0;
+			int i;
+			for (i = 0; i < (int)GM_BODY_NAMES_COUNT; i++) {
+				if (strcasecmp(gm_body_names[i].name, arg) == 0)
+					matches[nMatches++] = gm_body_names[i].id;
+			}
+			if (nMatches == 0) {
+				int argLen = (int)strlen(arg);
+				if (argLen >= 3) {
+					for (i = 0; i < (int)GM_BODY_NAMES_COUNT; i++) {
+						if (strncasecmp(gm_body_names[i].name, arg, argLen) == 0)
+							matches[nMatches++] = gm_body_names[i].id;
+					}
+				}
+			}
+			if (nMatches > 0)
+				bodyType = matches[GetRandomRange(0, nMatches - 1)];
+		}
+
+		if (bodyType < 0) {
+			CPlayer_SystemMessage(player, "Body not found");
+			return;
+		}
+
+		CItem *self = (CItem *)&player->mobile;
+		CEntity_SetBodyType(self, (uint16_t)bodyType);
+		if (!self->resourceEntity.entity.removedFromWorld) {
+			((void (*)(void *))VT_FN(self, VT_HIDE))(self);
+			((void (*)(void *))VT_FN(self, VT_RETURN_TO_TRACKED))(self);
+		}
+		snprintf(msg, sizeof(msg), "Body set to 0x%04X", (uint16_t)bodyType);
 		CPlayer_SystemMessage(player, msg);
 		return;
 	}
