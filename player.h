@@ -237,7 +237,7 @@ void ItemMap_Remove(CItem *entity); // 0x0045599C
 void GetNearbyPlayers(CVector *list, CLocation *loc, int range); // 0x004559C0
 int CountPlayersInRange(CLocation *loc, int range); // 0x004559E7
 void GetNearbyPlayersExclude(CVector *list, CLocation *loc, int range, CItem *exclude); // 0x00455A0A
-void CollectMovementVisibility(CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range); // 0x00455A35
+void CollectMovementVisibility(CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range); // 0x00455A35
 void CPlayer_BusyMessage(CPlayer *this, int busyType); // 0x00455A99
 int CPlayer_IsBusy(CPlayer *this); // 0x00455AFD
 int CPlayer_HasTargetedSerial(CMobile *this, uint32_t serial); // 0x00455B31
@@ -290,7 +290,7 @@ void CEntityMap_Remove(CEntityMap *this, CItem *entity, int x, int y); // 0x0045
 int CEntityMap_CountInRange(CEntityMap *this, int16_t x, int16_t y, int range); // 0x004572B0
 void CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range, CItem *exclude); // 0x00457480
 void CEntityMap_CollectMovementVisibility(
-        CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range); // 0x00457660
+        CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range); // 0x00457660
 int ChebyshevDistXY(int x1, int y1, int x2, int y2); // 0x004578B0
 int CEntityMap_GetBlockIdx(CEntityMap *this, int x, int y); // 0x00457C80
 void CEntityMap_RangeQuery(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range); // 0x00457DC0

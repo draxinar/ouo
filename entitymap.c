@@ -21,13 +21,16 @@ CEntityMap *g_NPCMap;
 /*
  * 0x00457920 - CEntityMap::CollectMovementVisibilityExclude
  *
- * Partitions entities within range of the old and new positions into
- * removeList (still visible), insertList (newly visible), and overlapList
- * (only visible at old position), skipping the exclude entity.
+ * Classifies entities by visibility change for a mover stepping to a
+ * new position from an old one, skipping the exclude entity. Callers
+ * pass the mover's post-move position first and pre-move position
+ * second. removeList: in range of both (stays visible). insertList:
+ * in range of the new position only (enters visibility). overlapList:
+ * in range of the old position only (leaves visibility).
  */
 void
 CEntityMap_CollectMovementVisibilityExclude(
-        CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range, CItem *exclude)
+        CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range, CItem *exclude)
 {
 	int startBlockX, endBlockX, startBlockY, endBlockY;
 	int blockIdx, rowWidth;
@@ -35,16 +38,16 @@ CEntityMap_CollectMovementVisibilityExclude(
 	int extent;
 	StdPtrNode *iter, *endNode, *copyIter, *tmpIter;
 
-	extent = range + ChebyshevDistXY(oldX, oldY, newX, newY);
+	extent = range + ChebyshevDistXY(newX, newY, oldX, oldY);
 
-	startBlockX = (oldX - extent) >> this->blockShift;
+	startBlockX = (newX - extent) >> this->blockShift;
 	startBlockX -= this->originX;
-	endBlockX = (oldX + extent) >> this->blockShift;
+	endBlockX = (newX + extent) >> this->blockShift;
 	endBlockX -= this->originX;
 
-	startBlockY = (oldY - extent) >> this->blockShift;
+	startBlockY = (newY - extent) >> this->blockShift;
 	startBlockY -= this->originY;
-	endBlockY = (oldY + extent) >> this->blockShift;
+	endBlockY = (newY + extent) >> this->blockShift;
 	endBlockY -= this->originY;
 
 	if (startBlockX < 0)
@@ -73,19 +76,19 @@ CEntityMap_CollectMovementVisibilityExclude(
 
 				{
 					void *entity = *StdPtrIter_Deref(&iter);
-					int distOld;
+					int distNew;
 
 					if (entity == (void *)exclude)
 						goto next_excl;
 
-					distOld = CMobile_DistXY(entity, oldX, oldY);
+					distNew = CMobile_DistXY(entity, newX, newY);
 
-					if (distOld <= range) {
-						int distNew;
+					if (distNew <= range) {
+						int distOld;
 
-						distNew = CMobile_DistXY(entity, newX, newY);
+						distOld = CMobile_DistXY(entity, oldX, oldY);
 
-						if (distNew <= range) {
+						if (distOld <= range) {
 							void *e = *StdPtrIter_Deref(&iter);
 							CVector_PushBack(removeList, (uintptr_t)e);
 						} else {
@@ -93,11 +96,11 @@ CEntityMap_CollectMovementVisibilityExclude(
 							CVector_PushBack(insertList, (uintptr_t)e);
 						}
 					} else {
-						int distNew;
+						int distOld;
 
-						distNew = CMobile_DistXY(entity, newX, newY);
+						distOld = CMobile_DistXY(entity, oldX, oldY);
 
-						if (distNew <= range) {
+						if (distOld <= range) {
 							void *e = *StdPtrIter_Deref(&iter);
 							CVector_PushBack(overlapList, (uintptr_t)e);
 						}

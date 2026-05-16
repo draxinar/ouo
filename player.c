@@ -66,7 +66,7 @@ static int CPlayer_IsFriendAllowed(CPlayer *this, CPlayer *other); // 0x0045489D
 static void CPlayer_ToggleWarMode(CPlayer *this, int warFlag); // 0x00454905
 static void CollectContainerScripts(CItem *container, CVector *vec); // 0x00455654
 static void CollectMovementVisibilityExclude(
-        CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range, CItem *exclude); // 0x00455A65
+        CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range, CItem *exclude); // 0x00455A65
 static void StaticInit_LoginScriptList(void); // 0x0045A733
 static int CItem_GetMurderCount(CItem *entity); // 0x0048FFAA
 
@@ -2844,8 +2844,11 @@ DoMove(CItem *this, int direction, int isPlayer, uint8_t sequence)
 	CVector_Constructor(&insertList, "");
 	CVector_Constructor(&overlapList, "");
 
+	// Binary passes the post-move position first, pre-move second
+	// (DoMove @ 0x00454113): insertList then holds players newly in
+	// range and overlapList players no longer in range.
 	CollectMovementVisibilityExclude(
-	        &removeList, &insertList, &overlapList, (int)(int16_t)oldLoc.x, (int)(int16_t)oldLoc.y, (int)(int16_t)newLoc.x, (int)(int16_t)newLoc.y, 0x12, exclude);
+	        &removeList, &insertList, &overlapList, (int)(int16_t)newLoc.x, (int)(int16_t)newLoc.y, (int)(int16_t)oldLoc.x, (int)(int16_t)oldLoc.y, 0x12, exclude);
 
 	// Ghost visibility filtering
 	if (VT_IsDead(this)) {
@@ -3787,13 +3790,14 @@ GetNearbyPlayersExclude(CVector *list, CLocation *loc, int range, CItem *exclude
 /*
  * 0x00455A35 - CollectMovementVisibility
  *
- * Classifies nearby players by visibility change during movement:
- * removeList stays in range, insertList leaves, overlapList enters.
+ * Classifies nearby players by visibility change during movement. The
+ * mover's post-move position is passed first, pre-move second:
+ * removeList stays in range, insertList enters, overlapList leaves.
  */
 void
-CollectMovementVisibility(CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range)
+CollectMovementVisibility(CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range)
 {
-	CEntityMap_CollectMovementVisibility(g_ItemMap, removeList, insertList, overlapList, oldX, oldY, newX, newY, range);
+	CEntityMap_CollectMovementVisibility(g_ItemMap, removeList, insertList, overlapList, newX, newY, oldX, oldY, range);
 }
 
 /*
@@ -3803,9 +3807,9 @@ CollectMovementVisibility(CVector *removeList, CVector *insertList, CVector *ove
  * moving player itself).
  */
 static void
-CollectMovementVisibilityExclude(CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range, CItem *exclude)
+CollectMovementVisibilityExclude(CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range, CItem *exclude)
 {
-	CEntityMap_CollectMovementVisibilityExclude(g_ItemMap, removeList, insertList, overlapList, oldX, oldY, newX, newY, range, exclude);
+	CEntityMap_CollectMovementVisibilityExclude(g_ItemMap, removeList, insertList, overlapList, newX, newY, oldX, oldY, range, exclude);
 }
 
 /*
@@ -5045,12 +5049,15 @@ CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int16_t x, int16_t
 /*
  * 0x00457660 - CEntityMap::CollectMovementVisibility
  *
- * Classifies entities around an old position into three lists by
- * visibility change: removeList (stays in range), insertList (leaves),
- * overlapList (enters).
+ * Classifies entities by visibility change for a mover stepping to a
+ * new position from an old one. Callers pass the mover's post-move
+ * position first and pre-move position second. removeList: in range
+ * of both (stays visible). insertList: in range of the new position
+ * only (enters visibility). overlapList: in range of the old position
+ * only (leaves visibility).
  */
 void
-CEntityMap_CollectMovementVisibility(CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int oldX, int oldY, int newX, int newY, int range)
+CEntityMap_CollectMovementVisibility(CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range)
 {
 	int startBlockX, endBlockX, startBlockY, endBlockY;
 	int blockIdx, rowWidth;
@@ -5058,16 +5065,16 @@ CEntityMap_CollectMovementVisibility(CEntityMap *this, CVector *removeList, CVec
 	int extent;
 	StdPtrNode *iter, *endNode, *copyIter, *tmpIter;
 
-	extent = range + ChebyshevDistXY(oldX, oldY, newX, newY);
+	extent = range + ChebyshevDistXY(newX, newY, oldX, oldY);
 
-	startBlockX = (oldX - extent) >> this->blockShift;
+	startBlockX = (newX - extent) >> this->blockShift;
 	startBlockX -= this->originX;
-	endBlockX = (oldX + extent) >> this->blockShift;
+	endBlockX = (newX + extent) >> this->blockShift;
 	endBlockX -= this->originX;
 
-	startBlockY = (oldY - extent) >> this->blockShift;
+	startBlockY = (newY - extent) >> this->blockShift;
 	startBlockY -= this->originY;
-	endBlockY = (oldY + extent) >> this->blockShift;
+	endBlockY = (newY + extent) >> this->blockShift;
 	endBlockY -= this->originY;
 
 	// Clamp to grid bounds
@@ -5097,16 +5104,16 @@ CEntityMap_CollectMovementVisibility(CEntityMap *this, CVector *removeList, CVec
 
 				{
 					void *entity = *StdPtrIter_Deref(&iter);
-					int distOld;
+					int distNew;
 
-					distOld = CMobile_DistXY(entity, oldX, oldY);
+					distNew = CMobile_DistXY(entity, newX, newY);
 
-					if (distOld <= range) {
-						int distNew;
+					if (distNew <= range) {
+						int distOld;
 
-						distNew = CMobile_DistXY(entity, newX, newY);
+						distOld = CMobile_DistXY(entity, oldX, oldY);
 
-						if (distNew <= range) {
+						if (distOld <= range) {
 							void *e = *StdPtrIter_Deref(&iter);
 							CVector_PushBack(removeList, (uintptr_t)e);
 						} else {
@@ -5114,11 +5121,11 @@ CEntityMap_CollectMovementVisibility(CEntityMap *this, CVector *removeList, CVec
 							CVector_PushBack(insertList, (uintptr_t)e);
 						}
 					} else {
-						int distNew;
+						int distOld;
 
-						distNew = CMobile_DistXY(entity, newX, newY);
+						distOld = CMobile_DistXY(entity, oldX, oldY);
 
-						if (distNew <= range) {
+						if (distOld <= range) {
 							void *e = *StdPtrIter_Deref(&iter);
 							CVector_PushBack(overlapList, (uintptr_t)e);
 						}
