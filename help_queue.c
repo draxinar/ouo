@@ -130,6 +130,8 @@ static void GM_TargetInfo(CPlayer *player, uint8_t type, uint32_t serial, uint16
 static void GM_TargetScripts(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetResources(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetAIState(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
+static void GM_ApplyForageMode(CPlayer *player, CItem *target, int enable);
+static void GM_TargetForageMode(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetFreeze(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetUnfreeze(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetMute(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
@@ -300,6 +302,9 @@ static struct {
 
 // Custom - aiState value pending for the next .aistate target
 static int g_PendingAIState;
+
+// Custom - on/off value pending for the next .foragemode target
+static int g_PendingForageMode;
 
 /*
  * Target kinds for GM_TargetSet (.set <target> <value>).
@@ -2287,6 +2292,35 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
 		SendPacketToPlayer(player, tbuf, -1);
 		CPlayer_SystemMessage(player, "Select mobile");
+		return;
+	}
+
+	// Custom: .foragemode [0xSERIAL] [0|1] - bias an NPC to roll
+	// SEEK_DESIRES from IDLE every tick (a test aid for the unforced
+	// ecology loop). With a leading 0x... serial, acts directly;
+	// otherwise opens a target cursor. The optional trailing 0|1
+	// disables or enables it (default enable).
+	if ((strcmp(cmd, "foragemode") == 0 || strncmp(cmd, "foragemode ", 11) == 0) && CPlayer_IsEditing(player)) {
+		const char *args = (cmd[10] == ' ') ? cmd + 11 : "";
+		uint32_t tgtSerial;
+		int onoff = 1;
+		if (sscanf(args, "0x%x %d", &tgtSerial, &onoff) >= 1) {
+			CItem *tgt = CWorld_FindBySerial(g_World, tgtSerial);
+			if (tgt == NULL || !VT_IsNPC(tgt)) {
+				CPlayer_SystemMessage(player, "foragemode: NPC not found");
+				return;
+			}
+			GM_ApplyForageMode(player, tgt, onoff);
+			return;
+		}
+		int bareOnoff = 1;
+		sscanf(args, "%d", &bareOnoff);
+		g_PendingForageMode = bareOnoff;
+		uint8_t tbuf[20];
+		player->targetCallback = GM_TargetForageMode;
+		PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
+		SendPacketToPlayer(player, tbuf, -1);
+		CPlayer_SystemMessage(player, "Select NPC for foragemode");
 		return;
 	}
 
@@ -4339,6 +4373,50 @@ GM_TargetAIState(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uin
 	char msg[96];
 	snprintf(msg, sizeof(msg), "aiState=%u", (unsigned)npc->aiState);
 	CPlayer_SystemMessage(player, msg);
+}
+
+/*
+ * Custom - GM_ApplyForageMode
+ *
+ * Sets the "foragemode" objvar on an NPC. While it is non-zero,
+ * CNPC_HandleStates makes the NPC roll SEEK_DESIRES from IDLE every
+ * tick instead of the binary's 50% gate - a test aid that drives the
+ * unforced ecology forage loop without forcing the aiState directly.
+ */
+static void
+GM_ApplyForageMode(CPlayer *player, CItem *target, int enable)
+{
+	char msg[96];
+
+	CEntity_SetObjVar(target, "foragemode", 0, (uintptr_t)(enable ? 1 : 0));
+	snprintf(msg, sizeof(msg), "foragemode 0x%08X: %s", target->serial, enable ? "ON" : "OFF");
+	CPlayer_SystemMessage(player, msg);
+}
+
+/*
+ * Custom - GM_TargetForageMode
+ *
+ * Targeting callback for .foragemode: applies the staged on/off value
+ * (g_PendingForageMode) to the picked NPC.
+ */
+static void
+GM_TargetForageMode(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z)
+{
+	USED(type);
+	USED(x);
+	USED(y);
+	USED(z);
+	player->targetCallback = NULL;
+	if (serial == 0) {
+		CPlayer_SystemMessage(player, "Cancelled");
+		return;
+	}
+	CItem *target = CWorld_FindBySerial(g_World, serial);
+	if (target == NULL || !VT_IsNPC(target)) {
+		CPlayer_SystemMessage(player, "Target must be an NPC");
+		return;
+	}
+	GM_ApplyForageMode(player, target, g_PendingForageMode);
 }
 
 static void

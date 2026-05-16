@@ -4101,6 +4101,22 @@ CNPC_HandleStates(CNPC *npc)
 			}
 		}
 
+		// Custom test aid (FEAT_ECOLOGY): an NPC tagged via the GM
+		// .foragemode command always rolls SEEK_DESIRES from IDLE, so
+		// the natural forage -> carry -> deposit loop can be exercised
+		// without the binary's 50% gate. The scan, pursuit, pickup,
+		// carry-home and deposit all still run unforced - only the
+		// random roll is replaced.
+		if (feat(FEAT_ECOLOGY)) {
+			int forageMode = 0;
+			CResourceEntity_GetTagInt((CItem *)npc, "foragemode", &forageMode);
+			if (forageMode > 0) {
+				CNPC_ShouldProcess(npc);
+				CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
+				goto state_switch;
+			}
+		}
+
 		// All paths fall through to state switch via jmp 0x004a9ce0.
 		{
 			int roll = GetRandomRange(1, 10);
