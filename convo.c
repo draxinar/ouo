@@ -20,6 +20,7 @@
 #include "convo.h"
 #include "filemanager.h"
 #include "io.h"
+#include "log.h"
 #include "multi.h"
 #include "npc.h"
 #include "player.h"
@@ -885,6 +886,11 @@ CConversationManager_LoadDefines(CConversationManager *this)
  *
  * Parses fragment.lst (up to 127 entries) and loads each referenced .frg
  * file. Returns 0 on success, 1 on error.
+ *
+ * MODIFIED: the binary aborts the entire conversation load on the first
+ * malformed .frg file, so one bad file silently disables all NPC
+ * conversation. Instead, a fragment that fails to parse is logged and
+ * skipped, and the remaining fragments still load.
  */
 int
 CConversationManager_LoadFragments(CConversationManager *this)
@@ -945,8 +951,11 @@ CConversationManager_LoadFragments(CConversationManager *this)
 
 	for (i = 0; i < fragCount; i++) {
 		if (CConversationManager_LoadFragment(this, fragNames[i]) != 0) {
-			err = 1;
-			break;
+			// MODIFIED: log the malformed fragment; the loop keeps
+			// loading the remaining fragments.
+			char errMsg[160];
+			snprintf(errMsg, sizeof(errMsg), "fragment '%s' failed to parse near line %d - skipping", fragNames[i], this->lineNumber);
+			EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "convo", "misc", errMsg);
 		}
 	}
 
