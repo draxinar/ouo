@@ -36,6 +36,18 @@
 #include "wombat_compile.h"
 #include "world.h"
 
+/*
+ * Custom - CNPC.resourceAITarget discriminator (FEAT_ECOLOGY).
+ *
+ * resourceAITarget was a 0/1 flag; value NPC_RESTGT_MOBILE marks a
+ * player pickpocket target, so CNPC_PurseDesiresHandler routes it to
+ * the pickpocket path instead of the item-consume path. Value 2 is
+ * truthy, so existing if (resourceAITarget) tests are unaffected.
+ */
+#define NPC_RESTGT_NONE   0
+#define NPC_RESTGT_ITEM   1
+#define NPC_RESTGT_MOBILE 2
+
 static int CNPC_IsAversionTarget(CItem *self, CItem *target); // 0x00432300
 static int CNPC_IsPredatorTarget(CItem *self, CItem *target); // 0x004323A5
 static int CNPC_CanPackTarget(CItem *self, CItem *target); // 0x00432401
@@ -48,6 +60,7 @@ static void CNPC_DepositScavengedAtShelter(CItem *self); // Custom
 static void CNPC_SeekShelterHandler(CNPC *npc); // Custom
 static void CNPC_SeekDesiresHandler(CNPC *npc); // Custom
 static void CNPC_PurseDesiresHandler(CNPC *npc); // Custom
+static void CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target); // Custom
 static int CNPC_GetPowerLevel(CItem *entity); // 0x00432C65
 #ifndef CUSTOM_ECOLOGY_DEBUG
 __attribute__((unused))
@@ -6486,6 +6499,72 @@ CNPC_SeekShelterHandler(CNPC *npc)
 	CNPC_SetState(npc, NPC_STATE_PURSE_SHELTER);
 }
 
+/* Custom - pickpocket pursuit/cooldown windows, in AI ticks. */
+#define PICKPOCKET_PURSUE_TIMEOUT 120
+#define PICKPOCKET_COOLDOWN       90
+
+/*
+ * Custom - CNPC_TickSlotStore / CNPC_TickSlotLoad
+ *
+ * Pack a 32-bit AI tick stamp (npc->tickCount) into an otherwise-dead
+ * CLocation save field (desireLoc / lastDesireLoc). Lets the pickpocket
+ * pursuit timeout and re-rob cooldown work with no new struct field or
+ * save-format change. CLocation.x/.y are uint16_t; the dead fields init
+ * to (0xFFFF, 0xFFFF), which loads as 0xFFFFFFFF - the "never" sentinel.
+ */
+static void
+CNPC_TickSlotStore(CLocation *slot, uint32_t tick)
+{
+	slot->x = (uint16_t)tick;
+	slot->y = (uint16_t)(tick >> 16);
+}
+
+static uint32_t
+CNPC_TickSlotLoad(const CLocation *slot)
+{
+	return (uint32_t)slot->x | ((uint32_t)slot->y << 16);
+}
+
+/*
+ * Custom - CNPC_PickpocketCoolingDown
+ *
+ * True while this thief is within PICKPOCKET_COOLDOWN AI ticks of its
+ * last pickpocket attempt (stamped in lastDesireLoc). Keeps a thief
+ * from re-targeting a nearby player on its next SEEK_DESIRES roll.
+ */
+static int
+CNPC_PickpocketCoolingDown(CNPC *npc)
+{
+	uint32_t last = CNPC_TickSlotLoad(&npc->lastDesireLoc);
+
+	if (last == 0xFFFFFFFFu)
+		return 0;
+	return (npc->tickCount - last) < PICKPOCKET_COOLDOWN;
+}
+
+/*
+ * Custom - CNPC_IsPickpocketMark
+ *
+ * True when `ent` is a valid pickpocket mark for desire `pref`: a
+ * live, visible player carrying gold, `pref` is a positive GOLD
+ * desire, and this thief is not on pickpocket cooldown.
+ */
+static int
+CNPC_IsPickpocketMark(CNPC *npc, CItem *ent, CResourceNode *pref)
+{
+	if (!VT_IsPlayer(ent))
+		return 0;
+	if (pref->value2 <= 0 || (int)pref->id != g_ResTypeId_Gold)
+		return 0;
+	if (VT_IsHidden(ent) || VT_IsDead(ent))
+		return 0;
+	if (CMobile_GetTotalQuantityOfType((CMobile *)ent, 0xEED) <= 0)
+		return 0;
+	if (CNPC_PickpocketCoolingDown(npc))
+		return 0;
+	return 1;
+}
+
 /*
  * Custom - CNPC_SeekDesiresHandler
  *
@@ -6528,6 +6607,7 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 	CItem *desireCandidates[10];
 	uint8_t desireIds[10];
 	uint8_t desireRates[10];
+	uint8_t desireIsMobile[10];
 	int desireDist[10];
 	int desireCount;
 	CItem *aversionTarget;
@@ -6569,6 +6649,34 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 					ent = ent->spatialNext;
 					continue;
 				}
+				if (VT_IsPlayer(ent)) {
+					// Custom: a gold-carrying player is a pickpocket
+					// desire candidate, evaluated directly here. The
+					// per-pref item/aversion loop below breaks on the
+					// first matching pref, so a player matching an
+					// earlier aversion pref never reaches the GOLD
+					// desire. Players are not item/aversion targets,
+					// so they skip that loop entirely.
+					for (pref = self->resourceEntity.firstChild; pref != NULL; pref = pref->next) {
+						if (pref->type != 2 || (int)pref->id != g_ResTypeId_Gold)
+							continue;
+						if (!CNPC_IsPickpocketMark(npc, ent, pref))
+							continue;
+						if (desireCount < 10) {
+							int pdx = (int)(int16_t)ent->resourceEntity.entity.location.x - selfX;
+							int pdy = (int)(int16_t)ent->resourceEntity.entity.location.y - selfY;
+							desireCandidates[desireCount] = ent;
+							desireIds[desireCount] = (uint8_t)pref->id;
+							desireRates[desireCount] = (uint8_t)(pref->value1 > 0 ? pref->value1 : 1);
+							desireIsMobile[desireCount] = 1;
+							desireDist[desireCount] = (pdx < 0 ? -pdx : pdx) + (pdy < 0 ? -pdy : pdy);
+							desireCount++;
+						}
+						break;
+					}
+					ent = ent->spatialNext;
+					continue;
+				}
 				for (pref = self->resourceEntity.firstChild; pref != NULL; pref = pref->next) {
 					if (pref->type != 2 || pref->id == 0)
 						continue;
@@ -6594,6 +6702,7 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 						desireCandidates[desireCount] = ent;
 						desireIds[desireCount] = (uint8_t)pref->id;
 						desireRates[desireCount] = (uint8_t)(pref->value1 > 0 ? pref->value1 : 1);
+						desireIsMobile[desireCount] = 0;
 						desireDist[desireCount] = dist;
 						desireCount++;
 					}
@@ -6629,19 +6738,111 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 	npc->resourceTargetSerial = desireCandidates[chosen]->serial;
 	npc->resourceType = desireIds[chosen];
 	npc->resourceRate = desireRates[chosen];
-	npc->resourceAITarget = 1;
 	CLocation_SetLoc(&npc->patrolTarget, &desireCandidates[chosen]->resourceEntity.entity.location);
-	// Walker arrival (AITickStep) re-dispatches via SetState(ltype).
-	// Without pointing ltype at PURSE_DESIRES, the dragon walks to the
-	// pile, then drops into whatever state StartWander had cached (IDLE
-	// or WANDER), and PurseDesiresHandler never runs. stateInfo2 is the
-	// fallback when the walk stalls out of range; route that to IDLE so
-	// a stuck dragon doesn't cycle forever against an unreachable pile.
 	npc->ltype = NPC_STATE_PURSE_DESIRES;
-	npc->stateInfo2 = NPC_STATE_IDLE;
 	npc->isWalking = 1;
+	if (desireIsMobile[chosen]) {
+		// Custom: pickpocket pursuit of a gold-carrying player.
+		// stateInfo2 also routes to PURSE_DESIRES - a moving player
+		// stalls the walker most ticks, and the stall must re-enter
+		// the pursuit so CNPC_PurseDesiresPickpocket can re-target.
+		// desireLoc stamps the pursuit-start tick for the timeout.
+		npc->resourceAITarget = NPC_RESTGT_MOBILE;
+		npc->stateInfo2 = NPC_STATE_PURSE_DESIRES;
+		CNPC_TickSlotStore(&npc->desireLoc, npc->tickCount);
+	} else {
+		// Walker arrival (AITickStep) re-dispatches via SetState(ltype).
+		// Without pointing ltype at PURSE_DESIRES, the dragon walks to the
+		// pile, then drops into whatever state StartWander had cached (IDLE
+		// or WANDER), and PurseDesiresHandler never runs. stateInfo2 is the
+		// fallback when the walk stalls out of range; route that to IDLE so
+		// a stuck dragon doesn't cycle forever against an unreachable pile.
+		npc->resourceAITarget = NPC_RESTGT_ITEM;
+		npc->stateInfo2 = NPC_STATE_IDLE;
+	}
 	Entity_ExecuteEvent(&self->resourceEntity.entity, 0x0C, (uintptr_t)npc->resourceTargetSerial); // founddesire
 	CNPC_SetState(npc, NPC_STATE_PURSE_DESIRES);
+}
+
+/*
+ * Custom - CNPC_PurseDesiresPickpocket
+ *
+ * FEAT_ECOLOGY pickpocket pursuit - the mobile-target arm of
+ * NPC_STATE_PURSE_DESIRES. CNPC_SeekDesiresHandler picks a
+ * gold-carrying player as a desire candidate; this follows the
+ * (moving) player and, on reaching them, fires the acquiredesire
+ * event so thief.m steals 5% of their gold. Unlike the item-consume
+ * path it never drains a resource node or drops a hoard pile.
+ *
+ *   1. Abort to IDLE if the victim is gone, dead, no longer a
+ *      player, no longer carrying gold, or the pursuit timed out.
+ *   2. Re-snapshot patrolTarget onto the victim's current tile each
+ *      tick so the walker chases a moving player.
+ *   3. On adjacency, fire acquiredesire (0x34) with the victim
+ *      serial. thief.m runs takeMoney/barkTo/runAway/setCriminal;
+ *      runAway sets aiState=RUNAWAY so the thief flees. The cooldown
+ *      is stamped before the fire so a Thieves'-Guild no-op steal
+ *      still cools down.
+ */
+static void
+CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target)
+{
+	CItem *self = (CItem *)npc;
+	uint32_t victimSerial;
+	int dist;
+
+	// Abort: victim logged out, despawned, died, the serial was
+	// recycled onto a non-player, or the pockets are now empty.
+	if (target == NULL || target->resourceEntity.entity.removedFromWorld != 0 || !VT_IsPlayer(target) || VT_IsDead(target) ||
+	        CMobile_GetTotalQuantityOfType((CMobile *)target, 0xEED) <= 0) {
+		npc->resourceTargetSerial = 0;
+		npc->resourceAITarget = NPC_RESTGT_NONE;
+		npc->isWalking = 0;
+		CNPC_SetState(npc, NPC_STATE_IDLE);
+		return;
+	}
+
+	// Pursuit timeout: bound an endless chase of a fleeing player.
+	if (npc->tickCount - CNPC_TickSlotLoad(&npc->desireLoc) > PICKPOCKET_PURSUE_TIMEOUT) {
+		npc->resourceTargetSerial = 0;
+		npc->resourceAITarget = NPC_RESTGT_NONE;
+		npc->isWalking = 0;
+		CNPC_SetState(npc, NPC_STATE_IDLE);
+		return;
+	}
+
+	dist = Location_WrappedChebyshevDistance(&target->resourceEntity.entity.location, &self->resourceEntity.entity.location);
+
+	if (dist > 1) {
+		// Not adjacent: re-target the victim's current tile and keep
+		// chasing. ltype and stateInfo2 both route back to PURSE so
+		// walker arrival and walker stall both re-enter this handler.
+		CLocation_SetLoc(&npc->patrolTarget, &target->resourceEntity.entity.location);
+		npc->ltype = NPC_STATE_PURSE_DESIRES;
+		npc->stateInfo2 = NPC_STATE_PURSE_DESIRES;
+		npc->isWalking = 1;
+		return;
+	}
+
+	// Adjacent: pickpocket. Skip the node-drain/hoard/deposit path.
+	victimSerial = npc->resourceTargetSerial;
+	CNPC_TickSlotStore(&npc->lastDesireLoc, npc->tickCount);
+	npc->resourceTargetSerial = 0;
+	npc->resourceAITarget = NPC_RESTGT_NONE;
+	npc->isWalking = 0;
+
+	// thief.m's acquiredesire trigger runs takeMoney/barkTo/
+	// stopFollowing/runAway/setCriminal; runAway sets aiState=RUNAWAY.
+	Entity_ExecuteEvent(&self->resourceEntity.entity, 0x34, (uintptr_t)victimSerial); // acquiredesire
+	if (npc != g_currentNPC)
+		return;
+	CNPC_ShouldProcess(npc);
+
+	// Respect the script-driven flee; only loop back to SEEK_DESIRES
+	// if the script left the thief in PURSE (e.g. a guild-member
+	// no-op steal that never called runAway).
+	if (npc->aiState == NPC_STATE_PURSE_DESIRES)
+		CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
 }
 
 /*
@@ -6694,6 +6895,15 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 	}
 
 	target = CWorld_FindBySerial(g_World, npc->resourceTargetSerial);
+
+	// Custom: a player pickpocket target routes to the pursuit/steal
+	// path, which is allowed to act on a mobile (the item path below
+	// bails on any mobile target).
+	if (npc->resourceAITarget == NPC_RESTGT_MOBILE) {
+		CNPC_PurseDesiresPickpocket(npc, target);
+		return;
+	}
+
 	if (target == NULL || ((int (*)(void *))VT_ENT_FN(&target->resourceEntity.entity, VT_IS_MOBILE))(target) != 0 || target->resourceEntity.entity.removedFromWorld != 0) {
 		CNPC_SetState(npc, NPC_STATE_IDLE);
 		return;

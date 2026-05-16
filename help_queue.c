@@ -4284,16 +4284,22 @@ GM_TargetResources(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, u
 		CPlayer_SystemMessage(player, msg);
 	}
 
+	if (VT_IsMobile(target) && !VT_IsNPC(target)) {
+		snprintf(msg, sizeof(msg), "MobGold gold=%u", (unsigned)CMobile_GetTotalQuantityOfType((CMobile *)target, 0xEED));
+		CPlayer_SystemMessage(player, msg);
+	}
+
 	if (VT_IsNPC(target)) {
 		CNPC *npc = (CNPC *)target;
-		snprintf(msg, sizeof(msg), "NpcState state=%u walking=%u aitgt=%u rtype=%u rsrc=0x%08X action=0x%08X", (unsigned)npc->aiState, (unsigned)npc->isWalking,
-		        (unsigned)npc->resourceAITarget, (unsigned)npc->resourceType, (unsigned)npc->resourceTargetSerial, (unsigned)npc->actionTarget);
+		snprintf(msg, sizeof(msg), "NpcState state=%u walking=%u aitgt=%u rtype=%u rsrc=0x%08X action=0x%08X criminal=%u", (unsigned)npc->aiState, (unsigned)npc->isWalking,
+		        (unsigned)npc->resourceAITarget, (unsigned)npc->resourceType, (unsigned)npc->resourceTargetSerial, (unsigned)npc->actionTarget,
+		        (unsigned)CMobile_IsCriminal(&npc->mobile));
 		CPlayer_SystemMessage(player, msg);
 		snprintf(msg, sizeof(msg), "NpcHome x=%d y=%d z=%d loiter=%d,%d scanTimer=%u hoard=%u", (int)(int16_t)npc->homeLoc.x, (int)(int16_t)npc->homeLoc.y,
 		        (int)(int16_t)npc->homeLoc.z, (int)(int16_t)npc->loiterLoc.x, (int)(int16_t)npc->loiterLoc.y, (unsigned)npc->scanTimer, (unsigned)npc->homeInfo3);
 		CPlayer_SystemMessage(player, msg);
-		snprintf(msg, sizeof(msg), "NpcBody stomach=%u hunger=%u cap=%u tick=%u", (unsigned)npc->mobile.stomach, (unsigned)npc->mobile.hunger,
-		        (unsigned)npc->hungerCapacity, (unsigned)npc->tickCount);
+		snprintf(msg, sizeof(msg), "NpcBody stomach=%u hunger=%u cap=%u tick=%u gold=%u", (unsigned)npc->mobile.stomach, (unsigned)npc->mobile.hunger,
+		        (unsigned)npc->hungerCapacity, (unsigned)npc->tickCount, (unsigned)CMobile_GetTotalQuantityOfType(&npc->mobile, 0xEED));
 		CPlayer_SystemMessage(player, msg);
 		snprintf(msg, sizeof(msg), "NpcPos x=%d y=%d z=%d", (int)(int16_t)target->resourceEntity.entity.location.x, (int)(int16_t)target->resourceEntity.entity.location.y,
 		        (int)(int8_t)target->resourceEntity.entity.location.z);
