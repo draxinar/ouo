@@ -598,13 +598,11 @@ Combat_PlaySwingAnimation(CMobile *mob, CItem *weapon, CMobile *target)
 	backward = 0;
 	repeat = 0;
 
+	if (mob != NULL && target != NULL)
+		CEntity_GetBodyType((CItem *)mob); // result unused in binary
+
 	if (mob == NULL)
 		return;
-	if (target == NULL)
-		return;
-
-	CEntity_GetBodyType((CItem *)mob); // result unused in binary
-
 	if (CWorld_FindBySerial(g_World, mob->container.item.serial) != (CItem *)mob)
 		return;
 	if (mob->container.item.resourceEntity.entity.removedFromWorld)
