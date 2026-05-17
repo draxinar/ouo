@@ -1950,8 +1950,10 @@ CCombatEventList g_CombatEventList; // 0x006990A8
 /*
  * 0x004603B9 - CCombatEventList::AddNode
  *
- * Appends a new CCombatEventNode(mob, name) to the tail. Returns 0 on
- * success or -1 if the 10000-iteration safety guard tripped.
+ * Adds a new CCombatEventNode(mob, name) to the list. Returns 0 when the
+ * list was empty and the node becomes the head, or -1 when the node is
+ * appended after an existing tail. -1 is also returned, with the node
+ * left unlinked, if the 10000-iteration walk guard trips.
  */
 int
 CCombatEventList_AddNode(CCombatEventList *list, CMobile *mob, const char *name)
