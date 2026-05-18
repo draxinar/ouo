@@ -17,6 +17,7 @@
 
 #include "account.h"
 #include "blockmanager.h"
+#include "chat.h"
 #include "container.h"
 #include "containerhandle.h"
 #include "dynamic.h"
@@ -463,6 +464,10 @@ Server_Init(void)
 
 	// CUSTOM: populate light tables (BSS-zeroed in binary, never written).
 	LightTables_Init();
+
+	// CUSTOM: chat system - seed the default conference.
+	if (feat(FEAT_CHAT))
+		Chat_Init();
 
 	// CUSTOM: watchdog subsystem.
 	Watchdog_Init();

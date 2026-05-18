@@ -28,6 +28,7 @@ static void generateSalt(uint8_t *salt);
 static void computePassHash(const uint8_t *salt, const char *password, uint8_t *out);
 static void hexEncode(const uint8_t *data, int len, char *out);
 static int hexDecode(const char *hex, uint8_t *out, int len);
+static void copyChatName(char *dst, const char *src);
 
 #define ACCOUNT_HASH_SIZE 64
 
@@ -98,6 +99,31 @@ hexDecode(const char *hex, uint8_t *out, int len)
 }
 
 /*
+ * Custom - copyChatName
+ *
+ * Copies the optional trailing chat-name field of an access.list line into
+ * a 32-byte account field. The chat name is the last field and may contain
+ * spaces, so it is taken as the rest of the line: leading whitespace is
+ * skipped, the line terminator and trailing spaces are stripped.
+ */
+static void
+copyChatName(char *dst, const char *src)
+{
+	int i;
+
+	while (*src == ' ' || *src == '\t')
+		src++;
+	i = 0;
+	while (src[i] != '\0' && src[i] != '\n' && src[i] != '\r' && i < 31) {
+		dst[i] = src[i];
+		i++;
+	}
+	while (i > 0 && dst[i - 1] == ' ')
+		i--;
+	dst[i] = '\0';
+}
+
+/*
  * Custom - Account_Init
  */
 void
@@ -127,7 +153,8 @@ Account_LoadAll(void)
 		return 0;
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
-		if (sscanf(line, "%30s %127s %u %u %u", login, credential, &accountNum, &flags, &plevel) != 5)
+		int consumed = 0;
+		if (sscanf(line, "%30s %127s %u %u %u%n", login, credential, &accountNum, &flags, &plevel, &consumed) != 5)
 			continue;
 
 		CAccount *acct = malloc(sizeof(CAccount));
@@ -136,6 +163,7 @@ Account_LoadAll(void)
 		acct->accountNum = accountNum;
 		acct->flags = flags;
 		acct->plevel = (uint8_t)plevel;
+		copyChatName(acct->chatName, line + consumed);
 
 		char *colon = strchr(credential, ':');
 		if (colon != NULL && colon - credential == 16 && strlen(colon + 1) == 64) {
@@ -185,7 +213,10 @@ Account_SaveAll(void)
 		for (acct = accountHash[i]; acct != NULL; acct = acct->next) {
 			hexEncode(acct->salt, 8, saltHex);
 			hexEncode(acct->passHash, 32, hashHex);
-			fprintf(fp, "%s %s:%s %u %u %u\n", acct->login, saltHex, hashHex, acct->accountNum, acct->flags, (unsigned)acct->plevel);
+			if (acct->chatName[0] != '\0')
+				fprintf(fp, "%s %s:%s %u %u %u %s\n", acct->login, saltHex, hashHex, acct->accountNum, acct->flags, (unsigned)acct->plevel, acct->chatName);
+			else
+				fprintf(fp, "%s %s:%s %u %u %u\n", acct->login, saltHex, hashHex, acct->accountNum, acct->flags, (unsigned)acct->plevel);
 		}
 	}
 
@@ -217,13 +248,15 @@ Account_ReloadAll(void)
 	}
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
-		if (sscanf(line, "%30s %127s %u %u %u", login, credential, &accountNum, &flags, &plevel) != 5)
+		int consumed = 0;
+		if (sscanf(line, "%30s %127s %u %u %u%n", login, credential, &accountNum, &flags, &plevel, &consumed) != 5)
 			continue;
 
 		CAccount *acct = Account_FindByLogin(login);
 		if (acct != NULL) {
 			acct->flags = flags;
 			acct->plevel = (uint8_t)plevel;
+			copyChatName(acct->chatName, line + consumed);
 			char *colon = strchr(credential, ':');
 			if (colon != NULL && colon - credential == 16 && strlen(colon + 1) == 64) {
 				hexDecode(credential, acct->salt, 8);
@@ -240,6 +273,7 @@ Account_ReloadAll(void)
 			acct->accountNum = accountNum;
 			acct->flags = flags;
 			acct->plevel = (uint8_t)plevel;
+			copyChatName(acct->chatName, line + consumed);
 			hexDecode(credential, acct->salt, 8);
 			hexDecode(colon + 1, acct->passHash, 32);
 
@@ -304,6 +338,45 @@ Account_FindByNum(uint32_t accountNum)
 }
 
 /*
+ * Custom - Account_FindByChatName
+ *
+ * Returns the account whose persistent chat nickname matches chatName
+ * (case-insensitive), or NULL. Used to enforce globally-unique chat
+ * nicknames when a player first picks one.
+ */
+CAccount *
+Account_FindByChatName(const char *chatName)
+{
+	int i;
+
+	if (chatName == NULL || chatName[0] == '\0')
+		return NULL;
+
+	for (i = 0; i < ACCOUNT_HASH_SIZE; i++) {
+		CAccount *acct;
+		for (acct = accountHash[i]; acct != NULL; acct = acct->next) {
+			if (strcasecmp(acct->chatName, chatName) == 0)
+				return acct;
+		}
+	}
+	return NULL;
+}
+
+/*
+ * Custom - Account_SetChatName
+ *
+ * Stores a player's chat nickname on the account and persists access.list.
+ * The nickname is account-scoped and set once; callers enforce immutability.
+ */
+void
+Account_SetChatName(CAccount *acct, const char *chatName)
+{
+	strncpy(acct->chatName, chatName, 31);
+	acct->chatName[31] = '\0';
+	Account_SaveAll();
+}
+
+/*
  * Custom - Account_CheckPassword
  */
 int
@@ -332,6 +405,7 @@ Account_Create(const char *login, const char *password)
 	acct->accountNum = nextAccountNum++;
 	acct->flags = 0;
 	acct->plevel = 0;
+	acct->chatName[0] = '\0';
 
 	bucket = hashLogin(acct->login);
 	acct->next = accountHash[bucket];

@@ -2452,3 +2452,22 @@ PacketManager_MakePacket_ACCT_LOGIN_FAIL(uint8_t *buf, uint8_t reason)
 	PutPacketType(buf, PacketType_ACCT_LOGIN_FAIL, 2);
 	return PutByte(buf, reason);
 }
+
+/*
+ * Custom - PacketManager::MakePacket_CHAT_MSG
+ *
+ * Builds a CHAT_MSG (0xB2) server-to-client packet. The wire layout mirrors
+ * the 1.25.37 client's PacketManager::HandlePacket(PDSTRUCT_CHAT_MSG) parser
+ * at client address 0x0807e378: a 16-bit command/message number, a 4-byte
+ * language field (zero from the server), then two big-endian UTF-16
+ * NUL-terminated parameter strings. UoDemo.exe has no chat packet builder.
+ */
+void
+PacketManager_MakePacket_CHAT_MSG(uint8_t *buf, uint16_t number, const char *param1, const char *param2)
+{
+	PutPacketType(buf, PacketType_CHAT_MSG, 0x1000);
+	PutWord(buf, number);
+	PutDWord(buf, 0);
+	PutUnicodeBE(buf, param1 != NULL ? param1 : "");
+	PutUnicodeBE(buf, param2 != NULL ? param2 : "");
+}

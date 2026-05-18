@@ -33,6 +33,7 @@ struct CAccount {
 	uint32_t flags;
 	uint8_t plevel;         // 0=player, 1=counselor, 2=GM
 	uint8_t _pad_plevel[3];
+	char chatName[32];      // CUSTOM: persistent UO chat nickname, "" = unset
 #if __SIZEOF_POINTER__ == 8
 	uint32_t _pad64;        // 64-bit alignment pad
 #endif
@@ -53,6 +54,8 @@ void Account_ReloadAll(void);
 void Account_SaveAll(void);
 CAccount *Account_FindByLogin(const char *login);
 CAccount *Account_FindByNum(uint32_t accountNum);
+CAccount *Account_FindByChatName(const char *chatName);
+void Account_SetChatName(CAccount *acct, const char *chatName);
 int Account_CheckPassword(CAccount *acct, const char *password);
 CAccount *Account_Create(const char *login, const char *password);
 CAccount *Account_FindOrCreate(const char *login, const char *password);

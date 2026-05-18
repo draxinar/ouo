@@ -67,6 +67,7 @@ The demo binary shipped with many subsystems stubbed out or disconnected. Custom
 - Keyword teleporters
 - House commands
 - GM commands
+- Chat: conference-based in-game chat, introduced with client 1.25.34 (August 16, 1998)
 - New skills: Meditation (Feb 2, 1999), Stealth (Feb 24, 1999), Remove Trap (Feb 24, 1999)
 - Stability fixes: crashes, buffer overflows, uninitialized variables
 - Gameplay fixes: skill gain, fame/notoriety direction, spawn density

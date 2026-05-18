@@ -32,5 +32,7 @@ void WriteInt32LE(char **cursor, int32_t value); // 0x004B38E6
 void WriteInt16LE(char **cursor, int16_t value); // 0x004B39D2
 int32_t ReadInt32LE(char **cursor); // 0x004B3A48
 int16_t ReadInt16LE(char **cursor); // 0x004B3A88
+void GetUnicodeBE(uint8_t *buf, uint32_t *off, char *dst, int cap); // Custom
+void PutUnicodeBE(uint8_t *buf, const char *str); // Custom
 
 #endif /* PACKET_UTILS_H_ */

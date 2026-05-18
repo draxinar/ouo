@@ -763,3 +763,47 @@ ReadInt16LE(char **cursor)
 	*cursor += 2;
 	return val;
 }
+
+/*
+ * Custom - GetUnicodeBE
+ *
+ * Reads a big-endian UTF-16 NUL-terminated string at offset *off inside a
+ * packet payload, down-converting each 16-bit code unit to a single ASCII
+ * byte, and advances *off past the 16-bit terminator. Writes at most cap-1
+ * bytes plus a NUL into dst; a malformed string with no terminator is
+ * bounded so it cannot run away. The UO chat packets (0xB2/0xB3/0xB5)
+ * carry every string in this encoding.
+ */
+void
+GetUnicodeBE(uint8_t *buf, uint32_t *off, char *dst, int cap)
+{
+	int i;
+	int guard;
+	uint16_t ch;
+
+	i = 0;
+	for (guard = 0; guard < 4096; guard++) {
+		GetWord(buf, off, &ch);
+		if (ch == 0)
+			break;
+		if (i < cap - 1)
+			dst[i++] = (char)ch;
+	}
+	dst[i] = '\0';
+}
+
+/*
+ * Custom - PutUnicodeBE
+ *
+ * Appends an ASCII string as big-endian UTF-16 with a 16-bit NUL
+ * terminator at the current packet offset.
+ */
+void
+PutUnicodeBE(uint8_t *buf, const char *str)
+{
+	int i;
+
+	for (i = 0; str[i] != '\0'; i++)
+		PutWord(buf, (uint16_t)(uint8_t)str[i]);
+	PutWord(buf, 0);
+}

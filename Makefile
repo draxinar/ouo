@@ -36,6 +36,7 @@ OFILES=\
 	blockmanager.o\
 	blowfish.o\
 	book.o\
+	chat.o\
 	combat.o\
 	config.o\
 	container.o\
@@ -129,6 +130,7 @@ HFILES=\
 	blowfish.h\
 	book.h\
 	channel.h\
+	chat.h\
 	combat.h\
 	config.h\
 	container.h\

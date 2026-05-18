@@ -20,6 +20,7 @@
 #include "account.h"
 #include "bboard.h"
 #include "book.h"
+#include "chat.h"
 #include "combat.h"
 #include "container.h"
 #include "dynamic.h"
@@ -6214,6 +6215,14 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		break;
 	case PacketType_GumpMenuSelection:
 		HandlePacket_GumpMenuSelection(this, buf);
+		break;
+	case PacketType_CHAT_TEXT:
+		if (feat(FEAT_CHAT))
+			HandlePacket_CHAT_TEXT(this, buf);
+		break;
+	case PacketType_CHAT_OPEN:
+		if (feat(FEAT_CHAT))
+			HandlePacket_CHAT_OPEN(this, buf);
 		break;
 	case PacketType_SKILLS:
 		if (feat(FEAT_SKILL_LOCK))

@@ -16,6 +16,7 @@
 
 #include "account.h"
 #include "anim.h"
+#include "chat.h"
 #include "combat.h"
 #include "container.h"
 #include "corpse.h"
@@ -960,6 +961,10 @@ CPlayer_Destructor(CPlayer *this)
 		g_PlayerList.savedIterNext = this->next;
 
 	CPlayer_CancelTrade(this);
+
+	// CUSTOM: remove the player from the chat system (no binary equivalent).
+	if (feat(FEAT_CHAT))
+		Chat_OnPlayerDisconnect(this);
 
 	CPlayerList_RemovePlayer(this);
 

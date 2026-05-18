@@ -272,5 +272,6 @@ uint16_t PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf);
 uint16_t PacketManager_MakePacket_USER_SERVER(uint8_t *buf, uint16_t numBritannia, uint16_t port, uint32_t authSeed);
 uint16_t PacketManager_MakePacket_FEATURES(uint8_t *buf);
 uint16_t PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, uint8_t numCharacters, char *characterNames, char *characterPasswords);
+void PacketManager_MakePacket_CHAT_MSG(uint8_t *buf, uint16_t number, const char *param1, const char *param2);
 
 #endif /* PACKET_MANAGER_H_ */
