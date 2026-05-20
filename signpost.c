@@ -40,7 +40,7 @@ CSignpost_Constructor(CSignpost *this)
 	CEntity_SetType(&this->item.resourceEntity.entity, ETYPE_SIGNPOST);
 	g_SignpostCount++;
 	this->vectHead = NULL;
-	this->_sp_pad54 = 0;
+	this->lockOwner = NULL;
 	this->mapExtent[0] = 0;
 	this->mapExtent[1] = 0;
 	this->mapExtent[2] = 0;

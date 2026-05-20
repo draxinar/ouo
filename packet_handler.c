@@ -5091,7 +5091,7 @@ HandlePacket_NEW_TERR(CPlayer *this, uint8_t *buf)
  * Reads: serial(DWord), command(Byte), arg(Byte), x(Word), y(Word).
  * FindEntityInRange(serial, 0x12), vtable[0xE0] (VT_IS_SPATIAL) check.
  *
- * Command 6: toggle lockOwner at entity+0x54 (CContainer.lockOwner).
+ * Command 6: toggle CSignpost.lockOwner.
  *   Stale check: lockOwner->removedFromWorld (byte offset 6). Respond
  *   with cmd 7 (granted/released) or cmd 8 (denied) via SendToClient.
  *
@@ -5107,7 +5107,7 @@ HandlePacket_MAP_COMMAND(CPlayer *this, uint8_t *buf)
 	uint8_t command, arg;
 	uint16_t plotX, plotY;
 	CItem *entity;
-	CContainer *cont;
+	CSignpost *map;
 	CPlayer *lockOwner;
 	uint8_t obuf[16];
 
@@ -5126,20 +5126,20 @@ HandlePacket_MAP_COMMAND(CPlayer *this, uint8_t *buf)
 		return;
 
 	if ((command & 0xFF) == 6) {
-		cont = (CContainer *)entity;
-		lockOwner = cont->lockOwner;
+		map = (CSignpost *)entity;
+		lockOwner = map->lockOwner;
 
 		// lockOwner offset 6 (CEntity.removedFromWorld)
 		if (lockOwner != NULL && lockOwner->mobile.container.item.resourceEntity.entity.removedFromWorld) {
-			cont->lockOwner = NULL;
+			map->lockOwner = NULL;
 		}
 
-		if (cont->lockOwner == NULL) {
-			cont->lockOwner = this;
+		if (map->lockOwner == NULL) {
+			map->lockOwner = this;
 			PacketManager_MakePacket_MAP_COMMAND(obuf, serial, 7, 1, 0, 0);
 			SendToClient((CItem *)this, obuf, -1);
-		} else if (cont->lockOwner == (CPlayer *)this) {
-			cont->lockOwner = NULL;
+		} else if (map->lockOwner == (CPlayer *)this) {
+			map->lockOwner = NULL;
 			PacketManager_MakePacket_MAP_COMMAND(obuf, serial, 7, 0, 0, 0);
 			SendToClient((CItem *)this, obuf, -1);
 		} else {
@@ -5147,11 +5147,11 @@ HandlePacket_MAP_COMMAND(CPlayer *this, uint8_t *buf)
 			SendToClient((CItem *)this, obuf, -1);
 		}
 	} else {
-		cont = (CContainer *)entity;
-		if (cont->lockOwner != (CPlayer *)this)
+		map = (CSignpost *)entity;
+		if (map->lockOwner != (CPlayer *)this)
 			return;
 
-		PlotOnMap((CSignpost *)entity, command, arg, plotX, plotY);
+		PlotOnMap(map, command, arg, plotX, plotY);
 
 		PacketManager_MakePacket_MAP_COMMAND(obuf, serial, command, arg, plotX, plotY);
 		CPlayerList_BroadcastInRange(obuf, &this->mobile.container.item.resourceEntity.entity.location, 0x12, this);
