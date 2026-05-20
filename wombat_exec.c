@@ -13588,23 +13588,23 @@ Script_getNameByType(CString *dest, int typeId)
 /*
  * 0x00419661 - getX
  *
- * Returns the x component of loc.
+ * Returns the x component of loc, sign-extended.
  */
 int
 Script_getX(const CLocation *loc)
 {
-	return (int)loc->x;
+	return (int)(int16_t)loc->x;
 }
 
 /*
  * 0x0041966C - getY
  *
- * Returns the y component of loc.
+ * Returns the y component of loc, sign-extended.
  */
 int
 Script_getY(const CLocation *loc)
 {
-	return (int)loc->y;
+	return (int)(int16_t)loc->y;
 }
 
 /*
