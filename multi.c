@@ -1191,7 +1191,7 @@ CMultiManager_SaveToMul(CResManager *this)
 		CSearchCtx_Add(&searchCtx, &findBuf);
 
 		if (!CSearchCtx_Find(&searchCtx)) {
-			keyPtr += 4;
+			keyPtr += sizeof(uintptr_t);
 			continue;
 		}
 
@@ -1260,7 +1260,7 @@ CMultiManager_SaveToMul(CResManager *this)
 		free(dataBuf);
 		count++;
 
-		keyPtr += 4;
+		keyPtr += sizeof(uintptr_t);
 	}
 
 	// Pad remaining slots to 0x1000
@@ -1824,7 +1824,7 @@ CMultiManager_RecycleMulti(CResManager *this, int bodyType, CMultiSlave *slave, 
 	defPtr = (CMultiComponentDef *)def->components.begin;
 	serialPtr = (char *)oldSerials.begin;
 
-	// Main loop: pointer-stride 0x1C for defs, 4 for old serials
+	// Main loop: pointer-stride 0x1C for defs, pointer-sized for old serials
 	while ((char *)defPtr != (char *)def->components.end) {
 		item = NULL;
 		if (serialPtr != (char *)oldSerials.end) {
@@ -1903,7 +1903,7 @@ CMultiManager_RecycleMulti(CResManager *this, int bodyType, CMultiSlave *slave, 
 
 		defPtr++;
 		if (serialPtr != (char *)oldSerials.end)
-			serialPtr += 4;
+			serialPtr += sizeof(uintptr_t);
 	}
 
 	// Cleanup: delete excess old components
@@ -1914,7 +1914,7 @@ CMultiManager_RecycleMulti(CResManager *this, int bodyType, CMultiSlave *slave, 
 				((void (*)(void *))VT_FN(item, VT_DELETE))(item);
 			}
 		}
-		serialPtr += 4;
+		serialPtr += sizeof(uintptr_t);
 	}
 
 	// Recalculate range
@@ -1987,7 +1987,7 @@ CMultiManager_MoveMultiInternal(CResManager *this, uint16_t typeId, CMultiSlave 
 	defPtr = (CMultiComponentDef *)def->components.begin;
 	serialPtr = (char *)oldSerials.begin;
 
-	// Main loop: pointer-stride 0x1C for defs, 4 for old serials
+	// Main loop: pointer-stride 0x1C for defs, pointer-sized for old serials
 	while ((char *)defPtr != (char *)def->components.end) {
 		item = NULL;
 		if (serialPtr != (char *)oldSerials.end) {
@@ -2060,7 +2060,7 @@ CMultiManager_MoveMultiInternal(CResManager *this, uint16_t typeId, CMultiSlave 
 
 		defPtr++;
 		if (serialPtr != (char *)oldSerials.end)
-			serialPtr += 4;
+			serialPtr += sizeof(uintptr_t);
 	}
 
 	// Cleanup: delete excess old components
@@ -2071,7 +2071,7 @@ CMultiManager_MoveMultiInternal(CResManager *this, uint16_t typeId, CMultiSlave 
 				((void (*)(void *))VT_FN(item, VT_DELETE))(item);
 			}
 		}
-		serialPtr += 4;
+		serialPtr += sizeof(uintptr_t);
 	}
 
 	// VT_DETACH_SPATIAL on owner (binary: unconditional)
@@ -2476,7 +2476,7 @@ CMultiManager_ValidateComponents(CResManager *this, CVector *itemList, int moveT
 		if (!(CTerrainManager_CheckMoveBlocked(item->resourceEntity.entity.location, height, moveType, NULL, 0) & 4))
 			return 0;
 
-		ptr += 4;
+		ptr += sizeof(uintptr_t);
 	}
 
 	return 1;
