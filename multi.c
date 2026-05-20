@@ -888,8 +888,14 @@ CMultiSlave_Move(CMultiSlave *slave, CLocation *loc)
 /*
  * 0x00474E77 - CMultiSlave::MoveCheck
  *
- * Like Move, but validates the destination first; on failure restores
- * the owner and carried items to their previous positions.
+ * MODIFIED: like Move, but validates the destination first; on failure
+ * restores the owner and carried items to their previous positions.
+ * With FEAT_BOAT_MAPSWITCH a Felucca-side wrap-teleport (Q5CP wrapped
+ * by CLocation_MoveDir to the opposite world edge) is detected before
+ * validation and rerouted through CMultiSlave_MapSwitchMove_Wrap; this
+ * keeps boats wrapping correctly even when the playable area extends
+ * past Felucca's 0x1400 / 0x1000 thresholds (as it must in the demo,
+ * which uses x>=0x1400 for dungeon coordinates).
  */
 int
 CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
@@ -899,6 +905,27 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 	CItem *ownerItem;
 	int result;
 	char typeFlag = 0;
+
+	if (feat(FEAT_BOAT_MAPSWITCH) && slave->carry != 0) {
+		CItem *owner = (CItem *)slave->base.ownerItem;
+		if (owner != NULL) {
+			CLocation *ownerLoc = &owner->resourceEntity.entity.location;
+			if ((int16_t)ownerLoc->x < 0x1400) {
+				int dx = (int16_t)loc->x - (int16_t)ownerLoc->x;
+				int dy = (int16_t)loc->y - (int16_t)ownerLoc->y;
+				if (dx < 0)
+					dx = -dx;
+				if (dy < 0)
+					dy = -dy;
+				// Mirror CLocation_ComputeDelta's wrap markers: a
+				// naive distance past Felucca's half-width / -height
+				// is the signature of moveDir having wrapped Q5CP
+				// across the seam.
+				if (dx > 0x0A00 || dy > 0x0800)
+					return CMultiSlave_MapSwitchMove_Wrap(slave, loc);
+			}
+		}
+	}
 
 	CVector_Constructor(&itemList, &typeFlag);
 
