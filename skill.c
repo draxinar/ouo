@@ -675,6 +675,10 @@ CMobile_SkillGain(CMobile *mob, int8_t skillId, int chanceFactor, int gainPercen
 	}
 
 	gainAmount = chanceFactor * advanceRate / 1000;
+	if (feat(FEAT_SKILL_GAINFIX) && baseSkill < 1000 && chanceFactor > 0 && advanceRate > 0 && gainAmount == 0) {
+		// Post-demo skill gain fix: keep every below-GM skill technically trainable.
+		gainAmount = 1;
+	}
 
 	// Custom: fast progression multiplier (-fast N).
 	gainAmount *= g_GainMultiplier;
