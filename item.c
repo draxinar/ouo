@@ -665,6 +665,31 @@ CItem_HasResourceFlag(CItem *item)
 }
 
 /*
+ * 0x0045E5D4 - CResourceEntity::GetResourceAmount (vtable[0xA0])
+ *
+ * Sums value1 across all type-3 resource nodes matching resourceId. Used
+ * by CItem_HasPositiveResources, which dispatches via the template slot's
+ * vtable: slot lookups hit this overload and report the template's
+ * required quantity (value1), while item lookups hit the CItem variant
+ * below and report the live stack quantity (value3).
+ */
+int
+CResourceEntity_GetResourceAmount(CItem *item, uint16_t resourceId)
+{
+	CResourceNode *node;
+	int total;
+
+	total = 0;
+	node = item->resourceEntity.firstChild;
+	while (node != NULL) {
+		if (node->type == 3 && node->id == resourceId)
+			total += node->value1;
+		node = node->next;
+	}
+	return total;
+}
+
+/*
  * 0x0045E636 - CItem::GetResourceAmount (vtable[0xA0])
  *
  * Sums value3 across all type-3 resource nodes matching resourceId.

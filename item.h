@@ -175,6 +175,7 @@ void CItem_DecayTick(CItem *item); // 0x0045932E
 void CItem_PlaceInWorld(CItem *item, int placeFlag); // 0x004594D4
 int CItem_TryEquipOnMobile(CItem *item, CItem *mob); // 0x0045B850
 int CItem_HasResourceFlag(CItem *item); // 0x0045E57D
+int CResourceEntity_GetResourceAmount(CItem *item, uint16_t resourceId); // 0x0045E5D4
 int CItem_GetResourceAmount(CItem *item, uint16_t resourceId); // 0x0045E636
 int CItem_HasPositiveResources(CItem *self); // 0x0045E698
 int CItem_HasResourceRecipe(CItem *item); // 0x0045E70F

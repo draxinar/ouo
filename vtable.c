@@ -186,6 +186,10 @@ VT_Init(void)
 	g_vtable_CResourceEntity.fn[VT_DTOR / 4] = (vfunc_t)CResourceEntity_ScalarDelete;
 	// Delete: slot 36 (0x90) = 0x004850D3 CResourceEntity_Delete
 	g_vtable_CResourceEntity.fn[VT_DELETE / 4] = (vfunc_t)CResourceEntity_Delete;
+	// GetResourceAmount: slot 40 (0xA0) = 0x0045E5D4. Sums value1 (the
+	// template's required quantity) rather than CItem's value3. Used when
+	// CItem_HasPositiveResources dispatches via the template slot's vtable.
+	g_vtable_CResourceEntity.fn[VT_GET_RESOURCE_AMT / 4] = (vfunc_t)CResourceEntity_GetResourceAmount;
 	// CheckDC: slot 55 (0xDC) = 0x00432260 (overrides CEntity)
 	g_vtable_CResourceEntity.fn[VT_CHECK_DC / 4] = (vfunc_t)CResourceEntity_CheckDC_VT;
 	// CheckEC: slot 59 (0xEC) = 0x004866C7 (reuses CEntity CheckDC)
