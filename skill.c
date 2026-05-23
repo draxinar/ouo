@@ -675,6 +675,13 @@ CMobile_SkillGain(CMobile *mob, int8_t skillId, int chanceFactor, int gainPercen
 	}
 
 	gainAmount = chanceFactor * advanceRate / 1000;
+	if (baseSkill < 1000 && advanceRate > 0 && gainAmount == 0) {
+		// FIXED: clamp truncation hole to 1 so all skills can reach 100.
+		// Ultima Online Patch Notes for 11/10/1998
+		// "It will be possible to reach 100 in any skill.
+		// Previously, some skills couldn’t reach 100."
+		gainAmount = 1;
+	}
 
 	// Custom: fast progression multiplier (-fast N).
 	gainAmount *= g_GainMultiplier;
