@@ -2689,6 +2689,10 @@ LocationInTemplateSubRegion(uint16_t templateId, int16_t x, int16_t y)
  * SpawnAtPoint deliberately has no density check (it is the binary's
  * "direct spawn here" API used by scripts), so without this gate the
  * queue compounds spawns beyond cap on every cycle.
+ *
+ * Cap mirrors CResBankRegion_SpawnInSubRegion: min(regionlimit, area /
+ * 2560) when both are set, regionlimit when area is too small to
+ * contribute, 1 when both are 0.
  */
 int
 DensityAtCapForRespawn(uint16_t templateId, int16_t x, int16_t y)
@@ -2715,6 +2719,8 @@ DensityAtCapForRespawn(uint16_t templateId, int16_t x, int16_t y)
 		return 0;
 
 	for (j = 0; j < entry->numSubRegions; j++) {
+		int dx, dy, areaCount;
+
 		sub = (SubRegion *)((char *)region->templateDb + entry->subRegionIds[j] * sizeof(SubRegion));
 		if ((int)x < (int)sub->x1 || (int)x > (int)sub->x2)
 			continue;
@@ -2722,14 +2728,16 @@ DensityAtCapForRespawn(uint16_t templateId, int16_t x, int16_t y)
 			continue;
 
 		cap = entry->scalingWts[j];
-		if (cap == 0) {
-			int dx = (int)sub->x2 - (int)sub->x1;
-			int dy = (int)sub->y2 - (int)sub->y1;
-			int area = dx * dy;
-			cap = area / 0xA00;
-			if (cap <= 0)
-				cap = 1;
-		}
+		dx = (int)sub->x2 - (int)sub->x1;
+		dy = (int)sub->y2 - (int)sub->y1;
+		areaCount = (dx * dy) / 2560;
+
+		// Same cap formula as CResBankRegion_SpawnInSubRegion:
+		// min(regionlimit, max(1, areaCount)).
+		if (areaCount < 1)
+			areaCount = 1;
+		if (cap == 0 || cap > areaCount)
+			cap = areaCount;
 
 		existing = CountMobilesInBox(templateId, (int)sub->x1, (int)sub->y1, (int)sub->z1, (int)sub->x2, (int)sub->y2, (int)sub->z2);
 		return existing >= cap;
@@ -2741,25 +2749,26 @@ DensityAtCapForRespawn(uint16_t templateId, int16_t x, int16_t y)
 /*
  * 0x004AFC4B - CResBankRegion::SpawnInSubRegion
  *
- * Picks a random sub-region from entry, caps density via the scalingWts
- * or the area-based formula, counts existing mobiles of templateId (and
- * its paired id offset 1000), and spawns a new mob at a random point
- * inside the box (or at the midpoint when noWander is set).
+ * Picks a random sub-region from entry, caps density via
+ * min(regionlimit, max(1, area / 2560)) for non-SCALING sub-regions,
+ * counts existing mobiles of templateId (and its paired id offset
+ * 1000), and spawns a new mob at a random point inside the box (or at
+ * the midpoint when noWander is set).
  *
- * FIXED - Binary bug: area formula overrides regionlimit. The binary
- * unconditionally sets count = area/2560, ignoring the per-template
- * regionlimit (scalingWts). Use area/2560 only as a fallback when
- * scalingWts is 0.
- *
- * FIXED - Binary bug: shopkeeper accumulation in small sub-regions.
- * For small non-regionlimit boxes the density check is skipped, so
- * noWander shops (excluded from DEFCON) accumulate forever. When
- * noWander is set and count is still 0 after the area formula, force
- * count=1.
+ * FIXED - Binary cap formula. The binary unconditionally writes
+ * count = area / 2560 for non-SCALING sub-regions, erasing the
+ * per-template regionlimit. Two visible failures: reagent templates
+ * (regionlimit FORESTNOTNEARTOWN 150 etc.) overspawn in large forest
+ * sub-regions where 150 collapses to area/2560; shopkeeper templates
+ * (regionlimit 1 in ARMORER/BAKER/... sub-regions of 64-576 tiles)
+ * duplicate without bound when area/2560 truncates to 0 and the
+ * density check is skipped. Fix: cap = min(regionlimit, areaCount)
+ * with areaCount floored at 1 so tiny boxes still get a cap.
  *
  * FIXED - Binary bug: shopkeeper multi-box sub-region density. When
  * noWander is set, check density across the union of all same-named
- * sub-regions instead of only the chosen box.
+ * sub-regions instead of only the chosen box - shops sometimes occupy
+ * multiple adjacent bboxes that the binary checks in isolation.
  */
 static CItem *
 CResBankRegion_SpawnInSubRegion(CResBankRegion *region, ResSpawnEntry *entry, int noWander)
@@ -2776,20 +2785,18 @@ CResBankRegion_SpawnInSubRegion(CResBankRegion *region, ResSpawnEntry *entry, in
 	sub = (SubRegion *)((char *)region->templateDb + subRegionIdx * sizeof(SubRegion));
 
 	if (strcmp(sub->name, "SCALING") != 0) {
-		// FIXED: only use area formula when no regionlimit is set.
-		if (count == 0) {
-			int dx, dy, area, areaCount;
-			dx = (int)sub->x2 - (int)sub->x1;
-			dy = (int)sub->y2 - (int)sub->y1;
-			area = dx * dy;
-			areaCount = area / 0xA00;
-			if (areaCount > 0)
-				count = areaCount;
-			// FIXED: shopkeeper accumulation fix for small
-			// sub-regions without regionlimit.
-			else if (noWander)
-				count = 1;
-		}
+		int dx = (int)sub->x2 - (int)sub->x1;
+		int dy = (int)sub->y2 - (int)sub->y1;
+		int areaCount = (dx * dy) / 2560;
+
+		// FIXED: cap density at min(regionlimit, max(1, areaCount)).
+		// Flooring areaCount at 1 removes the area=0 cliff where a
+		// box just under 2560 tiles would otherwise preserve the
+		// full regionlimit and a box just above would collapse to 1.
+		if (areaCount < 1)
+			areaCount = 1;
+		if (count == 0 || count > areaCount)
+			count = areaCount;
 	}
 
 	if (count != 0) {
@@ -2804,7 +2811,7 @@ CResBankRegion_SpawnInSubRegion(CResBankRegion *region, ResSpawnEntry *entry, in
 		// FIXED: union bbox for shopkeepers (noWander) in small
 		// sub-regions. Regular NPCs use individual sub-region bbox
 		// matching the binary.
-		if (noWander && ((int)sub->x2 - (int)sub->x1) * ((int)sub->y2 - (int)sub->y1) < 0xA00) {
+		if (noWander && ((int)sub->x2 - (int)sub->x1) * ((int)sub->y2 - (int)sub->y1) < 2560) {
 			int si;
 			for (si = 0; si < entry->numSubRegions; si++) {
 				SubRegion *other = (SubRegion *)((char *)region->templateDb + entry->subRegionIds[si] * sizeof(SubRegion));
@@ -3024,13 +3031,25 @@ GetSpawnLocation(ResSpawnEntry *entry, int conditional)
 /*
  * 0x004B03EF - CResBankRegion::GetExactPosition
  *
- * Returns 1 if the template is a shopkeeper and the region forbids
- * wandering - i.e. the NPC must stay at its spawn spot.
+ * Returns 1 if the template is a shopkeeper - the NPC must stay at its
+ * spawn spot (spawned at the sub-region midpoint, density-checked with
+ * the union bbox across same-named sub-regions).
+ *
+ * MODIFIED: the binary additionally required region->noWander==1, which
+ * SetRegionWanderFlags only sets when the resbank region name starts
+ * with "city". The shipped resregions.txt (a CUSTOM file in this
+ * codebase, hand-authored, not from the demo's authoritative data) uses
+ * bare names (Yew, Minoc, Britain, ...) without a city_ prefix, so the
+ * binary's check would never fire. This isn't a binary bug; it's a
+ * data-shape mismatch. Drop the region->noWander==1 half of the test as
+ * a workaround so the shopkeeper-anchored behavior activates on the
+ * shipped data.
  */
 static int
 CResBankRegion_GetExactPosition(CResBankRegion *region, NPCTemplate *tmpl)
 {
-	if (tmpl->type == 4 && region->noWander == 1)
+	USED(region);
+	if (tmpl->type == 4)
 		return 1;
 	return 0;
 }
