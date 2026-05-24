@@ -6,7 +6,8 @@ GIT_VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo 
 CFLAGS+=-Wall -Wextra -Wpedantic -O0 -g -std=c99 -pthread -D_POSIX_C_SOURCE=200809L
 CFLAGS+=-DOUO_VERSION='"$(GIT_VERSION)"'
 CFLAGS+=$(EXTRA_CFLAGS)
-LDFLAGS+=-pthread -lm
+LDFLAGS+=-pthread
+LDLIBS+=-lm
 
 ifdef M32
 CFLAGS+=-m32
@@ -222,7 +223,7 @@ HFILES=\
 all: $(TARG)
 
 $(TARG): $(OFILES) $(HFILES)
-	$(LD) $(LDFLAGS) -o $(TARG) $(OFILES)
+	$(LD) $(LDFLAGS) -o $(TARG) $(OFILES) $(LDLIBS)
 
 %.o: %.c $(HFILES)
 	$(CC) -c $(CFLAGS) $*.c
