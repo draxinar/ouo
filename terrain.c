@@ -35,7 +35,7 @@ static void CTerrainManager_ConstructorVTable(void); // 0x00469AC2
 static int CTerrainManager_IsNotWaterTile(CTerrainManager *this, int tileId); // 0x00469AD6
 static void Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *mob, int zOffset); // 0x00469AF4
 static int CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc2); // 0x0046ACC8
-static int CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int range, int height, intptr_t flags); // 0x0046B276
+static int CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob); // 0x0046B276
 static SurfaceInfo *SurfaceInfo_Constructor(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B920
 static void SurfaceInfo_Set(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B950
 static int SurfaceInfo_GetTopZ(SurfaceInfo *s); // 0x0046B990
@@ -1231,7 +1231,7 @@ CEntity_CanSee(CItem *entityA, CItem *entityB, int flags)
  * within [zMin, zMax] rings, using a shuffled direction table.
  */
 static int
-CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int range, int height, intptr_t flags)
+CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob)
 {
 	CLocation origLoc;
 	CLocation candidates[4];
@@ -1245,7 +1245,7 @@ CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin
 		if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)loc->x, (int)(int16_t)loc->y))
 			return 0;
 
-		z = CTerrainManager_CanWalkWrapper(*loc, walkZMin, walkZMax, range, height, (CItem *)flags, 0);
+		z = CTerrainManager_CanWalkWrapper(*loc, walkZMin, walkZMax, height, moveType, mob, 0);
 		if (z != -128) {
 			loc->z = (int16_t)z;
 			Location_WrappedChebyshevDistance(&origLoc, loc);
@@ -1279,7 +1279,7 @@ CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin
 				if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)loc->x, (int)(int16_t)loc->y))
 					continue;
 
-				z = CTerrainManager_CanWalkWrapper(*loc, walkZMin, walkZMax, range, height, (CItem *)flags, 0);
+				z = CTerrainManager_CanWalkWrapper(*loc, walkZMin, walkZMax, height, moveType, mob, 0);
 				if (z == -128)
 					continue;
 
@@ -1301,7 +1301,7 @@ CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin
  * an optional callback.
  */
 int
-FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, int16_t maxX, int16_t maxY, int16_t maxZ, int factor, int range, int height, intptr_t flags,
+FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, int16_t maxX, int16_t maxY, int16_t maxZ, int factor, int height, int moveType, CItem *mob,
         int (*callback)(CLocation *))
 {
 	int dx, dy, attempts;
@@ -1337,7 +1337,7 @@ FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, 
 		minLoc.z = minZ;
 		CLocation_AddWrapped(&minLoc, &candidate, &delta);
 
-		z = CTerrainManager_CanWalkWrapper(candidate, (int)minZ, (int)maxZ, range, height, (CItem *)flags, 0);
+		z = CTerrainManager_CanWalkWrapper(candidate, (int)minZ, (int)maxZ, height, moveType, mob, 0);
 
 		if (z == -128)
 			continue;
@@ -1442,9 +1442,9 @@ CTerrainManager_CanWalkWrapper(CLocation loc, int minZ, int maxZ, int height, in
  * Wrapper that forwards all args to CBlockManager_FindSpawnSpot.
  */
 int
-CBlockManager_FindSpawnSpotExt(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int range, int height, intptr_t flags)
+CBlockManager_FindSpawnSpotExt(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob)
 {
-	return CBlockManager_FindSpawnSpot(loc, walkZMin, walkZMax, zMin, zMax, range, height, flags);
+	return CBlockManager_FindSpawnSpot(loc, walkZMin, walkZMax, zMin, zMax, height, moveType, mob);
 }
 
 /*
@@ -1453,9 +1453,9 @@ CBlockManager_FindSpawnSpotExt(CLocation *loc, int walkZMin, int walkZMax, int z
  * Calls CBlockManager_FindSpawnSpotExt with walkZ bounds -128..128.
  */
 int
-FindSpawnSpot(CLocation *loc, int zMin, int zMax, int range, int height, intptr_t flags)
+FindSpawnSpot(CLocation *loc, int zMin, int zMax, int height, int moveType, CItem *mob)
 {
-	return CBlockManager_FindSpawnSpotExt(loc, -128, 128, zMin, zMax, range, height, flags);
+	return CBlockManager_FindSpawnSpotExt(loc, -128, 128, zMin, zMax, height, moveType, mob);
 }
 
 /*

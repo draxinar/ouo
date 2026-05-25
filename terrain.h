@@ -244,13 +244,13 @@ uint16_t CTerrainManager_GetLandTileID(CTerrainManager *this, int x, int y); // 
 void CTerrainManager_MovePlayer(CItem *player, int direction, uint8_t sequence); // 0x0046AA95
 int CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags); // 0x0046ADA5
 int CEntity_CanSee(CItem *entityA, CItem *entityB, int flags); // 0x0046B1E7
-int FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, int16_t maxX, int16_t maxY, int16_t maxZ, int factor, int range, int height, intptr_t flags,
+int FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, int16_t maxX, int16_t maxY, int16_t maxZ, int factor, int height, int moveType, CItem *mob,
         int (*callback)(CLocation *)); // 0x0046B4F3
 int CTerrainManager_FindEntitiesAtXYZ(int16_t x, int16_t y, int16_t zMin, int16_t zMax, CVector *result, int (*filter)(CItem *)); // 0x0046B692
 CItem *CTerrainManager_FindDoorAtLoc(CLocation *loc, int16_t minZ, int16_t maxZ); // 0x0046B75E
 int CTerrainManager_CanWalkWrapper(CLocation loc, int minZ, int maxZ, int height, int moveType, CItem *mob, int useInterpolatedZ); // 0x0046B841
-int CBlockManager_FindSpawnSpotExt(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int range, int height, intptr_t flags); // 0x0046B87E
-int FindSpawnSpot(CLocation *loc, int zMin, int zMax, int range, int height, intptr_t flags); // 0x0046B8B3
+int CBlockManager_FindSpawnSpotExt(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob); // 0x0046B87E
+int FindSpawnSpot(CLocation *loc, int zMin, int zMax, int height, int moveType, CItem *mob); // 0x0046B8B3
 void SurfaceInfo_ConstructorAlloc(CVector *this, SurfaceInfo *dest, SurfaceInfo *src); // 0x0046BE80
 void SurfaceInfo_Fill(SurfaceInfo *first, SurfaceInfo *last, SurfaceInfo *src); // 0x0046C0A0
 SurfaceInfo *SurfaceInfo_CopyFrom(SurfaceInfo *this, SurfaceInfo *src); // 0x0046C0D0

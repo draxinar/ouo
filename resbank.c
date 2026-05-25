@@ -5147,7 +5147,7 @@ parse_color:
 		{
 			int h = ((int (*)(void *))VT_FN(newEntity, VT_GET_HEIGHT))(newEntity);
 
-			if (FindSpawnSpot(&atLoc, 0, 3, h, 0, (intptr_t)newEntity)) {
+			if (FindSpawnSpot(&atLoc, 0, 3, h, 0, newEntity)) {
 				if (newEntity->resourceEntity.entity.removedFromWorld != 1) {
 					((void (*)(void *))VT_FN(newEntity, VT_HIDE))(newEntity);
 				}

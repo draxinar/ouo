@@ -2105,7 +2105,7 @@ CNPC_WalkToward(CNPC *npc, CLocation *loc)
 		return 0;
 
 	if (!CBlockManager_FindSpawnSpotExt(&localLoc, (int)loc->z - 2, (int)loc->z + 2, 0, 3, ((int (*)(void *))VT_FN((CItem *)npc, VT_GET_HEIGHT))(npc),
-	            ((int (*)(void *))VT_FN((CItem *)npc, VT_GET_MOVEMENT_TYPE))(npc) & 0xFF, (intptr_t)npc))
+	            ((int (*)(void *))VT_FN((CItem *)npc, VT_GET_MOVEMENT_TYPE))(npc) & 0xFF, (CItem *)npc))
 		return 0;
 
 	CLocation_CopyFrom(&prevLoc, ((CLocation * (*)(void *)) VT_FN((CItem *)npc, VT_GET_LOCATION))(npc));
@@ -5319,7 +5319,7 @@ CNPC_RelocateToSpawn(CNPC *npc, CLocation *spawnLoc)
 	moveType = ((int (*)(void *))VT_FN((CItem *)npc, VT_GET_MOVEMENT_TYPE))(npc) & 0xFF;
 	height = ((int (*)(void *))VT_FN((CItem *)npc, VT_GET_HEIGHT))(npc);
 
-	if (!FindSpawnSpot(&loc, 0, 2, height, moveType, (intptr_t)npc))
+	if (!FindSpawnSpot(&loc, 0, 2, height, moveType, (CItem *)npc))
 		return 0;
 
 	((void (*)(void *))VT_FN((CItem *)npc, VT_HIDE))(npc);
