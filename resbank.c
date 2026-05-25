@@ -4110,7 +4110,7 @@ ResolveRegionName(const char *name)
 	char *copy;
 
 	for (i = 0; i < g_RegionNameCount; i++) {
-		if (strcmp(name, g_RegionNames[i]) == 0)
+		if (strcasecmp(name, g_RegionNames[i]) == 0)
 			return i;
 	}
 
