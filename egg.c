@@ -780,17 +780,6 @@ CResourceTypeManager_GetId(int index)
 #define ValidateTemplateId(idx) ValidateResId((idx), "D:\\TornadoAlley\\Projects\\UltimaOnline\\area\\resbank.cxx", __LINE__)
 
 /*
- * 0x004AF0CE - STUB (always returns 1)
- * 0x004AF0DD - STUB (always returns 1)
- */
-
-/*
- * 0x004B1982 - EnsureSpawnEntriesBuilt
- *
- * Runs BuildSpawnEntries unless any map block already has an eggHead.
- */
-
-/*
  * 0x004B3180 - CEgg::CEgg
  *
  * Chains to CItem, installs the CEgg vtable, and sets ItemFlag_ServerOnly.
