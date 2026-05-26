@@ -1817,22 +1817,28 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		return;
 	}
 
-	// Custom: .hoardprime SERIAL - prime an NPC's PURSE_DESIRES state
-	// with a specific gold-resource target. The NPC must already be a
-	// hoarder-tagged creature (e.g. dragon). SERIAL is the target item
-	// (e.g. a gold pile spawned via .spawn). This shortcut lets ecology
-	// tests exercise the hoarder-drop path without waiting on the
-	// sometimes-unreliable SEEK_DESIRES scan. After calling this,
-	// .aistate 4 transitions the NPC to PURSE_DESIRES so the handler
-	// walks to the target, consumes, and fires the drop.
+	// Custom: .hoardprime NPC TARGET [RESTYPE_NAME] - prime an NPC's
+	// PURSE_DESIRES state with a desire target. The NPC must already
+	// be a hoarder-tagged creature (e.g. dragon, thief). TARGET is the
+	// target item OR a mobile (player). RESTYPE_NAME defaults to "gold"
+	// and resolves through CResourceTypeManager_FindByName - pass
+	// "jewels", "magic" etc. to test non-gold desires. This shortcut
+	// lets ecology tests exercise the hoarder-drop and player-pursuit
+	// paths without waiting on the sometimes-unreliable SEEK_DESIRES
+	// scan. After calling this, .aistate 4 transitions the NPC to
+	// PURSE_DESIRES so the handler walks to the target. A mobile
+	// target auto-sets resourceAITarget = NPC_RESTGT_MOBILE (1) so
+	// PurseDesiresHandler routes to PurseDesiresPlayer; an item target
+	// sets resourceAITarget = NPC_RESTGT_ITEM (2).
 	if (strncmp(cmd, "hoardprime ", 11) == 0 && CPlayer_IsEditing(player)) {
 		uint32_t npcSerial, targSerial;
+		char restypeName[64] = "gold";
 		int n;
-		n = sscanf(cmd + 11, "0x%x 0x%x", &npcSerial, &targSerial);
-		if (n != 2)
-			n = sscanf(cmd + 11, "%u %u", &npcSerial, &targSerial);
-		if (n != 2) {
-			CPlayer_SystemMessage(player, ".hoardprime NPC_SERIAL TARGET_SERIAL");
+		n = sscanf(cmd + 11, "0x%x 0x%x %63s", &npcSerial, &targSerial, restypeName);
+		if (n < 2)
+			n = sscanf(cmd + 11, "%u %u %63s", &npcSerial, &targSerial, restypeName);
+		if (n < 2) {
+			CPlayer_SystemMessage(player, ".hoardprime NPC_SERIAL TARGET_SERIAL [RESTYPE]");
 			return;
 		}
 		CItem *npcItem = CWorld_FindBySerial(g_World, npcSerial);
@@ -1845,16 +1851,23 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			CPlayer_SystemMessage(player, "hoardprime: target not found");
 			return;
 		}
+		CResourceType *rt = CResourceTypeManager_FindByName(restypeName);
+		if (rt == NULL) {
+			char emsg[160];
+			snprintf(emsg, sizeof(emsg), "hoardprime: unknown resource %s", restypeName);
+			CPlayer_SystemMessage(player, emsg);
+			return;
+		}
 		CNPC *npc = (CNPC *)npcItem;
 		npc->resourceTargetSerial = targSerial;
-		npc->resourceType = (uint8_t)g_ResTypeId_Gold;
+		npc->resourceType = (uint8_t)rt->typeId;
 		npc->resourceRate = 10;
-		npc->resourceAITarget = 1;
+		npc->resourceAITarget = VT_IsMobile(targItem) ? 1 : 2;
 		CLocation_SetLoc(&npc->patrolTarget, &targItem->resourceEntity.entity.location);
 		npc->isWalking = 1;
-		char msg[120];
-		snprintf(msg, sizeof(msg), "hoardprime: 0x%08X -> target 0x%08X at (%d,%d)", npcSerial, targSerial, (int)(int16_t)targItem->resourceEntity.entity.location.x,
-		        (int)(int16_t)targItem->resourceEntity.entity.location.y);
+		char msg[160];
+		snprintf(msg, sizeof(msg), "hoardprime: 0x%08X -> %s 0x%08X (rtype=%s/%d) at (%d,%d)", npcSerial, npc->resourceAITarget == 1 ? "mobile" : "item", targSerial,
+		        restypeName, rt->typeId, (int)(int16_t)targItem->resourceEntity.entity.location.x, (int)(int16_t)targItem->resourceEntity.entity.location.y);
 		CPlayer_SystemMessage(player, msg);
 		return;
 	}

@@ -65,7 +65,7 @@ static void CNPC_HoardReturnHome(CNPC *npc); // Custom
 static void CNPC_SeekShelterHandler(CNPC *npc); // Custom
 static void CNPC_SeekDesiresHandler(CNPC *npc); // Custom
 static void CNPC_PurseDesiresHandler(CNPC *npc); // Custom
-static void CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target); // Custom
+static void CNPC_PurseDesiresPlayer(CNPC *npc, CItem *target); // Custom
 static int CNPC_GetPowerLevel(CItem *entity); // 0x00432C65
 #ifndef CUSTOM_ECOLOGY_DEBUG
 __attribute__((unused))
@@ -6565,18 +6565,21 @@ CNPC_SeekShelterHandler(CNPC *npc)
 	CNPC_SetState(npc, NPC_STATE_PURSE_SHELTER);
 }
 
-/* Custom - pickpocket pursuit/cooldown windows, in AI ticks. */
-#define PICKPOCKET_PURSUE_TIMEOUT 120
-#define PICKPOCKET_COOLDOWN       90
+/* Custom - player-desire pursuit/cooldown windows, in AI ticks. Shared
+ * by every NPC that targets a player via the desire mechanism (thief
+ * stealing gold, dragon hunting a jewel-carrier, beggar following). */
+#define PLAYER_DESIRE_PURSUE_TIMEOUT 120
+#define PLAYER_DESIRE_COOLDOWN       90
 
 /*
  * Custom - CNPC_TickSlotStore / CNPC_TickSlotLoad
  *
  * Pack a 32-bit AI tick stamp (npc->tickCount) into an otherwise-dead
- * CLocation save field (desireLoc / lastDesireLoc). Lets the pickpocket
- * pursuit timeout and re-rob cooldown work with no new struct field or
- * save-format change. CLocation.x/.y are uint16_t; the dead fields init
- * to (0xFFFF, 0xFFFF), which loads as 0xFFFFFFFF - the "never" sentinel.
+ * CLocation save field (desireLoc / lastDesireLoc). Lets the
+ * player-desire pursuit timeout and re-engage cooldown work with no new
+ * struct field or save-format change. CLocation.x/.y are uint16_t; the
+ * dead fields init to (0xFFFF, 0xFFFF), which loads as 0xFFFFFFFF - the
+ * "never" sentinel.
  */
 static void
 CNPC_TickSlotStore(CLocation *slot, uint32_t tick)
@@ -6592,41 +6595,191 @@ CNPC_TickSlotLoad(const CLocation *slot)
 }
 
 /*
- * Custom - CNPC_PickpocketCoolingDown
+ * Custom - CNPC_PlayerDesireCoolingDown
  *
- * True while this thief is within PICKPOCKET_COOLDOWN AI ticks of its
- * last pickpocket attempt (stamped in lastDesireLoc). Keeps a thief
- * from re-targeting a nearby player on its next SEEK_DESIRES roll.
+ * True while this NPC is within PLAYER_DESIRE_COOLDOWN AI ticks of its
+ * last player-desire engagement (stamped in lastDesireLoc when
+ * CNPC_PurseDesiresPlayer reaches adjacency and fires acquiredesire).
+ * Keeps a thief from immediately re-pickpocketing a nearby player, and
+ * a dragon from continuously re-engaging desire pursuit after a kill /
+ * attack switch - both share the same gate.
  */
 static int
-CNPC_PickpocketCoolingDown(CNPC *npc)
+CNPC_PlayerDesireCoolingDown(CNPC *npc)
 {
 	uint32_t last = CNPC_TickSlotLoad(&npc->lastDesireLoc);
 
 	if (last == 0xFFFFFFFFu)
 		return 0;
-	return (npc->tickCount - last) < PICKPOCKET_COOLDOWN;
+	return (npc->tickCount - last) < PLAYER_DESIRE_COOLDOWN;
 }
 
 /*
- * Custom - CNPC_IsPickpocketMark
+ * Custom - DesireBodyMatch / DesireBodyMint (FEAT_ECOLOGY)
  *
- * True when `ent` is a valid pickpocket mark for desire `pref`: a
- * live, visible player carrying gold, `pref` is a positive GOLD
- * desire, and this thief is not on pickpocket cooldown.
+ * Body-type ranges that map to a desire resource. The binary has no
+ * desire system; these ranges plus the live-body fallback are how
+ * CNPC_SeekDesiresHandler and CNPC_PurseDesiresHandler classify items
+ * that don't carry an explicit <resource desire> node (e.g. gold
+ * piles dropped by a player corpse, jewel stacks created at runtime).
+ *
+ * Raph Koster: the binary's per-target nodes and the chunk egg
+ * are deliberately independent pools; the egg is regenerated
+ * by the region bank and read by NPC scans, while per-target nodes are
+ * drained by direct harvest. Items minted at runtime without explicit
+ * nodes (loose gold piles, jewel stacks) would otherwise be invisible
+ * to the desire scan; DesireBodyMatch provides the body-type fallback
+ * that catches them.
+ *
+ * DesireBodyMint resolves the inverse mapping used by PurseDesires to
+ * create a representative pile at the lair after draining a chunk-egg
+ * node.
+ *
+ * Cached typeIds are resolved on first use via
+ * CResourceTypeManager_FindByName; missing names leave the slot at 0
+ * (the desire silently no-ops, never matches).
+ */
+struct DesireBodyRange {
+	uint16_t first;
+	uint16_t last;
+	int *cachedTypeId;
+	const char *name;
+};
+
+static int s_DesireGoldId, s_DesireJewelsId, s_DesireMetalId, s_DesireMagicId;
+static int s_DesireBodiesResolved;
+
+static const struct DesireBodyRange g_DesireBodies[] = {
+	{ 0x0EED, 0x0EED, &s_DesireGoldId, "gold" },
+	{ 0x0F10, 0x0F2D, &s_DesireJewelsId, "jewels" },
+	{ 0x19B7, 0x19BA, &s_DesireMetalId, "metal" },
+	{ 0x1F14, 0x1F17, &s_DesireMagicId, "magic" },
+};
+
+static void
+DesireBodiesResolve(void)
+{
+	size_t i;
+	CResourceType *rt;
+
+	if (s_DesireBodiesResolved)
+		return;
+	for (i = 0; i < sizeof(g_DesireBodies) / sizeof(g_DesireBodies[0]); i++) {
+		rt = CResourceTypeManager_FindByName(g_DesireBodies[i].name);
+		*g_DesireBodies[i].cachedTypeId = (rt != NULL) ? rt->typeId : 0;
+	}
+	s_DesireBodiesResolved = 1;
+}
+
+/*
+ * Returns 1 when bodyId is in a range whose desire typeId matches
+ * desireTypeId. Used as a fallback when the scanned entity carries
+ * no explicit type-3 desire node.
  */
 static int
-CNPC_IsPickpocketMark(CNPC *npc, CItem *ent, CResourceNode *pref)
+DesireBodyMatch(uint16_t bodyId, int desireTypeId)
+{
+	size_t i;
+
+	if (desireTypeId <= 0)
+		return 0;
+	DesireBodiesResolve();
+	for (i = 0; i < sizeof(g_DesireBodies) / sizeof(g_DesireBodies[0]); i++) {
+		if (*g_DesireBodies[i].cachedTypeId != desireTypeId)
+			continue;
+		if (bodyId < g_DesireBodies[i].first || bodyId > g_DesireBodies[i].last)
+			continue;
+		return 1;
+	}
+	return 0;
+}
+
+/*
+ * Returns the canonical bodyId for minting a representative pile of
+ * desireTypeId, or 0 if the desire has no physical form. Gold is the
+ * `0xEED` pile (hardcoded by PurseDesires anyway); other desires
+ * resolve via the first range in g_DesireBodies whose typeId matches.
+ */
+static uint16_t
+DesireBodyMint(int desireTypeId)
+{
+	size_t i;
+
+	if (desireTypeId <= 0)
+		return 0;
+	DesireBodiesResolve();
+	for (i = 0; i < sizeof(g_DesireBodies) / sizeof(g_DesireBodies[0]); i++) {
+		if (*g_DesireBodies[i].cachedTypeId == desireTypeId)
+			return g_DesireBodies[i].first;
+	}
+	return 0;
+}
+
+/*
+ * Custom - CNPC_PlayerCarriesDesireBody
+ *
+ * True when `player` is carrying at least one item whose body matches
+ * desire typeId. Raph Koster: "seeking desires is supposed to work
+ * even for finding contents of containers -- such as players carrying
+ * gold." This is the predicate the player-desire scan uses to decide
+ * whether the player is a candidate for an NPC's positive desire.
+ *
+ *   - Gold: the binary's existing CMobile_GetTotalQuantityOfType walks
+ *     every equipment slot and every sub-container looking for the
+ *     0xEED body. This is the recursive accountant the pickpocket gate
+ *     has always used; keeping it preserves the "gold tucked in a bag
+ *     in a bag" case.
+ *   - Non-gold (jewels / metal / magic): a bounded one-level walk of
+ *     the main backpack (equipment[21]) matched against
+ *     DesireBodyMatch. Matches Raph Koster's "such as gold" framing -
+ *     the general principle is desire-driven follow into containers;
+ *     the gold case happens to use a recursive accountant because the
+ *     binary already had one for it. One level is enough to cover the
+ *     visible case (loose items in pack) without unbounded scan costs.
+ */
+static int
+CNPC_PlayerCarriesDesireBody(CItem *player, int desireTypeId)
+{
+	CItem *pack;
+	CItem *child;
+
+	if (desireTypeId <= 0)
+		return 0;
+	DesireBodiesResolve();
+	if (desireTypeId == s_DesireGoldId)
+		return CMobile_GetTotalQuantityOfType((CMobile *)player, 0xEED) > 0;
+	pack = ((CMobile *)player)->equipment[21];
+	if (pack == NULL)
+		return 0;
+	for (child = ((CContainer *)pack)->contents; child != NULL; child = child->spatialNext) {
+		if (DesireBodyMatch((uint16_t)CEntity_GetBodyType(child), desireTypeId))
+			return 1;
+	}
+	return 0;
+}
+
+/*
+ * Custom - CNPC_IsPlayerDesireMark
+ *
+ * True when `ent` is a valid player-desire mark for the NPC's `pref`:
+ * a live, visible player carrying something that matches the positive
+ * desire body, and the NPC is not on player-desire cooldown. The
+ * generalized successor of the old CNPC_IsPickpocketMark gate; gold is
+ * no longer special-cased at this layer, the body-presence check in
+ * CNPC_PlayerCarriesDesireBody handles the gold vs non-gold split.
+ */
+static int
+CNPC_IsPlayerDesireMark(CNPC *npc, CItem *ent, CResourceNode *pref)
 {
 	if (!VT_IsPlayer(ent))
 		return 0;
-	if (pref->value2 <= 0 || (int)pref->id != g_ResTypeId_Gold)
+	if (pref->value2 <= 0 || pref->id == 0)
 		return 0;
 	if (VT_IsHidden(ent) || VT_IsDead(ent))
 		return 0;
-	if (CMobile_GetTotalQuantityOfType((CMobile *)ent, 0xEED) <= 0)
+	if (!CNPC_PlayerCarriesDesireBody(ent, (int)pref->id))
 		return 0;
-	if (CNPC_PickpocketCoolingDown(npc))
+	if (CNPC_PlayerDesireCoolingDown(npc))
 		return 0;
 	return 1;
 }
@@ -6735,18 +6888,29 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 					ent = ent->spatialNext;
 					continue;
 				}
+				uint16_t entBody = (uint16_t)CEntity_GetBodyType(ent);
 				if (VT_IsPlayer(ent)) {
-					// Custom: a gold-carrying player is a pickpocket
-					// desire candidate, evaluated directly here. The
-					// per-pref item/aversion loop below breaks on the
-					// first matching pref, so a player matching an
-					// earlier aversion pref never reaches the GOLD
-					// desire. Players are not item/aversion targets,
-					// so they skip that loop entirely.
+					// Custom: player-desire candidate gate. Raph Koster:
+					// "Seeking desires is supposed to work even for
+					// finding contents of containers - such as players
+					// carrying gold." The matching alpha-era anecdote
+					// from UO programmer Brian T Crowder (Quora) is
+					// "city guards love pastries", where guards would
+					// follow players carrying donuts. For each positive
+					// desire on the NPC, check whether the player
+					// carries a matching body via
+					// CNPC_PlayerCarriesDesireBody - gold recurses every
+					// equipment slot and sub-container, non-gold walks
+					// the main backpack one level. A match adds the
+					// player as a mobile desire candidate; the
+					// follow-and-engage step runs in
+					// CNPC_PurseDesiresPlayer. Loop breaks on the first
+					// matching pref so a single player is added at most
+					// once per scan.
 					for (pref = self->resourceEntity.firstChild; pref != NULL; pref = pref->next) {
-						if (pref->type != 2 || (int)pref->id != g_ResTypeId_Gold)
+						if (pref->type != 2)
 							continue;
-						if (!CNPC_IsPickpocketMark(npc, ent, pref))
+						if (!CNPC_IsPlayerDesireMark(npc, ent, pref))
 							continue;
 						if (desireCount < 10) {
 							int pdx = (int)(int16_t)ent->resourceEntity.entity.location.x - selfX;
@@ -6767,8 +6931,15 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 					if (pref->type != 2 || pref->id == 0)
 						continue;
 					node = CResourceEntity_FindNode(ent, pref->id, 3);
-					if (node == NULL || node->value3 < 1)
-						continue;
+					if (node == NULL || node->value3 < 1) {
+						// Fallback: physical desire items (gold piles,
+						// jewel stacks, metal/magic items) classified
+						// by body-type range. Players handled by the
+						// player-desire branch above, so ent is never a
+						// player here.
+						if (!DesireBodyMatch(entBody, (int)pref->id))
+							continue;
+					}
 
 					int entX = (int)(int16_t)ent->resourceEntity.entity.location.x;
 					int entY = (int)(int16_t)ent->resourceEntity.entity.location.y;
@@ -6828,11 +6999,11 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 	npc->ltype = NPC_STATE_PURSE_DESIRES;
 	npc->isWalking = 1;
 	if (desireIsMobile[chosen]) {
-		// Custom: pickpocket pursuit of a gold-carrying player.
-		// stateInfo2 also routes to PURSE_DESIRES - a moving player
-		// stalls the walker most ticks, and the stall must re-enter
-		// the pursuit so CNPC_PurseDesiresPickpocket can re-target.
-		// desireLoc stamps the pursuit-start tick for the timeout.
+		// Custom: player-desire pursuit. stateInfo2 also routes to
+		// PURSE_DESIRES - a moving player stalls the walker most
+		// ticks, and the stall must re-enter the pursuit so
+		// CNPC_PurseDesiresPlayer can re-target. desireLoc stamps the
+		// pursuit-start tick for the timeout.
 		npc->resourceAITarget = NPC_RESTGT_MOBILE;
 		npc->stateInfo2 = NPC_STATE_PURSE_DESIRES;
 		CNPC_TickSlotStore(&npc->desireLoc, npc->tickCount);
@@ -6851,36 +7022,51 @@ CNPC_SeekDesiresHandler(CNPC *npc)
 }
 
 /*
- * Custom - CNPC_PurseDesiresPickpocket
+ * Custom - CNPC_PurseDesiresPlayer
  *
- * FEAT_ECOLOGY pickpocket pursuit - the mobile-target arm of
- * NPC_STATE_PURSE_DESIRES. CNPC_SeekDesiresHandler picks a
- * gold-carrying player as a desire candidate; this follows the
- * (moving) player and, on reaching them, fires the acquiredesire
- * event so thief.m steals 5% of their gold. Unlike the item-consume
- * path it never drains a resource node or drops a hoard pile.
+ * FEAT_ECOLOGY player-desire pursuit - the mobile-target arm of
+ * NPC_STATE_PURSE_DESIRES. CNPC_SeekDesiresHandler picks a player
+ * who carries something matching one of the NPC's positive desires
+ * (gold for a thief, jewels for a dragon, etc.); this handler walks
+ * the (moving) player down and, on reaching them, fires acquiredesire.
+ * Unlike the item-consume path it never drains a resource node or
+ * drops a hoard pile - the player is followed, not harvested.
  *
- *   1. Abort to IDLE if the victim is gone, dead, no longer a
- *      player, no longer carrying gold, or the pursuit timed out.
- *   2. Re-snapshot patrolTarget onto the victim's current tile each
+ * The visible behavior at adjacency comes from the NPC's other
+ * triggers, not from this handler. Examples:
+ *   - thief.m's `acquiredesire` runs takeMoney/barkTo/runAway/
+ *     setCriminal -> the thief steals 5% of the player's gold.
+ *   - dragonai.m's `enterrange(8)` fires `attack(this, target)` as
+ *     the dragon closes within 8 tiles -> the dragon hunts the
+ *     player carrying the desired body.
+ *   - cityguard.m's `enterrange` only attacks criminals -> guards
+ *     follow an innocent carrier (the literal "city guards love
+ *     pastries" pattern Brian T Crowder cited on Quora).
+ *   - NPCs with no aggressive trigger (beggar, magpie) just follow,
+ *     bark at adjacency, and idle off.
+ *
+ * Flow:
+ *   1. Abort to IDLE if the target is gone, dead, no longer a player,
+ *      no longer carries the desired body, or pursuit timed out.
+ *   2. Re-snapshot patrolTarget onto the player's current tile each
  *      tick so the walker chases a moving player.
- *   3. On adjacency, fire acquiredesire (0x34) with the victim
- *      serial. thief.m runs takeMoney/barkTo/runAway/setCriminal;
- *      runAway sets aiState=RUNAWAY so the thief flees. The cooldown
- *      is stamped before the fire so a Thieves'-Guild no-op steal
- *      still cools down.
+ *   3. On adjacency, fire acquiredesire (0x34) with the player
+ *      serial. The cooldown stamp lands before the fire so a
+ *      script-side no-op (Thieves' Guild bypass; dragon's silent
+ *      desire) still consumes the cooldown.
  */
 static void
-CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target)
+CNPC_PurseDesiresPlayer(CNPC *npc, CItem *target)
 {
 	CItem *self = (CItem *)npc;
 	uint32_t victimSerial;
 	int dist;
 
-	// Abort: victim logged out, despawned, died, the serial was
-	// recycled onto a non-player, or the pockets are now empty.
+	// Abort: target logged out, despawned, died, the serial was
+	// recycled onto a non-player, or the player no longer carries
+	// the desired body (gold spent, jewel dropped, etc.).
 	if (target == NULL || target->resourceEntity.entity.removedFromWorld != 0 || !VT_IsPlayer(target) || VT_IsDead(target) ||
-	        CMobile_GetTotalQuantityOfType((CMobile *)target, 0xEED) <= 0) {
+	        !CNPC_PlayerCarriesDesireBody(target, (int)npc->resourceType)) {
 		npc->resourceTargetSerial = 0;
 		npc->resourceAITarget = NPC_RESTGT_NONE;
 		npc->isWalking = 0;
@@ -6889,7 +7075,7 @@ CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target)
 	}
 
 	// Pursuit timeout: bound an endless chase of a fleeing player.
-	if (npc->tickCount - CNPC_TickSlotLoad(&npc->desireLoc) > PICKPOCKET_PURSUE_TIMEOUT) {
+	if (npc->tickCount - CNPC_TickSlotLoad(&npc->desireLoc) > PLAYER_DESIRE_PURSUE_TIMEOUT) {
 		npc->resourceTargetSerial = 0;
 		npc->resourceAITarget = NPC_RESTGT_NONE;
 		npc->isWalking = 0;
@@ -6900,7 +7086,7 @@ CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target)
 	dist = Location_WrappedChebyshevDistance(&target->resourceEntity.entity.location, &self->resourceEntity.entity.location);
 
 	if (dist > 1) {
-		// Not adjacent: re-target the victim's current tile and keep
+		// Not adjacent: re-target the player's current tile and keep
 		// chasing. ltype and stateInfo2 both route back to PURSE so
 		// walker arrival and walker stall both re-enter this handler.
 		CLocation_SetLoc(&npc->patrolTarget, &target->resourceEntity.entity.location);
@@ -6910,23 +7096,23 @@ CNPC_PurseDesiresPickpocket(CNPC *npc, CItem *target)
 		return;
 	}
 
-	// Adjacent: pickpocket. Skip the node-drain/hoard/deposit path.
+	// Adjacent: fire acquiredesire. Skip the node-drain/hoard/deposit
+	// path - the player isn't a harvestable item.
 	victimSerial = npc->resourceTargetSerial;
 	CNPC_TickSlotStore(&npc->lastDesireLoc, npc->tickCount);
 	npc->resourceTargetSerial = 0;
 	npc->resourceAITarget = NPC_RESTGT_NONE;
 	npc->isWalking = 0;
 
-	// thief.m's acquiredesire trigger runs takeMoney/barkTo/
-	// stopFollowing/runAway/setCriminal; runAway sets aiState=RUNAWAY.
 	Entity_ExecuteEvent(&self->resourceEntity.entity, 0x34, (uintptr_t)victimSerial); // acquiredesire
 	if (npc != g_currentNPC)
 		return;
 	CNPC_ShouldProcess(npc);
 
-	// Respect the script-driven flee; only loop back to SEEK_DESIRES
-	// if the script left the thief in PURSE (e.g. a guild-member
-	// no-op steal that never called runAway).
+	// Respect any script-driven state change (thief.m's runAway sets
+	// RUNAWAY; dragonai.m's enterrange may have set ATTACK_TARGET
+	// earlier in the walk). Only loop back to SEEK_DESIRES if the
+	// script left the NPC in PURSE_DESIRES (no-op acquire).
 	if (npc->aiState == NPC_STATE_PURSE_DESIRES)
 		CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
 }
@@ -7050,10 +7236,11 @@ CNPC_HoardReturnHome(CNPC *npc)
  *      loiters via ResourceWanderPost; a settled NPC that does have
  *      a desire target still forages and hoards.
  *   3. With no resourceAITarget, fall back to a random wander.
- *   4. A mobile target routes to CNPC_PurseDesiresPickpocket.
- *   5. An item target is consumed into the pack: its chunk-egg
- *      node is drained and a pile of the drained amount minted,
- *      then tagged "hoardloot" by CNPC_StashHoardPile.
+ *   4. A mobile target routes to CNPC_PurseDesiresPlayer.
+ *   5. An item target is consumed into the pack: a physical desire
+ *      pile is picked up whole; a chunk-egg node is drained and a
+ *      pile of the drained amount minted. Either way the loot is
+ *      tagged "hoardloot" by CNPC_StashHoardPile.
  *   6. Anchor homeLoc on first acquisition, fire acquiredesire, and
  *      hand off to CNPC_HoardReturnHome to walk the loot home.
  *
@@ -7101,11 +7288,14 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 
 	target = CWorld_FindBySerial(g_World, npc->resourceTargetSerial);
 
-	// Custom: a player pickpocket target routes to the pursuit/steal
-	// path, which is allowed to act on a mobile (the item path below
-	// bails on any mobile target).
+	// Custom: a player desire target routes to the follow/engage
+	// handler, which is allowed to act on a mobile (the item path
+	// below bails on any mobile target). The handler is shared by
+	// every player-desire flavor (thief stealing gold, dragon hunting
+	// jewels, etc.) - script-side triggers decide what happens at
+	// adjacency.
 	if (npc->resourceAITarget == NPC_RESTGT_MOBILE) {
-		CNPC_PurseDesiresPickpocket(npc, target);
+		CNPC_PurseDesiresPlayer(npc, target);
 		return;
 	}
 
@@ -7116,7 +7306,13 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 
 	node = CResourceEntity_FindNode(target, (uint8_t)npc->resourceType, 3);
 
-	if (node == NULL) {
+	if (DesireBodyMatch((uint16_t)CEntity_GetBodyType(target), (int)npc->resourceType)) {
+		// Physical desire pile (runtime-dropped gold, jewel stack,
+		// etc.): pick the whole pile up into the pack to carry home,
+		// rather than deleting it and respawning one at the lair.
+		CNPC_StashHoardPile(npc, target, (uint16_t)(CEntity_GetBodyType(target) & 0xFFFF));
+		stashed = 1;
+	} else if (node == NULL) {
 		CNPC_SetState(npc, NPC_STATE_IDLE);
 		return;
 	} else {
@@ -7135,11 +7331,15 @@ CNPC_PurseDesiresHandler(CNPC *npc)
 		CResourceEntity_NotifyPostModifyIfActive(target);
 
 		// Chunk-egg node drained: mint a pile of the drained amount
-		// and stash it in the pack. Gold is always a 0xEED pile. A
-		// desire type with no physical body has nothing to carry.
+		// and stash it in the pack. Gold is always a 0xEED pile;
+		// other desires resolve via DesireBodyMint (the inline body
+		// classifier). A desire type with no physical body has
+		// nothing to carry.
 		pileBody = 0;
 		if ((int)npc->resourceType == g_ResTypeId_Gold)
 			pileBody = 0xEED;
+		else
+			pileBody = DesireBodyMint((int)npc->resourceType);
 		if (pileBody != 0) {
 			CItem *pile = CWorld_CreateItem(g_World, pileBody);
 			if (pile != NULL) {
