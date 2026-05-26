@@ -52,6 +52,8 @@ GrowEntity(CItem *item)
 	int grew;
 
 	bodyType = (uint16_t)(CEntity_GetBodyType(item) & 0xFFFF);
+	if (bodyType >= 0x4000)
+		return 0;
 	slot = &g_ResEntitySlots[bodyType];
 
 	grew = 0;
@@ -132,11 +134,6 @@ ResourceRegrowthTick(void)
 				continue;
 			}
 			if (VT_IsMobile(ent)) {
-				ent = next;
-				continue;
-			}
-
-			if (ent->resourceEntity.firstChild == NULL) {
 				ent = next;
 				continue;
 			}
