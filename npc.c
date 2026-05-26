@@ -1386,7 +1386,13 @@ CResourceMobile_Destructor(CNPC *npc)
 
 	NPC_RemoveFromHash(npc);
 
-	if (feat(FEAT_SPAWN_BUDGET) || feat(FEAT_PERNPC_RESPAWN)) {
+	// CUSTOM: NPC death no longer refunds the bank - the corpse holds the
+	// produced resources. Refund happens when the corpse decays (see
+	// RefundResourceNodesToBank in resbank.c) or when the resource is
+	// extracted via Script_returnResourcesToBank (FEAT_CLOSED_ECONOMY
+	// harvest-side credit). Death only mirrors the spawn-side bookkeeping
+	// (SubtractFromSpawnedCount) and feeds the per-NPC respawn queue.
+	if (feat(FEAT_CLOSED_ECONOMY) || feat(FEAT_PERNPC_RESPAWN)) {
 		uint16_t ti = (uint16_t)CResourceEntity_GetTemplateIndex(item);
 		if (ti != 0xFFFF) {
 			NPCTemplate *tmpl = CResManager_GetTemplateByID(ti);
@@ -1395,17 +1401,14 @@ CResourceMobile_Destructor(CNPC *npc)
 				CResourceNode *nd;
 				int hasType3 = 0;
 
-				if (feat(FEAT_SPAWN_BUDGET))
+				if (feat(FEAT_CLOSED_ECONOMY))
 					region = CResBankManager_GetRegionByLocation(item->resourceEntity.entity.location.x, item->resourceEntity.entity.location.y);
 
 				for (nd = tmpl->resourceNodes; nd != NULL; nd = nd->next) {
 					if (nd->type != 3 || nd->id == 0)
 						continue;
-					if (feat(FEAT_SPAWN_BUDGET)) {
-						CResBankManager_ScheduleRespawnForTemplate(&item->resourceEntity.entity.location, nd->id, nd->value1, ti);
-						if (region != NULL && region != g_ResBankManager.noRegion)
-							CResBankRegion_SubtractFromSpawnedCount(region, nd->id, nd->value1);
-					}
+					if (feat(FEAT_CLOSED_ECONOMY) && region != NULL && region != g_ResBankManager.noRegion)
+						CResBankRegion_SubtractFromSpawnedCount(region, nd->id, nd->value1);
 					hasType3 = 1;
 				}
 				// Per-NPC respawn only for NPCs that were created

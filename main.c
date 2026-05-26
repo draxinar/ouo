@@ -544,6 +544,14 @@ parseargs(int argc, char **argv)
 				fprintf(stderr, "invalid spawn-cooldown: %s (seconds, 0-86400)\n", argv[i + 1]);
 			}
 			i++;
+		} else if (strcmp(argv[i], "-spawn-refund-cycles") == 0 && i + 1 < argc) {
+			int n = atoi(argv[i + 1]);
+			if (n >= 1 && n <= 255) {
+				g_SpawnRefundCycles = (uint8_t)n;
+			} else {
+				fprintf(stderr, "invalid spawn-refund-cycles: %s (1-255, default 58)\n", argv[i + 1]);
+			}
+			i++;
 		} else if (strcmp(argv[i], "-version") == 0) {
 			printf("ouo %s\n", OUO_VERSION);
 			exit(0);
@@ -559,6 +567,7 @@ parseargs(int argc, char **argv)
 			       "  -watchdog MS      enable infinite-loop watchdog (timeout ms, min 1000)\n"
 			       "  -features LIST    feature flags (all, none, or comma-separated)\n"
 			       "  -spawn-cooldown N per-NPC respawn delay in seconds (default 1024)\n"
+			       "  -spawn-refund-cycles N  bank refund cycles after item decay (1-255, default 58)\n"
 			       "  -version          print version and exit\n"
 			       "  -help             print this help and exit\n");
 			exit(0);

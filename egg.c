@@ -336,13 +336,13 @@ CEgg_Delete(CItem *item)
 /*
  * 0x004853BD - Spawn_ScheduleRespawn
  *
- * Stubbed to a no-op in the demo binary. FEAT_SPAWN_BUDGET forwards to the
+ * Stubbed to a no-op in the demo binary. FEAT_CLOSED_ECONOMY forwards to the
  * timer pipeline so that consumed resource amounts are replenished.
  */
 void
 Spawn_ScheduleRespawn(CLocation *loc, int info1, int info2)
 {
-	if (feat(FEAT_SPAWN_BUDGET)) {
+	if (feat(FEAT_CLOSED_ECONOMY)) {
 		CResBankManager_ScheduleRespawnForTemplate(loc, info1, (int16_t)info2, 0);
 		return;
 	}

@@ -18,6 +18,7 @@
 #include "container.h"
 #include "corpse.h"
 #include "egg.h"
+#include "feature.h"
 #include "entitymanager.h"
 #include "main.h"
 #include "multi.h"
@@ -121,7 +122,8 @@ CItem_GetFlags_VT(CItem *item)
  * the spatial map before HIDE fires. Without the second 0x1D from
  * this branch, on every client era the rider keeps a stale copy of
  * the mount mob at its dismount-time location through every
- * re-mount cycle.
+ * re-mount cycle. See CUSTOM_SYSTEMS.md ("OBJ_TO_OBJ Broadcast For
+ * Contained Mobiles").
  */
 void
 CItem_AddToContainerVT(CItem *item, CItem *container, CLocation *loc)
@@ -511,8 +513,24 @@ CItem_DecayTick(CItem *item)
 		return;
 
 	if (!CItem_IsMultiOwner(item)) {
-		if (((int (*)(void *))VT_FN(item, VT_GET_WEIGHT))(item) >= 0xFF)
-			return;
+		// CUSTOM (FEAT_CLOSED_ECONOMY): the binary's weight gate
+		// excludes items whose CItem_GetDecayMax score is >= 0xFF,
+		// intended to skip statues / multis / houses. Sheep and other
+		// NPC corpses land at exactly 0xFF because CContainer is
+		// Mobile2 (so the gate adds GetStoredWeight) and the corpse's
+		// transient stored weight + per-amount overhead reaches 255.
+		// The corpse.m Wombat script has no decay callback, so the
+		// effect is corpses never decay - the closed-loop refund
+		// never fires either. Under FEAT_CLOSED_ECONOMY we skip the
+		// gate for corpses (bodyType == CORPSE_BODYTYPE) so they go
+		// through CItem_PlaceInWorld and refund the bank. With the
+		// flag off we keep the binary's persistent-corpse behavior.
+		int isCorpse = (item->resourceEntity.entity.bodyType == CORPSE_BODYTYPE);
+		if (!isCorpse || !feat(FEAT_CLOSED_ECONOMY)) {
+			int w = ((int (*)(void *))VT_FN(item, VT_GET_WEIGHT))(item);
+			if (w >= 0xFF)
+				return;
+		}
 	}
 
 	if (VT_IsRemoved(item)) {
@@ -557,6 +575,20 @@ CItem_DecayTick(CItem *item)
 	newDecay = (int)item->decayCount + increment;
 
 	if (newDecay >= (int)CItem_GetGlobalDecayMax(item)) {
+		// CUSTOM (FEAT_CLOSED_ECONOMY): refund undrained type-3 production
+		// nodes to the regional bank before the decay path deletes the
+		// item. The helper's value3<=0 guard skips nodes that harvest
+		// scripts have already drained, so a butchered-then-decayed
+		// corpse is not double-credited. Homeless items (typical corpses)
+		// reach this path once and are deleted via CItem_PlaceInWorld;
+		// the rare homed item with type-3 nodes can re-enter the decay
+		// cycle after being bounced back home, and would re-credit
+		// undrained nodes - shipped data has no such case. NPC corpses
+		// with type-3 meat/hide/wool nodes flow through here when no one
+		// harvested them, closing Raph Koster's loop without a separate
+		// corpse-decay hook.
+		if (feat(FEAT_CLOSED_ECONOMY))
+			RefundResourceNodesToBank(item);
 		CItem_PlaceInWorld(item, 0);
 	} else {
 		item->decayCount = (uint8_t)newDecay;

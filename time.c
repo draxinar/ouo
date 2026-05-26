@@ -424,8 +424,8 @@ CTimeManager_Update(void)
 
 	// CUSTOM (FEAT_PERNPC_RESPAWN): fire per-NPC home-location respawns
 	// whose deadline has elapsed. Runs after RespawnTimerCheck so any
-	// FEAT_SPAWN_BUDGET per-resource budget refund is in place by the
-	// time we retry the spawn at the dead NPC's home tile.
+	// FEAT_CLOSED_ECONOMY per-resource budget refund from item decay is
+	// in place by the time we retry the spawn at the dead NPC's home tile.
 	if (feat(FEAT_PERNPC_RESPAWN))
 		PendingNPCRespawn_Tick();
 

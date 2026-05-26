@@ -25,6 +25,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "resbank.h"
 #include "resource_regrowth.h"
 #include "skill.h"
 #include "taglist.h"
@@ -2064,7 +2065,8 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 	}
 
 	// Custom: .resbank NAME - report region->quantities[typeid(NAME)]
-	// at the player's location.
+	// at the player's location. Used by the closed-economy test to
+	// verify harvest credits the bank under FEAT_CLOSED_ECONOMY.
 	if (strncmp(cmd, "resbank ", 8) == 0 && CPlayer_IsEditing(player)) {
 		const char *resName = cmd + 8;
 		CResourceType *rt = CResourceTypeManager_FindByName(resName);
@@ -2831,6 +2833,35 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 	if (strcmp(cmd, "regrow") == 0 && CPlayer_IsEditing(player)) {
 		ResourceRegrowthTick();
 		CPlayer_SystemMessage(player, "Resource regrowth tick fired");
+		return;
+	}
+
+	// Custom: .respawntick - fire CResBankManager::InitRespawn once,
+	// synchronously. Normally invoked by RespawnTimerCheck every
+	// 0x1000 ticks (~17 min); this lets the test suite collapse the
+	// FEAT_CLOSED_ECONOMY refund deadline without waiting. With
+	// -spawn-refund-cycles 1 the first .respawntick after a corpse
+	// decays issues the bank refund.
+	if (strcmp(cmd, "respawntick") == 0 && CPlayer_IsEditing(player)) {
+		CResBankManager_InitRespawn();
+		CPlayer_SystemMessage(player, "Respawn timer tick fired");
+		return;
+	}
+
+	// Custom: .spawnoff / .spawnon - halt / resume steady-state SpawnTick.
+	// Toggles g_SpawnEnabled, which gates CResBankManager_SpawnTick
+	// (resbank.c). Lets tests freeze the world so a single observation
+	// of CResBankRegion.quantities[] isn't lost in steady-state drift
+	// from background spawn deducts. The binary admin panel
+	// (gamecentmon.c) is the binary's equivalent toggle.
+	if (strcmp(cmd, "spawnoff") == 0 && CPlayer_IsEditing(player)) {
+		g_SpawnEnabled = 0;
+		CPlayer_SystemMessage(player, "SpawnTick disabled");
+		return;
+	}
+	if (strcmp(cmd, "spawnon") == 0 && CPlayer_IsEditing(player)) {
+		g_SpawnEnabled = 1;
+		CPlayer_SystemMessage(player, "SpawnTick enabled");
 		return;
 	}
 
@@ -4729,6 +4760,12 @@ GM_TargetSpawnNPC(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, ui
 		}
 		g_PendingSpawnFame = 0;
 		g_PendingSpawnKarma = 0;
+		// CUSTOM (FEAT_CLOSED_ECONOMY): mirror the SpawnAtPoint
+		// bank deduct so a GM .spawn behaves symmetrically to a
+		// natural spawn. Without this, a GM session can quietly
+		// undo the closed-loop gate by creating NPCs whose type-3
+		// production nodes are never accounted for.
+		DeductSpawnFromBank((uint16_t)templateId, &spawnLoc);
 		char spawnMsg[120];
 		snprintf(spawnMsg, sizeof(spawnMsg), "Spawned %s (#%d) serial=0x%08X", g_TemplateNames[templateId] ? g_TemplateNames[templateId] : "?", templateId, npc->serial);
 		CPlayer_SystemMessage(player, spawnMsg);

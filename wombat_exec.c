@@ -17459,6 +17459,20 @@ Script_returnAllResourcesToBank(uint32_t serial)
  *
  * Drains amount of resource resName off the entity, suppressing
  * spatial notifications via lockdown / isLoading.
+ *
+ * MODIFIED (FEAT_CLOSED_ECONOMY): credits the matching
+ * CResBankRegion.quantities[] slot with the amount actually
+ * drained, closing the harvest half of Raph Koster's closed-loop
+ * economy ("when the bank was overdrawn of MEAT, nothing that
+ * used MEAT could spawn until some of the MEAT in the world was
+ * destroyed and therefore returned to the bank", Raph Koster
+ * 2006). The binary's drain path runs unchanged; the bank credit
+ * lands after it using a pre-drain value3 snapshot of the first
+ * matching node so the credited amount matches what
+ * CResourceEntity_TransferResources actually moved (no
+ * double-credit if the node had less than requested). Without
+ * the flag the binary's temp-item drain runs as-is and no bank
+ * credit fires.
  */
 void
 Script_returnResourcesToBank(uint32_t serial, int amount, CString *resName)
@@ -17468,11 +17482,32 @@ Script_returnResourcesToBank(uint32_t serial, int amount, CString *resName)
 	CItem *tempItem;
 	void *rawMem;
 	uint32_t savedLoading;
+	CResBankRegion *region;
+	CResourceNode *node;
+	int creditAmount;
 
 	mob = FindEntityValidated(serial, "returnResourcesToBank");
 	resDef = CResourceTypeManager_FindByName(CString_GetBuffer(resName));
 	if (mob == NULL || resDef == NULL)
 		return;
+
+	// CUSTOM (FEAT_CLOSED_ECONOMY): pre-compute how much the binary's
+	// drain will actually move from the FIRST matching node. The
+	// CResourceEntity_TransferResources path walks the node chain
+	// and may drain across multiple matching nodes; we credit based
+	// on the first one only, so an entity carrying multiple type-3
+	// nodes of the same resource type would under-credit. In practice
+	// the demo's resource entities carry at most one node per (id,
+	// type) so this is exact for shipped data; a future template
+	// that emits duplicate nodes would need this widened to a
+	// sum-across-matching-nodes walk. Negative amounts and missing
+	// nodes credit nothing.
+	creditAmount = 0;
+	if (feat(FEAT_CLOSED_ECONOMY) && amount > 0) {
+		node = CResourceEntity_FindNode(mob, (uint16_t)resDef->typeId, 3);
+		if (node != NULL)
+			creditAmount = (amount < node->value3) ? amount : node->value3;
+	}
 
 	CItem_SetLockdown(mob, 1);
 
@@ -17503,6 +17538,15 @@ Script_returnResourcesToBank(uint32_t serial, int amount, CString *resName)
 
 	// Clear lockdown flag
 	CItem_SetLockdown(mob, 0);
+
+	// CUSTOM (FEAT_CLOSED_ECONOMY): credit the bank with the drained
+	// amount. Runs after the binary path so the temp-item drain's
+	// notify chain has already settled.
+	if (creditAmount > 0) {
+		region = CResBankManager_GetRegionByLocation(mob->resourceEntity.entity.location.x, mob->resourceEntity.entity.location.y);
+		if (region != NULL && region != g_ResBankManager.noRegion)
+			CResBankRegion_AddToQuantity(region, (int)resDef->typeId, creditAmount);
+	}
 }
 
 /*
@@ -17830,6 +17874,11 @@ Script_createGlobalNPCAtSpecificLoc(int templateId, CLocation *loc)
 	result = CTemplateManager_CreateFromTemplate((uint16_t)templateId, loc, 0, 2, NULL);
 	if (result == NULL)
 		return 0;
+	// CUSTOM (FEAT_CLOSED_ECONOMY): script-driven NPC spawns deduct
+	// from the regional bank like the director / GM .spawn paths. The
+	// helper early-returns when the flag is off, so binary behavior
+	// is preserved.
+	DeductSpawnFromBank((uint16_t)templateId, loc);
 	return result->serial;
 }
 
@@ -17856,6 +17905,9 @@ Script_createGlobalNPCAt(uint32_t templateId, CLocation *loc, int flags)
 	result = CTemplateManager_CreateFromTemplate((uint16_t)templateId, &resultLoc, 0, 2, NULL);
 	if (result == NULL)
 		return 0;
+	// CUSTOM (FEAT_CLOSED_ECONOMY): script-driven NPC spawns deduct
+	// from the regional bank like the director / GM .spawn paths.
+	DeductSpawnFromBank((uint16_t)templateId, &resultLoc);
 	return result->serial;
 }
 

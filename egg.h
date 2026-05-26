@@ -74,7 +74,17 @@ struct ResSpawnEntry {
  */
 // clang-format off
 struct CResBankRegion {
-	int32_t quantities[RESBANK_MAX_TEMPLATES];          // 0x000 - spawn quota per slot
+	// Indexed by RESOURCE TYPE id (parsed from restypes.mul) across
+	// every reader and writer:
+	//   - LoadBankDefs writes baselines keyed by restypes.mul id.
+	//   - CResBankManager_InitRespawn loops by the same id space.
+	//   - Under FEAT_CLOSED_ECONOMY, DeductSpawnFromBank writes
+	//     quantities[node->id]; production-node ids on templates
+	//     (templatestable.dat) ARE resource-type ids, so the index
+	//     spaces are the same. Keep them aligned: if a future change
+	//     introduces a separate node id space, this slot would need
+	//     to be re-indexed.
+	int32_t quantities[RESBANK_MAX_TEMPLATES];          // 0x000 - spawn quota per resource-type slot
 	int32_t x1;                                         // 0x198
 	int32_t y1;                                         // 0x19C
 	int32_t x2;                                         // 0x1A0
@@ -200,6 +210,18 @@ typedef struct PendingNPCRespawn {
 
 extern PendingNPCRespawn *g_pendingNPCRespawnHead;
 extern int g_PerNPCRespawnDelayMs;
+
+// CUSTOM: initial respawnCountdown value for ScheduleRespawnForTemplate.
+// Default 0x3A=58 cycles (binary literal). See resbank.c.
+extern uint8_t g_SpawnRefundCycles;
+
+// CUSTOM: refund an item's type-3 nodes to the regional bank. Called from
+// destruction sites under FEAT_CLOSED_ECONOMY. Defined in resbank.c.
+void RefundResourceNodesToBank(CItem *item);
+
+// CUSTOM: deduct a template's type-3 production nodes from the regional bank.
+// Called from every NPC spawn path under FEAT_CLOSED_ECONOMY. Defined in resbank.c.
+void DeductSpawnFromBank(uint16_t templateId, CLocation *loc);
 
 void PendingNPCRespawn_Enqueue(uint16_t templateId, int16_t x, int16_t y, int8_t z);
 void PendingNPCRespawn_Tick(void);
