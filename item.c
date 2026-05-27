@@ -2245,6 +2245,14 @@ CItem_ProcessMultiDeleteItems(CItem *self, CVector *source, CVector *dest)
  * scripts, tags, hash links, and template bindings, then chains to
  * CResourceEntity_Destructor.
  * MODIFIED: CMulti pool operations collapse into CMulti_Free.
+ *
+ * FIXED: the binary's destructor never releases the item's lazy
+ * tracking pointer. `CItem_HideVT` calls `UpdateContainInfo`, which
+ * allocates a fresh `CItemTracking` when `item->tracking` is NULL,
+ * just to record a value the destructor immediately throws away.
+ * Add a `CItem_ReleaseTracking` after the teardown calls so the pool
+ * node returns to the free list. Also covers `CContainer_Destructor`,
+ * which chains here unconditionally.
  */
 void
 CItem_Destructor(CItem *item)
@@ -2295,6 +2303,7 @@ CItem_Destructor(CItem *item)
 
 	CEntity_RemoveAllTimers(item);
 	CItem_ClearScriptsAndTags(item);
+	CItem_ReleaseTracking(item);
 
 	g_DynamicItemCount--;
 
