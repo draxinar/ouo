@@ -817,6 +817,8 @@ int Script_getCanCarry(uint32_t serial);
 int Script_getSkillTotal(uint32_t serial);
 void Script_intRet(int value);
 
+void Wombat_ShutdownArrays(void); // CUSTOM
+
 extern const BuiltinHandlerEntry g_BuiltInFuncs[];
 
 #endif /* WOMBAT_EXEC_H_ */

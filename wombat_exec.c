@@ -21560,6 +21560,39 @@ Script_strContains(CString *haystack, CString *needle)
 }
 
 /*
+ * Custom - Wombat_ShutdownArrays
+ *
+ * Server-shutdown cleanup walker. Drains g_WombatArrays by repeatedly
+ * popping the leftmost entry: call ArrayDelete to run CArray_Free
+ * (which now frees stored CStrings) and erase the map node, then
+ * OperatorDelete the WombatArray struct itself (which ArrayDelete
+ * neglects). No binary equivalent: the binary's process-exit teardown
+ * leaks the map's values. Purpose is to keep the valgrind shutdown
+ * report clean so real leaks remain visible. Uses size-loop rather
+ * than tree iteration because std::map's tree iterator increment is
+ * a separate primitive that the demo binary instantiates only for
+ * its other map specialisations.
+ */
+void
+Wombat_ShutdownArrays(void)
+{
+	StdPtrNode *iter;
+	uintptr_t *pair;
+	WombatArray *arr;
+	int id;
+
+	while (g_WombatArrays.size > 0) {
+		StdMap_Begin(&g_WombatArrays, &iter);
+		pair = (uintptr_t *)StdTreeIter_Deref(&iter);
+		id = (int)pair[0];
+		arr = (WombatArray *)pair[1];
+		ArrayDelete(id);
+		if (arr != NULL)
+			OperatorDelete(arr);
+	}
+}
+
+/*
  * Helper - EventParamBlock_BuildFromEventParams
  *
  * Converts EventParam[] array to a binary-format EventParamBlock.

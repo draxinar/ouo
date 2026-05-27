@@ -40,7 +40,7 @@ static void StdMap_Destructor(StdMapTree *this); // 0x00421450
 static void *StdTree_Ucopy_19D0(StdAllocator *this, void *first, void *last, void *dest); // 0x004219D0
 static void StdTree_UfillN_1A10(StdAllocator *this, void *dest, uint32_t count, void *valuePtr); // 0x00421A10
 static void *StdMap_Init(StdMapTree *this, void *arg1, int unused, void *arg3); // 0x00421A50
-static void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
+void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
 static void *StdTree_Lbound(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421AC0
 static void *StdTree_RBInsert_Wombat(StdMapTree *this, void *outIter, void *addLeft, void *parent, void *pair); // 0x00422970
 static void StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos); // 0x00421CC0
@@ -885,7 +885,7 @@ StdMap_Init(StdMapTree *this, void *arg1, int unused, void *arg3)
  * Gets the head node via StdMap_GetHead, reads the node pointer from it,
  * and stores it in the output iterator via CIterCtx_Set. Returns output.
  */
-static void *
+void *
 StdMap_Begin(StdMapTree *this, void *outIter)
 {
 	void *headPtr = StdMap_GetHead(this);

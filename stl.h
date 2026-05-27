@@ -232,6 +232,7 @@ StdPtrNode **StdPtrIter_CopyConstructor(StdPtrNode **dest, StdPtrNode **source);
 void *StdMap_InsertWrapper(StdMapTree *this, void *arg1, void *arg2); // 0x00421380
 void *StdMap_End(StdMapTree *this, void *outIter); // 0x004213B0
 void *StdMap_LowerBound(StdMapTree *this, void *outIter, void *keyPtr); // 0x004213D0
+void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
 void *StdMap_EraseWrapper(StdMapTree *this, void *outIter, void *pos); // 0x00421410
 void *StdMap_FindWrapper(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421430
 void *StdMap_PairConstructor(uintptr_t *this, void *key, void *value); // 0x00421520
