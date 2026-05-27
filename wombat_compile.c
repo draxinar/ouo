@@ -792,6 +792,11 @@ CoerceCheckFunc(ResultNode **chainPtr, int targetType)
  * the entity by serial and fires Entity_ExecuteEvent(entity, 0x0F,
  * param). Every 256 entries, frees the exhausted block and advances
  * to the next one. Clears g_scriptCreationListHead, destroys vector.
+ *
+ * FIXED: the binary only frees a block on the `(i & 0xFF) == 0xFF`
+ * boundary, so when `g_scriptCreationCount` is not a multiple of 256
+ * the final partial block is processed but never released. Free the
+ * remaining block (if any) after the loop.
  */
 void
 ScriptCreation_FlushDeferred(void)
@@ -836,6 +841,11 @@ ScriptCreation_FlushDeferred(void)
 			idx--;
 			node = (ScriptCreationBlock *)((uintptr_t *)vec.begin)[idx];
 		}
+	}
+
+	if (idx >= 0) {
+		oldBlock = (ScriptCreationBlock *)((uintptr_t *)vec.begin)[idx];
+		free(oldBlock);
 	}
 
 	g_scriptCreationListHead = NULL;
