@@ -4533,6 +4533,12 @@ ArrayLookup(int id)
  * 0x0040F12E - ArrayDelete
  *
  * Frees the CArray registered under id and removes it from the map.
+ *
+ * FIXED: the binary calls CArray::Free (the destructor, which only
+ * releases arr->data) then erases the map entry, but never invokes
+ * operator delete on the CArray struct itself. Every script-driven
+ * deleteArray therefore leaks one 16-byte WombatArray header. Add
+ * OperatorDelete after the erase to release the struct.
  */
 static void
 ArrayDelete(int id)
@@ -4540,15 +4546,17 @@ ArrayDelete(int id)
 	void *findIter, *endIter;
 	void *eraseIter;
 	void *node;
+	WombatArray *arr;
 
 	StdMap_FindWrapper(&g_WombatArrays, &findIter, &id);
 	StdMap_End(&g_WombatArrays, &endIter);
 	if (StdPtrIter_Eq((StdPtrNode **)&findIter, (StdPtrNode **)&endIter))
 		return;
-	// Found: free the CArray, then erase from map
-	CArray_Free((WombatArray *)((uintptr_t *)StdTreeIter_Deref(&findIter))[1]);
+	arr = (WombatArray *)((uintptr_t *)StdTreeIter_Deref(&findIter))[1];
+	CArray_Free(arr);
 	node = *(void **)&findIter;
 	StdMap_EraseWrapper(&g_WombatArrays, &eraseIter, node);
+	OperatorDelete(arr);
 }
 
 /*
@@ -21563,32 +21571,27 @@ Script_strContains(CString *haystack, CString *needle)
  * Custom - Wombat_ShutdownArrays
  *
  * Server-shutdown cleanup walker. Drains g_WombatArrays by repeatedly
- * popping the leftmost entry: call ArrayDelete to run CArray_Free
- * (which now frees stored CStrings) and erase the map node, then
- * OperatorDelete the WombatArray struct itself (which ArrayDelete
- * neglects). No binary equivalent: the binary's process-exit teardown
- * leaks the map's values. Purpose is to keep the valgrind shutdown
- * report clean so real leaks remain visible. Uses size-loop rather
- * than tree iteration because std::map's tree iterator increment is
- * a separate primitive that the demo binary instantiates only for
- * its other map specialisations.
+ * popping the leftmost entry and dispatching it through ArrayDelete,
+ * which now releases both the data buffer (via CArray_Free) and the
+ * WombatArray struct. No binary equivalent: the binary's process-exit
+ * teardown leaks the map's values. Purpose is to keep the valgrind
+ * shutdown report clean so real leaks remain visible. Uses size-loop
+ * rather than tree iteration because std::map's tree iterator
+ * increment is a separate primitive that the demo binary instantiates
+ * only for its other map specialisations.
  */
 void
 Wombat_ShutdownArrays(void)
 {
 	StdPtrNode *iter;
 	uintptr_t *pair;
-	WombatArray *arr;
 	int id;
 
 	while (g_WombatArrays.size > 0) {
 		StdMap_Begin(&g_WombatArrays, &iter);
 		pair = (uintptr_t *)StdTreeIter_Deref(&iter);
 		id = (int)pair[0];
-		arr = (WombatArray *)pair[1];
 		ArrayDelete(id);
-		if (arr != NULL)
-			OperatorDelete(arr);
 	}
 }
 
