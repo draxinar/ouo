@@ -106,4 +106,6 @@ CSocket *CSocketBuffer_Add(CSocketBuffer *this, CSocket *socket, uint8_t *buf, i
 CSocket *CSocket_Destructor(CSocket *this, uint8_t v); // 0x004807A0
 CSocket *CListenSocket_Destructor(CSocket *this, uint8_t v); // 0x004807D0
 
+void Socket_DestroyPools(void); // CUSTOM
+
 #endif /* SOCKET_H_ */

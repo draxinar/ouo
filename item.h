@@ -417,4 +417,6 @@ int CItem_IsContainer(CItem *item);
 void CTemplateManager_SpawnVendorStock_DebugBreak(void);
 void *CMobile_ScalarDelete(CMobile *mob, int flags);
 
+void Item_DestroyPools(void); // CUSTOM
+
 #endif /* ITEM_H_ */

@@ -4893,3 +4893,25 @@ EventParamBlock_AddParam(EventParamBlock *pb, int type, uintptr_t value)
 		break;
 	}
 }
+
+/*
+ * Custom - WombatCompile_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the global ResultNode freelist
+ * marking each node defined so valgrind can read its next pointer,
+ * then ends pool tracking. The VG_* macros are no-ops when
+ * VALGRIND is not defined.
+ */
+void
+WombatCompile_DestroyPools(void)
+{
+	ResultNode *cur, *next;
+
+	if (g_NodePool.head == NULL)
+		return;
+	for (cur = g_NodePool.head; cur != NULL; cur = next) {
+		VG_MAKE_DEFINED(cur, sizeof(*cur));
+		next = cur->next;
+	}
+	VG_DESTROY_POOL(&g_NodePool);
+}

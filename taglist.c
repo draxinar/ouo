@@ -1209,3 +1209,25 @@ CTagListManager_Unlock(CTagListManager *mgr)
 {
 	USED(mgr);
 }
+
+/*
+ * Custom - TagList_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the tag-list manager freelist
+ * marking each node defined so valgrind can read its next pointer
+ * (stored in `head`), then ends pool tracking. The VG_* macros are
+ * no-ops when VALGRIND is not defined.
+ */
+void
+TagList_DestroyPools(void)
+{
+	CTagListManager *cur, *next;
+
+	if (g_tagListMgrFreeList == NULL)
+		return;
+	for (cur = g_tagListMgrFreeList; cur != NULL; cur = next) {
+		VG_MAKE_DEFINED(cur, sizeof(*cur));
+		next = (CTagListManager *)cur->head;
+	}
+	VG_DESTROY_POOL(&g_tagListMgrFreeList);
+}

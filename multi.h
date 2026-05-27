@@ -365,4 +365,6 @@ void CVector_ClearFreeRaw(void *ptr, int count);
 void CMulti_Free(CMultiComponent *mc);
 int IntLessThan(void *a, void *b, int cmp);
 
+void Multi_DestroyPools(void); // CUSTOM
+
 #endif /* MULTI_H_ */

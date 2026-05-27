@@ -94,4 +94,6 @@ void EventParamBlock_Destructor(EventParamBlock *pb); // 0x0042DE10
 void EventParamBlock_AddParam(EventParamBlock *pb, int type, uintptr_t value); // 0x0042DF40
 ResultNode *AppendResultNode(ResultNode **chain);
 
+void WombatCompile_DestroyPools(void); // CUSTOM
+
 #endif /* WOMBAT_COMPILE_H_ */

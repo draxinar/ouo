@@ -6406,3 +6406,33 @@ CItem_IsContainer(CItem *item)
 {
 	return VT_IsMobile2(item);
 }
+
+/*
+ * Custom - Item_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the per-item tracking and static-
+ * item freelists, marking each node defined so valgrind can read
+ * its next pointer, then ends pool tracking on each. The VG_*
+ * macros are no-ops when VALGRIND is not defined.
+ */
+void
+Item_DestroyPools(void)
+{
+	CItemTracking *trCur, *trNext;
+	CItem *staticCur, *staticNext;
+
+	if (g_TrackingFreeList != NULL) {
+		for (trCur = g_TrackingFreeList; trCur != NULL; trCur = trNext) {
+			VG_MAKE_DEFINED(trCur, sizeof(*trCur));
+			trNext = trCur->freeNext;
+		}
+		VG_DESTROY_POOL(&g_TrackingFreeList);
+	}
+	if (g_StaticFreeList != NULL) {
+		for (staticCur = g_StaticFreeList; staticCur != NULL; staticCur = staticNext) {
+			VG_MAKE_DEFINED(staticCur, sizeof(CResourceEntity));
+			staticNext = (CItem *)staticCur->resourceEntity.nextInContainer;
+		}
+		VG_DESTROY_POOL(&g_StaticFreeList);
+	}
+}

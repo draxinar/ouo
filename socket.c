@@ -109,6 +109,30 @@ Socket_Shutdown(void)
 }
 
 /*
+ * Custom - Socket_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the CSocketBuffer freelist marking
+ * each node defined so valgrind can read its next pointer, then
+ * ends pool tracking. The pool is lazily created on first use, so
+ * a NULL freelist head means the pool was never created and the
+ * destroy is skipped. The VG_* macros are no-ops when VALGRIND is
+ * not defined.
+ */
+void
+Socket_DestroyPools(void)
+{
+	CSocketBuffer *cur, *next;
+
+	if (GLOBAL_CSocketBuffer == NULL)
+		return;
+	for (cur = GLOBAL_CSocketBuffer; cur != NULL; cur = next) {
+		VG_MAKE_DEFINED(cur, sizeof(*cur));
+		next = cur->next;
+	}
+	VG_DESTROY_POOL(&GLOBAL_CSocketBuffer);
+}
+
+/*
  * 0x0047E0A7 - Server_Select
  *
  * Drives the main select() loop with the given timeout in microseconds.

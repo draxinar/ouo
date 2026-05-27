@@ -20,4 +20,6 @@ void TagNodePool_FlushA(void); // 0x004268E6
 void TagNode_ReturnToPool(TagNode *node); // 0x0042695A
 void tagnode_destroy_value(TagNode *node); // 0x004269C0
 
+void NodePool_DestroyAllPools(void); // CUSTOM
+
 #endif /* NODEPOOL_H_ */

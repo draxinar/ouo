@@ -214,6 +214,28 @@ MultiComponentPool_Init(void)
 }
 
 /*
+ * Custom - Multi_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the multi-component freelist
+ * marking each node defined so valgrind can read its next pointer,
+ * then ends pool tracking. No binary equivalent. The VG_* macros
+ * are no-ops when VALGRIND is not defined.
+ */
+void
+Multi_DestroyPools(void)
+{
+	CMultiComponent *cur, *next;
+
+	if (g_multiComponentPool.freeHead == NULL)
+		return;
+	for (cur = g_multiComponentPool.freeHead; cur != NULL; cur = next) {
+		VG_MAKE_DEFINED(cur, sizeof(*cur));
+		next = (CMultiComponent *)cur->ownerItem;
+	}
+	VG_DESTROY_POOL(&g_multiComponentPool);
+}
+
+/*
  * 0x0047424E - CMultiComponentDef::CMultiComponentDef
  *
  * Initializes offset, script vector, bodyType, and invisible fields.

@@ -417,3 +417,33 @@ NodePool_Free(TagNodePool *pool, TagNode *node)
 	pool->freeHead = node;
 	VG_POOL_FREE(pool, node);
 }
+
+/*
+ * Custom - NodePool_DestroyAllPools
+ *
+ * Server-shutdown cleanup. Walks the tag-node and script-attach-
+ * node freelists marking each node defined so valgrind can read
+ * its next pointer, then ends pool tracking on each. The VG_*
+ * macros are no-ops when VALGRIND is not defined.
+ */
+void
+NodePool_DestroyAllPools(void)
+{
+	TagNode *tcur, *tnext;
+	ScriptAttachNode *scur, *snext;
+
+	if (g_tagNodePoolA.freeHead != NULL) {
+		for (tcur = g_tagNodePoolA.freeHead; tcur != NULL; tcur = tnext) {
+			VG_MAKE_DEFINED(tcur, sizeof(*tcur));
+			tnext = tcur->next;
+		}
+		VG_DESTROY_POOL(&g_tagNodePoolA);
+	}
+	if (g_scriptNodePool.freeHead != NULL) {
+		for (scur = g_scriptNodePool.freeHead; scur != NULL; scur = snext) {
+			VG_MAKE_DEFINED(scur, sizeof(*scur));
+			snext = scur->next;
+		}
+		VG_DESTROY_POOL(&g_scriptNodePool);
+	}
+}

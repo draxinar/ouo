@@ -69,4 +69,6 @@ void ScheduleEvent(int delay, uint32_t serial, int eventType, int timerType, int
 void TimerManager_ProcessTimers(void); // 0x004366CF
 void CTimerManager_EnsureTracked(CItem *entity); // 0x0043676C
 
+void Timer_DestroyPools(void); // CUSTOM
+
 #endif /* TIMER_H_ */

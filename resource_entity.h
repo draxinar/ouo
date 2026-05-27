@@ -101,4 +101,6 @@ void CResourceEntity_DetachScript(CItem *entity, const char *name); // 0x004CDEA
 int CResourceEntity_HasScriptClass(CItem *entity, void *scriptClassPtr); // 0x004CDF4B
 int CResourceEntity_GetTemplateIndex(CItem *ent); // 0x004E04A0
 
+void ResourceEntity_DestroyPools(void); // CUSTOM
+
 #endif /* RESOURCE_ENTITY_H_ */

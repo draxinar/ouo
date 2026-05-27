@@ -102,4 +102,6 @@ CList *CTagListManager_GetListEntry(CTagListManager *mgr, const char *name); // 
 void CTagListManager_Lock(CTagListManager *mgr); // 0x004CEC98
 void CTagListManager_Unlock(CTagListManager *mgr); // 0x004CECA3
 
+void TagList_DestroyPools(void); // CUSTOM
+
 #endif /* TAGLIST_H_ */

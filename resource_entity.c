@@ -1125,3 +1125,25 @@ CResourceEntity_GetTemplateIndex(CItem *ent)
 {
 	return ent->resourceEntity.templateIndex;
 }
+
+/*
+ * Custom - ResourceEntity_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the resource-node freelist
+ * marking each node defined so valgrind can read its next pointer,
+ * then ends pool tracking. The VG_* macros are no-ops when
+ * VALGRIND is not defined.
+ */
+void
+ResourceEntity_DestroyPools(void)
+{
+	CResourceNode *cur, *next;
+
+	if (g_ResNodeFreeList == NULL)
+		return;
+	for (cur = g_ResNodeFreeList; cur != NULL; cur = next) {
+		VG_MAKE_DEFINED(cur, sizeof(*cur));
+		next = cur->next;
+	}
+	VG_DESTROY_POOL(&g_ResNodeFreeList);
+}

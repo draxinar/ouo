@@ -896,3 +896,25 @@ RemoveEntityNode(TimerEntityNode *node)
 		g_entityListHead = node->next;
 	free(node);
 }
+
+/*
+ * Custom - Timer_DestroyPools
+ *
+ * Server-shutdown cleanup. Walks the timer-node freelist marking
+ * each node defined so valgrind can read its next pointer, then
+ * ends pool tracking. The VG_* macros are no-ops when VALGRIND is
+ * not defined.
+ */
+void
+Timer_DestroyPools(void)
+{
+	TimerNode *cur, *next;
+
+	if (g_timerFreeList == NULL)
+		return;
+	for (cur = g_timerFreeList; cur != NULL; cur = next) {
+		VG_MAKE_DEFINED(cur, sizeof(*cur));
+		next = cur->next;
+	}
+	VG_DESTROY_POOL(&g_timerFreeList);
+}

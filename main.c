@@ -23,18 +23,25 @@
 #include "dynamic.h"
 #include "egg.h"
 #include "feature.h"
+#include "item.h"
 #include "listensocket.h"
 #include "magicfactory.h"
 #include "main.h"
 #include "multi.h"
+#include "nodepool.h"
 #include "region.h"
+#include "resource_entity.h"
 #include "skill.h"
+#include "socket.h"
+#include "taglist.h"
 #include "time.h"
+#include "timer.h"
 #include "usersock.h"
 #include "version.h"
 #include "vtable.h"
 #include "watchdog.h"
 #include "weapon.h"
+#include "wombat_compile.h"
 #include "wombat_exec.h"
 #include "world.h"
 
@@ -306,6 +313,18 @@ Server_Loop(void)
 	Wombat_ShutdownArrays();
 
 	Socket_Shutdown();
+
+	// CUSTOM: end valgrind tracking of every custom pool allocator
+	// so chained freelist nodes become traversable by the leak
+	// detector. No-op when VALGRIND is not defined.
+	Multi_DestroyPools();
+	Socket_DestroyPools();
+	TagList_DestroyPools();
+	Timer_DestroyPools();
+	Item_DestroyPools();
+	NodePool_DestroyAllPools();
+	ResourceEntity_DestroyPools();
+	WombatCompile_DestroyPools();
 
 	EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "server", "misc", "shutdown complete");
 	return 0;
