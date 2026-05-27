@@ -482,6 +482,16 @@ CItem_HasMultiDeleteTag(CItem *item)
  * contained, at home, or opted out via decayCount 0xFF. Fires the decay
  * script event first; the script may suppress decay or override the
  * increment via g_ScriptReturnFlag.
+ *
+ * MODIFIED under FEAT_AUTOFILL_CITY: the binary's IsAtHome gate runs
+ * before Entity_ExecuteEvent, so fillcontainer.m's "trigger decay"
+ * never fires for chests in city/justice regions and shop containers
+ * stay empty forever. The feature moves the at-home check to after the
+ * event fire (still before decayCount accumulation), restoring the
+ * 1997-98 live-shard behavior. The same feature also lets at-home heavy
+ * containers (weight >= 0xFF, e.g. bookcases) past the weight-exemption
+ * gate so their fill scripts can run without requiring the dynfill
+ * overloadedWeight workaround.
  */
 void
 CItem_DecayTick(CItem *item)
@@ -528,8 +538,21 @@ CItem_DecayTick(CItem *item)
 		int isCorpse = (item->resourceEntity.entity.bodyType == CORPSE_BODYTYPE);
 		if (!isCorpse || !feat(FEAT_CLOSED_ECONOMY)) {
 			int w = ((int (*)(void *))VT_FN(item, VT_GET_WEIGHT))(item);
-			if (w >= 0xFF)
-				return;
+			if (w >= 0xFF) {
+				// CUSTOM (FEAT_AUTOFILL_CITY): heavy fillable
+				// containers (bookcases, weight-255 chests) at
+				// their home location in a city or justice
+				// region still need the decay event so their
+				// attached fill script can run. The post-event
+				// at-home gate below zeroes decayCount before
+				// any accumulation, preserving the homed-item
+				// invariant. Items without home= short-circuit
+				// inside CEntity_IsAtHome at the tag lookup, so
+				// statues, walls, and other heavy decoration
+				// keep the binary-faithful early exit.
+				if (!feat(FEAT_AUTOFILL_CITY) || !CEntity_IsAtHome(item))
+					return;
+			}
 		}
 	}
 
@@ -548,9 +571,13 @@ CItem_DecayTick(CItem *item)
 		return;
 	}
 
-	if (CEntity_IsAtHome(item)) {
-		item->decayCount = 0;
-		return;
+	if (!feat(FEAT_AUTOFILL_CITY)) {
+		// Binary-faithful path: items at their home location inside a
+		// city or justice region skip the decay event entirely.
+		if (CEntity_IsAtHome(item)) {
+			item->decayCount = 0;
+			return;
+		}
 	}
 
 	increment = (int)CWorld_GetNonHomeDecayRate();
@@ -565,6 +592,20 @@ CItem_DecayTick(CItem *item)
 	// Script may have deleted the entity; re-lookup by serial before use.
 	if (CWorld_FindBySerial(g_World, serial) != (CItem *)item)
 		return;
+
+	// CUSTOM (FEAT_AUTOFILL_CITY): with the binary-faithful gate above
+	// disabled, the script (e.g. fillcontainer.m) has already run; now
+	// suppress decay accumulation for at-home items so the chest is not
+	// decayed away by PlaceInWorld. nodecay.m already returns 0 from the
+	// decay trigger for these chests and would short-circuit at the
+	// eventResult==0 check above, but a homed item without nodecay
+	// attached would otherwise fall through to PlaceInWorld - this gate
+	// preserves the binary-faithful "homed items never accumulate decay"
+	// invariant.
+	if (feat(FEAT_AUTOFILL_CITY) && CEntity_IsAtHome(item)) {
+		item->decayCount = 0;
+		return;
+	}
 
 	if (g_ScriptReturnFlag == 1) {
 		increment = g_ScriptReturnValue;

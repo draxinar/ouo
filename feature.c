@@ -42,6 +42,7 @@ static const struct FeatEntry featTable[] = {
 	{ "pernpc_respawn",    FEAT_PERNPC_RESPAWN },
 	{ "chat",              FEAT_CHAT },
 	{ "boat_mapswitch",    FEAT_BOAT_MAPSWITCH },
+	{ "autofill_city",     FEAT_AUTOFILL_CITY },
 };
 // clang-format on
 
