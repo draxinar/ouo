@@ -4252,9 +4252,12 @@ CArray_Init(WombatArray *arr, int width, int height, CList *typeList)
  * 0x0040EBE8 - CArray::Free
  *
  * Releases the array's data buffer and resets dimensions to zero.
- * The string/ustring cleanup branch is dead in the binary (the
- * inner loop bound is wrong), so CStrings stored via SetStrElem
- * and SetUStrElem leak; reproduced exactly.
+ *
+ * FIXED: the binary's inner cleanup loop has `j > arr->height`
+ * (always false at j=0), so the per-element CString/CUString delete
+ * branch is dead code and every string stored via SetStrElem or
+ * SetUStrElem leaks for the lifetime of the process. The intended
+ * bound is `j < arr->height`.
  */
 static void
 CArray_Free(WombatArray *arr)
@@ -4266,9 +4269,7 @@ CArray_Free(WombatArray *arr)
 	for (i = 0; i < arr->width; i++) {
 		if (arr->data[i] != 1 && arr->data[i] != 2)
 			continue;
-		// Inner loop: j starts at 0, condition j > height is always
-		// false (binary: jle exits when j <= height). Body is dead code.
-		for (j = 0; j > arr->height; j++) {
+		for (j = 0; j < arr->height; j++) {
 			elem = CArray_ElemLookup(arr, i, j, arr->data[i]);
 			if (arr->data[i] == 1) {
 				if (elem != NULL && *elem != 0) {
