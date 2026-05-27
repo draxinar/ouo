@@ -36,6 +36,7 @@
 #include "watchdog.h"
 #include "weapon.h"
 #include "wombat_exec.h"
+#include "world.h"
 
 #ifndef OUO_VERSION
 #define OUO_VERSION "unknown"
@@ -296,9 +297,12 @@ Server_Loop(void)
 	Account_SaveAll();
 	ContainerHandle_ShutdownAll();
 
-	// CUSTOM: shutdown-only cleanup walker (no binary equivalent).
-	// Free WombatArray entries still held in g_WombatArrays so the
+	// CUSTOM: shutdown-only cleanup walkers (no binary equivalent).
+	// Release per-entity timer chains, tag lists, and tracking pool
+	// nodes that the binary would leak at process exit, and free the
+	// WombatArray entries still held in g_WombatArrays, so the
 	// valgrind exit report stays focused on real leaks.
+	World_ShutdownEntities();
 	Wombat_ShutdownArrays();
 
 	Socket_Shutdown();

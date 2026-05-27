@@ -24,7 +24,9 @@
 #include "player.h"
 #include "signpost.h"
 #include "skill.h"
+#include "item.h"
 #include "stddeque.h"
+#include "timer.h"
 #include "vtable.h"
 #include "weapon.h"
 #include "world.h"
@@ -1813,4 +1815,41 @@ CWorld_DeleteEntity(CWorld *world, CItem *entity)
 		return;
 
 	((void (*)(void *))VT_FN(entity, VT_DELETE))(entity);
+}
+
+/*
+ * Custom - World_ShutdownEntities
+ *
+ * Server-shutdown cleanup walker. Walks every entity still in the
+ * world hash table and releases the resources that the binary's
+ * exit path leaks: timer chains (via CEntity_RemoveAllTimers),
+ * tag-list managers and attached scripts (via CItem_ClearScriptsAndTags),
+ * and the lazily-allocated CItemTracking pool node (via
+ * CItem_ReleaseTracking). No binary equivalent: the binary just
+ * exits the process and these resources stay "in use" forever.
+ * Purpose is to keep the valgrind shutdown report focused on real
+ * leaks.
+ *
+ * Does NOT call the entity's destructor or otherwise alter world
+ * state: socket and ticker subsystems are still alive at this point
+ * and a full destructor walk would broadcast packets, touch shutdown
+ * subsystems, and reorder the hash table mid-traversal.
+ */
+void
+World_ShutdownEntities(void)
+{
+	int i;
+	CItem *entity, *next;
+
+	if (g_World == NULL)
+		return;
+
+	for (i = 0; i < 0x10000; i++) {
+		for (entity = g_World->hashTable[i]; entity != NULL; entity = next) {
+			next = entity->hashNext;
+			CEntity_RemoveAllTimers(entity);
+			CItem_ClearScriptsAndTags(entity);
+			CItem_ReleaseTracking(entity);
+		}
+	}
 }
