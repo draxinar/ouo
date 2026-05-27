@@ -95,5 +95,6 @@ void EventParamBlock_AddParam(EventParamBlock *pb, int type, uintptr_t value); /
 ResultNode *AppendResultNode(ResultNode **chain);
 
 void WombatCompile_DestroyPools(void); // CUSTOM
+void Wombat_FreeParserStrings(void); // CUSTOM
 
 #endif /* WOMBAT_COMPILE_H_ */

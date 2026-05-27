@@ -306,11 +306,14 @@ Server_Loop(void)
 
 	// CUSTOM: shutdown-only cleanup walkers (no binary equivalent).
 	// Release per-entity timer chains, tag lists, and tracking pool
-	// nodes that the binary would leak at process exit, and free the
-	// WombatArray entries still held in g_WombatArrays, so the
-	// valgrind exit report stays focused on real leaks.
+	// nodes that the binary would leak at process exit, free the
+	// WombatArray entries still held in g_WombatArrays, and release
+	// the CString / CUString allocations the parser left orphaned
+	// inside script ResultNodes, so the valgrind exit report stays
+	// focused on real leaks.
 	World_ShutdownEntities();
 	Wombat_ShutdownArrays();
+	Wombat_FreeParserStrings();
 
 	Socket_Shutdown();
 

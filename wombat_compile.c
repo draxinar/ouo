@@ -29,6 +29,50 @@
 // 0x0063E124 - g_ScriptParserState (only written, never read by binary)
 static int g_ScriptParserState;
 
+// Custom: parser-allocated CString / CUString tracking. StoreIdResult /
+// StoreMemberResult malloc a string into a ResultNode value field; the
+// binary never frees these (FIXED below) so the parse trees leak their
+// embedded strings. We collect every allocation so Wombat_FreeParserStrings
+// can release them at server shutdown.
+static CString **g_ParserCStrings;
+static int g_ParserCStringCount;
+static int g_ParserCStringCap;
+static CUString **g_ParserCUStrings;
+static int g_ParserCUStringCount;
+static int g_ParserCUStringCap;
+
+static void
+Parser_TrackCString(CString *cs)
+{
+	if (cs == NULL)
+		return;
+	if (g_ParserCStringCount >= g_ParserCStringCap) {
+		int newCap = g_ParserCStringCap ? g_ParserCStringCap * 2 : 64;
+		CString **newBuf = (CString **)realloc(g_ParserCStrings, newCap * sizeof(CString *));
+		if (newBuf == NULL)
+			return;
+		g_ParserCStrings = newBuf;
+		g_ParserCStringCap = newCap;
+	}
+	g_ParserCStrings[g_ParserCStringCount++] = cs;
+}
+
+static void
+Parser_TrackCUString(CUString *cus)
+{
+	if (cus == NULL)
+		return;
+	if (g_ParserCUStringCount >= g_ParserCUStringCap) {
+		int newCap = g_ParserCUStringCap ? g_ParserCUStringCap * 2 : 64;
+		CUString **newBuf = (CUString **)realloc(g_ParserCUStrings, newCap * sizeof(CUString *));
+		if (newBuf == NULL)
+			return;
+		g_ParserCUStrings = newBuf;
+		g_ParserCUStringCap = newCap;
+	}
+	g_ParserCUStrings[g_ParserCUStringCount++] = cus;
+}
+
 // Built-in handler table (moved before LookupHandler which references it)
 #include "wombat_compile.h"
 #include "packet_handler.h"
@@ -214,6 +258,12 @@ StoreIntLiteral(ResultNode **chain, uintptr_t value)
  *
  * FIXED: the binary reads buf[len-1] without first checking len > 0,
  * which loads buf[-1] on an empty string; we guard with len > 0.
+ * FIXED: the binary leaks every CString it allocates here - the
+ * ResultNode tree that owns the node is later discarded without
+ * walking node->value, and neither ResultNode_FreeTree nor any
+ * compilation epilogue releases it. We register each CString with
+ * Parser_TrackCString so Wombat_FreeParserStrings can release them
+ * at server shutdown.
  */
 void
 StoreIdResult(ResultNode **chain, const char *tokenBuf)
@@ -235,8 +285,10 @@ StoreIdResult(ResultNode **chain, const char *tokenBuf)
 	n = AppendResultNode(chain);
 	n->type = 7;
 	cs = (CString *)malloc(sizeof(CString));
-	if (cs != NULL)
+	if (cs != NULL) {
 		CString_Constructor(cs, buf);
+		Parser_TrackCString(cs);
+	}
 	n->value = (uintptr_t)cs;
 	n->extra = 0;
 }
@@ -250,6 +302,10 @@ StoreIdResult(ResultNode **chain, const char *tokenBuf)
  *
  * FIXED: the binary reads buf[len-1] without first checking len > 0,
  * which loads buf[-1] on an empty string; we guard with len > 0.
+ * FIXED: same CUString-leak pattern as StoreIdResult - the parse
+ * tree that owns this node is later discarded without releasing
+ * node->value. We register each CUString with Parser_TrackCUString
+ * so Wombat_FreeParserStrings can release them at server shutdown.
  */
 void
 StoreMemberResult(ResultNode **chain, const char *tokenBuf)
@@ -278,8 +334,10 @@ StoreMemberResult(ResultNode **chain, const char *tokenBuf)
 	n = AppendResultNode(chain);
 	n->type = 8;
 	cus = (CUString *)malloc(sizeof(CUString));
-	if (cus != NULL)
+	if (cus != NULL) {
 		CUString_Constructor(cus, wbuf);
+		Parser_TrackCUString(cus);
+	}
 	n->value = (uintptr_t)cus;
 	n->extra = 0;
 }
@@ -4914,4 +4972,39 @@ WombatCompile_DestroyPools(void)
 		next = cur->next;
 	}
 	VG_DESTROY_POOL(&g_NodePool);
+}
+
+/*
+ * Custom - Wombat_FreeParserStrings
+ *
+ * Server-shutdown cleanup. Destructs and frees every parser-
+ * allocated CString / CUString that StoreIdResult and
+ * StoreMemberResult registered via Parser_TrackC[U]String. Closes
+ * the binary's CString-in-ResultNode leak without altering compile-
+ * or run-time semantics: the strings stay live for every script
+ * invocation and are only released after the main tick loop has
+ * exited.
+ */
+void
+Wombat_FreeParserStrings(void)
+{
+	int i;
+
+	for (i = 0; i < g_ParserCStringCount; i++) {
+		CString_Destructor(g_ParserCStrings[i]);
+		free(g_ParserCStrings[i]);
+	}
+	free(g_ParserCStrings);
+	g_ParserCStrings = NULL;
+	g_ParserCStringCount = 0;
+	g_ParserCStringCap = 0;
+
+	for (i = 0; i < g_ParserCUStringCount; i++) {
+		CUString_Destructor(g_ParserCUStrings[i]);
+		free(g_ParserCUStrings[i]);
+	}
+	free(g_ParserCUStrings);
+	g_ParserCUStrings = NULL;
+	g_ParserCUStringCount = 0;
+	g_ParserCUStringCap = 0;
 }
