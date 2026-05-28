@@ -98,6 +98,31 @@ NodePool_TrackBlock(char *block)
 	g_NodePoolBlocks[g_NodePoolBlockCount++] = block;
 }
 
+// Custom: StoreHandlerResult triplet tracking. The coercion routines
+// for case / if / while / endfor / break threads malloc 3*uintptr_t
+// "triplet" nodes onto ResultNode->extra chains; the binary never
+// walks the chains to free them. Wombat_FreeHandlerTriplets releases
+// every malloc at exit.
+static uintptr_t **g_HandlerTriplets;
+static int g_HandlerTripletCount;
+static int g_HandlerTripletCap;
+
+static void
+Parser_TrackHandlerTriplet(uintptr_t *triplet)
+{
+	if (triplet == NULL)
+		return;
+	if (g_HandlerTripletCount >= g_HandlerTripletCap) {
+		int newCap = g_HandlerTripletCap ? g_HandlerTripletCap * 2 : 64;
+		uintptr_t **newBuf = (uintptr_t **)realloc(g_HandlerTriplets, newCap * sizeof(uintptr_t *));
+		if (newBuf == NULL)
+			return;
+		g_HandlerTriplets = newBuf;
+		g_HandlerTripletCap = newCap;
+	}
+	g_HandlerTriplets[g_HandlerTripletCount++] = triplet;
+}
+
 // Built-in handler table (moved before LookupHandler which references it)
 #include "wombat_compile.h"
 #include "packet_handler.h"
@@ -374,6 +399,14 @@ StoreMemberResult(ResultNode **chain, const char *tokenBuf)
  * type-0 handler-reference node to the chain, then applies the
  * coercion needed by control-flow handlers (CASE, SWITCH, IF,
  * WHILE, ENDFOR, BREAK, ...) to rearrange the surrounding nodes.
+ *
+ * FIXED: the case-rewrite and break-list paths each malloc a
+ * 3*uintptr_t "triplet" node that gets threaded into a ResultNode
+ * extra/next chain. The binary never walks the chain to release
+ * those allocations, so every conditional branch in every loaded
+ * script leaks 24 bytes. We register each malloc with
+ * Parser_TrackHandlerTriplet so Wombat_FreeHandlerTriplets can
+ * release them at shutdown.
  */
 int
 StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, ResultNode *argChain)
@@ -426,6 +459,7 @@ StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, Resul
 			return 0;
 
 		tmpNode = (uintptr_t *)malloc(3 * sizeof(uintptr_t));
+		Parser_TrackHandlerTriplet(tmpNode);
 		tmpNode[0] = argChain->value;
 		tmpNode[1] = (uintptr_t)*tailPtr;
 		tmpNode[2] = ((ResultNode *)(uintptr_t)matches[matchCount - 1]->extra)->next->value;
@@ -598,6 +632,7 @@ check_endwhile_continue:
 		if (walkNode == NULL) {
 			// Allocate new sentinel node
 			walkNode = (uintptr_t *)malloc(3 * sizeof(uintptr_t));
+			Parser_TrackHandlerTriplet(walkNode);
 			walkNode[2] = savedNode;
 			walkNode[0] = 0xFFFFFD66;
 			walkNode[1] = (uintptr_t)matches[matchCount - 1];
@@ -5069,4 +5104,26 @@ Wombat_FreeNodePoolBlocks(void)
 	g_NodePoolBlocks = NULL;
 	g_NodePoolBlockCount = 0;
 	g_NodePoolBlockCap = 0;
+}
+
+/*
+ * Custom - Wombat_FreeHandlerTriplets
+ *
+ * Server-shutdown cleanup. Frees every 3*uintptr_t triplet that
+ * StoreHandlerResult allocated and registered via
+ * Parser_TrackHandlerTriplet. Run after Wombat_FreeNodePoolBlocks
+ * so the ResultNodes that referenced the triplets are already
+ * gone and we are not racing freed-pool-tracking annotations.
+ */
+void
+Wombat_FreeHandlerTriplets(void)
+{
+	int i;
+
+	for (i = 0; i < g_HandlerTripletCount; i++)
+		free(g_HandlerTriplets[i]);
+	free(g_HandlerTriplets);
+	g_HandlerTriplets = NULL;
+	g_HandlerTripletCount = 0;
+	g_HandlerTripletCap = 0;
 }

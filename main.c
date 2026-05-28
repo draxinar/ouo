@@ -329,6 +329,7 @@ Server_Loop(void)
 	ResourceEntity_DestroyPools();
 	WombatCompile_DestroyPools();
 	Wombat_FreeNodePoolBlocks();
+	Wombat_FreeHandlerTriplets();
 
 	EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "server", "misc", "shutdown complete");
 	return 0;
