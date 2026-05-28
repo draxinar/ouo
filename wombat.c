@@ -319,19 +319,18 @@ CFuncList_Destructor(CFuncList *list)
  * 0x00407B7C - CFuncList::Copy (CFuncList copy)
  *
  * Replaces this list's contents with a copy of src's function array.
+ * The post-assignment count check is != 0 (not > 0), so a negative
+ * src->count would still allocate.
  */
 void
 CFuncList_Copy(CFuncList *dst, const CFuncList *src)
 {
-	// Free existing array
 	if (dst->array != NULL)
 		OperatorDelete(dst->array);
 
-	// Copy count
 	dst->count = src->count;
 
-	// Allocate and copy entries
-	if (dst->count > 0) {
+	if (dst->count != 0) {
 		size_t sz = (size_t)dst->count * sizeof(CFunction);
 		dst->array = OperatorNew(sz);
 		memcpy(dst->array, src->array, sz);

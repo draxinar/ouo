@@ -1558,6 +1558,11 @@ ParseMember(const char *stream, int isForwardDecl)
  * Parses an "inherits ParentName;" clause: loads the parent script,
  * copies its function list, named scope, and 71 trigger-handler
  * slots into the current script, and stores it as the parent.
+ *
+ * Binary bug fix: the original dereferences the parent pointer
+ * without checking whether CScriptManager_FindOrLoad returned NULL,
+ * crashing in CFuncList_Copy when the parent script is missing or
+ * fails to parse. Bail out of the inherits clause when that happens.
  */
 static const char *
 ParseInherits(const char *stream)
@@ -1571,6 +1576,9 @@ ParseInherits(const char *stream)
 	stream = ScriptTokenizer_ReadToken(stream, parentName);
 	stream = ScriptTokenizer_ReadToken(stream, semiBuf);
 	parent = CScriptManager_FindOrLoad(&g_ScriptManager, parentName);
+	if (parent == NULL)
+		return stream;
+
 	current = g_ScriptCompiler->script;
 
 	CFuncList_Copy(&current->funcList, &parent->funcList);
