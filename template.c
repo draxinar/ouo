@@ -575,6 +575,21 @@ CTemplateManager_LoadObjVar(CItem *entity, char *data)
  *
  * Parses a brace-enclosed weighted list "{ token1 w1 token2 w2 ... }"
  * into a CStringList. Returns the updated data cursor.
+ *
+ * FIXED: Binary bug. ResolveDefines is a flat token substitution, so
+ * data lines like `<eq { random_jewel 1 0 1 } ...>` end up as
+ * `{ { 3855 1 ... 3878 1 } 1 0 1 } ...` after the random_jewel define
+ * (a `{ ... }` brace-list value) expands. The binary's flat
+ * (token, weight) pair loop treats nested `{` as a regular token,
+ * mis-aligning the pairs and producing bodyType=0 (no item) or
+ * bodyType=1 (NODRAW, fails CWorld_LookupItemResource) at the eq
+ * lookup. As a result, every `{ random_X 1 0 N }` line in
+ * templatestable.dat (orc/dragon jewel drops, Goodie/Pouch loot
+ * templates) silently produces nothing. Restore the data author's
+ * intent: when the next token is `{`, recursively parse the sub-list
+ * and pick a weighted random winner at parse time; that winner
+ * becomes the outer pair's token, with the outer weight still read
+ * from the next token after the sub-list's closing `}`.
  */
 static char *
 CTemplateManager_ParseBracedDefineList(char *dataCursor, CStringList *list)
@@ -595,6 +610,36 @@ CTemplateManager_ParseBracedDefineList(char *dataCursor, CStringList *list)
 		CString_AssignCStr(&nameStr, tokenBuf);
 		if (CString_CompareStr(&nameStr, "}"))
 			break;
+
+		// FIXED: nested-brace recursion (see function header).
+		// The binary falls through and treats `{` as a token, which
+		// shifts the (token, weight) pairs by one and corrupts the
+		// outer list.
+		if (CString_CompareStr(&nameStr, "{")) {
+			CStringList subList;
+			CResListNode *subMainCtx;
+			CResListNode *subTempCtx;
+			void *subData;
+
+			CStringList_Init(&subList);
+			CResBankMagicCtx_DefaultConstructor(&subMainCtx);
+
+			dataCursor = CTemplateManager_ParseBracedDefineList(dataCursor, &subList);
+
+			CStringList_GetWeightedRandom(&subList, &subTempCtx);
+			CResBankMagicCtx_CopyConstructor(&subMainCtx, &subTempCtx);
+			CResBankMagicCtx_PostInit(&subTempCtx);
+
+			if (CStringList_HasEntries((CStringList *)&subMainCtx)) {
+				subData = CStringList_GetNodeData(&subList, &subMainCtx);
+				CString_Assign(&nameStr, (CString *)subData);
+			} else {
+				CString_AssignCStr(&nameStr, "0");
+			}
+
+			CResBankMagicCtx_PostInit(&subMainCtx);
+			CStringList_Destroy(&subList);
+		}
 
 		dataCursor = GetValue(dataCursor, weightBuf);
 		if (*dataCursor == '\0')
