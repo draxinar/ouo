@@ -96,5 +96,6 @@ ResultNode *AppendResultNode(ResultNode **chain);
 
 void WombatCompile_DestroyPools(void); // CUSTOM
 void Wombat_FreeParserStrings(void); // CUSTOM
+void Wombat_FreeNodePoolBlocks(void); // CUSTOM
 
 #endif /* WOMBAT_COMPILE_H_ */

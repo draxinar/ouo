@@ -73,6 +73,31 @@ Parser_TrackCUString(CUString *cus)
 	g_ParserCUStrings[g_ParserCUStringCount++] = cus;
 }
 
+// Custom: NodePool batch-block tracking. NodePool_Pop mallocs each
+// 0x1000-node batch into a single block and threads the entries onto
+// the freelist; the binary never retains the block's base pointer so
+// no shutdown path can release it. Wombat_FreeNodePoolBlocks walks
+// this list and frees every batch at exit.
+static char **g_NodePoolBlocks;
+static int g_NodePoolBlockCount;
+static int g_NodePoolBlockCap;
+
+static void
+NodePool_TrackBlock(char *block)
+{
+	if (block == NULL)
+		return;
+	if (g_NodePoolBlockCount >= g_NodePoolBlockCap) {
+		int newCap = g_NodePoolBlockCap ? g_NodePoolBlockCap * 2 : 8;
+		char **newBuf = (char **)realloc(g_NodePoolBlocks, newCap * sizeof(char *));
+		if (newBuf == NULL)
+			return;
+		g_NodePoolBlocks = newBuf;
+		g_NodePoolBlockCap = newCap;
+	}
+	g_NodePoolBlocks[g_NodePoolBlockCount++] = block;
+}
+
 // Built-in handler table (moved before LookupHandler which references it)
 #include "wombat_compile.h"
 #include "packet_handler.h"
@@ -3216,6 +3241,11 @@ NodePool_Init(NodePool *pool, int batchSize)
  * available; otherwise allocates a batch of batchSize nodes laid
  * out as [count header][nodes...], returns node 0, and threads the
  * remaining nodes onto the free list.
+ *
+ * FIXED: the binary loses every batch's base pointer after using it
+ * to initialize the freelist, so the underlying malloc'd block can
+ * never be released. We hand the block to NodePool_TrackBlock so
+ * Wombat_FreeNodePoolBlocks can free each batch at shutdown.
  */
 ResultNode *
 NodePool_Pop(NodePool *pool)
@@ -3246,6 +3276,8 @@ NodePool_Pop(NodePool *pool)
 		block = (char *)malloc(batchSize * sizeof(ResultNode) + sizeof(uintptr_t));
 		if (block == NULL)
 			return NULL;
+
+		NodePool_TrackBlock(block);
 
 		*(uint32_t *)block = batchSize;
 
@@ -5007,4 +5039,26 @@ Wombat_FreeParserStrings(void)
 	g_ParserCUStrings = NULL;
 	g_ParserCUStringCount = 0;
 	g_ParserCUStringCap = 0;
+}
+
+/*
+ * Custom - Wombat_FreeNodePoolBlocks
+ *
+ * Server-shutdown cleanup. Frees every batch block that
+ * NodePool_Pop allocated and registered via NodePool_TrackBlock.
+ * Must run after WombatCompile_DestroyPools so the pool's freelist
+ * pointers are no longer being walked when the underlying memory
+ * goes away.
+ */
+void
+Wombat_FreeNodePoolBlocks(void)
+{
+	int i;
+
+	for (i = 0; i < g_NodePoolBlockCount; i++)
+		free(g_NodePoolBlocks[i]);
+	free(g_NodePoolBlocks);
+	g_NodePoolBlocks = NULL;
+	g_NodePoolBlockCount = 0;
+	g_NodePoolBlockCap = 0;
 }
