@@ -2060,14 +2060,15 @@ ResBankResourceCheck(CLocation *loc, int resTypeId, int amount)
  * via AddToQuantity when the countdown expires. Required for the
  * decay-side hook to function: many item decays at once must
  * aggregate into a single refund per resource type, not race for
- * the single slot.
+ * the single slot. The -spawn-refund-cycles knob (g_SpawnRefundCycles)
+ * tunes only this flag-on branch; the binary else-branch keeps the
+ * literal 0x3A so default behavior matches the binary exactly.
  */
 void
 CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, int16_t amount, int16_t templateValue)
 {
 	CResBankRegion *region;
 	int32_t currentPriority, newPriority;
-	int32_t cycles;
 
 	if (!ValidateTemplateId(templateIndex))
 		return;
@@ -2079,12 +2080,10 @@ CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, in
 	if (region == g_ResBankManager.noRegion)
 		return;
 
-	cycles = g_SpawnRefundCycles;
-
 	if (feat(FEAT_CLOSED_ECONOMY)) {
 		region->respawnAmount[templateIndex] += (uint16_t)amount;
 		if (region->respawnCountdown[templateIndex] == 0)
-			region->respawnCountdown[templateIndex] = (uint8_t)cycles;
+			region->respawnCountdown[templateIndex] = g_SpawnRefundCycles;
 		// Match the binary's slot-identifier write so GetRespawnTimer
 		// (0x004AF1AA) and Script_whoIsLargestConsumer return the live
 		// templateValue for this slot instead of stale data. Our
@@ -2096,16 +2095,19 @@ CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, in
 	}
 
 	// Binary uses movsx for respawnAmount (sign-extend int16) and movzx for
-	// respawnCountdown (zero-extend uint8), then signed imul.
+	// respawnCountdown (zero-extend uint8), then signed imul by the literal
+	// 0x3A (0x004AF165) and stores 0x3A into respawnCountdown (0x004AF19D).
+	// This binary-faithful path keeps the literal so the -spawn-refund-cycles
+	// knob only tunes the FEAT_CLOSED_ECONOMY branch above.
 	currentPriority = (int32_t)(int16_t)region->respawnAmount[templateIndex] * (int32_t)region->respawnCountdown[templateIndex];
-	newPriority = (int32_t)amount * cycles;
+	newPriority = (int32_t)amount * 0x3A;
 
 	if (newPriority <= currentPriority)
 		return;
 
 	region->respawnTemplateId[templateIndex] = (uint16_t)templateValue;
 	region->respawnAmount[templateIndex] = (uint16_t)amount;
-	region->respawnCountdown[templateIndex] = (uint8_t)cycles;
+	region->respawnCountdown[templateIndex] = 0x3A;
 }
 
 /*
