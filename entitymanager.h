@@ -32,4 +32,6 @@ CItem *EntityManager_FindBySerial(uint32_t serial); // 0x00491D63
 CEntityManager *CEntityManager_Constructor(CEntityManager *this); // 0x00492C6B
 void CEntityManager_Destructor(CEntityManager *this); // 0x00492C87
 
+void EntityManager_ShutdownArchive(void); // Custom
+
 #endif /* ENTITYMANAGER_H_ */

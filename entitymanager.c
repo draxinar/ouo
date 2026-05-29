@@ -13,10 +13,12 @@
 #include "dat.h"
 #include "egg.h"
 #include "entitymanager.h"
+#include "item.h"
 #include "npc.h"
 #include "packet_manager.h"
 #include "player.h"
 #include "skill.h"
+#include "timer.h"
 #include "vtable.h"
 #include "world.h"
 
@@ -466,4 +468,40 @@ void
 CEntityManager_Destructor(CEntityManager *this)
 {
 	USED(this);
+}
+
+/*
+ * Custom - EntityManager_ShutdownArchive
+ *
+ * Server-shutdown cleanup walker for the dead-entity archive. A
+ * disconnected player (or any entity passed through
+ * EntityManager_Remove) is taken out of the world hash and parked in
+ * g_ArchiveHash with its scripts, tags, timers, and lazily-allocated
+ * tracking node still attached. The binary never releases these - the
+ * process just exits - and World_ShutdownEntities only walks
+ * g_World->hashTable, so archived entities escape it and their script
+ * member-scope buffers leak. Walk the archive and release the same
+ * resources World_ShutdownEntities does, keeping the valgrind
+ * shutdown report focused on real leaks. No binary equivalent.
+ *
+ * Like World_ShutdownEntities, this does NOT call the entity
+ * destructor: socket and ticker subsystems are still alive at this
+ * point and a full destructor walk would broadcast packets and touch
+ * shutdown subsystems. Archived entities are disjoint from the world
+ * hash, so there is no overlap with World_ShutdownEntities.
+ */
+void
+EntityManager_ShutdownArchive(void)
+{
+	int i;
+	CItem *entity, *next;
+
+	for (i = 0; i < 0x4000; i++) {
+		for (entity = g_ArchiveHash[i]; entity != NULL; entity = next) {
+			next = entity->hashNext;
+			CEntity_RemoveAllTimers(entity);
+			CItem_ClearScriptsAndTags(entity);
+			CItem_ReleaseTracking(entity);
+		}
+	}
 }

@@ -22,6 +22,7 @@
 #include "containerhandle.h"
 #include "dynamic.h"
 #include "egg.h"
+#include "entitymanager.h"
 #include "feature.h"
 #include "item.h"
 #include "listensocket.h"
@@ -306,12 +307,15 @@ Server_Loop(void)
 
 	// CUSTOM: shutdown-only cleanup walkers (no binary equivalent).
 	// Release per-entity timer chains, tag lists, and tracking pool
-	// nodes that the binary would leak at process exit, free the
-	// WombatArray entries still held in g_WombatArrays, and release
-	// the CString / CUString allocations the parser left orphaned
-	// inside script ResultNodes, so the valgrind exit report stays
-	// focused on real leaks.
+	// nodes that the binary would leak at process exit - for both the
+	// live world hash (World_ShutdownEntities) and the dead-entity
+	// archive that logged-out players are parked in
+	// (EntityManager_ShutdownArchive) - free the WombatArray entries
+	// still held in g_WombatArrays, and release the CString / CUString
+	// allocations the parser left orphaned inside script ResultNodes,
+	// so the valgrind exit report stays focused on real leaks.
 	World_ShutdownEntities();
+	EntityManager_ShutdownArchive();
 	Wombat_ShutdownArrays();
 	Wombat_FreeParserStrings();
 
