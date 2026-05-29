@@ -2033,6 +2033,31 @@ CNPC_Heartbeat(CNPC *npc)
 		// hours, long enough for ScavengerPickup / IdleScan to feed.
 		if ((npc->tickCount % 20) == 0 && npc->mobile.stomach > 0)
 			npc->mobile.stomach--;
+
+		// Starvation. The binary never wired lethal hunger, so a creature
+		// that cannot find food just idles forever and the population loop
+		// never self-regulates (Raph Koster's design has unfed creatures
+		// starve). Once a wild creature's stomach empties it bleeds HP
+		// each heartbeat and dies through the normal death path, leaving a
+		// corpse for scavengers. Exempt: tamed pets (player owner),
+		// human-bodied NPCs (townsfolk/vendors/guards), invulnerable
+		// mobiles, and creatures before resource-node init runs
+		// (hungerCapacity 0). Damage is maxHp/8 (floor 1) so death takes
+		// ~8 starving heartbeats regardless of creature size; reaching
+		// stomach 0 already takes ~7 hours, so this never fires on a fed
+		// ecosystem.
+		if (npc->mobile.stomach == 0 && npc->hungerCapacity > 0 && !CMobile_IsInvulnerable(mob) && !CMobile_IsHumanBodyType(mob) &&
+		        (mob->owner == NULL || !VT_IsPlayer((CItem *)mob->owner))) {
+			int dmg = (int)mob->maxHp / 8;
+			if (dmg < 1)
+				dmg = 1;
+			if ((int)mob->hp <= dmg) {
+				((void (*)(void *, void *, int))VT_FN((CItem *)npc, VT_ON_DEATH_WRAP))(npc, NULL, 1);
+				((void (*)(void *))VT_FN((CItem *)npc, VT_DELETE))(npc);
+				return 0;
+			}
+			((uint32_t (*)(void *, int, int))VT_FN((CItem *)npc, VT_SET_HP))(npc, (int)mob->hp - dmg, 0);
+		}
 	}
 
 	CNPC_HandleStates(npc);
