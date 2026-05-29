@@ -4775,6 +4775,16 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		EventParamBlock_Destructor(&pb);
 	}
 
+	// Free any CList that ExtractEventParams allocated (the "message"
+	// event's args list) but that the param block did not take ownership
+	// of - e.g. no trigger matched, the trigger scope had no list entry,
+	// or BuildFromEventParams was skipped entirely. Consumed lists have
+	// ival zeroed by BuildFromEventParams, so this never double-frees.
+	for (i = 0; i < numParams; i++) {
+		if (params[i].type == WTYPE_LIST && params[i].ival != 0)
+			CList_ScalarDelete((CList *)params[i].ival, 1);
+	}
+
 	g_ScriptRecursionDepth--;
 	CVector_Destructor(&scriptVec);
 	CVector_Destructor(&trigVec);

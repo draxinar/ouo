@@ -21618,6 +21618,12 @@ EventParamBlock_BuildFromEventParams(EventParamBlock *pb, EventParam *params, in
 			memcpy(pb->data + pb->byteCount, &params[i].ival, 4);
 			*(short *)(pb->data + pb->byteCount + 4) = (short)params[i].ival2;
 			pb->byteCount += 8; // aligned to 4
+		} else if (typeId == WTYPE_LIST) {
+			// The block's listVec takes ownership of the CList that
+			// ExtractEventParams allocated; zero ival so DispatchEvent
+			// does not also free it (the param block destructor will).
+			EventParamBlock_AddParam(pb, WTYPE_LIST, params[i].ival);
+			params[i].ival = 0;
 		} else
 			EventParamBlock_AddParam(pb, typeId, params[i].ival);
 	}
