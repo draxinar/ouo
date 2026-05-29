@@ -141,6 +141,7 @@ static void GM_TargetInvis(CPlayer *player, uint8_t type, uint32_t serial, uint1
 static void GM_TargetVis(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetInvuln(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetVuln(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
+static void GM_TargetLight(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetResurrect(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetFillSpellbook(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetBank(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
@@ -354,6 +355,9 @@ static struct {
 	int hasValue;
 	char strArg[64];
 } g_PendingSet;
+
+// Custom - .light command staging slot consumed by GM_TargetLight
+static uint8_t g_PendingLightVal;
 
 /*
  * Custom - GM_ParseSetArgs
@@ -2403,6 +2407,27 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		return;
 	}
 
+	// Custom: .light [0-30] - set a PERMANENT personal light level on a
+	// targeted mobile (0 = off/clear, default 30 = full daylight). Calls
+	// CMobile_SetLight with lightTime=0, which the per-mobile light decay in
+	// CTimeManager_Update skips (it only decrements lightTime > 0), so it
+	// never expires. Unlike the Night Sight spell, this bypasses the spell's
+	// Q50G target gate, so it works on counselor/invulnerable GM characters.
+	if (strncmp(cmd, "light", 5) == 0 && (cmd[5] == '\0' || cmd[5] == ' ') && CPlayer_IsEditing(player)) {
+		uint8_t tbuf[20];
+		int val = 30;
+		if (cmd[5] == ' ' && (sscanf(cmd + 6, "%d", &val) != 1 || val < 0 || val > 30)) {
+			CPlayer_SystemMessage(player, "Usage: .light [0-30]  (0=off, default 30=full)");
+			return;
+		}
+		g_PendingLightVal = (uint8_t)val;
+		player->targetCallback = GM_TargetLight;
+		PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
+		SendPacketToPlayer(player, tbuf, -1);
+		CPlayer_SystemMessage(player, "Select target for light");
+		return;
+	}
+
 	// Custom: .speed N - set movement speed (1=normal, 3=medium, 5=fast)
 	if (strncmp(cmd, "speed ", 6) == 0 && CPlayer_IsEditing(player)) {
 		int spd;
@@ -2966,6 +2991,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			CPlayer_SystemMessage(player, ".spell list - list all spells");
 			CPlayer_SystemMessage(player, ".invis / .vis - hide/reveal target");
 			CPlayer_SystemMessage(player, ".invuln / .vuln - invuln/vuln target");
+			CPlayer_SystemMessage(player, ".light [0-30] - permanent night sight on target (0=off)");
 			CPlayer_SystemMessage(player, ".set <stat|skill|all|list> [N] - set stat/skill");
 			CPlayer_SystemMessage(player, ".settarget <stat|skill|all> [N] - set on target");
 			CPlayer_SystemMessage(player, ".resurrect - resurrect target player");
@@ -4650,6 +4676,39 @@ GM_TargetVuln(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16
 	CMobile_SetStatusFlag((CMobile *)target, 1, 0);
 	char msg[80];
 	snprintf(msg, sizeof(msg), "0x%08X is now vulnerable", serial);
+	CPlayer_SystemMessage(player, msg);
+}
+
+/*
+ * Custom - GM_TargetLight
+ *
+ * Sets a permanent personal light level (g_PendingLightVal) on the targeted
+ * mobile via CMobile_SetLight with lightTime=0. The per-mobile light decay in
+ * CTimeManager_Update only decrements mobiles with lightTime > 0, so 0 never
+ * expires. Value 0 clears the effect. This is the same 0x4E personal-light
+ * push the Night Sight spell produces, but without the spell's Q50G target
+ * gate (so it works on counselor/invulnerable characters).
+ */
+static void
+GM_TargetLight(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z)
+{
+	USED(type);
+	USED(x);
+	USED(y);
+	USED(z);
+	player->targetCallback = NULL;
+	if (serial == 0) {
+		CPlayer_SystemMessage(player, "Light cancelled");
+		return;
+	}
+	CItem *target = CWorld_FindBySerial(g_World, serial);
+	if (target == NULL || !VT_IsMobile(target)) {
+		CPlayer_SystemMessage(player, "Not a mobile");
+		return;
+	}
+	CMobile_SetLight((CMobile *)target, 0, g_PendingLightVal);
+	char msg[80];
+	snprintf(msg, sizeof(msg), "0x%08X personal light set to %d", serial, g_PendingLightVal);
 	CPlayer_SystemMessage(player, msg);
 }
 
