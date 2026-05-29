@@ -20,13 +20,18 @@ enum FeatureFlag {
 	FEAT_LIGHTS = 1 << 5,
 	FEAT_CREATION_COLORS = 1 << 6,
 	FEAT_SPAWN_STRICT_TAGS = 1 << 8,
-	FEAT_CLOSED_ECONOMY = 1 << 10,
+	FEAT_CLOSED_ECONOMY = 1 << 10, // opt-in
 	FEAT_SKILL_TRACKING = 1 << 11,
 	FEAT_RESOURCE_REGROWTH = 1 << 12,
 	FEAT_PERNPC_RESPAWN = 1 << 13,
 	FEAT_CHAT = 1 << 14,
 	FEAT_BOAT_MAPSWITCH = 1 << 15,
 	FEAT_AUTOFILL_CITY = 1 << 16,
+	// FEAT_ALL is the -features all default. FEAT_CLOSED_ECONOMY is
+	// deliberately excluded: per Raph Koster, "there was no longer a
+	// closed loop economy by 1998, so the 'bank' side of it is moot".
+	// The binary-faithful default matches that and leaves the flag
+	// off. Enable it explicitly with -features closed_economy.
 	FEAT_ALL = FEAT_SKILL_LOCK | FEAT_SKILL_MEDITATION | FEAT_SKILL_STEALTH | FEAT_SKILL_REMOVE_TRAP | FEAT_ECOLOGY | FEAT_LIGHTS | FEAT_CREATION_COLORS |
 	           FEAT_SPAWN_STRICT_TAGS | FEAT_SKILL_TRACKING | FEAT_RESOURCE_REGROWTH | FEAT_PERNPC_RESPAWN | FEAT_CHAT | FEAT_BOAT_MAPSWITCH | FEAT_AUTOFILL_CITY,
 };
