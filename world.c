@@ -44,7 +44,7 @@ CWorld *g_World;
 TileDataEntry *g_ItemTileData;
 int g_WorldActive = 1; // 0x0061DA80: 1 during normal operation, 0 during bulk delete
 int g_WorldActive2 = 1; // 0x0061DA84: 1 during normal operation, 0 during bulk delete
-int g_DeleteAllowed = 1; // 0x00645B04: 1 when entity deletion is enabled
+int g_DeleteAllowed; // 0x00645B04: 1 when entity deletion is enabled
 int g_isLoadingWorld; // 0x00699B64: 1 during world load (SendAppearance skips terrain)
 int g_hasLoadedWorld; // 0x00699B68: 1 after world load complete
 
