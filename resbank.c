@@ -2351,8 +2351,13 @@ CResBankRegion_CanSpawnTemplate(CResBankRegion *region, uint16_t templateId)
 			continue;
 		}
 
-		// Dead code in demo (CheckTemplateOverLimit stub skips here).
-		if (g_SpawningInProgress && region->nospawn) {
+		// Dead in the demo (CheckTemplateOverLimit stub returns 1). Under
+		// FEAT_CLOSED_ECONOMY the gate is live: the binary's initial-spawn
+		// path keyed off `g_SpawningInProgress && region->nospawn` (verified
+		// r2 @0x004AF61E), but our shipped resbank.mul carries nospawn=0, so
+		// this is MODIFIED to also take the maxSpawns/16 path under the flag -
+		// a resource stops spawning once its bank drops to 1/16 of capacity.
+		if (g_SpawningInProgress && (region->nospawn || feat(FEAT_CLOSED_ECONOMY))) {
 			int quota = region->maxSpawns[nodeId] >> 4;
 			if (region->quantities[nodeId] > quota) {
 				node = node->next;
