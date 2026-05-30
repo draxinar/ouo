@@ -35,7 +35,7 @@ static void StaticInit_HashResTypeName(void); // 0x004A83B0
 static void CResourceTypeManager_Constructor(void); // 0x004A85E4
 
 // Binary globals.
-int g_SpawnEnabled;               // 0x00621398
+int g_SpawnEnabled = 1;           // 0x00621398
 int g_IsInitialSpawn;             // 0x006E7654
 int g_SpawningInProgress;         // 0x006E72EC
 
