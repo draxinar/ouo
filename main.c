@@ -26,6 +26,7 @@
 #include "feature.h"
 #include "item.h"
 #include "listensocket.h"
+#include "load.h"
 #include "magicfactory.h"
 #include "main.h"
 #include "multi.h"
@@ -303,6 +304,8 @@ Server_Loop(void)
 	BackupFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp);
 	SaveDynamic0();
 	Account_SaveAll();
+	// CUSTOM (FEAT_CLOSED_ECONOMY): final bank snapshot on clean exit.
+	SaveAll_ResBank();
 	ContainerHandle_ShutdownAll();
 
 	// CUSTOM: shutdown-only cleanup walkers (no binary equivalent).

@@ -24,6 +24,7 @@
 #include "world.h"
 
 #include "egg.h"
+#include "load.h"
 #include "npc.h"
 #include "skill.h"
 #include "timer.h"
@@ -471,6 +472,10 @@ CTimeManager_Update(void)
 		BackupFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp);
 		SaveDynamic0();
 		Account_SaveAll();
+		// CUSTOM (FEAT_CLOSED_ECONOMY): persist the live resource bank alongside
+		// the periodic world save so drained quantities[] survive a restart.
+		// No-op in the default build (SaveAll_ResBank forwards to NoOp).
+		SaveAll_ResBank();
 	}
 
 	// Custom: gamewide resource-regrowth tick every 16384 ticks

@@ -19,6 +19,7 @@
 #include "gm_names.h"
 #include "gm_player_menu.h"
 #include "help_queue.h"
+#include "load.h"
 #include "main.h"
 #include "multi.h"
 #include "npc.h"
@@ -2505,6 +2506,8 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		BackupFile(GLOBAL_file_dynidx0_mul, GLOBAL_file_dynidx0_bkp);
 		BackupFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp);
 		SaveDynamic0();
+		// CUSTOM (FEAT_CLOSED_ECONOMY): a manual save persists the live bank too.
+		SaveAll_ResBank();
 		CPlayer_SystemMessage(player, "World saved");
 		return;
 	}

@@ -21,6 +21,7 @@
 #include "io.h"
 #include "load.h"
 #include "magicfactory.h"
+#include "feature.h"
 #include "main.h"
 #include "multi.h"
 #include "resbank.h"
@@ -754,9 +755,17 @@ SaveAll_ResTypes(void)
  *
  * Thin wrapper that calls CResBankManager::NoOp on g_ResBankManager.
  * Zero callers in the binary; the resbank save path was stubbed out.
+ *
+ * MODIFIED (FEAT_CLOSED_ECONOMY): forward to CResBankManager_SaveResBank so
+ * the live bank (drained quantities[]) persists across restarts. The default
+ * build keeps the NoOp, preserving binary behavior.
  */
 void
 SaveAll_ResBank(void)
 {
+	if (feat(FEAT_CLOSED_ECONOMY)) {
+		CResBankManager_SaveResBank();
+		return;
+	}
 	CResBankManager_NoOp(&g_ResBankManager);
 }
