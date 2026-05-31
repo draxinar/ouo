@@ -664,6 +664,44 @@ uint16_t g_PacketTable[] = {
 	224, 0, 32768, 0, 0,  // 0xE0: Bug Report New (C->S, dynamic, 5.0.9+)
 	225, 0, 32768, 0, 0,  // 0xE1: Client Type Notification (C->S, dynamic, 5.0.9+)
 	226, 0, 10, 0, 0,     // 0xE2: Extended Animation AOS (S->C, 5.0.9+)
+	// 0xE3-0xFF: unmapped padding. No supported client (1.25-5.0.x) sends
+	// these as gameplay packets. The dispatch (CUserSock_Handle_Input /
+	// UserSock_DoHandlePacket) reads g_PacketTable[5 * type] BEFORE validating
+	// the type (the binary's read-then-check pattern, safe there only because
+	// its table lives in a large .data segment). With our heap-allocated table
+	// a packet-type byte >= 0xE3 - e.g. a corrupt/torn packet from a dropped
+	// connection - would read past the end. These size-0 entries keep that
+	// lookup in-bounds for any byte 0-255; size 0 is treated as invalid and
+	// the byte is skipped, matching the existing >= 0xE3 reject path.
+	227, 0, 0, 0, 0,      // 0xE3
+	228, 0, 0, 0, 0,      // 0xE4
+	229, 0, 0, 0, 0,      // 0xE5
+	230, 0, 0, 0, 0,      // 0xE6
+	231, 0, 0, 0, 0,      // 0xE7
+	232, 0, 0, 0, 0,      // 0xE8
+	233, 0, 0, 0, 0,      // 0xE9
+	234, 0, 0, 0, 0,      // 0xEA
+	235, 0, 0, 0, 0,      // 0xEB
+	236, 0, 0, 0, 0,      // 0xEC
+	237, 0, 0, 0, 0,      // 0xED
+	238, 0, 0, 0, 0,      // 0xEE
+	239, 0, 0, 0, 0,      // 0xEF
+	240, 0, 0, 0, 0,      // 0xF0
+	241, 0, 0, 0, 0,      // 0xF1
+	242, 0, 0, 0, 0,      // 0xF2
+	243, 0, 0, 0, 0,      // 0xF3
+	244, 0, 0, 0, 0,      // 0xF4
+	245, 0, 0, 0, 0,      // 0xF5
+	246, 0, 0, 0, 0,      // 0xF6
+	247, 0, 0, 0, 0,      // 0xF7
+	248, 0, 0, 0, 0,      // 0xF8
+	249, 0, 0, 0, 0,      // 0xF9
+	250, 0, 0, 0, 0,      // 0xFA
+	251, 0, 0, 0, 0,      // 0xFB
+	252, 0, 0, 0, 0,      // 0xFC
+	253, 0, 0, 0, 0,      // 0xFD
+	254, 0, 0, 0, 0,      // 0xFE
+	255, 0, 0, 0, 0,      // 0xFF
 };
 // clang-format on
 const size_t g_PacketTableSize = sizeof(g_PacketTable);
