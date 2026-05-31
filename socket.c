@@ -751,6 +751,13 @@ CListenSocket_Destructor(CSocket *this, uint8_t v)
  * Linux epoll implementation of Socket_SelectWithTimeout.
  * Uses a persistent epoll fd with EPOLL_CTL_MOD/ADD to track sockets.
  * Closed fds are auto-removed from epoll by the kernel.
+ *
+ * Entries are keyed by fd, not by raw CSocket pointer. The ready set from
+ * epoll_wait is a snapshot; resolving each ready fd back to a live socket by
+ * walking GLOBAL_CSocket_first mirrors the binary's post-select FD_ISSET loop
+ * (the binary's select returns fd sets, never pointers). This avoids a
+ * use-after-free when a socket referenced by a later entry in the same
+ * epoll_wait batch is torn down while the batch is still being processed.
  */
 static CSocket *
 Socket_SelectWithTimeout_Linux(struct timeval *timeout, int receive)
@@ -788,7 +795,7 @@ Socket_SelectWithTimeout_Linux(struct timeval *timeout, int receive)
 	for (i = GLOBAL_CSocket_first; i; i = i->next) {
 		if ((i->status & SocketClosing) || i->s == -1)
 			continue;
-		ev.data.ptr = i;
+		ev.data.fd = i->s;
 		ev.events = EPOLLPRI;
 		if (receive)
 			ev.events |= EPOLLIN;
@@ -810,14 +817,18 @@ Socket_SelectWithTimeout_Linux(struct timeval *timeout, int receive)
 	{
 		int j;
 		for (j = 0; j < ret; j++) {
-			i = events[j].data.ptr;
-			if ((i->status & SocketClosing) || i->s == -1)
+			int rfd = events[j].data.fd;
+			uint32_t rmask = events[j].events;
+			for (i = GLOBAL_CSocket_first; i; i = i->next)
+				if (i->s == rfd)
+					break;
+			if (i == NULL || (i->status & SocketClosing) || i->s == -1)
 				continue;
-			if (events[j].events & (EPOLLERR | EPOLLHUP))
+			if (rmask & (EPOLLERR | EPOLLHUP))
 				i->vtable->Close(i);
-			if (!(i->status & SocketClosing) && (events[j].events & EPOLLOUT))
+			if (!(i->status & SocketClosing) && (rmask & EPOLLOUT))
 				i->vtable->Send(i);
-			if (receive && !(i->status & SocketClosing) && (events[j].events & EPOLLIN))
+			if (receive && !(i->status & SocketClosing) && (rmask & EPOLLIN))
 				i->vtable->Recv(i);
 		}
 	}
@@ -867,7 +878,6 @@ Socket_SelectWithTimeout_Poll(struct timeval *timeout, int receive)
 	int status;
 	CSocket *i;
 	struct pollfd *pfds;
-	CSocket **sockmap;
 	int nfds, cap;
 	int timeoutMs;
 	int ret;
@@ -888,7 +898,6 @@ Socket_SelectWithTimeout_Poll(struct timeval *timeout, int receive)
 	}
 
 	pfds = malloc(cap * sizeof(struct pollfd));
-	sockmap = malloc(cap * sizeof(CSocket *));
 
 	// Build pollfd array.
 	nfds = 0;
@@ -902,7 +911,6 @@ Socket_SelectWithTimeout_Poll(struct timeval *timeout, int receive)
 		if (i->vtable->IsBuffer(i))
 			pfds[nfds].events |= POLLOUT;
 		pfds[nfds].revents = 0;
-		sockmap[nfds] = i;
 		nfds++;
 	}
 
@@ -911,27 +919,32 @@ Socket_SelectWithTimeout_Poll(struct timeval *timeout, int receive)
 	if (ret == -1) {
 		result = (CSocket *)(intptr_t)errno;
 		free(pfds);
-		free(sockmap);
 		return result;
 	}
 
+	// Resolve each ready fd against the live socket list (see the epoll path):
+	// a socket torn down by a handler earlier in this batch is skipped instead
+	// of dereferenced through a stale pointer.
 	if (ret > 0) {
 		int j;
 		for (j = 0; j < nfds; j++) {
-			i = sockmap[j];
-			if ((i->status & SocketClosing) || i->s == -1)
+			int rfd = pfds[j].fd;
+			short rmask = pfds[j].revents;
+			for (i = GLOBAL_CSocket_first; i; i = i->next)
+				if (i->s == rfd)
+					break;
+			if (i == NULL || (i->status & SocketClosing) || i->s == -1)
 				continue;
-			if (pfds[j].revents & (POLLERR | POLLHUP | POLLNVAL))
+			if (rmask & (POLLERR | POLLHUP | POLLNVAL))
 				i->vtable->Close(i);
-			if (!(i->status & SocketClosing) && (pfds[j].revents & POLLOUT))
+			if (!(i->status & SocketClosing) && (rmask & POLLOUT))
 				i->vtable->Send(i);
-			if (receive && !(i->status & SocketClosing) && (pfds[j].revents & POLLIN))
+			if (receive && !(i->status & SocketClosing) && (rmask & POLLIN))
 				i->vtable->Recv(i);
 		}
 	}
 
 	free(pfds);
-	free(sockmap);
 
 cleanup_phase:
 	for (i = GLOBAL_CSocket_first; i; i = GLOBAL_CSocket_last) {
