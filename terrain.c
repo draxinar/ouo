@@ -50,7 +50,6 @@ static void Terrain_LoadStaticsBlock(int extra, int blockIdx, uint8_t *data, int
 static int SurfaceInfo_CompareZ(const void *a, const void *b);
 static void SurfaceList_Init(SurfaceList *list);
 static void SurfaceList_Add(SurfaceList *list, uint32_t flags, int16_t z, int16_t height, CItem *item);
-static int LOS_IsMobile(CItem *ent);
 static int LOS_GetFlags(CItem *ent);
 
 LandTileData *g_LandTileData;
@@ -1898,46 +1897,30 @@ MapFileManager_FlushBlock(int offset)
 
 // CLocation_IsEqualXY and CLocation_Init declared via location.h.
 
-static int
-LOS_IsMobile(CItem *ent)
-{
-	return VT_IsMobile(ent);
-}
-
 /*
- * Emulate vtable[0x28] (GetHeight).
- * CItem (0x004910A7): tiledata height.
- * CMobile (0x0046F32F): always 16.
+ * vtable[0x28] (GetHeight) and vtable[0x30] (GetFlags) dispatch.
+ *
+ * The binary calls the entity's virtual GetHeight/GetFlags at each LOS
+ * call site. Dispatching through the vtable routes each entity class to
+ * its own implementation:
+ *   CItem        (0x004910A7 / 0x004322C0): tiledata height/flags by
+ *                bodyType plus a door-open offset read from itemFlags.
+ *   CMobile      (0x0046F32F / 0x0044A7D0): height 16, flags 0.
+ *   StaticEntity (0x00491078 / 0x00491230): tiledata height/flags by
+ *                bodyType only. Static entities are CResourceEntity-sized
+ *                and have no itemFlags field, so the CItem path's itemFlags
+ *                read would run past the allocation.
  */
 int
 LOS_GetHeight(CItem *ent)
 {
-	uint16_t bodyType;
-	int doorOffset;
-
-	if (LOS_IsMobile(ent))
-		return 16;
-	bodyType = ent->resourceEntity.entity.bodyType;
-	doorOffset = (ent->itemFlags & ItemFlag_Open) ? 1 : 0;
-	return (int)(uint8_t)g_ItemTileData[bodyType + doorOffset].quantity;
+	return ((int (*)(void *))VT_FN(ent, VT_GET_HEIGHT))(ent);
 }
 
-/*
- * Emulate vtable[0x30] (GetTileFlags).
- * CItem (0x004322C0): tiledata flags.
- * CMobile (0x0044A7D0): returns 0.
- */
 static int
 LOS_GetFlags(CItem *ent)
 {
-	uint16_t bodyType;
-	int doorOffset;
-
-	if (LOS_IsMobile(ent))
-		return 0;
-	bodyType = ent->resourceEntity.entity.bodyType;
-	doorOffset = (ent->itemFlags & ItemFlag_Open) ? 1 : 0;
-	return (int)g_ItemTileData[bodyType + doorOffset].flags;
+	return ((int (*)(void *))VT_FN(ent, VT_GET_FLAGS))(ent);
 }
 
 /*
