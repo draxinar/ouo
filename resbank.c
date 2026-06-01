@@ -5503,9 +5503,29 @@ DeductSpawnFromBank(uint16_t templateId, CLocation *loc)
 	if (tmpl == NULL)
 		return;
 	for (nd = tmpl->resourceNodes; nd != NULL; nd = nd->next) {
+		int32_t avail;
+		int32_t take;
+
 		if (nd->type != 3 || nd->id == 0)
 			continue;
-		CResBankRegion_SubtractFromQuantity(region, nd->id, nd->value1);
+
+		// CUSTOM (FEAT_CLOSED_ECONOMY): a resource bank cannot drop below
+		// empty. CanSpawnTemplate floor-gates the director spawn, but it is a
+		// pre-check - a single debit can overshoot a near-empty resource past
+		// zero - and the per-NPC respawn queue (PendingNPCRespawn_Tick ->
+		// SpawnAtPointForLocation) spawns with g_SpawningInProgress clear, so
+		// its CanSpawnTemplate check uses the looser >0 threshold instead of
+		// the maxSpawns>>4 floor. Either path can drive a thin resource (meat,
+		// carnivoremeat) negative, and a negative balance makes
+		// ResBankLimitCheck reject meat-vendor stock, which culls the stockless
+		// vendor (CTemplateManager_CreateFromTemplate). Clamp the debit at zero
+		// so the closed economy starves the spawn, not the shopkeeper.
+		avail = CResBankRegion_GetQuantity(region, nd->id);
+		take = nd->value1;
+		if (take > avail)
+			take = (avail > 0) ? avail : 0;
+
+		CResBankRegion_SubtractFromQuantity(region, nd->id, take);
 		CResBankRegion_AddToSpawnedCount(region, nd->id, nd->value1);
 	}
 }
