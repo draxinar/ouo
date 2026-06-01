@@ -5533,10 +5533,13 @@ DeductSpawnFromBank(uint16_t templateId, CLocation *loc)
 /*
  * Helper - RefundResourceNodesToBank
  *
- * For each non-empty type-3 production node on item, schedules a budget
- * refund at item->location via ScheduleRespawnForTemplate. Called from
- * destruction sites (CItem_DecayTick path) under FEAT_CLOSED_ECONOMY.
- * The value3<=0 guard skips nodes already drained by harvest scripts
+ * For each non-empty type-3 production node on item, credits the regional bank
+ * at item->location directly via CResBankRegion_AddToQuantity. Called from
+ * destruction sites (CItem_DecayTick path) under FEAT_CLOSED_ECONOMY, mirroring
+ * the harvest-side credit in Script_returnResourcesToBank: a decayed corpse
+ * returns its resources synchronously. The credit lands in quantities[], which
+ * SaveResBank persists, so nothing is left in flight to drop on restart. The
+ * value3<=0 guard skips nodes already drained by harvest scripts
  * (Script_returnResourcesToBank) so the bank is not double-credited.
  */
 void
@@ -5544,15 +5547,19 @@ RefundResourceNodesToBank(CItem *item)
 {
 	CResourceNode *nd;
 	CLocation *loc;
+	CResBankRegion *region;
 
 	if (item == NULL)
 		return;
 
 	loc = &item->resourceEntity.entity.location;
+	region = CResBankManager_GetRegionByLocation(loc->x, loc->y);
+	if (region == NULL || region == g_ResBankManager.noRegion)
+		return;
 
 	for (nd = item->resourceEntity.firstChild; nd != NULL; nd = nd->next) {
 		if (nd->type != 3 || nd->id == 0 || nd->value3 <= 0)
 			continue;
-		CResBankManager_ScheduleRespawnForTemplate(loc, nd->id, (int16_t)nd->value3, 0);
+		CResBankRegion_AddToQuantity(region, nd->id, nd->value3);
 	}
 }
