@@ -2879,10 +2879,10 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 
 	// Custom: .respawntick - fire CResBankManager::InitRespawn once,
 	// synchronously. Normally invoked by RespawnTimerCheck every
-	// 0x1000 ticks (~17 min); this lets the test suite collapse the
-	// FEAT_CLOSED_ECONOMY refund deadline without waiting. With
-	// -spawn-refund-cycles 1 the first .respawntick after a corpse
-	// decays issues the bank refund.
+	// 0x1000 ticks (~17 min). InitRespawn ages the per-template inspection
+	// countdowns and resets respawnChunkTimer to kick ProcessRespawnChunk's
+	// chunk-egg regrow pass. The closed-economy bank refund is synchronous
+	// (RefundResourceNodesToBank), so this tick is no longer a refund aid.
 	if (strcmp(cmd, "respawntick") == 0 && CPlayer_IsEditing(player)) {
 		CResBankManager_InitRespawn();
 		CPlayer_SystemMessage(player, "Respawn timer tick fired");

@@ -211,10 +211,6 @@ typedef struct PendingNPCRespawn {
 extern PendingNPCRespawn *g_pendingNPCRespawnHead;
 extern int g_PerNPCRespawnDelayMs;
 
-// CUSTOM: initial respawnCountdown value for ScheduleRespawnForTemplate.
-// Default 0x3A=58 cycles (binary literal). See resbank.c.
-extern uint8_t g_SpawnRefundCycles;
-
 // CUSTOM: refund an item's type-3 nodes to the regional bank. Called from
 // destruction sites under FEAT_CLOSED_ECONOMY. Defined in resbank.c.
 void RefundResourceNodesToBank(CItem *item);
