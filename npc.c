@@ -5047,9 +5047,20 @@ CMobile_IsHumanNPC(CMobile *this)
 /*
  * 0x004AB34C - NPC_PackMerge
  *
- * Resolves both mobs to their pack leaders and, when the packs have
- * enough aggregate hunger capacity, folds the weaker leader (and its
- * followers) under the stronger one by encumbrance limit.
+ * Resolves both mobs to their pack leaders and, when there is enough
+ * aggregate hunger capacity, folds the weaker leader (and its followers)
+ * under the stronger one by encumbrance limit.
+ *
+ * MODIFIED: UoDemo.exe gates the merge with an inverted comparison
+ * (0x004AB432: cmp 0, total/4; jge merge) so it only merges when the
+ * pack's combined hungerCapacity is <= 3. CNPC_InitFromResourceNodes
+ * defaults hungerCapacity to 99, so the sum is always >> 3 and the
+ * binary's pack merge is dead code for every normal creature - packing
+ * wolves scan for packmates (ScanForTargets type 1) and call this, but
+ * never actually form a pack. With FEAT_ECOLOGY enabled we use the
+ * intended "enough aggregate capacity" direction so timber/dire/white/
+ * grey wolves (templatestable.dat packing=1) pack up; the inert binary
+ * test is kept exactly in the else branch.
  */
 void
 NPC_PackMerge(CMobile *mobA, CMobile *mobB)
@@ -5085,8 +5096,15 @@ NPC_PackMerge(CMobile *mobA, CMobile *mobB)
 			totalFood += ((CNPC *)cur)->hungerCapacity;
 	}
 
-	if (0 < (totalFood + (totalFood < 0 ? 3 : 0)) / 4)
-		return;
+	if (feat(FEAT_ECOLOGY)) {
+		// Revive the demo's inert pack merge (see top comment): bail
+		// only when there is too little aggregate capacity to pack.
+		if (0 >= (totalFood + (totalFood < 0 ? 3 : 0)) / 4)
+			return;
+	} else {
+		if (0 < (totalFood + (totalFood < 0 ? 3 : 0)) / 4)
+			return;
+	}
 
 	limitB = CMobile_GetEncumbranceLimit(leaderB);
 	limitA = CMobile_GetEncumbranceLimit(leaderA);
