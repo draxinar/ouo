@@ -50,6 +50,7 @@ static int CItem_MultiContainerCheck(CItem *this, CItem *container); // 0x004891
 static int CItem_GetSpellId(CItem *item); // 0x00490DA4
 static int CItem_GetSortKeyQty(CItem *item); // 0x00490DB7
 static int CItem_GetSortKey(CItem *item); // 0x00490C6D
+static int Hint_WakeCarriedMagic(CItem *item); // Custom (FEAT_HINT_RUMORS)
 
 // 0x006CA900 - recursion guard for weight subtraction propagation
 static uint32_t g_weightSubtractCount;
@@ -492,6 +493,14 @@ CItem_HasMultiDeleteTag(CItem *item)
  * containers (weight >= 0xFF, e.g. bookcases) past the weight-exemption
  * gate so their fill scripts can run without requiring the dynfill
  * overloadedWeight workaround.
+ *
+ * CUSTOM under FEAT_HINT_RUMORS: the binary skips the decay event for
+ * worn and contained items, so magic items carried by NPCs never fire
+ * hintupdater.m's "trigger decay" and the rumor database (getHint) stays
+ * empty. For carried items that hold the hintupdater script, fire the
+ * decay event so the hint is recorded, then keep the binary-faithful
+ * "carried items do not accumulate decay" behavior. See
+ * Hint_WakeCarriedMagic.
  */
 void
 CItem_DecayTick(CItem *item)
@@ -562,11 +571,15 @@ CItem_DecayTick(CItem *item)
 	}
 
 	if (VT_IsEquipped(item)) {
+		if (feat(FEAT_HINT_RUMORS) && !Hint_WakeCarriedMagic(item))
+			return;
 		item->decayCount = 0;
 		return;
 	}
 
 	if (((int (*)(void *))VT_FN(item, VT_HAS_CONTAINER))(item)) {
+		if (feat(FEAT_HINT_RUMORS) && !Hint_WakeCarriedMagic(item))
+			return;
 		item->decayCount = 0;
 		return;
 	}
@@ -6435,4 +6448,30 @@ Item_DestroyPools(void)
 		}
 		VG_DESTROY_POOL(&g_StaticFreeList);
 	}
+}
+
+/*
+ * Custom (FEAT_HINT_RUMORS) - Hint_WakeCarriedMagic
+ *
+ * The binary's CItem_DecayTick skips the decay script event for worn and
+ * contained items, so magic items carried by NPCs never fire hintupdater.m's
+ * "trigger decay" and the rumor database (getHint) stays empty. For an item
+ * that carries the hintupdater script (every factory magic item, via the
+ * classifier globalscripts), fire the decay event so the hint is recorded.
+ * The carried item is not otherwise decayed: the caller still zeroes
+ * decayCount and returns. Returns 0 if the script deleted the entity (the
+ * caller must not touch it afterwards), 1 otherwise (including non-magic
+ * items, which are left untouched).
+ */
+static int
+Hint_WakeCarriedMagic(CItem *item)
+{
+	uint32_t serial;
+
+	if (!CItem_HasScriptByName(item, "hintupdater"))
+		return 1;
+
+	serial = CMobile_GetSerial((CMobile *)item);
+	Entity_ExecuteEvent(&item->resourceEntity.entity, 0x31, (uint32_t)item->decayCount, (uint32_t)item->decayCount);
+	return CWorld_FindBySerial(g_World, serial) == (CItem *)item;
 }

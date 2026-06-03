@@ -35,6 +35,7 @@ static const struct FeatEntry featTable[] = {
 	{ "ecology",           FEAT_ECOLOGY },
 	{ "lights",            FEAT_LIGHTS },
 	{ "creation_colors",   FEAT_CREATION_COLORS },
+	{ "hint_rumors",       FEAT_HINT_RUMORS },
 	{ "spawn_strict_tags", FEAT_SPAWN_STRICT_TAGS },
 	{ "closed_economy",    FEAT_CLOSED_ECONOMY },
 	{ "skill_tracking",    FEAT_SKILL_TRACKING },

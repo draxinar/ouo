@@ -3756,9 +3756,10 @@ CMobile_GetHPPercent(CMobile *this)
 /*
  * 0x00471888 - CMobile::EquipmentDecayTick
  *
- * Fires a "decay" script event on every equipped item (recursing into
- * containers, skipping the mount slot) and then on the mob's own
- * container contents.
+ * Marks every equipped item valueless via CItem_DecayProcess (recursing
+ * into containers, skipping the mount slot) and then the mob's own
+ * container contents. Despite the name, this does not fire a Wombat
+ * "decay" script event - it only seeds decayCount and the valueless tag.
  */
 void
 CMobile_EquipmentDecayTick(CMobile *this)
