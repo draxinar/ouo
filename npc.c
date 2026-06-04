@@ -68,6 +68,7 @@ static void CNPC_PurseDesiresHandler(CNPC *npc); // Custom
 static void CNPC_PurseDesiresPlayer(CNPC *npc, CItem *target); // Custom
 static int CNPC_HasFoodAppetite(CNPC *npc); // Custom
 static int CNPC_GrazeHandler(CNPC *npc); // Custom
+static int CNPC_CarnivoreFeed(CNPC *npc); // Custom
 static int CNPC_GetPowerLevel(CItem *entity); // 0x00432C65
 #ifndef CUSTOM_ECOLOGY_DEBUG
 __attribute__((unused))
@@ -4180,7 +4181,7 @@ state_switch:
 	case NPC_STATE_SEEK_FOOD:
 		if (((int (*)(void *, int))VT_FN((CItem *)npc, VT_TEST_BEHAVIOR))(npc, 0x10002))
 			CNPC_SetState(npc, NPC_STATE_IDLE);
-		else if (feat(FEAT_ECOLOGY) && CNPC_GrazeHandler(npc))
+		else if (feat(FEAT_ECOLOGY) && (CNPC_GrazeHandler(npc) || CNPC_CarnivoreFeed(npc)))
 			CNPC_SetState(npc, NPC_STATE_IDLE);
 		else
 			CNPC_FoodSeek(npc);
@@ -7542,6 +7543,110 @@ CNPC_GrazeHandler(CNPC *npc)
 
 		mob->stomach = (uint8_t)((int)(uint8_t)mob->stomach + bite);
 		return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Custom - CNPC_CarnivoreFeed (FEAT_ECOLOGY)
+ *
+ * Carnivore analog of CNPC_GrazeHandler: completes Koster's "[living
+ * things are] attacked first, then eaten" FOOD interaction, which the
+ * binary leaves half-wired - predation kills prey but nothing refills the
+ * killer's stomach (stomach is only raised by GrazeHandler and by
+ * FindFoodInPack on meat already in the pack). A hungry meat-eater scans a
+ * 24-tile box for a corpse (or any item) carrying a type-3 MEAT or
+ * CARNIVOREMEAT node and drains it, refilling its stomach by the same
+ * amount - so a predator eats the fresh corpse of its own kill, and can
+ * scavenge others in its territory, instead of starving beside it.
+ * CMobile_CreateCorpse drains the prey's production nodes onto the corpse
+ * (CARNIVOREMEAT->MEAT), so the meat is present without a player carving it
+ * first. The meat lookup mirrors CNPC_FindFoodInPack; the drain/refill and
+ * the spatial box-scan mirror CNPC_GrazeHandler and CNPC_ScavengerPickup.
+ * Returns 1 if it fed.
+ *
+ * Herbivores fall through harmlessly: they carry no MEAT/CARNIVOREMEAT food
+ * appetite node, so the meat-eater gate returns 0 and they keep grazing.
+ */
+static int
+CNPC_CarnivoreFeed(CNPC *npc)
+{
+	CMobile *mob = &npc->mobile;
+	CLocation *loc = &mob->container.item.resourceEntity.entity.location;
+	CResourceNode *pref;
+	CResourceNode *node;
+	CItem *ent;
+	int isMeatEater;
+	int cap;
+	int want;
+	int bite;
+	int selfX, selfY;
+	int x, y;
+	int blockIndex;
+
+	// Meat-eater gate: only creatures whose diet (type-0 food appetite)
+	// includes MEAT or CARNIVOREMEAT eat corpses; herbivores keep grazing.
+	isMeatEater = 0;
+	for (pref = mob->container.item.resourceEntity.firstChild; pref != NULL; pref = pref->next) {
+		if ((int8_t)pref->type != 0 || (uint16_t)pref->id == 0)
+			continue;
+		if ((g_ResTypeId_Meat != 0 && (int)pref->id == g_ResTypeId_Meat) || (g_ResTypeId_CarnivoreMeat != 0 && (int)pref->id == g_ResTypeId_CarnivoreMeat)) {
+			isMeatEater = 1;
+			break;
+		}
+	}
+	if (!isMeatEater)
+		return 0;
+
+	cap = (int)npc->hungerCapacity;
+	if (cap > 255)
+		cap = 255; // stomach is uint8
+	want = cap - (int)(uint8_t)mob->stomach;
+	if (want <= 0)
+		return 0; // full / not hungry
+
+	selfX = (int)(int16_t)loc->x;
+	selfY = (int)(int16_t)loc->y;
+
+	for (x = selfX - 24; x <= selfX + 24; x += 8) {
+		for (y = selfY - 24; y <= selfY + 24; y += 8) {
+			blockIndex = CBlockManager_GetBlockIndex(&g_SpatialGrid, x, y, 0);
+			if (blockIndex < 0)
+				continue;
+			ent = g_SpatialGrid.cells[blockIndex].itemHead;
+			while (ent != NULL) {
+				if (ent == (CItem *)npc || ent->resourceEntity.entity.removedFromWorld || VT_IsMobile(ent)) {
+					ent = ent->spatialNext;
+					continue;
+				}
+
+				node = NULL;
+				if (g_ResTypeId_Meat != 0)
+					node = CResourceEntity_FindNode(ent, (uint16_t)g_ResTypeId_Meat, 3);
+				if (node == NULL && g_ResTypeId_CarnivoreMeat != 0)
+					node = CResourceEntity_FindNode(ent, (uint16_t)g_ResTypeId_CarnivoreMeat, 3);
+
+				if (node != NULL && node->value3 > 0) {
+					bite = want;
+					if (bite > node->value3)
+						bite = node->value3;
+
+					CResourceEntity_NotifyPreModify(ent);
+					node->value3 -= bite;
+					CResourceEntity_NotifyPostModify(ent);
+					CResourceEntity_NotifyPostModifyIfActive(ent);
+
+					mob->stomach = (uint8_t)((int)(uint8_t)mob->stomach + bite);
+
+					if ((CEntity_GetBodyType(ent) & 0xFFFF) == 0x2006)
+						CNPC_HandleCorpseEat(npc, ent);
+					return 1;
+				}
+
+				ent = ent->spatialNext;
+			}
+		}
 	}
 
 	return 0;
