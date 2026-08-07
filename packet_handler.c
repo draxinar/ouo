@@ -1866,7 +1866,7 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	}
 	CVector_Destructor(&charVec);
 
-	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, numCharacters, &characterNames[0], &characterPasswords[0]);
+	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 
@@ -9156,7 +9156,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 			PacketManager_MakePacket_FEATURES(obuf);
 			Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		}
-		PacketManager_MakePacket_CITIES_AND_CHARS(obuf, 0, &characterNames[0], &characterPasswords[0]);
+		PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		return;
 	}
@@ -9192,7 +9192,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 	}
 
-	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, numCharacters, &characterNames[0], &characterPasswords[0]);
+	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 

@@ -1575,7 +1575,7 @@ PacketManager_MakePacket_FEATURES(uint8_t *buf)
  * Not present on UoDemo, but required on clients >= 1.25.35.
  */
 uint16_t
-PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, uint8_t numCharacters, char *characterNames, char *characterPasswords)
+PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, char *characterPasswords)
 {
 	unsigned int i;
 	unsigned int numStartingPlaces;
@@ -1583,7 +1583,7 @@ PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, uint8_t numCharacters, c
 	numStartingPlaces = g_PlaceNameCount;
 
 	PutPacketType(buf, PacketType_CITIES_AND_CHARS, PacketDynamicSize);
-	PutByte(buf, numCharacters);
+	PutByte(buf, 5);
 	for (i = 0; i < 5; i++) {
 		PutString(buf, &characterNames[30 * i], 30);
 		PutString(buf, &characterPasswords[30 * i], 30);
