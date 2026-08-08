@@ -609,31 +609,35 @@ UserSock_Decrypt(CUserSock *this, uint8_t *buf, int len)
 /*
  * Custom - CUserSock::GetServerIP
  *
- * Populates g_ServerAddr from getsockname() if not already set.
- * Skips loopback (127.x) and 0.0.0.0: caching those here poisons
- * every subsequent 0xA8/0x8C we send, telling remote clients to
- * reconnect to their own machine. The first non-loopback connection
- * wins; production admins who want a fixed public IP should use -a.
+ * Resolves the address this connection is told to reconnect to in the
+ * BRITANNIA_LIST (0xA8) and USER_SERVER (0x8C) relay packets. The -a
+ * override wins; otherwise getsockname() gives the address the client
+ * actually dialed, so a loopback client is sent back to loopback and a
+ * remote client to the interface it reached. Resolved per connection
+ * and never cached in a global: one probe over 127.x must not decide
+ * the address every later client is handed, and a loopback-only setup
+ * must not end up advertising 0.0.0.0 - clients reject a zero relay
+ * address ("<shard> is full.") and never reconnect.
  */
 void
 CUserSock_GetServerIP(CUserSock *this)
 {
 	struct sockaddr_in sin;
 	socklen_t len;
-	uint8_t ip[4];
 
-	if (g_ServerAddr[0] || g_ServerAddr[1] || g_ServerAddr[2] || g_ServerAddr[3])
+	if (g_ServerAddr[0] || g_ServerAddr[1] || g_ServerAddr[2] || g_ServerAddr[3]) {
+		memcpy(this->serverAddr, g_ServerAddr, 4);
 		return;
+	}
 
 	len = sizeof(sin);
-	if (getsockname(this->socket.s, (struct sockaddr *)&sin, &len) != 0)
+	if (getsockname(this->socket.s, (struct sockaddr *)&sin, &len) != 0) {
+		this->serverAddr[0] = 127;
+		this->serverAddr[1] = 0;
+		this->serverAddr[2] = 0;
+		this->serverAddr[3] = 1;
 		return;
+	}
 
-	memcpy(ip, &sin.sin_addr, 4);
-	if (ip[0] == 127)
-		return;
-	if (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0)
-		return;
-
-	memcpy(g_ServerAddr, ip, 4);
+	memcpy(this->serverAddr, &sin.sin_addr, 4);
 }

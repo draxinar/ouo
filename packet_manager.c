@@ -1510,7 +1510,7 @@ Britannia g_BritanniaList[] = {
  * ACCT_LOGIN_REQ. No client validates the value. 0x5D is conventional.
  */
 uint16_t
-PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf)
+PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf, const uint8_t *serverAddr)
 {
 	unsigned int i, j;
 	uint8_t flags;
@@ -1527,7 +1527,7 @@ PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf)
 		PutByte(buf, g_BritanniaList[i].percentFull);
 		PutByte(buf, g_BritanniaList[i].timeZone);
 		for (j = 0; j < 4; j++)
-			PutByte(buf, g_ServerAddr[j]);
+			PutByte(buf, serverAddr[j]);
 	}
 
 	return 0;
@@ -1539,7 +1539,7 @@ PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf)
  * its login seed when reconnecting to the game server.
  */
 uint16_t
-PacketManager_MakePacket_USER_SERVER(uint8_t *buf, uint16_t numBritannia, uint16_t port, uint32_t authSeed)
+PacketManager_MakePacket_USER_SERVER(uint8_t *buf, uint16_t numBritannia, uint16_t port, uint32_t authSeed, const uint8_t *serverAddr)
 {
 	unsigned int i;
 
@@ -1549,7 +1549,7 @@ PacketManager_MakePacket_USER_SERVER(uint8_t *buf, uint16_t numBritannia, uint16
 		return 0;
 
 	for (i = 0; i < 4; i++)
-		PutByte(buf, g_ServerAddr[i]);
+		PutByte(buf, serverAddr[i]);
 	PutWord(buf, port);
 	// Auth seed: random nonce from PendingAuth. The client sends this
 	// back as its game connection login seed. For Twofish clients

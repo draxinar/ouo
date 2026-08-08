@@ -46,6 +46,7 @@ struct CUserSock {
 	uint16_t *packetTable;       // proto-specific packet sizes
 	char clientVersion[24];      // version string from 0xBD
 	CAccount *account;
+	uint8_t serverAddr[4];       // relay IP advertised to this connection
 };
 
 /*

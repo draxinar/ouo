@@ -1772,7 +1772,7 @@ HandlePacket_ACCT_LOGIN_REQ(CUserSock *this, uint8_t *buf)
 		this->account = acct;
 		Log_Auth(this->addr, "accepted login for '%s'", characterName);
 
-		PacketManager_MakePacket_BRITANNIA_LIST(&obuf[0]);
+		PacketManager_MakePacket_BRITANNIA_LIST(&obuf[0], this->serverAddr);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 	}
 }
@@ -5805,7 +5805,7 @@ HandlePacket_BRITANNIA_SELECT(CUserSock *this, uint8_t *buf)
 	}
 
 	nonce = PendingAuth_Create(gc, bfIdx, pktTable, xorVer, clientEnum);
-	PacketManager_MakePacket_USER_SERVER(&obuf[0], v, port, nonce);
+	PacketManager_MakePacket_USER_SERVER(&obuf[0], v, port, nonce, this->serverAddr);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 

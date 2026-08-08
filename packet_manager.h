@@ -268,8 +268,8 @@ void PacketManager_MakePacket_TEXT_UNICODE(
 void PacketManager_MakePacket_SKILLS_Ext(uint8_t *buf, int maxSkills, CItem *player);
 void PacketManager_MakePacket_SKILLS_SINGLE_Ext(uint8_t *buf, uint16_t skillID, uint16_t value, uint16_t base, uint8_t lock);
 uint16_t PacketManager_MakePacket_ACCT_LOGIN_FAIL(uint8_t *buf, uint8_t reason);
-uint16_t PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf);
-uint16_t PacketManager_MakePacket_USER_SERVER(uint8_t *buf, uint16_t numBritannia, uint16_t port, uint32_t authSeed);
+uint16_t PacketManager_MakePacket_BRITANNIA_LIST(uint8_t *buf, const uint8_t *serverAddr);
+uint16_t PacketManager_MakePacket_USER_SERVER(uint8_t *buf, uint16_t numBritannia, uint16_t port, uint32_t authSeed, const uint8_t *serverAddr);
 uint16_t PacketManager_MakePacket_FEATURES(uint8_t *buf);
 uint16_t PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, char *characterPasswords);
 void PacketManager_MakePacket_CHAT_MSG(uint8_t *buf, uint16_t number, const char *param1, const char *param2);
