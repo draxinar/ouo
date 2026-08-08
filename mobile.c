@@ -3239,8 +3239,8 @@ CMobile_Constructor(CMobile *mob)
 	mob->sfxWasHit = 0xFFFF;
 	mob->sfxDie = 0xFFFF;
 
-	CSerialList_Init(&mob->combatTargetList);
-	CSerialList_Init(&mob->attackerList);
+	CSerialList_Constructor(&mob->combatTargetList);
+	CSerialList_Constructor(&mob->attackerList);
 
 	CDiceRoll_Constructor((CWeaponDice *)&mob->armorRating);
 

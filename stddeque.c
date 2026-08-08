@@ -159,7 +159,12 @@ CDequeBlock_GetRemaining(CDequeBlock *this)
  * 0x0046C91F - CDeque alloc from block
  *
  * Returns pointer at the block's current position, then advances
- * used by size rounded up to a 4-byte boundary.
+ * used by size rounded up to a pointer boundary.
+ *
+ * The binary rounds to 4, its pointer width. Rounding to sizeof(void *)
+ * keeps the bump pointer-aligned on 64-bit, where callers such as
+ * CScriptManager::InternString store a pointer at the start of the block
+ * they receive; on 32-bit the expression is the binary's (size + 3) & ~3.
  */
 static void *
 CDequeBlock_AllocFrom(CDequeBlock *this, uint32_t size)
@@ -167,7 +172,7 @@ CDequeBlock_AllocFrom(CDequeBlock *this, uint32_t size)
 	void *ptr;
 
 	ptr = (void *)((char *)this->aligned + this->used);
-	this->used += (size + 3) & ~3u;
+	this->used += (size + (sizeof(void *) - 1)) & ~(uint32_t)(sizeof(void *) - 1);
 	return ptr;
 }
 

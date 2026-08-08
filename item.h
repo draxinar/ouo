@@ -370,6 +370,7 @@ void CItem_SetWeight(CItem *item, int weight); // 0x00490C37
 int CItem_GetTiledataQuantity(CItem *item); // 0x00490C80
 int CItem_GetBookNum(CItem *item); // 0x00490CB3
 void CItem_SetBookNum(CItem *item, int num); // 0x00490CEF
+int CItem_GetSpellId(CItem *item); // 0x00490DA4
 int CItem_GetBookPages(CItem *item); // 0x00490D1C
 int GetBookPages(CItem *ent); // 0x00490D1C
 void CItem_SetBookPages(CItem *item, int count); // 0x00490D77

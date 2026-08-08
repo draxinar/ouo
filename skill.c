@@ -803,8 +803,8 @@ CMobile_SkillGain(CMobile *mob, int8_t skillId, int chanceFactor, int gainPercen
 
 	if (SkillCheck_ShouldLogDebug(mob, skillId)) {
 		char buf[256];
-		snprintf(buf, sizeof(buf), "Learn %s At: %d, Chance: %d, AdvRate: %d", CSkillManager_GetSkillName(&g_SkillManager, skillId), CMobile_GetSkillValue(mob, skillId, 1),
-		        chanceFactor, advanceRate);
+		snprintf(buf, sizeof(buf), "Learn %s At: %d, Chance: %d, AdvRate: %d", CSkillManager_GetSkillName(&g_SkillManager, skillId),
+		        CMobile_GetBaseSkillValue(mob, skillId), chanceFactor, advanceRate);
 		CPlayer_SystemMessage((CPlayer *)mob, buf);
 	}
 
@@ -885,7 +885,7 @@ CMobile_SkillCheck(CMobile *mob, int8_t skillId, int difficulty, int range, int 
 	if (SkillCheck_ShouldLogDebug(mob, skillId)) {
 		char buf[256];
 		sprintf(buf, "%s At:(%d/%d), Diff:%d, Focus:%d, Chance:%d, Success:%d", CSkillManager_GetSkillName(&g_SkillManager, skillId), CMobile_GetTotalSkill(mob, skillId),
-		        CMobile_GetSkillValue(mob, skillId, 1), difficulty, range, chance, success);
+		        CMobile_GetBaseSkillValue(mob, skillId), difficulty, range, chance, success);
 		CPlayer_SystemMessage((CPlayer *)mob, buf);
 	}
 
@@ -1010,13 +1010,13 @@ CMobile_TestSkillInternal(CMobile *mob, int8_t skillId, int gainFactor, int isUs
 	if ((int)mob->skillCounts[skillId] > GetRandom(100) * g_GainMultiplier)
 		return;
 
-	baseSkill = CMobile_GetSkillValue(mob, skillId, 1);
+	baseSkill = CMobile_GetBaseSkillValue(mob, skillId);
 	attrMod = (1000 - baseSkill) * gainFactor / 100;
 
 	if (SkillCheck_ShouldLogDebug(mob, skillId)) {
 		char buf[256];
 		snprintf(buf, sizeof(buf), "%s At:(%d/%d), AttrMod:%d", CSkillManager_GetSkillName(&g_SkillManager, skillId), CMobile_GetTotalSkill(mob, skillId),
-		        CMobile_GetSkillValue(mob, skillId, 1), gainFactor / 2);
+		        CMobile_GetBaseSkillValue(mob, skillId), gainFactor / 2);
 		CPlayer_SystemMessage((CPlayer *)mob, buf);
 	}
 
@@ -1075,7 +1075,7 @@ CMobile_HandleWatchingSkill(CMobile *mob, int8_t skillId, int gainFactor)
 		if (!Mobile_IsFacingEntity(other, mob))
 			continue;
 
-		otherSkill = CMobile_GetSkillValue(other, skillId, 1);
+		otherSkill = CMobile_GetBaseSkillValue(other, skillId);
 
 		if (selfSkill <= otherSkill)
 			continue;

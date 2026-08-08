@@ -3452,7 +3452,7 @@ CPlayer_MakeGameMaster(CPlayer *this)
 		return 0;
 
 	this->pflags |= PlayerIsGameMaster;
-	CResManager_InsertByRef(&g_GMPlayerList, (uint32_t)(uintptr_t)this);
+	CResManager_InsertByRef(&g_GMPlayerList, (uintptr_t)this);
 	return 1;
 }
 
@@ -3470,7 +3470,7 @@ CPlayer_RemoveFromGMCallQueue(CPlayer *this)
 
 	this->pflags &= ~PlayerIsGameMaster;
 
-	CResList_RemoveByValue(&g_GMPlayerList, (uint32_t)(uintptr_t)this);
+	CResList_RemoveByValue(&g_GMPlayerList, (uintptr_t)this);
 
 	return 1;
 }
@@ -6249,7 +6249,7 @@ CPlayer_UpdateLastValidLocation(CPlayer *this, CLocation *loc)
 	cellZ = (int8_t)block->pad00[cellOff + 2];
 	tileId = *(uint16_t *)&block->pad00[cellOff];
 
-	if (IsWaterTile(tileId))
+	if (!CTerrainManager_IsNotWaterTile(NULL, tileId))
 		return;
 
 	if (cellZ != loc->z)

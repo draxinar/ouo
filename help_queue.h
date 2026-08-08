@@ -101,6 +101,7 @@ typedef struct CAssistanceNode {
 } CAssistanceNode;
 
 void CAssistance_Destructor(CAssistance *this); // 0x0045F1E0
+uint8_t *CAssistanceQueue_Submit(CAssistance *this, uint8_t requestType); // 0x0049DBD0
 CAssistance *CAssistance_Constructor(CAssistance *self); // 0x0045F6C0
 uint8_t CAssistance_LoadRecordD(CAssistance *this, uint8_t *buf, int unused); // 0x0045F740
 uint8_t CAssistance_LoadRecordA(CAssistance *this, uint8_t *buf, int unused, uint32_t *serialOut); // 0x0045F8A0

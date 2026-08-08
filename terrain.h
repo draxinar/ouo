@@ -239,6 +239,7 @@ int Terrain_GetAvgLandZ(int x, int y); // 0x0046A783
 int Terrain_GetMinLandZ(int x, int y); // 0x0046A853
 int Terrain_GetLandZ(int x, int y); // 0x0046A91E
 int *CTerrainManager_GetLandZQuad(int x, int y); // 0x0046A974
+int CTerrainManager_IsNotWaterTile(CTerrainManager *this, int tileId); // 0x00469AD6
 uint16_t Terrain_GetLandTileID(int x, int y); // 0x0046A9E6
 uint16_t CTerrainManager_GetLandTileID(CTerrainManager *this, int x, int y); // 0x0046AA3C
 int CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc2); // 0x0046ACC8

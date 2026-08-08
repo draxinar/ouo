@@ -47,7 +47,6 @@ static int Item_IsSpecialBodyType(CItem *item); // 0x00487A09
 static void CItem_ClearCampfireNearby(CItem *item); // 0x00487BF5
 static void CItem_ScanNearbyCampfire(CItem *item); // 0x00488FFE
 static int CItem_MultiContainerCheck(CItem *this, CItem *container); // 0x004891A5
-static int CItem_GetSpellId(CItem *item); // 0x00490DA4
 static int CItem_GetSortKeyQty(CItem *item); // 0x00490DB7
 static int CItem_GetSortKey(CItem *item); // 0x00490C6D
 static int Hint_WakeCarriedMagic(CItem *item); // Custom (FEAT_HINT_RUMORS)
@@ -5940,7 +5939,7 @@ CItem_SetBookPages(CItem *item, int count)
  *
  * Forwarding thunk to CItem_GetSortKey.
  */
-static __attribute__((unused)) int
+int
 CItem_GetSpellId(CItem *item)
 {
 	return CItem_GetSortKey(item);

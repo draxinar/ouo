@@ -112,10 +112,10 @@ CMagicItemFactory_Constructor(CMagicItemFactory *factory)
 static __attribute__((unused)) void
 CMagicItemFactory_Destructor(CMagicItemFactory *factory)
 {
-	CResManager_ClearT(&factory->effectTblRM);
-	CResManager_ClearC(&factory->propsRM);
-	CResManager_ClearS(&factory->keysRM);
-	CResManager_ClearI(&factory->includeRM);
+	CResManagerT_ScalarDtor(&factory->effectTblRM);
+	CResManagerC_ScalarDtor(&factory->propsRM);
+	CResManagerS_ScalarDtor(&factory->keysRM);
+	CResBook_ScalarDtor(&factory->includeRM);
 	CResList_DestructorA((CResList *)&factory->itemList);
 	CResList_DestructorA(&factory->globalScripts);
 }

@@ -76,7 +76,6 @@ static CHelpEntry *CHelpEntry_Constructor(CHelpEntry *self, uint32_t serial, uin
 static void CHelpEntry_Destructor(CHelpEntry *self); // 0x0044F920
 static int CAssistance_GetSerializedSizeB(CSkillUseCtx *this); // 0x0045FBA0
 static void CAssistance_QueueDestructorWrapper(CAssistance *this); // 0x00469530
-static uint8_t *CAssistanceQueue_Submit(CAssistance *this, uint8_t requestType); // 0x0049DBD0
 static int CAssistanceQueue_GetSerializedSize(CAssistance *this); // 0x0049DD90
 static void CHelpQueue_RemoveNode(CHelpQueue *q, CHelpRequestNode *target);
 static void GM_ParseSetArgs(const char *arg, int *type, int *skillId, int *value, int *hasValue, char *strArg, size_t strArgSize);
@@ -4092,7 +4091,7 @@ static int __attribute__((unused)) CAssistanceQueue_GetSerializedSize(CAssistanc
  * Serializes a CAssistance into a fresh 308-byte buffer prefixed by
  * the requestType byte. Caller takes ownership of the allocation.
  */
-static __attribute__((unused)) uint8_t *
+uint8_t *
 CAssistanceQueue_Submit(CAssistance *this, uint8_t requestType)
 {
 	uint8_t *buf;

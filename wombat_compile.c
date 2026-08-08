@@ -22,6 +22,8 @@
 #include "multi.h"
 #include "nodepool.h"
 #include "region.h"
+#include "stddeque.h"
+#include "stl.h"
 #include "taglist.h"
 #include "vg_pool.h"
 #include "world.h"
@@ -1259,6 +1261,12 @@ CScriptManager_CreateInstance(CScriptManager *mgr, CScript *scriptClass)
  *
  * Returns a stable pointer to a copy of s, deduplicating against
  * a 256-bucket hash table indexed by the string's first character.
+ * A miss bump allocates the node out of the arena and links it at the
+ * head of its bucket under the arena page's critical section, which is
+ * a no-op in the binary. Nothing ever frees a node.
+ *
+ * The binary asks for strlen + 5 bytes - four for the next pointer plus
+ * the NUL. Here the pointer takes its native width.
  */
 const char *
 CScriptManager_InternString(CScriptManager *mgr, const char *s)
@@ -1267,6 +1275,7 @@ CScriptManager_InternString(CScriptManager *mgr, const char *s)
 		struct InternNode *next;
 		char str[4];
 	} *node;
+	void *page;
 	int bucket;
 	size_t slen;
 
@@ -1280,12 +1289,15 @@ CScriptManager_InternString(CScriptManager *mgr, const char *s)
 		node = node->next;
 	}
 
-	// Not found - allocate new node: next ptr + strlen + 1 (NUL)
+	// Not found - bump allocate the node: next ptr + strlen + 1 (NUL)
 	slen = strlen(s);
-	node = (struct InternNode *)malloc(sizeof(void *) + slen + 1);
+	page = ArenaAllocator_Alloc((uint32_t)(sizeof(void *) + slen + 1), (void **)&node);
+
+	CCriticalSection_Lock((uint32_t *)page);
 	node->next = (struct InternNode *)mgr->internBuckets[bucket];
 	strcpy(node->str, s);
 	mgr->internBuckets[bucket] = node;
+	CCriticalSection_Unlock((uint32_t *)page);
 
 	return node->str;
 }

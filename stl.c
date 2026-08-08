@@ -165,8 +165,6 @@ static uint32_t *CVector_Ucopy_CC20(CVector *this, uint32_t *first, uint32_t *la
 static void CVector_Insert_CA00(CVector *this, uint32_t *pos, uint32_t count, uint32_t *value); // 0x0046CA00
 static void *CVector_Insert_C990(CVector *this, uint32_t *pos, uint32_t *value); // 0x0046C990
 static void CVector_PushBack_C960(CVector *this, uint32_t *value); // 0x0046C960
-static void CCriticalSection_Lock(uint32_t *this); // 0x0046C8ED
-static void CCriticalSection_Unlock(uint32_t *this); // 0x0046C8E2
 static void SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C700
 static void SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C6D0
 static SurfaceInfo *SortSurface_Partition(SurfaceInfo *begin, SurfaceInfo *end, SurfaceInfo *pivot, char typeTag); // 0x0046C650
@@ -4878,7 +4876,7 @@ SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b)
  * single-threaded build. Also reused as InitializeCriticalSection after
  * arena allocation.
  */
-static __attribute__((unused)) void
+void
 CCriticalSection_Unlock(uint32_t *this)
 {
 	USED(this);
@@ -4890,7 +4888,7 @@ CCriticalSection_Unlock(uint32_t *this)
  * No-op. EnterCriticalSection stub compiled as empty in the
  * single-threaded build.
  */
-static __attribute__((unused)) void
+void
 CCriticalSection_Lock(uint32_t *this)
 {
 	USED(this);

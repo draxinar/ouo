@@ -2571,8 +2571,8 @@ CNPC_PaperdollTitle_VT(CNPC *npc, CString *title)
  * 0x004835C8 - CResourceMobile vtable[0x140] SetSerial
  *
  * CResourceMobile override of VT_SET_SERIAL. Removes item from old
- * CItem serial hash and NPC hash, detaches template if serial changes,
- * sets new serial, re-inserts into both hash tables at the new bucket.
+ * CItem serial hash and NPC hash, sets new serial, re-inserts into both
+ * hash tables at the new bucket.
  */
 void
 CNPC_SetSerial(CItem *self, uint32_t newSerial)
@@ -2591,10 +2591,9 @@ CNPC_SetSerial(CItem *self, uint32_t newSerial)
 		g_NPCHash[bucket] = npc->npcHashNext;
 	}
 
-	if (self->serial != 0) {
-		if (newSerial != self->serial)
-			CItem_DetachTemplate(self);
-	}
+	// The binary calls a no-op Noop_4851F0(serial) here when the serial
+	// actually changes; omitted since it has no observable effect, the
+	// same treatment CItem_SetSerial gives it.
 
 	self->serial = newSerial;
 

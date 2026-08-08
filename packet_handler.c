@@ -361,7 +361,7 @@ FindSpellInContainer(CItem *container, int spellId)
 
 	child = ((CContainer *)container)->contents;
 	while (child != NULL) {
-		if ((CItem_GetSortKey(child) & 0xffff) == spellId)
+		if ((CItem_GetSpellId(child) & 0xffff) == spellId)
 			return child;
 		child = child->spatialNext;
 	}
@@ -393,7 +393,7 @@ OpenSpellbookToSpell(CPlayer *player, char *text)
 
 	child = ((CContainer *)spellbook)->contents;
 	while (child != NULL) {
-		if ((CItem_GetSortKey(child) & 0xffff) == (uint32_t)spellId) {
+		if ((CItem_GetSpellId(child) & 0xffff) == (uint32_t)spellId) {
 			Entity_ExecuteEvent(&child->resourceEntity.entity, UseItem, (uintptr_t)((CItem *)player)->serial);
 			return;
 		}
@@ -1222,7 +1222,7 @@ SIMPED_FindTileGroup(int x, int y, int groupIdx)
 
 				if (val == 0xFF) {
 					// Wildcard: get terrain tile, search in this group
-					terrainTileID = Terrain_GetLandTileID(x + row - 1, y + col - 1);
+					terrainTileID = CTerrainManager_GetLandTileID(NULL, x + row - 1, y + col - 1);
 					result = SIMPED_FindTileEntry(groupIdx, terrainTileID);
 					if (result == -1) {
 						found = -1;
@@ -1235,7 +1235,7 @@ SIMPED_FindTileGroup(int x, int y, int groupIdx)
 					continue;
 
 				// Concrete: get terrain tile, search in group[val]
-				terrainTileID = Terrain_GetLandTileID(x + row - 1, y + col - 1);
+				terrainTileID = CTerrainManager_GetLandTileID(NULL, x + row - 1, y + col - 1);
 				result = SIMPED_FindTileEntry(val, terrainTileID);
 				if (result == -1) {
 					found = -1;
@@ -6061,6 +6061,8 @@ HandlePacket_RequestAssistance(CPlayer *this, uint8_t *buf)
 	char nameBuf[31];     // 0x1E bytes copied + null
 	char catBuf[16];      // 0x0F bytes copied + null
 	char bodyBuf[257];    // 0x100 bytes copied + null
+	CAssistance assist;
+	uint8_t *reply;
 
 	if (!CPlayer_IsGameMaster(this))
 		return;
@@ -6086,14 +6088,21 @@ HandlePacket_RequestAssistance(CPlayer *this, uint8_t *buf)
 	memcpy(bodyBuf, name, 0x100);
 	bodyBuf[0xFF] = '\0';
 
-	// three CStrings at +4/+18/+28, type=0, priority=0.
-	// Assistance queue subsystem not implemented.
-	USED(type);
-	USED(priority);
-	USED(serial);
-	USED(nameBuf);
+	CAssistance_Constructor(&assist);
+	assist.serial = serial;
+	CString_AssignCStr(&assist.name, nameBuf);
+	assist.type = type;
+	assist.level = priority;
+	CString_AssignCStr(&assist.body, bodyBuf);
+
+	reply = CAssistanceQueue_Submit(&assist, 1);
+	OperatorDelete(reply);
+
+	CAssistance_Destructor(&assist);
+
+	// The category is parsed into its own buffer and never stored, and
+	// assist.subject is left as the constructor made it.
 	USED(catBuf);
-	USED(bodyBuf);
 }
 
 /*

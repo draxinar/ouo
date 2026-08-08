@@ -697,7 +697,7 @@ CharTraits_FindUB(int val, int count)
 static __attribute__((unused)) unsigned char
 Fgetc_Wrapper(char *dest, void *file)
 {
-	int ch = fgetc((FILE *)file);
+	int ch = fgetc_ServerSide((FILE *)file);
 	if (ch == -1)
 		return 0;
 	*dest = (char)ch;

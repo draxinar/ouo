@@ -4096,7 +4096,7 @@ Uninit_Copy6_Fwd(CVector *this, void *first, void *last, void *dest)
 	char *dst = (char *)dest;
 	USED(this);
 	while (src != end) {
-		CLocation_SetLoc((CLocation *)dst, (CLocation *)src);
+		CLocation_CopySingle(this, (CLocation *)dst, (CLocation *)src);
 		dst += 6;
 		src += 6;
 	}
@@ -4114,7 +4114,7 @@ Uninit_FillN_6(CVector *this, void *ptr, uint32_t count, void *source)
 	char *p = (char *)ptr;
 	USED(this);
 	while (count > 0) {
-		CLocation_SetLoc((CLocation *)p, (CLocation *)source);
+		CLocation_CopySingle(this, (CLocation *)p, (CLocation *)source);
 		count--;
 		p += sizeof(CLocation);
 	}
@@ -4129,7 +4129,7 @@ static __attribute__((unused)) void
 CLocation_CopySingle(CVector *this, CLocation *dest, CLocation *source)
 {
 	USED(this);
-	CLocation_SetLoc(dest, source);
+	CopySingle6_Inner(dest, source);
 }
 
 /*
@@ -4140,10 +4140,9 @@ CLocation_CopySingle(CVector *this, CLocation *dest, CLocation *source)
 static void
 HideItemsInVector_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy)
 {
-	USED(dummy);
 	while (first != last) {
 		CItem *item = (CItem *)*first;
-		((void (*)(void *))VT_FN(item, VT_HIDE))(item);
+		VT_HIDE_Single((StdAllocator *)&dummy, item);
 		first++;
 	}
 }

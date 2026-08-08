@@ -140,7 +140,7 @@ EntityManager_RestoreAndDelete(uint32_t serial)
 
 	entity = EntityManager_RestoreFromArchive(serial);
 	if (entity != NULL) {
-		CItem_SetLockdown(entity, 1);
+		CDataManager_SetLockdown(entity, 1);
 		if (entity != NULL)
 			((void (*)(void *))VT_FN(entity, VT_DELETE))(entity);
 	}
@@ -434,7 +434,7 @@ EntityManager_DeleteArchivedEntity(uint32_t serial)
 		g_WorldActive2 = 0;
 		g_SuppressRespawn = 1;
 		g_DeleteAllowed = 1;
-		CItem_SetLockdown(entity, 1);
+		CDataManager_SetLockdown(entity, 1);
 		if (entity != NULL)
 			((void (*)(void *))VT_FN(entity, VT_DELETE))(entity);
 		g_DeleteAllowed = 0;

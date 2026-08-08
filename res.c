@@ -47,7 +47,6 @@ static void SortBySerial_Insertion(uintptr_t *first, uintptr_t *last, char cmp, 
 static uintptr_t SortBySerial_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp); // 0x004310F0
 static uintptr_t *SortBySerial_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, char cmp); // 0x004311C0
 static CResListNode *CStringList_InsertEntry(CStringList *sl, void *data, int direction); // 0x0043F3D0
-static void CResList_DestructorSLN(CResList *list); // 0x0043F3B0
 static CStringListNode *CStringListEntry_Constructor(CStringListNode *this, CString *name, int weight); // 0x0043F2F0
 static CResList *CResList_ScalarDeleteT(CResList *list, int flags); // 0x0043F2A0
 static CResList *CResList_ScalarDeleteC(CResList *list, int flags); // 0x0043F270
@@ -138,7 +137,7 @@ static CResListNode *CResList_FreeNodeT(CResList *list, CResListNode *node, int 
 static CResListNode *CResList_FreeNodeC(CResList *list, CResListNode *node, int direction); // 0x00441910
 static CResListNode *CResList_FreeNodeS(CResList *list, CResListNode *node, int direction); // 0x004418B0
 static CResListNode *CResList_FreeNodeI(CResList *list, CResListNode *node, int direction); // 0x00441850
-static CResListNode *CResList_AllocAndSetData(CResList *list, uint32_t *valuePtr); // 0x0045F300
+static CResListNode *CResList_AllocAndSetData(CResList *list, uintptr_t *valuePtr); // 0x0045F300
 static CResListNode *CResList_AllocNode(CResList *list); // 0x0045F3A0
 static CResListNode *CResList_PushFront_SpawnLocal(CResList *list, CResListNode *afterNode); // 0x0045F5D0
 static void CResManager_Clear_Hint(CResManager *this); // 0x00464830
@@ -1294,7 +1293,7 @@ CStringList_Init(CStringList *sl)
 void
 CStringList_Destroy(CStringList *sl)
 {
-	CResList_EraseAllSLN(&sl->list);
+	CResList_DestructorSLN(&sl->list);
 }
 
 /*
@@ -2526,7 +2525,7 @@ CStringList_GetValueEffects(CStringList *sl, CResListNode **nodePtr)
  *
  * Frees every node via CResList_EraseAllSLN.
  */
-static __attribute__((unused)) void
+void
 CResList_DestructorSLN(CResList *list)
 {
 	CResList_EraseAllSLN(list);
@@ -4876,7 +4875,7 @@ CResListNodeE_Destructor(CResListNode *node)
  * Inserts value into list via CResList_AllocAndSetData.
  */
 void
-CResManager_InsertByRef(CResList *list, uint32_t val)
+CResManager_InsertByRef(CResList *list, uintptr_t val)
 {
 	CResList_AllocAndSetData(list, &val);
 }
@@ -4887,7 +4886,7 @@ CResManager_InsertByRef(CResList *list, uint32_t val)
  * Finds value in list and erases the matching node, freeing its data.
  */
 void
-CResList_RemoveByValue(CResList *list, uint32_t value)
+CResList_RemoveByValue(CResList *list, uintptr_t value)
 {
 	CResListNode *node;
 
@@ -4922,7 +4921,7 @@ CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, int flag)
  * Allocates a new node and copies *valuePtr into its data via SetDataInt.
  */
 static CResListNode *
-CResList_AllocAndSetData(CResList *list, uint32_t *valuePtr)
+CResList_AllocAndSetData(CResList *list, uintptr_t *valuePtr)
 {
 	CResListNode *node;
 

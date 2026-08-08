@@ -95,6 +95,7 @@ int World_FindBySerial_Either(uint32_t serial); // 0x004851B1
 uint8_t CWorld_GetItemTileQuantity(uint16_t id); // 0x0048528A
 uint8_t CWorld_GetResourceWeight(uint16_t bodyType); // 0x004852B0
 void CDataManager_Init(CWorld *this); // 0x0048B675
+void CDataManager_SetLockdown(CItem *this, int set); // 0x0048B65C
 CItem *CWorld_FindBySerial(CWorld *world, uint32_t serial); // 0x0048B8CA
 CItem *CWorld_FindNPCBySerial(CWorld *world, uint32_t serial); // 0x0048B910
 void CItem_SetSerialField(CItem *item, uint32_t serial); // 0x0048527C

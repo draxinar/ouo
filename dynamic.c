@@ -1662,6 +1662,11 @@ Dynamic_ClearPendingAndFireEvents(void)
  * FIXED: After deleting a duplicate egg, the binary leaves obj
  * dangling so a later VT_IsPlayer(obj) reads its freed vtable.
  * Sets obj = NULL after the VT_DELETE call.
+ *
+ * MODIFIED: the skillmod case bounds the index against the array where
+ * the binary calls CMobile::SetSkillBonus, which rejects any id the
+ * skill manager does not know. Ids 46 to 49 are stored here and refused
+ * by the binary.
  */
 static void
 LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveParent, CLocation *recursiveLoc)
@@ -2083,6 +2088,8 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 				if (VT_IsPlayer(obj)) {
 					CPlayer *player = (CPlayer *)obj;
 					player->pflags = (uint32_t)atoi(val);
+					if (player->pflags & PlayerIsGameMaster)
+						CResManager_InsertByRef(&g_GMPlayerList, (uintptr_t)player);
 				}
 			} else if (strcmp(keybuf, "pswd") == 0) {
 				if (VT_IsPlayer(obj)) {

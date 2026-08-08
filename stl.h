@@ -210,6 +210,8 @@ struct CFileEntry {
 extern void *g_StdTreeNilNode; // 0x0063D8A4
 extern int g_StdTreeNilRef; // 0x0063D8A8
 
+void CCriticalSection_Unlock(uint32_t *this); // 0x0046C8E2
+void CCriticalSection_Lock(uint32_t *this); // 0x0046C8ED
 uint32_t CVector_GetCount16_Thiscall(CVector *this); // 0x004013A1
 int CmpPtrValueEqual(const void *a, const void *b); // 0x00401670
 int StdNilRef(void); // 0x00401690

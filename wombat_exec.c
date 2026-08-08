@@ -11339,7 +11339,7 @@ Script_setWeaponClass(uint32_t serial, int numDice, int diceFaces, int bonus, in
 	CDiceRoll dice;
 
 	ent = FindEntityValidated(serial, "getWeaponClass");
-	CDiceRoll_Init((CWeaponDice *)&dice, (int8_t)numDice, (uint8_t)diceFaces, (int8_t)bonus, 0);
+	CDiceRoll_InitThiscall((CWeaponDice *)&dice, numDice, diceFaces, bonus, 0);
 	if (ent == NULL)
 		return;
 	if (VT_IsWeapon(ent)) {

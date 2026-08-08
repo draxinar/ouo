@@ -109,6 +109,11 @@ void CResList_AddResultEntry(CResList *list, CString *name, int flag); // 0x0043
 void CResList_InsertStrCopy(CResList *list, CString *str, int direction, int orderedFlag); // 0x0043DB40
 CResListNode *CResList_FindByStrSorted(CResList *list, CString *key, CResListNode *startNode, int direction, int orderedFlag); // 0x0043DBD0
 void CResList_InsertTailDataB(CResList *magicList, CMagicItemListNode *name); // 0x0043DC80
+void CResBook_ScalarDtor(CResManager *this); // 0x0043DCB0
+void CResManagerS_ScalarDtor(CResManager *this); // 0x0043E0F0
+void CResManagerC_ScalarDtor(CResManager *this); // 0x0043E480
+void CResManagerT_ScalarDtor(CResManager *this); // 0x0043E890
+void CResList_DestructorSLN(CResList *list); // 0x0043F3B0
 void CResManager_ClearI(CResManager *rm); // 0x0043DCD0
 CSearchCtx *CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *key); // 0x0043DDB0
 void *CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, const char *key, int direction); // 0x0043DF40
@@ -166,8 +171,8 @@ CResListNode *CResListNode_Constructor_bin(CResListNode *node); // 0x00440B10
 CResListNode *CResList_RecycleNodeD(CResList *list, CResListNode *afterNode); // 0x00440EF0
 CResListNode *CResList_InsertBeforeNode(CResList *list, CResListNode *beforeNode); // 0x00441610
 CResListNode *CResList_Prev(CResList *list, CResListNode *node); // 0x00441830
-void CResManager_InsertByRef(CResList *list, uint32_t val); // 0x0045EC0D
-void CResList_RemoveByValue(CResList *list, uint32_t value); // 0x0045EC26
+void CResManager_InsertByRef(CResList *list, uintptr_t val); // 0x0045EC0D
+void CResList_RemoveByValue(CResList *list, uintptr_t value); // 0x0045EC26
 CResListNode *CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, int flag); // 0x0045F290
 CResListNode *CResList_FindByValue(CResList *list, void *keyPtr, CResListNode *startNode, int direction); // 0x0045F330
 CResListNode *CResList_Erase_Spawn(CResList *list, CResListNode *node, void **outData, int direction); // 0x0045F450

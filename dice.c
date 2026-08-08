@@ -13,8 +13,6 @@
 #include "dice.h"
 #include "utils.h"
 
-static CWeaponDice *CDiceRoll_InitThiscall(CWeaponDice *d, int numDice, int faces, int bonus, int unused); // 0x004599ED
-
 /*
  * 0x00459840 - CDiceRoll::CDiceRoll
  *
@@ -112,7 +110,7 @@ CDiceRoll_ToString(CWeaponDice *d, CString *out)
  *
  * Truncates each arg to a byte and forwards to CDiceRoll_Init.
  */
-static __attribute__((unused)) CWeaponDice *
+CWeaponDice *
 CDiceRoll_InitThiscall(CWeaponDice *d, int numDice, int faces, int bonus, int unused)
 {
 	CDiceRoll_Init(d, (int8_t)(uint8_t)numDice, (uint8_t)faces, (int8_t)(uint8_t)bonus, (uint8_t)unused);

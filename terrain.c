@@ -39,7 +39,6 @@ __extension__ typedef struct SurfaceList SurfaceList;
 
 static CTerrainManager *CTerrainManager_Constructor(CTerrainManager *this); // 0x00469AAB
 static void CTerrainManager_ConstructorVTable(void); // 0x00469AC2
-static int CTerrainManager_IsNotWaterTile(CTerrainManager *this, int tileId); // 0x00469AD6
 static void Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *mob, int zOffset); // 0x00469AF4
 static int CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob); // 0x0046B276
 static SurfaceInfo *SurfaceInfo_Constructor(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B920
@@ -446,7 +445,7 @@ CTerrainManager_ConstructorVTable(void)
  *
  * Returns the boolean negation of IsWaterTile.
  */
-static __attribute__((unused)) int
+int
 CTerrainManager_IsNotWaterTile(CTerrainManager *this, int tileId)
 {
 	USED(this);

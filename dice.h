@@ -41,6 +41,7 @@ int CDiceRoll_Roll(CWeaponDice *d); // 0x004598C3
 void CDiceRoll_Clear(CWeaponDice *d); // 0x00459938
 void CDiceRoll_ToString(CWeaponDice *d, CString *out); // 0x00459953
 void CDiceRoll_Init(CWeaponDice *d, int8_t numDice, uint8_t faces, int8_t bonus, uint8_t unused); // 0x00459A15
+CWeaponDice *CDiceRoll_InitThiscall(CWeaponDice *d, int numDice, int faces, int bonus, int unused); // 0x004599ED
 int8_t CDiceRoll_GetNumDice(CWeaponDice *d); // 0x00459A3C
 uint8_t CDiceRoll_GetDiceFaces(CWeaponDice *d); // 0x00459A4C
 int8_t CDiceRoll_GetBonus(CWeaponDice *d); // 0x00459A5D

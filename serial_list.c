@@ -212,13 +212,11 @@ CSerialList_PruneExpired(CSerialList *list)
 	sentinel = list->data;
 	for (node = sentinel->next; node != sentinel; node = next) {
 		next = node->next;
-		if (node->flags == 0) {
+		if (!CSerialNode_DecrementTTL(node)) {
 			node->prev->next = node->next;
 			node->next->prev = node->prev;
 			free(node);
 			list->count--;
-		} else {
-			node->flags--;
 		}
 	}
 }
