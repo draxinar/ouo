@@ -267,6 +267,70 @@ MakePacket_BOOKHDR(CItem *item, int *outSize)
 }
 
 /*
+ * 0x0043491A - BookContent_saveOne
+ *
+ * Writes a book's serialised header and pages to books.mul and records
+ * the offset and length at slot bookIndex of books.idx, then reloads
+ * every book. Creates both files when books.idx is missing, seeding the
+ * index with 1024 empty slots.
+ *
+ * The index entry's third word is written as -1 after SwapEndian, and
+ * the length is byte-swapped in place before the write, so the slot
+ * holds a big-endian offset and length. Nothing checks either fopen.
+ */
+static __attribute__((unused)) void
+BookContent_saveOne(CItem *item, int bookIndex)
+{
+	FILE *idx;
+	FILE *mul;
+	int offset;
+	int size;
+	uint8_t *packet;
+	int i;
+
+	idx = fopen_ServerSide("../.rundir/books.idx", "r+b");
+	if (idx == NULL) {
+		idx = fopen_ServerSide("../.rundir/books.idx", "wb");
+		mul = fopen_ServerSide("../.rundir/books.mul", "wb");
+
+		for (i = 0; i < 0x400; i++) {
+			offset = -1;
+			SwapEndian(&offset);
+			fwrite_ServerSide(&offset, 4, 1, idx);
+			offset = 0;
+			SwapEndian(&offset);
+			fwrite_ServerSide(&offset, 4, 1, idx);
+			fwrite_ServerSide(&offset, 4, 1, idx);
+		}
+	} else {
+		mul = fopen_ServerSide("../.rundir/books.mul", "r+b");
+	}
+
+	fseek_ServerSide(idx, bookIndex * 0xC, SEEK_SET);
+	fseek_ServerSide(mul, 0, SEEK_END);
+
+	offset = (int)ftell_ServerSide(mul);
+	SwapEndian(&offset);
+
+	packet = MakePacket_BOOKHDR(item, &size);
+	fwrite_ServerSide(packet, size, 1, mul);
+	OperatorDelete(packet);
+
+	SwapEndian(&size);
+	fwrite_ServerSide(&offset, 4, 1, idx);
+	fwrite_ServerSide(&size, 4, 1, idx);
+
+	offset = -1;
+	SwapEndian(&offset);
+	fwrite_ServerSide(&offset, 4, 1, idx);
+
+	fclose_ServerSide(idx);
+	fclose_ServerSide(mul);
+
+	BookContent_loadAll();
+}
+
+/*
  * 0x00434AF5 - HandlePacket_BOOKHDR
  *
  * Stores a writable book's submitted title, author, and lookAtText.

@@ -21509,6 +21509,12 @@ static const char *g_ProfanityList3[] = { // 0x0061EAA8
 	"Origin", "OSI", "invulnerable", "frozen", "squelched", NULL
 };
 
+static const char *g_ReservedTitles[] = { // 0x0061EA20
+	"Adept", "Alchemist", "Apprentice", "Archer", "Assassin", "Bard", "Beggar", "Blackthorn", "Blackthorne", "Bowyer", "British", "Carpenter", "Chef", "Expert", "Fisherman",
+	"Grandmaster", "Healer", "Journeyman", "LB", "Mage", "Master", "Medium", "Merchant", "Neophyte", "Novice", "Ranger", "Rogue", "Scholar", "Smith", "Tailor", "Tinker",
+	"Warrior", NULL
+};
+
 /*
  * 0x00491445 - CheckProfanity
  *
@@ -21561,6 +21567,90 @@ IsInvalidNameChar(char c)
 	if (IsNameSeparator(c))
 		return 0;
 	return 1;
+}
+
+/*
+ * 0x00491530 - IsInvalidName
+ *
+ * Validates a player name, returning 1 when it must be rejected. The name
+ * has to start with a letter, carry no invalid character and no two
+ * adjacent separators, and may not begin with "Lord", "Lady", "GM",
+ * "Counselor" or "Seer". It is then rejected when a reserved title or a
+ * word from either whole-word profanity list appears in it delimited by
+ * separators, and when any word from the second profanity list appears at
+ * all, whole word or not.
+ *
+ * Nothing in the binary calls this function.
+ */
+static __attribute__((unused)) int
+IsInvalidName(const char *name)
+{
+	int i, idx;
+
+	if ((*name < 'a' || *name > 'z') && (*name < 'A' || *name > 'Z'))
+		return 1;
+
+	for (i = 0; i < (int)strlen(name); i++) {
+		if (IsInvalidNameChar(name[i]))
+			return 1;
+		if (IsNameSeparator(name[i]) && i < (int)strlen(name) - 1 && IsNameSeparator(name[i + 1]))
+			return 1;
+	}
+
+	if (BM_CaseInsensitiveSearch("Lord", name) == 0)
+		return 1;
+	if (BM_CaseInsensitiveSearch("Lady", name) == 0)
+		return 1;
+	if (BM_CaseInsensitiveSearch("GM", name) == 0)
+		return 1;
+	if (BM_CaseInsensitiveSearch("Counselor", name) == 0)
+		return 1;
+	if (BM_CaseInsensitiveSearch("Seer", name) == 0)
+		return 1;
+
+	for (i = 0; g_ReservedTitles[i] != NULL; i++) {
+		idx = BM_CaseInsensitiveSearch(g_ReservedTitles[i], name);
+		if (idx == -1)
+			continue;
+		if (idx != 0 && !IsNameSeparator(name[idx - 1]))
+			continue;
+		if (idx + (int)strlen(g_ReservedTitles[i]) == (int)strlen(name))
+			return 1;
+		if (IsNameSeparator(name[idx + (int)strlen(g_ReservedTitles[i])]))
+			return 1;
+	}
+
+	for (i = 0; g_ProfanityList1[i] != NULL; i++) {
+		idx = BM_CaseInsensitiveSearch(g_ProfanityList1[i], name);
+		if (idx == -1)
+			continue;
+		if (idx != 0 && !IsNameSeparator(name[idx - 1]))
+			continue;
+		if (idx + (int)strlen(g_ProfanityList1[i]) == (int)strlen(name))
+			return 1;
+		if (IsNameSeparator(name[idx + (int)strlen(g_ProfanityList1[i])]))
+			return 1;
+	}
+
+	for (i = 0; g_ProfanityList2[i] != NULL; i++) {
+		idx = BM_CaseInsensitiveSearch(g_ProfanityList2[i], name);
+		if (idx != -1)
+			return 1;
+	}
+
+	for (i = 0; g_ProfanityList3[i] != NULL; i++) {
+		idx = BM_CaseInsensitiveSearch(g_ProfanityList3[i], name);
+		if (idx == -1)
+			continue;
+		if (idx != 0 && !IsNameSeparator(name[idx - 1]))
+			continue;
+		if (idx + (int)strlen(g_ProfanityList3[i]) == (int)strlen(name))
+			return 1;
+		if (IsNameSeparator(name[idx + (int)strlen(g_ProfanityList3[i])]))
+			return 1;
+	}
+
+	return 0;
 }
 
 /*

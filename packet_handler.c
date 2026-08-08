@@ -3035,6 +3035,74 @@ SendEquipSound(CItem *entity)
 }
 
 /*
+ * 0x00494095 - Steal_CheckAndResolve
+ *
+ * Gates a steal attempt on the item and resolves the roll. Equipped
+ * items and containers are refused outright unless the player is in
+ * editing mode. Otherwise the owner is flagged for the crime, and the
+ * Stealing roll must beat three times the item's weight plus a quarter
+ * of its value plus 250. On failure both parties emote, the guards are
+ * called on the thief, and a GETOBJ_FAILED goes back. Returns 1 only on
+ * a successful steal.
+ *
+ * The binary pushes the item and a difficulty of 100 to
+ * CMobile::DirectUse, which declares both and reads neither.
+ */
+static __attribute__((unused)) int
+Steal_CheckAndResolve(CItem *item, CPlayer *player, CItem *owner)
+{
+	uint8_t obuf[4];
+	CItem *victim;
+	int roll;
+
+	if (((int (*)(void *))VT_FN(item, VT_IS_EQUIPPED_ITEM))(item) && (player->pflags & PlayerIsEditing) == 0) {
+		CPlayer_SystemMessage(player, "You can not pick that up.");
+		PacketManager_MakePacket_GETOBJ_FAILED(obuf, 1);
+		SendToClient((CItem *)player, obuf, -1);
+		return 0;
+	}
+
+	if (((int (*)(void *))VT_FN(item, VT_IS_MOBILE2))(item) && (player->pflags & PlayerIsEditing) == 0) {
+		CPlayer_SystemMessage(player, "You can not pick that up.");
+		PacketManager_MakePacket_GETOBJ_FAILED(obuf, 1);
+		SendToClient((CItem *)player, obuf, -1);
+		return 0;
+	}
+
+	if (owner != NULL && player != NULL && !CPlayer_IsEditing(player) && ((int (*)(void *))VT_FN(owner, VT_IS_MOBILE))(owner))
+		CriminalAct_Notify(&player->mobile, (CMobile *)owner, 1, 7, 0x50, 0);
+
+	if (!CPlayer_IsEditing(player)) {
+		roll = CMobile_DirectUse(&player->mobile, 0x21);
+		roll -= ((int (*)(void *))VT_FN(item, VT_GET_WEIGHT))(item) * 3;
+		roll -= ((int (*)(void *, int, int))VT_FN(item, VT_GET_VALUE))(item, 0, 1) / 4;
+		roll -= 250;
+
+		if (roll < 0) {
+			victim = NULL;
+
+			((void (*)(void *, const char *, int, int, int))VT_FN((CItem *)player, VT_EMOTE_CSTRING))(player, "I failed to steal.", -1, -1, -1);
+
+			if (owner != NULL)
+				victim = owner;
+
+			if (victim != NULL)
+				((void (*)(void *, const char *, int, int, int))VT_FN(victim, VT_EMOTE_CSTRING))(victim, "Someone tried to steal from you.", -1, -1, -1);
+
+			CombatManager_CallGuards((CItem *)player, &player->mobile.container.item.resourceEntity.entity.location, victim,
+			        ((int (*)(void *, int, int))VT_FN(item, VT_GET_VALUE))(item, 0, 1) + 5);
+
+			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 1);
+			SendToClient((CItem *)player, obuf, -1);
+			return 0;
+		}
+	}
+
+	CPlayer_SystemMessage(player, "You successfully steal the item!");
+	return 1;
+}
+
+/*
  * 0x004942A6 - HandlePacket_REQ_GETOBJ
  *
  * Pick up item. Reads serial(DWord) + amount(Word). Sets player
@@ -7962,6 +8030,69 @@ static const char *
 TriggerEdit_CString_GetCStr(void *cstr)
 {
 	return *(const char **)cstr;
+}
+
+/*
+ * 0x004DADF5 - Speech_BroadcastDead_Unicode
+ *
+ * The unicode twin of Speech_BroadcastDead. Garbles the text (spaces
+ * preserved, every other code unit becomes 'O' or 'o'), then walks the
+ * nearby players: GMs and counselors always hear the original, a
+ * non-manifesting dead speaker is heard only by the dead, and among the
+ * rest only the dead and spirit speakers hear the original.
+ */
+static __attribute__((unused)) void
+Speech_BroadcastDead_Unicode(CPlayer *speaker, uint8_t speechType, uint16_t *text, uint16_t hue, uint16_t font, uint32_t lang, uint16_t range)
+{
+	uint8_t obuf[0x830];
+	CVector nearby;
+	uintptr_t *ptr;
+	uint16_t *garbled;
+	int len, i;
+
+	len = UString_Length(text);
+	garbled = (uint16_t *)OperatorNew(len * 2 + 2);
+
+	for (i = 0; i < len; i++) {
+		if (IsSpace16(text[i]))
+			garbled[i] = text[i];
+		else
+			garbled[i] = (uint16_t)(GetRandomRange(0, 1) * 0x20 + 0x4F);
+	}
+	garbled[i] = 0;
+
+	CVector_Constructor(&nearby, "");
+	GetNearbyPlayers(&nearby, &speaker->mobile.container.item.resourceEntity.entity.location, (int)(range & 0xFFFF));
+
+	for (ptr = (uintptr_t *)nearby.begin; ptr != (uintptr_t *)nearby.end; ptr++) {
+		CPlayer *p = (CPlayer *)*ptr;
+
+		if (CEntity_CanSee((CItem *)speaker, (CItem *)p, 1)) {
+			if (CPlayer_IsEditing(p) || CPlayer_IsCounselor(p)) {
+				PacketManager_MakePacket_TEXT_UNICODE(obuf, (CItem *)speaker, (CItem *)p, speechType, text, hue, font, lang);
+				SendToClient((CItem *)p, obuf, -1);
+				continue;
+			}
+
+			if (!(speaker->pflags & PlayerIsManifesting) && !VT_IsDead((CItem *)p))
+				continue;
+
+			if (!VT_IsDead((CItem *)p) && !(p->pflags & PlayerSpiritSpeak))
+				PacketManager_MakePacket_TEXT_UNICODE(obuf, (CItem *)speaker, (CItem *)p, speechType, garbled, hue, font, lang);
+			else
+				PacketManager_MakePacket_TEXT_UNICODE(obuf, (CItem *)speaker, (CItem *)p, speechType, text, hue, font, lang);
+
+			SendToClient((CItem *)p, obuf, -1);
+		} else {
+			if (CPlayer_IsEditing(p) || CPlayer_IsCounselor(p)) {
+				PacketManager_MakePacket_TEXT_UNICODE(obuf, (CItem *)speaker, (CItem *)p, speechType, text, hue, font, lang);
+				SendToClient((CItem *)p, obuf, -1);
+			}
+		}
+	}
+
+	OperatorDelete(garbled);
+	CVector_Destructor(&nearby);
 }
 
 /*

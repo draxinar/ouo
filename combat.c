@@ -2182,6 +2182,81 @@ CombatInitiate(CMobile *attacker, CMobile *target, int flag)
 CCombatEventList g_CombatEventList; // 0x006990A8
 
 /*
+ * 0x004601A2 - CCombatEventList::ToggleGroupMember
+ *
+ * Adds or removes target from the group led by whoever currently has
+ * player as a member. With no existing group, player targeting itself
+ * forms one ("Group formed and member added"), and player targeting
+ * someone else forms one and adds them both. Inside a group, a leader
+ * targeting itself disbands it; a member targeting itself first drops
+ * out of its old node. The toggle then reports "I've left a group." or
+ * "I've joined a group." and both parties get a GROUPS packet.
+ *
+ * Called with either argument null it sends an empty GROUPS packet
+ * instead - and dereferences player's vtable to do it, so a null player
+ * faults. Always returns 0.
+ */
+static __attribute__((unused)) int
+CCombatEventList_ToggleGroupMember(CCombatEventList *this, CMobile *player, CMobile *target)
+{
+	uint8_t obuf[12];
+	CMobile *leader;
+	CCombatEventNode *node;
+
+	if (player == NULL || target == NULL) {
+		if (((int (*)(void *))VT_FN((CItem *)player, VT_IS_PLAYER))(player)) {
+			PacketManager_MakePacket_GROUPS(obuf, 0, 0);
+			SendToClient((CItem *)player, obuf, -1);
+		}
+		return 0;
+	}
+
+	if (!((int (*)(void *))VT_FN((CItem *)player, VT_IS_PLAYER))(player))
+		return 0;
+
+	leader = CCombatEventList_FindAttackerOf(this, player);
+
+	if (leader == NULL) {
+		if (player == target) {
+			CCombatEventList_AddNode(this, player, "Bad doodz");
+			CCombatEventList_ToggleSub(this, player, player);
+			Entity_SendSystemMessage((CItem *)player, player->container.item.serial, "Group formed and member added");
+			PacketManager_MakePacket_GROUPS(obuf, player->container.item.serial, target->container.item.serial);
+			SendToClient((CItem *)player, obuf, -1);
+			return 0;
+		}
+
+		CCombatEventList_AddNode(this, player, "Bad doodz");
+		CCombatEventList_ToggleSub(this, player, player);
+		CCombatEventList_ToggleSub(this, player, target);
+	} else {
+		if (leader == player) {
+			if (player == target) {
+				node = CCombatEventList_FindByMob(this, player);
+				CCombatEventNode_RemoveSub(node, player);
+				CCombatEventList_RemoveNode(this, player);
+				((void (*)(void *, const char *, int, int, int))VT_FN((CItem *)player, VT_SAY_CSTRING))(player, "Group disbanded!", -1, -1, -1);
+				return 0;
+			}
+		} else if (player == target) {
+			node = CCombatEventList_FindByMob(this, leader);
+			CCombatEventNode_RemoveSub(node, player);
+		}
+
+		if (CCombatEventList_ToggleSub(this, leader, target)) {
+			Entity_SendSystemMessage((CItem *)target, target->container.item.serial, "I've left a group.");
+			return 0;
+		}
+
+		Entity_SendSystemMessage((CItem *)target, target->container.item.serial, "I've joined a group.");
+	}
+
+	PacketManager_MakePacket_GROUPS(obuf, player->container.item.serial, target->container.item.serial);
+	SendToClient((CItem *)player, obuf, -1);
+	return 0;
+}
+
+/*
  * 0x004603B9 - CCombatEventList::AddNode
  *
  * Adds a new CCombatEventNode(mob, name) to the list. Returns 0 when the

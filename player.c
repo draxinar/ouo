@@ -6,6 +6,7 @@
  * and the save/load hooks that persist a player to a profile file.
  */
 
+#include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +64,6 @@ static int CPlayer_CheckHouseDoor(CPlayer *this); // 0x00452DF7
 static void CPlayerList_SendToAllInRange(CResList *list, uint8_t *buf); // 0x0045EC66
 static void CPlayerList_Destructor(CResList *this); // 0x0045F2E0
 static void CPlayerList_DestructorWrapper(CResList *this); // 0x00469510
-static int CPlayer_IsFriendAllowed(CPlayer *this, CPlayer *other); // 0x0045489D
 static void CPlayer_ToggleWarMode(CPlayer *this, int warFlag); // 0x00454905
 static void CollectContainerScripts(CItem *container, CVector *vec); // 0x00455654
 static void CollectMovementVisibilityExclude(
@@ -3208,7 +3208,7 @@ CPlayer_GetClientIPString(CPlayer *this)
  * Returns 1 if pflags & 0x40 (allow all) or if other's serial is in
  * this player's friendAllowList.
  */
-static int
+int
 CPlayer_IsFriendAllowed(CPlayer *this, CPlayer *other)
 {
 	uint32_t i;
@@ -5704,6 +5704,61 @@ Player_AttachStartupScripts_Inner(CItem *item)
 		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
 }
+/*
+ * 0x0045A939 - CItem::ScanScriptsAndTags
+ *
+ * Walks the entity's attached-script list, and then its tag-definition
+ * list, and discards everything it computes. The script pass filters to
+ * numeric script names matching the entity's body type and tests that
+ * body type against the ValidateInWorld bitmap, but both arms of the
+ * test jump to the loop increment; the tag pass loads each node's first
+ * word into a local nothing reads. The first argument is never touched.
+ * Reproduced as it stands.
+ */
+static __attribute__((unused)) void
+CItem_ScanScriptsAndTags(void *unused, CItem *entity)
+{
+	CVector scripts, tags;
+	char typeFlag1[16] = { 0 }, typeFlag2[16] = { 0 };
+	uintptr_t *iter;
+	ScriptAttachNode *scriptNode;
+	TagNode *tagNode;
+	uintptr_t dead;
+	int id, idx;
+
+	USED(unused);
+
+	CVector_Constructor(&scripts, typeFlag1);
+	CItem_GetScriptListRaw(entity, &scripts);
+
+	for (iter = (uintptr_t *)scripts.begin; iter != (uintptr_t *)scripts.end; iter++) {
+		scriptNode = (ScriptAttachNode *)*iter;
+
+		if (!isdigit((unsigned char)*((CScript *)scriptNode->scriptClassPtr)->name))
+			continue;
+
+		id = atoi(((CScript *)scriptNode->scriptClassPtr)->name);
+		if (id != (uint16_t)CEntity_GetBodyType(entity))
+			continue;
+
+		idx = (uint16_t)CEntity_GetBodyType(entity) >> 5;
+		if ((g_ValidateInWorldBitmap[idx] & (1u << ((uint16_t)CEntity_GetBodyType(entity) & 0x1F))) == 0)
+			continue;
+	}
+
+	CVector_Constructor(&tags, typeFlag2);
+	CItem_GetTagDefListRaw(entity, &tags);
+
+	for (iter = (uintptr_t *)tags.begin; iter != (uintptr_t *)tags.end; iter++) {
+		tagNode = (TagNode *)*iter;
+		dead = tagNode->type;
+		USED(dead);
+	}
+
+	CVector_Destructor(&tags);
+	CVector_Destructor(&scripts);
+}
+
 /*
  * 0x0045EC66 - CPlayerList::SendToAllInRange
  *

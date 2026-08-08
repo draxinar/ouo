@@ -29,6 +29,7 @@
 #include "vg_pool.h"
 #include "packet_handler.h"
 #include "main.h"
+#include "region.h"
 #include "utils.h"
 #include "stddeque.h"
 #include "wombat_compile.h"
@@ -1607,6 +1608,173 @@ skip_min_z:
 
 		item = CEntityMap_SpatialNext(this, item);
 	}
+}
+
+/*
+ * 0x00475F56 - CMultiManager::DefineFromArea
+ *
+ * Captures everything standing in the (x1, y1)-(x2, y2) world rectangle
+ * into a fresh multi definition for typeId, replacing any definition that
+ * type already has. The scan walks every 8x8 block the rectangle touches
+ * and collects both the dynamic and the static chain, tracking the
+ * collected extents and the lowest z as it goes.
+ *
+ * The definition's origin starts at the centre of those extents at the
+ * lowest z; the collected entities are then sorted by distance from it and
+ * the origin moves onto the nearest one. Every entity becomes a component
+ * carrying its body type and its offset from that origin, and each source
+ * object is removed afterwards - containers by serial through
+ * CWorld::FindBySerial and the vtable delete, everything else through
+ * FreeStaticItem. The definition's bounding box is recomputed from the
+ * components, registered under typeId, and the map file seeks to that
+ * type's block before the new multi is broadcast.
+ *
+ * The fourth argument is declared and never read. The component counter is
+ * incremented and never read either, the MultiExtentTracker built on the
+ * stack is never destroyed, and a failed allocation leaves the definition
+ * pointer null, which the component loop then writes through. Nothing in
+ * the binary calls this function.
+ */
+static __attribute__((unused)) void
+CMultiManager_DefineFromArea(CResManager *this, uint32_t typeId, int x1, int y1, int unused, int x2, int y2)
+{
+	CVector entities, mobileSerials, staticItems;
+	CSearchCtx ctx, erased;
+	CLocation collectMin, collectMax, origin;
+	CMultiComponentDef comp;
+	MultiExtentTracker tracker;
+	CMultiDef *def;
+	CMultiComponentDef *compIter;
+	CItem *item;
+	CItem *found;
+	uintptr_t *iter;
+	void *raw;
+	char typeFlag = 0;
+	int minZ;
+	int startX, endX, startY, endY;
+	int bx, by, blockIdx;
+	int counter, dx, dy, dz;
+
+	USED(unused);
+
+	CVector_Constructor(&entities, &typeFlag);
+	CLocation_Init(&collectMin);
+	CLocation_Init(&collectMax);
+	minZ = (int)0xFFFFFF00;
+
+	if ((int32_t)typeId < 0) {
+		CVector_Destructor(&entities);
+		return;
+	}
+
+	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
+	if (CSearchCtx_Find(&ctx))
+		CResManager_CreateOrFind_R(this, &erased, &ctx, 1);
+
+	startX = x1 / 8;
+	endX = x2 / 8;
+	if (x2 % 8 > 0)
+		endX++;
+	startY = y1 / 8;
+	endY = y2 / 8;
+	if (y2 % 8 > 0)
+		endY++;
+
+	startX *= 8;
+	endX *= 8;
+	startY *= 8;
+	endY *= 8;
+
+	for (bx = startX; bx <= endX; bx += 8) {
+		for (by = startY; by <= endY; by += 8) {
+			if (!CBlockManager_IsValidCoord(&g_SpatialGrid, bx, by))
+				continue;
+			blockIdx = CBlockManager_GetBlockIndex(&g_SpatialGrid, bx, by, 0);
+			CMultiSlave_CollectEntities((CEntityMap *)this, g_SpatialGrid.cells[blockIdx].itemHead, x1, y1, x2, y2, &entities, &collectMin, &collectMax, &minZ);
+			CMultiSlave_CollectEntities((CEntityMap *)this, g_SpatialGrid.cells[blockIdx].staticHead, x1, y1, x2, y2, &entities, &collectMin, &collectMax, &minZ);
+		}
+	}
+
+	if (CVector_GetCount(&entities) == 0) {
+		CVector_Destructor(&entities);
+		return;
+	}
+
+	CLocation_Init(&origin);
+	origin.x = (int16_t)(((int)(int16_t)collectMin.x + (int)(int16_t)collectMax.x) / 2);
+	origin.y = (int16_t)(((int)(int16_t)collectMin.y + (int)(int16_t)collectMax.y) / 2);
+	origin.z = (int16_t)minZ;
+
+	CollectEntities_SortDist(entities.begin, entities.end, origin);
+	item = (CItem *)*(uintptr_t *)entities.begin;
+	CLocation_SetLoc(&origin, &item->resourceEntity.entity.location);
+
+	CMultiComponent_Constructor(&comp);
+
+	raw = OperatorNew(sizeof(CMultiDef));
+	if (raw != NULL) {
+		CMultiDef_Constructor((CMultiDef *)raw);
+		def = (CMultiDef *)raw;
+	} else {
+		def = NULL;
+	}
+
+	counter = 0;
+	for (iter = (uintptr_t *)entities.begin; iter != (uintptr_t *)entities.end; iter++) {
+		item = (CItem *)*iter;
+		counter++;
+
+		dx = (int)(int16_t)item->resourceEntity.entity.location.x - (int)(int16_t)origin.x;
+		dy = (int)(int16_t)item->resourceEntity.entity.location.y - (int)(int16_t)origin.y;
+		dz = (int)(int16_t)item->resourceEntity.entity.location.z - (int)(int16_t)origin.z;
+
+		comp.bodyType = CEntity_GetBodyType(item);
+		CLocation_Set(&comp.offset, (int16_t)dx, (int16_t)dy, (int16_t)dz);
+		comp.invisible = 1;
+		CDeque1C_FindByHash(&def->components, &comp);
+	}
+	USED(counter);
+
+	CVector_Constructor(&mobileSerials, &typeFlag);
+	CVector_Constructor(&staticItems, &typeFlag);
+
+	for (iter = (uintptr_t *)entities.begin; iter != (uintptr_t *)entities.end; iter++) {
+		item = (CItem *)*iter;
+		if (((int (*)(void *))VT_FN(item, VT_IS_CONTAINER))(item)) {
+			CVector_PushBack(&mobileSerials, CMobile_GetSerial((CMobile *)item));
+		} else if (((int (*)(void *))VT_FN(item, VT_ATTACH_SPATIAL))(item)) {
+			CVector_PushBack(&staticItems, (uintptr_t)item);
+		}
+	}
+
+	for (iter = (uintptr_t *)mobileSerials.begin; iter != (uintptr_t *)mobileSerials.end; iter++) {
+		found = CWorld_FindBySerial(g_World, (uint32_t)*iter);
+		if (found != NULL) {
+			if (found != NULL)
+				((void (*)(void *))VT_FN(found, VT_DELETE))(found);
+		}
+	}
+
+	for (iter = (uintptr_t *)staticItems.begin; iter != (uintptr_t *)staticItems.end; iter++) {
+		if (*iter != 0)
+			FreeStaticItem((CItem *)*iter);
+	}
+
+	MultiExtentTracker_Constructor(&tracker);
+	for (compIter = (CMultiComponentDef *)def->components.begin; compIter != (CMultiComponentDef *)def->components.end; compIter++)
+		MultiExtentTracker_Update(&tracker, compIter);
+
+	MultiExtentTracker_GetMinExtent(&tracker, &def->minExtent);
+	MultiExtentTracker_GetMaxExtent(&tracker, &def->maxExtent);
+
+	CResManager_FindOrInsertMultiA(this, &typeId, def);
+	MapFileManager_SeekBlock(g_PoolBaseField_C4 + typeId);
+	CMulti_SendMultiInfo(this, typeId);
+
+	CVector_Destructor(&staticItems);
+	CVector_Destructor(&mobileSerials);
+	CMultiComponent_Destructor(&comp);
+	CVector_Destructor(&entities);
 }
 
 /*

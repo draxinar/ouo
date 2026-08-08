@@ -1877,6 +1877,72 @@ PacketManager_MakePacket_SERVERSTATUS(uint8_t *buf)
 }
 
 /*
+ * 0x0049B87A - PacketManager::MakePacket_FRIENDS
+ *
+ * Builds a FRIENDS (0x69) packet for the given subcommand: 0 writes a
+ * bare zero, 1 lists the allow-list, 2 lists the friend list, and 3
+ * writes one byte per friend saying whether that friend allows this
+ * player. Names come from the vtable, and an unresolvable serial writes
+ * a single NUL from a zeroed scratch global instead - a different one
+ * per subcommand, both permanently empty.
+ *
+ * The counts are written as bytes but compared as ints, so a list
+ * longer than 255 writes a truncated count and then overruns it.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_FRIENDS(uint8_t *buf, CPlayer *player, uint8_t subcommand)
+{
+	CPlayer *friend;
+	char *name;
+	uint8_t allowed;
+	int i;
+
+	PutPacketType(buf, PacketType_FRIENDS, PacketDynamicSize);
+	PutByte(buf, subcommand);
+
+	if (subcommand == 0) {
+		PutByte(buf, 0);
+	} else if (subcommand == 1) {
+		PutByte(buf, (uint8_t)player->friendAllowCount);
+		for (i = 0; i < (int)player->friendAllowCount; i++) {
+			friend = CPlayerList_FindBySerial(player->friendAllowList[i]);
+			if (friend == NULL) {
+				// 0x006DA940 - zeroed scratch, so one NUL byte
+				PutString(buf, "", 1);
+			} else {
+				name = ((char *(*)(void *))VT_FN((CItem *)friend, VT_GET_NAME))(friend);
+				PutString(buf, ((char *(*)(void *))VT_FN((CItem *)friend, VT_GET_NAME))(friend), (int)strlen(name) + 1);
+			}
+			PutDWord(buf, player->friendAllowList[i]);
+		}
+	} else if (subcommand == 2) {
+		PutByte(buf, (uint8_t)player->friendCount);
+		for (i = 0; i < (int)player->friendCount; i++) {
+			friend = CPlayerList_FindBySerial(player->friendList[i]);
+			if (friend == NULL) {
+				// 0x006DA944 - the second zeroed scratch
+				PutString(buf, "", 1);
+			} else {
+				name = ((char *(*)(void *))VT_FN((CItem *)friend, VT_GET_NAME))(friend);
+				PutString(buf, ((char *(*)(void *))VT_FN((CItem *)friend, VT_GET_NAME))(friend), (int)strlen(name) + 1);
+			}
+			PutDWord(buf, player->friendList[i]);
+		}
+	} else if (subcommand == 3) {
+		PutByte(buf, (uint8_t)player->friendCount);
+		for (i = 0; i < (int)player->friendCount; i++) {
+			friend = CPlayerList_FindBySerial(player->friendList[i]);
+			if (friend == NULL) {
+				PutByte(buf, 0);
+			} else {
+				allowed = (uint8_t)CPlayer_IsFriendAllowed(friend, player);
+				PutByte(buf, allowed);
+			}
+		}
+	}
+}
+
+/*
  * 0x0049BB16 - PacketManager::MakePacket_FRIENDNOTIFY
  *
  * Builds a FRIENDNOTIFY (0x6A) packet (3 bytes) carrying friend index
@@ -2332,6 +2398,113 @@ PacketManager_MakePacket_WEB_BROWSE(uint8_t *buf, char *url)
 	PutPacketType(buf, PacketType_WEB_BROWSE, 0x10002);
 	len = strlen(url) + 1;
 	return PutString(buf, url, len);
+}
+
+/*
+ * 0x0049C7EF - PacketManager::MakePacket_TIP
+ *
+ * Builds a TIP (0xA6) packet. Kind 0 sends the caller's id and the
+ * named resource; kind 1 reads update.txt, takes its first line as the
+ * id and sends the rest, or "MISSING UPDATE" with id 0 when the file is
+ * absent. Any other kind sends an empty body.
+ *
+ * Both paths flatten the text the same way: each line is copied with
+ * carriage returns dropped, and a non-empty line is appended followed
+ * by a space, an empty one by a lone carriage return. The 0xFF byte is
+ * treated as a terminator everywhere, and the loop that advances past
+ * it re-tests it rather than advancing, so a 0xFF in the middle of a
+ * line ends the whole walk.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_TIP(uint8_t *buf, uint8_t kind, uint32_t id, char *resourceName)
+{
+	char text[0x2000];
+	char line[0x2000];
+	char crlf[2];
+	char *src;
+	char *dst;
+	int parsedId;
+	uint16_t textLen;
+
+	PutPacketType(buf, 0xA6, PacketDynamicSize);
+	PutByte(buf, kind);
+
+	// 0x006DA948 - a zeroed scratch global, so this clears text
+	strcpy(text, "");
+
+	crlf[0] = '\r';
+	crlf[1] = '\0';
+
+	if (kind == 0) {
+		PutDWord(buf, id);
+
+		src = NamedResource_Find(resourceName);
+		if (src != NULL) {
+			while (*src != '\0' && *src != -1) {
+				dst = line;
+				while (*src != '\0' && *src != -1 && *src != '\n') {
+					if (*src != '\r' && *src != -1)
+						*dst++ = *src;
+					if (*src != -1)
+						src++;
+				}
+				*dst = '\0';
+
+				if (strlen(line) != 0) {
+					strcat(text, line);
+					strcat(text, " ");
+				} else {
+					strcat(text, crlf);
+				}
+
+				if (*src != '\0' && *src != -1)
+					src++;
+			}
+		}
+	} else if (kind == 1) {
+		src = NamedResource_Find("update.txt");
+		if (src == NULL) {
+			PutDWord(buf, 0);
+			strcpy(text, "MISSING UPDATE");
+		} else {
+			dst = line;
+			while (*src != '\0' && *src != -1 && *src != '\n') {
+				if (*src != '\r' && *src != -1)
+					*dst++ = *src;
+				if (*src != -1)
+					src++;
+			}
+			*dst = '\0';
+
+			sscanf(line, "%d", &parsedId);
+			PutDWord(buf, (uint32_t)parsedId);
+
+			while (*src != '\0' && *src != -1) {
+				dst = line;
+				while (*src != '\0' && *src != -1 && *src != '\n') {
+					if (*src != '\r' && *src != -1)
+						*dst++ = *src;
+					if (*src != -1)
+						src++;
+				}
+				*dst = '\0';
+
+				if (strlen(line) != 0) {
+					strcat(text, line);
+					strcat(text, " ");
+				} else {
+					strcat(text, crlf);
+				}
+
+				if (*src != '\0' && *src != -1)
+					src++;
+			}
+		}
+	}
+
+	textLen = (uint16_t)strlen(text);
+	PutWord(buf, textLen);
+	PutString(buf, text, textLen);
 }
 
 /*

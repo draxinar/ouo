@@ -7,21 +7,27 @@
  * CResourceEntity nodes.
  */
 
+#include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "dat.h"
+#include "region.h"
 
 #include "dynamic.h"
 #include "egg.h"
+#include "filemanager.h"
 #include "gmedit.h"
+#include "io.h"
 #include "main.h"
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
 #include "stddeque.h"
+#include "taglist.h"
 #include "utils.h"
 #include "vtable.h"
 #include "wombat_compile.h"
@@ -130,6 +136,192 @@ FindEntityByBodyTypeAtXYZ(int x, int y, int z, int bodyType)
 		walk = walk->spatialNext;
 	}
 	return NULL;
+}
+
+/*
+ * 0x00459E46 - DynFix_ApplyFile
+ *
+ * Applies a text file of world fixes, one directive per line, keyed on the
+ * line's first character: 'c' creates a missing object, 'd' deletes one,
+ * 's' attaches a script, 'r' removes a script and 'v' sets an object
+ * variable of type int, str or loc. Every directive names its target by
+ * exact (x, y, z) and body type, and every outcome goes to the event log.
+ *
+ * The file is opened through file category 0x36, whose entry in the file
+ * type table carries no path, so the open runs on a null path. The name
+ * argument is ignored for such a category; the binary passes an empty .bss
+ * slot at 0x00645B40, the same kind of slot DynFix_LogError passes as its
+ * empty category string.
+ *
+ * The 'v' str case trims trailing whitespace and quotes by indexing
+ * strlen(p) - 1, so an empty value walks backwards off the front of the
+ * line buffer. Nothing in the binary calls this function.
+ */
+static __attribute__((unused)) void
+DynFix_ApplyFile(void)
+{
+	FILE *fp;
+	CLocation loc;
+	CString tmp;
+	CItem *ent;
+	CScript *script;
+	char *p;
+	int lineNum, n, spaceCount, lastCh, intVal;
+	int x, y, z, bodyType;
+	char line[512];
+	char varType[512];
+	char varName[512];
+
+	fp = FileManager_OpenByType(0x36, "", "r");
+	if (fp == NULL)
+		return;
+
+	lineNum = 0;
+	CLocation_Init(&loc);
+	while (fgets_ServerSide(line, 0x1FF, fp) != NULL) {
+		lineNum++;
+		line[0] = (char)tolower((unsigned char)line[0]);
+		switch (line[0]) {
+		case 'd':
+			n = sscanf(line, "d %d %d %d %d", &x, &y, &z, &bodyType);
+			if (n == 4) {
+				if (CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
+					ent = FindEntityByBodyTypeAtXYZ(x, y, z, bodyType);
+					if (ent != NULL) {
+						DynFix_LogError(lineNum, "D Fix: Applied");
+						if (ent != NULL)
+							((void (*)(void *))VT_FN(ent, VT_DELETE))(ent);
+					}
+				}
+			} else {
+				DynFix_LogError(lineNum, "D Fix: Invalid args");
+			}
+			break;
+
+		case 'c':
+			n = sscanf(line, "c %d %d %d %d", &x, &y, &z, &bodyType);
+			if (n == 4) {
+				if (CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
+					ent = FindEntityByBodyTypeAtXYZ(x, y, z, bodyType);
+					if (ent == NULL) {
+						ent = CWorld_CreateItem(g_World, (uint16_t)bodyType);
+						if (ent != NULL) {
+							CLocation_Set(&loc, (int16_t)x, (int16_t)y, (int16_t)z);
+							((void (*)(void *, CLocation *))VT_FN(ent, VT_DROP_AT_FEET))(ent, &loc);
+							if (!ValidateInWorld(ent))
+								ent = NULL;
+							DynFix_LogError(lineNum, "C Fix: Applied");
+						} else {
+							DynFix_LogError(lineNum, "C Fix: Not applied, could not create object");
+						}
+					}
+				}
+			} else {
+				DynFix_LogError(lineNum, "C Fix: Invalid args");
+			}
+			break;
+
+		case 's':
+			n = sscanf(line, "s %d %d %d %d %s", &x, &y, &z, &bodyType, varName);
+			if (n == 5) {
+				if (CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
+					ent = FindEntityByBodyTypeAtXYZ(x, y, z, bodyType);
+					if (ent != NULL) {
+						script = CScriptManager_FindOrLoad(&g_ScriptManager, varName);
+						if (script != NULL) {
+							if (!CResourceEntity_HasScriptClass(ent, script)) {
+								Entity_AttachScript(ent, varName, 1);
+								DynFix_LogError(lineNum, "S Fix: Applied");
+							}
+						} else {
+							DynFix_LogError(lineNum, "S Fix: no such script");
+						}
+					}
+				}
+			} else {
+				DynFix_LogError(lineNum, "S Fix: Invalid args");
+			}
+			break;
+
+		case 'r':
+			n = sscanf(line, "r %d %d %d %d %s", &x, &y, &z, &bodyType, varName);
+			if (n == 5) {
+				if (CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
+					ent = FindEntityByBodyTypeAtXYZ(x, y, z, bodyType);
+					if (ent != NULL) {
+						script = CScriptManager_FindOrLoad(&g_ScriptManager, varName);
+						if (script != NULL) {
+							if (CResourceEntity_HasScriptClass(ent, script)) {
+								CResourceEntity_RemoveScript(ent, varName);
+								DynFix_LogError(lineNum, "R Fix: Applied");
+							}
+						} else {
+							DynFix_LogError(lineNum, "R Fix: no such script");
+						}
+					}
+				}
+			} else {
+				DynFix_LogError(lineNum, "R Fix: Invalid args");
+			}
+			break;
+
+		case 'v':
+			n = sscanf(line, "v %d %d %d %d %s %s", &x, &y, &z, &bodyType, varType, varName);
+
+			// Walk past the seven separators, leaving p on the value text.
+			p = line;
+			spaceCount = 0;
+			while (*p != '\0' && spaceCount < 7) {
+				if (isspace((unsigned char)*p))
+					spaceCount++;
+				p++;
+			}
+
+			if (n == 6 && spaceCount == 7 && isalnum((unsigned char)varName[0])) {
+				if (CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
+					ent = FindEntityByBodyTypeAtXYZ(x, y, z, bodyType);
+					if (ent != NULL) {
+						if (strcasecmp(varType, "int") == 0) {
+							intVal = atoi(p);
+							CEntity_SetObjVar(ent, varName, 0, (uint32_t)intVal);
+							goto vApplied;
+						}
+						if (strcasecmp(varType, "str") == 0) {
+							if (*p == '"')
+								p++;
+							for (;;) {
+								lastCh = p[strlen(p) - 1];
+								if (!isspace((unsigned char)lastCh) && lastCh != '"')
+									break;
+								p[strlen(p) - 1] = '\0';
+							}
+							CString_Constructor(&tmp, p);
+							CEntity_SetObjVar(ent, varName, 1, (uintptr_t)&tmp);
+							CString_Destructor(&tmp);
+							goto vApplied;
+						}
+						if (strcasecmp(varType, "loc") != 0) {
+							DynFix_LogError(lineNum, "V Fix: invalid var type");
+							break;
+						}
+						n = sscanf(p, "%d %d %d", &x, &y, &z);
+						if (n != 3) {
+							DynFix_LogError(lineNum, "V Fix: Invalid args");
+							break;
+						}
+						CLocation_Set(&loc, (int16_t)x, (int16_t)y, (int16_t)z);
+						CEntity_SetObjVar(ent, varName, 3, (uintptr_t)&loc);
+vApplied:
+						DynFix_LogError(lineNum, "V Fix: Applied");
+					}
+				}
+			} else {
+				DynFix_LogError(lineNum, "V Fix: Invalid args");
+			}
+			break;
+		}
+	}
+	fclose_ServerSide(fp);
 }
 
 /*
@@ -1758,6 +1950,88 @@ Static_Unlock(void)
 void
 Static_Lock(void)
 {
+}
+
+/*
+ * 0x004C40E0 - Terrain_SaveStatics
+ *
+ * Writes every block's static-item chain to the temp index and data
+ * files as 7-byte records - body type and hue big-endian, x and y
+ * masked to the block-local low three bits, z as a byte - then rotates
+ * the files: the old backups are removed, the current pair becomes the
+ * backup, and the temp pair becomes current.
+ *
+ * A block with no statics gets a zero-length write with a null buffer;
+ * neither the open nor any of the renames is checked.
+ */
+static __attribute__((unused)) void
+Terrain_SaveStatics(void)
+{
+	CIndexedFileManager fm;
+	CItem *head;
+	CItem *cur;
+	uint8_t *buf;
+	uint8_t *cursor;
+	uint16_t bodyType;
+	uint16_t hue;
+	uint8_t xOff, yOff, z;
+	int blockIdx, count, size;
+
+	CIndexedFileManager_Constructor(&fm);
+	CIndexedFileManager_Open(&fm, GLOBAL_file_tempidx_mul, GLOBAL_file_temp_mul, "wb");
+
+	for (blockIdx = 0; blockIdx < g_SpatialGrid.totalBlocks; blockIdx++) {
+		head = g_MapBlocks[blockIdx].staticHead;
+
+		count = 0;
+		for (cur = head; cur != NULL; cur = cur->resourceEntity.nextInContainer)
+			count++;
+
+		size = count * 7;
+		if (size < 1) {
+			buf = NULL;
+		} else {
+			cursor = (uint8_t *)OperatorNew(size);
+			buf = cursor;
+
+			for (cur = head; cur != NULL; cur = cur->resourceEntity.nextInContainer) {
+				bodyType = (uint16_t)CEntity_GetBodyType(cur);
+				SwapEndian(&bodyType);
+
+				xOff = (uint8_t)cur->resourceEntity.entity.location.x & 7;
+				yOff = (uint8_t)cur->resourceEntity.entity.location.y & 7;
+				z = (uint8_t)cur->resourceEntity.entity.location.z;
+
+				hue = cur->resourceEntity.entity.color;
+				SwapEndian(&hue);
+
+				memcpy(cursor, &bodyType, 2);
+				cursor[2] = xOff;
+				cursor[3] = yOff;
+				cursor[4] = z;
+				memcpy(cursor + 5, &hue, 2);
+				cursor += 7;
+			}
+		}
+
+		CIndexedFileManager_WriteBlock(&fm, blockIdx, buf, size, 0);
+
+		if (buf != NULL) {
+			OperatorDelete(buf);
+			buf = NULL;
+		}
+	}
+
+	CIndexedFileManager_Close(&fm);
+
+	remove(GLOBAL_file_staidx0_bkp);
+	remove(GLOBAL_file_statics0_bkp);
+	rename(GLOBAL_file_staidx0_mul, GLOBAL_file_staidx0_bkp);
+	rename(GLOBAL_file_statics0_mul, GLOBAL_file_statics0_bkp);
+	rename(GLOBAL_file_tempidx_mul, GLOBAL_file_staidx0_mul);
+	rename(GLOBAL_file_temp_mul, GLOBAL_file_statics0_mul);
+
+	CIndexedFileManager_Destructor(&fm);
 }
 
 /*

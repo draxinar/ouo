@@ -212,6 +212,7 @@ void CPlayer_CheckGuardZone(CPlayer *this); // 0x00453C83
 void DoMove(CItem *this, int direction, int isPlayer, uint8_t sequence); // 0x00453D00
 int CPlayer_IsPlayerOnline(CPlayer *this); // 0x004547B7
 int CPlayer_IsDead(CPlayer *this); // 0x004547D4
+int CPlayer_IsFriendAllowed(CPlayer *this, CPlayer *other); // 0x0045489D
 void CPlayer_SetWarModeBroadcast(CPlayer *this, int warFlag); // 0x004549EB
 void CPlayer_SetWarMode(CPlayer *this, int warFlag, int combatByte2, int combatByte3, int combatByte4); // 0x00454A5B
 void CPlayer_HeartbeatCleanup(CPlayer *this); // 0x00454ADD

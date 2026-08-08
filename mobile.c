@@ -2460,6 +2460,46 @@ CMobile_SetLight(CMobile *mob, uint8_t lightTime, uint8_t lightVal)
 }
 
 /*
+ * 0x0046F3E5 - CMobile::ClassifyTargetSector
+ *
+ * Classifies where target sits relative to this mobile by testing it
+ * against seven overlapping 10-tile regions in turn - alternating
+ * rectangle and diamond - and returning the index of the first that
+ * contains it, or 7 when none does. The regions overlap heavily; case
+ * 3's diamond alone spans the whole 20-by-20 box, so only the order of
+ * the tests separates them.
+ */
+static __attribute__((unused)) int
+CMobile_ClassifyTargetSector(CMobile *this, CItem *target)
+{
+	CLocation *loc = &this->container.item.resourceEntity.entity.location;
+	CLocation *tloc = &target->resourceEntity.entity.location;
+
+	if (IsCoordInRect((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x, (int16_t)loc->y - 10, (int16_t)loc->x + 10, (int16_t)loc->y))
+		return 0;
+
+	if (IsCoordInDiamond((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x, (int16_t)loc->y - 10, (int16_t)loc->x + 10, (int16_t)loc->y + 10))
+		return 1;
+
+	if (IsCoordInRect((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x, (int16_t)loc->y, (int16_t)loc->x + 10, (int16_t)loc->y + 10))
+		return 2;
+
+	if (IsCoordInDiamond((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x - 10, (int16_t)loc->y - 10, (int16_t)loc->x + 10, (int16_t)loc->y + 10))
+		return 3;
+
+	if (IsCoordInRect((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x - 10, (int16_t)loc->y, (int16_t)loc->x, (int16_t)loc->y + 10))
+		return 4;
+
+	if (IsCoordInDiamond((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x - 10, (int16_t)loc->y - 10, (int16_t)loc->x, (int16_t)loc->y + 10))
+		return 5;
+
+	if (IsCoordInRect((int16_t)tloc->x, (int16_t)tloc->y, (int16_t)loc->x - 10, (int16_t)loc->y - 10, (int16_t)loc->x, (int16_t)loc->y))
+		return 6;
+
+	return 7;
+}
+
+/*
  * 0x0046F60E - Skill_GetGraphic
  *
  * Maps a skill number to a graphic id. The three weapon skills get one

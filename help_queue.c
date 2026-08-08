@@ -936,6 +936,78 @@ CounselorDeleteChar(CItem *self, CPlayer *entity)
 }
 
 /*
+ * 0x0044E039 - CHelpQueue::MakeCounselorGhost
+ *
+ * Turns a non-counselor player into a counselor ghost: hides it, sets
+ * the counselor and dead flags, swaps the body to 0x3DB, clears
+ * notoriety, records a counType objvar and the matching hue (1 = 0x3E,
+ * 2 = 0x4, 3 = 0x5DD, anything else 0x4, all with 0x8000 set), returns
+ * it to its tracked location, then equips a 0x1647 item on layer 2 and
+ * starts its decay. Returns 1 when the transformation ran.
+ *
+ * The counselor branch above it deletes the character and then compares
+ * the serial back - if the player survived, the function falls through
+ * into the same non-counselor test it just failed, so a counselor
+ * always returns 0.
+ */
+static __attribute__((unused)) int
+CHelpQueue_MakeCounselorGhost(CHelpQueue *this, CPlayer *player, int counType)
+{
+	uint32_t serial;
+	uint16_t hue;
+	CItem *item;
+
+	if (CPlayer_IsCounselor(player)) {
+		serial = CMobile_GetSerial(&player->mobile);
+		CounselorDeleteChar((CItem *)this, player);
+		if (CWorld_FindBySerial(g_World, serial) != (CItem *)player)
+			return 0;
+	}
+
+	if (CPlayer_IsCounselor(player))
+		return 0;
+
+	if (!CItem_DeleteCheck2((CItem *)player))
+		return 0;
+
+	((void (*)(void *))VT_FN((CItem *)player, VT_HIDE))(player);
+	player->pflags |= PlayerIsCounselor;
+	player->pflags |= PlayerIsDead;
+	CEntity_SetBodyType((CItem *)player, 0x3DB);
+	((void (*)(void *, int))VT_FN((CItem *)player, VT_SET_NOTORIETY))(player, 0);
+
+	hue = 4;
+	counType = counType + 1;
+	if (counType == 1)
+		hue = 0x3E;
+	else if (counType == 2)
+		hue = 4;
+	else if (counType == 3)
+		hue = 0x5DD;
+
+	CEntity_SetObjVar((CItem *)player, "counType", 0, (uintptr_t)counType);
+	player->mobile.container.item.resourceEntity.entity.color = hue | 0x8000;
+	((void (*)(void *))VT_FN((CItem *)player, VT_RETURN_TO_TRACKED))(player);
+
+	item = CWorld_CreateItem(g_World, 0x1647);
+	if (item != NULL) {
+		if (((int (*)(void *, void *, int))VT_FN(item, VT_EQUIP_ON_MOBILE))(item, player, 2) == 1) {
+			CItem_Setup(item, 1, CEntity_GetLocation(&player->mobile.container.item.resourceEntity.entity), 0, 1);
+			if (ValidateInWorld(item) == 0)
+				item = NULL;
+			if (item != NULL)
+				CItem_DecayProcess(item);
+		} else {
+			if (item != NULL)
+				((void (*)(void *))VT_FN(item, VT_DELETE))(item);
+			item = NULL;
+		}
+	}
+
+	return 1;
+}
+
+/*
  * 0x0044E1FE - CHelpQueue::FindBySerial
  *
  * Returns the queue entry with the given serial, or NULL if none.

@@ -192,7 +192,6 @@ static void *CResManager_NextIterInternalMultiA(CResManager *rm, CSearchCtx *out
 static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, int startBucket, int direction); // 0x0047B630
 static CSearchCtx *CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction); // 0x0047B580
 static int CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr); // 0x0047A930
-static CSearchCtx *CResManager_CreateOrFind_R(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047A840
 static void CResListNode_FreeData(CResListNode *node); // 0x0047D460
 static void *CResList_GetHead(CResListNode *this); // 0x004A6FD0
 static void *CResList_StoreVal_ByFile(CResList *list, void *value); // 0x004A7E10
@@ -6337,7 +6336,7 @@ CResManager_GetResult(CResManager *rm, CSearchCtx *ctx)
  * Erases the entry at current (freeing any owned CMultiDef) and writes
  * the successor ctx to *output.
  */
-static __attribute__((unused)) CSearchCtx *
+CSearchCtx *
 CResManager_CreateOrFind_R(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction)
 {
 	CSearchCtx ctx;
