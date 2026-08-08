@@ -1169,6 +1169,10 @@ CHelpQueue_FindNextPending(CHelpQueue *q)
  * 0x0044E518 - GmCommandDispatch
  *
  * Dispatches a GM/counselor command typed with the '.' or '=' prefix.
+ *
+ * MODIFIED: the dispatch carries a large set of commands the binary does
+ * not have - the player-menu gump, teleports, entity dumps, item and NPC
+ * creation and the rest of the custom GM toolkit.
  */
 void
 GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)

@@ -2269,6 +2269,10 @@ ClassifyTemplateItems(int templateId)
  * left in this region, 0 if any is depleted. During nospawn scavenge,
  * the threshold is maxSpawns[id] >> 4 instead of 0. In the shipped
  * demo, CheckTemplateOverLimit stubs this to a no-op.
+ *
+ * CUSTOM (FEAT_CLOSED_ECONOMY): the maxSpawns/16 threshold also applies
+ * outside nospawn regions, so a resource stops spawning once its bank
+ * drops to a sixteenth of capacity.
  */
 static int
 CResBankRegion_CanSpawnTemplate(CResBankRegion *region, uint16_t templateId)
@@ -2572,6 +2576,9 @@ done:
  *
  * Counts entries in g_TemplateChain[templateId] whose creation location
  * falls inside the bounding box [x1..x2, y1..y2, z1..z2].
+ *
+ * CUSTOM (FEAT_PERNPC_RESPAWN): pending per-NPC respawns inside the box
+ * count toward the population.
  */
 static int
 CountMobilesInBox(uint16_t templateId, int x1, int y1, int z1, int x2, int y2, int z2)

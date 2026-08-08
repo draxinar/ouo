@@ -676,6 +676,9 @@ header_end:;
  *
  * MODIFIED: Sends extended format (value + base + lock) for 1.26.2+
  * clients. The binary only sends skillID + value (old format).
+ *
+ * CUSTOM (FEAT_SKILL_LOCK): the update carries the player's lock state;
+ * zero otherwise.
  */
 void
 CSkillManager_SendSkillUpdate(CMobile *mob, int8_t skillId)
@@ -771,6 +774,8 @@ SkillCheck_ShouldLogDebug(CMobile *mob, int8_t skillId)
  * Performs probabilistic rounding of the fractional gain and caps the
  * result at 1000, then dispatches the skill-gain notification (player
  * path guards editing/counselor/GM; NPC path triggers weight-based decay).
+ *
+ * CUSTOM (FEAT_SKILL_LOCK): a locked or Down skill does not gain.
  */
 static void
 CMobile_SkillGain(CMobile *mob, int8_t skillId, int chanceFactor, int gainPercent)
@@ -964,6 +969,9 @@ CSkillManager_CalcDelay(int8_t skillId, int baseSkill)
  * repetition counter (skillCounts[]) that increments on use and decays
  * over time. Higher counter = less likely to gain (anti-macro).
  * AttrMod = (1000 - GetSkillValue(mob,skillId,1)) * gainFactor / 100.
+ *
+ * MODIFIED: the anti-macro gating is relaxed under the -fast progression
+ * switch, which the binary has no equivalent for.
  */
 void
 CMobile_TestSkillInternal(CMobile *mob, int8_t skillId, int gainFactor, int isUsingSkill)
@@ -1115,6 +1123,9 @@ CalcStatThreshold(CMobile *mob, int flag, int weight, int advRate, int skillValu
  *
  * flag parameter starts at 1 (from all callers). Once any stat's
  * (baseStat + flag) > 100, flag is set to 0 for ALL remaining stats.
+ *
+ * MODIFIED: the gain threshold is scaled by the -fast progression switch,
+ * which the binary has no equivalent for.
  */
 static void
 CMobile_TryStatGain(CMobile *mob, int8_t skillId, int skillValue, int flag)
@@ -1412,6 +1423,8 @@ CMobile_GetBaseSkillValue(CMobile *mob, int8_t skillId)
  * persistent iterator to ensure fairness across calls.
  * Doubles gained for dead mobs. Returns 1 if any skill was decremented.
  * Called from the periodic maintenance loop, not from CMobile_SkillGain.
+ *
+ * CUSTOM (FEAT_SKILL_LOCK): an Up or Locked skill does not decay.
  */
 int
 CMobile_PostSkillGain(CMobile *mob, int gained)

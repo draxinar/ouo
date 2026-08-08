@@ -101,6 +101,9 @@ FileManager_GetCategory(int category)
  * is a directory prefix and filename is appended; otherwise basePath is
  * the full path and filename is ignored. The binary's timing accumulator
  * at 0x0069A788 is not replicated.
+ *
+ * MODIFIED: the binary's timing accumulator at 0x0069A788 is not
+ * replicated.
  */
 FILE *
 FileManager_OpenByType(int category, const char *filename, const char *mode)
@@ -250,6 +253,10 @@ FileManager_Open(FileManager *fm, const char *filename, const char *mode)
  *
  * Container mode: Feistel-encrypts the entry and writes it back to the
  * directory at its index. Standalone mode: closes the underlying FILE*.
+ *
+ * MODIFIED: standalone mode - reading loose files under ../.rundir when
+ * uodemo.dat is absent - is a custom addition; the binary only ever
+ * addresses the container.
  */
 int
 FileManager_Close(FileManager *fm, FileManagerEntry *entry)
@@ -342,6 +349,10 @@ FileManager_ReadDirectory(FileManager *fm)
  * Reads from the entry's current position. In container mode the seek is
  * into containerFp at (dirSize + dataOffset + curPos); in standalone mode
  * it seeks the entry's own FILE*.
+ *
+ * MODIFIED: standalone mode - reading loose files under ../.rundir when
+ * uodemo.dat is absent - is a custom addition; the binary only ever
+ * addresses the container.
  */
 int
 FileManager_Read(FileManager *fm, void *buf, int elemSize, int elemCount, FileManagerEntry *entry)
@@ -381,6 +392,10 @@ FileManager_Read(FileManager *fm, void *buf, int elemSize, int elemCount, FileMa
  * Updates entry->curPos per whence (clamped to dataSize when open) and
  * seeks the underlying file. Container mode uses dirSize+dataOffset as
  * the base; standalone mode seeks the entry's FILE* directly.
+ *
+ * MODIFIED: standalone mode - reading loose files under ../.rundir when
+ * uodemo.dat is absent - is a custom addition; the binary only ever
+ * addresses the container.
  */
 int
 FileManager_Seek(FileManager *fm, FileManagerEntry *entry, int offset, int whence)
@@ -425,6 +440,10 @@ FileManager_Seek(FileManager *fm, FileManagerEntry *entry, int offset, int whenc
  * Writes at the entry's current position, extending dataSize if needed.
  * Container mode addresses within containerFp; standalone mode writes
  * the entry's own FILE*.
+ *
+ * MODIFIED: standalone mode - reading loose files under ../.rundir when
+ * uodemo.dat is absent - is a custom addition; the binary only ever
+ * addresses the container.
  */
 int
 FileManager_Write(FileManager *fm, const void *buf, int elemSize, int elemCount, FileManagerEntry *entry)

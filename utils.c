@@ -49,7 +49,7 @@ GetRandom64(void)
 }
 
 /*
- * 0x004683DF
+ * 0x004683DF - GetRandomRange
  */
 int
 GetRandomRange(int min, int max)
@@ -140,7 +140,7 @@ SwapInt16(int16_t *a, int16_t *b)
 }
 
 /*
- * 0x00481805
+ * 0x00481805 - GetRandom
  */
 int
 GetRandom(int max)

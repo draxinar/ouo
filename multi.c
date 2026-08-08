@@ -455,6 +455,10 @@ CMultiComponent_NotifyOwnerRemoval(CMultiComponent *mc, uint32_t serial)
  *
  * Constructs a CMultiSlave for the given owner item and offset, defaulting
  * carry=1, typeId=-1, range=0.
+ *
+ * MODIFIED: the owner's serial is read from the field directly where the
+ * binary calls CMobile::GetSerial, and the vector type flag is zeroed
+ * where the binary passes uninitialised stack.
  */
 void
 CMultiSlave_Constructor_args(CMultiSlave *ms, CItem *ownerItem, CLocation *offset)
@@ -474,6 +478,10 @@ CMultiSlave_Constructor_args(CMultiSlave *ms, CItem *ownerItem, CLocation *offse
  *
  * Constructs a CMultiSlave for the given owner item, defaulting carry=1,
  * typeId=-1, range=0.
+ *
+ * MODIFIED: the owner's serial is read from the field directly where the
+ * binary calls CMobile::GetSerial, and the vector type flag is zeroed
+ * where the binary passes uninitialised stack.
  */
 void
 CMultiSlave_Constructor(CMultiSlave *ms, CItem *ownerItem)
@@ -3322,6 +3330,9 @@ TriggerEdit_MultiUpdate(CItem *ent, CLocation *loc)
  * 0x00478560 - CMultiSlave::`scalar deleting destructor'
  *
  * Runs ~CMultiSlave and, if flags&1, deallocates the object.
+ *
+ * MODIFIED: frees through free() where the binary calls operator delete,
+ * the project's convention for the OMITTED CRT deallocator.
  */
 static void *
 CMultiSlave_ScalarDtor(CMultiSlave *ms, int flags)
@@ -3485,6 +3496,9 @@ CMultiDef_Constructor(CMultiDef *def)
  * Pops a CMultiComponent from the free list (threaded through the ownerItem
  * field). When empty, allocates a blockSize-sized slab, runs the base ctor
  * on each node, and links nodes 1..N-1 onto the free list.
+ *
+ * MODIFIED: the slab header is a pointer-sized field rather than the
+ * binary's fixed dword, so the nodes stay aligned on 64-bit.
  */
 static void *
 CMultiComponentPool_Alloc(void)

@@ -116,7 +116,7 @@ CMobile_GetFame(CMobile *this)
 }
 
 /*
- * 0x00420FE0
+ * 0x00420FE0 - CMobile::GetKarma
  */
 int
 CMobile_GetKarma(CMobile *this)
@@ -1188,7 +1188,7 @@ CMobile_AddToSkill(CMobile *this, int8_t skillId, int delta)
 }
 
 /*
- * 0x0046DCFD
+ * 0x0046DCFD - CMobile::SetSkill
  */
 uint16_t
 CMobile_SetSkill(CMobile *this, int8_t skillNumber, uint16_t value)
@@ -1837,7 +1837,7 @@ CMobile_ChangeNotoriety(CMobile *this, int amount)
 }
 
 /*
- * 0x0046E95F
+ * 0x0046E95F - CMobile::GetAdjFame
  */
 int
 CMobile_GetAdjFame(CMobile *this)
@@ -1846,7 +1846,7 @@ CMobile_GetAdjFame(CMobile *this)
 }
 
 /*
- * 0x0046E97A
+ * 0x0046E97A - CMobile::GetFameLevel
  */
 int
 CMobile_GetFameLevel(CMobile *this)
@@ -1906,7 +1906,7 @@ Mobile_SendKarmaFameChangeMessage(CMobile *this, int oldValue, int newValue, cha
 }
 
 /*
- * 0x0046EA87
+ * 0x0046EA87 - CMobile::ChangeFame
  */
 void *
 CMobile_ChangeFame(CMobile *this, int fameChange)
@@ -1935,7 +1935,7 @@ CMobile_ChangeFame(CMobile *this, int fameChange)
 }
 
 /*
- * 0x0046EB75
+ * 0x0046EB75 - CMobile::SetFame
  */
 CMobile *
 CMobile_SetFame(CMobile *this, int value)
@@ -1952,7 +1952,7 @@ CMobile_SetFame(CMobile *this, int value)
 }
 
 /*
- * 0x0046EBAD
+ * 0x0046EBAD - CMobile::GetAdjKarma
  */
 int
 CMobile_GetAdjKarma(CMobile *this)
@@ -1968,7 +1968,7 @@ CMobile_GetAdjKarma(CMobile *this)
 }
 
 /*
- * 0x0046EBE1
+ * 0x0046EBE1 - CMobile::GetKarmaLevel
  */
 int
 CMobile_GetKarmaLevel(CMobile *this)
@@ -2001,7 +2001,7 @@ CMobile_GetKarmaLevel(CMobile *this)
 }
 
 /*
- * 0x0046EC6D
+ * 0x0046EC6D - CMobile::ChangeKarma
  */
 void *
 CMobile_ChangeKarma(CMobile *this, int karmaChange)
@@ -2028,7 +2028,7 @@ CMobile_ChangeKarma(CMobile *this, int karmaChange)
 }
 
 /*
- * 0x0046ED50
+ * 0x0046ED50 - CMobile::SetKarma
  */
 CMobile *
 CMobile_SetKarma(CMobile *this, int value)

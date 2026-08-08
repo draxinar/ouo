@@ -296,7 +296,9 @@ loop:
  * 0x0047EF0C - CUserSock::Accept
  *
  * Accepts a pending connection on the listen socket, allocates and
- * constructs a CUserSock around it, and bumps the connection metric.
+ * constructs a CUserSock around it.
+ *
+ * MODIFIED: accepts through POSIX sockets rather than Winsock.
  */
 int
 CUserSock_Accept(CListenSocket *this)
@@ -324,6 +326,10 @@ CUserSock_Accept(CListenSocket *this)
  * Initializes a CUserSock wrapping fd s and remote addr: installs the
  * vtable, zeroes the receive buffer and crypto state, and seeds the
  * per-connection cipher constants from the active detection profile.
+ *
+ * MODIFIED: the per-connection packet table comes from the detected client
+ * version, which the demo binary - serving one client build - has no need
+ * for.
  */
 CUserSock *
 CUserSock_Constructor(CUserSock *this, int s, int addr)
@@ -388,6 +394,8 @@ CUserSock_Constructor(CUserSock *this, int s, int addr)
  *
  * Tears down a user connection: logs out the player, releases cipher
  * allocations, and chains to the base CSocket::Delete.
+ *
+ * MODIFIED: logs the disconnect, which the binary does not.
  */
 CSocket *
 CUserSock_Delete(CUserSock *this)
@@ -423,6 +431,10 @@ CUserSock_Delete(CUserSock *this)
  *
  * Reads pending bytes into the connection buffer, decrypts packets,
  * and dispatches each complete packet to its handler.
+ *
+ * MODIFIED: reads through POSIX recv, whose zero return means the peer
+ * closed where Winsock's means no data was buffered, so the two are not
+ * interchangeable.
  */
 int16_t
 CUserSock_Handle_Input(CUserSock *this)
@@ -570,6 +582,9 @@ IsPacketDynamicSize2(uint8_t type)
  * in-place using the XOR cipher matching the client's CClientSock::Write,
  * selecting single-round, double-round, or polynomial key rotation based
  * on the detected client version.
+ *
+ * MODIFIED: the binary's body is empty. Under g_UseEncryption this
+ * implements the client's cipher so newer clients can connect.
  */
 void
 UserSock_Decrypt(CUserSock *this, uint8_t *buf, int len)

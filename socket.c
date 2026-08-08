@@ -400,6 +400,9 @@ Append_To_CSocketBuffer(CSocket *socket, uint8_t *buf, size_t size)
  *
  * Sends as many remaining bytes as the kernel will accept; closes the
  * socket on fatal errors. Returns 1 on progress, 0 otherwise.
+ *
+ * MODIFIED: sends through POSIX send with MSG_NOSIGNAL rather than
+ * Winsock.
  */
 signed int
 CSocketBuffer_Send(CSocketBuffer *this)

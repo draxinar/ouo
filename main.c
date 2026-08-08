@@ -481,6 +481,8 @@ reload_handler(int sig)
  * Also handles Linux-only signal ignores (SIGPIPE) and the SIGHUP
  * account-reload handler. Binary-phase signals (SIGTERM, SIGINT) live
  * at the top of Server_Loop instead.
+ *
+ * CUSTOM (FEAT_CHAT): seeds the default chat conference at startup.
  */
 int
 Server_Init(void)

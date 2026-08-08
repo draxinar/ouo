@@ -1531,8 +1531,8 @@ CItem_PrepareDelete(CItem *item)
 /*
  * 0x00484E8B - CItem::Delete (vtable[0x90])
  *
- * Runs DeleteCheck1 + DeleteCheck2, increments the item-destroyed
- * metric, then invokes the scalar deleting destructor (vtable[0](1)).
+ * Runs DeleteCheck1 + DeleteCheck2, then invokes the scalar deleting
+ * destructor (vtable[0](1)).
  */
 void
 CItem_Delete(CItem *item)
@@ -5692,17 +5692,6 @@ CItem_GetLayerThiscall(CItem *entity)
 }
 
 /*
- * Stub - 0x004BAAEC - DebugTrap
- *
- * 5-byte int3/nop pad before CTemplateManager_SpawnVendorStock, invoked
- * on unexpected vendor-container state.
- */
-void
-CTemplateManager_SpawnVendorStock_DebugBreak(void)
-{
-}
-
-/*
  * 0x00490AF4 - CWorld::GetItemLayer
  *
  * Calls CWorld_LookupItemResource for its side effect, then returns
@@ -6313,6 +6302,17 @@ CCorpse_ScalarDelete(CCorpse *corpse, int flags)
 	if (flags & 1)
 		free(corpse);
 	return NULL;
+}
+
+/*
+ * 0x004BAAEC - DebugTrap
+ *
+ * 5-byte int3/nop pad before CTemplateManager_SpawnVendorStock, invoked
+ * on unexpected vendor-container state.
+ */
+void
+CTemplateManager_SpawnVendorStock_DebugBreak(void)
+{
 }
 
 /*

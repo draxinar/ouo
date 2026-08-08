@@ -1358,6 +1358,10 @@ CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, CLocation *loc)
  * removes from NPC hash and level list, frees convoFragList
  * (CString dtor per node, matching binary scalar deleting dtor 0x00484380),
  * frees resource template pointers, chains to CMobile_Destructor.
+ *
+ * CUSTOM (FEAT_CLOSED_ECONOMY, FEAT_PERNPC_RESPAWN): death returns the
+ * NPC's type 3 resource nodes to its region's spawned count and enqueues
+ * a per-NPC respawn.
  */
 void
 CResourceMobile_Destructor(CNPC *npc)
@@ -2000,6 +2004,9 @@ CNPC_ReturnToSpawnIfFrozen(CNPC *npc)
  * Main per-NPC tick. Resource init if npcSearchRange == 0xFF,
  * vendor restock, freeze/sleep optimization, AI timer decrements,
  * wander timer, then CNPC_HandleStates.
+ *
+ * CUSTOM (FEAT_ECOLOGY): runs the hunger lifecycle the binary initialises
+ * but never advances.
  */
 int
 CNPC_Heartbeat(CNPC *npc)
@@ -4180,6 +4187,9 @@ CNPC_PostInitBehaviorCheck(CNPC *npc)
  * Main per-tick AI state machine: resolves follow/pet-distance
  * timeouts, runs the combat patrol, checks idle triggers (hunger,
  * shelter, pack, wander), then dispatches the 14-entry state switch.
+ *
+ * CUSTOM (FEAT_ECOLOGY): adds the idle predator/prey/pack/scavenger scan
+ * and the graze, shelter and desire state handlers.
  */
 void
 CNPC_HandleStates(CNPC *npc)

@@ -181,6 +181,9 @@ CDequeBlock_AllocFrom(CDequeBlock *this, uint32_t size)
  *
  * Deallocator wrapper for std::allocator::deallocate. Calls operator delete
  * on ptr; count is ignored.
+ *
+ * MODIFIED: frees through free() where the binary calls the CRT
+ * deallocator wrapper, the project's convention for OMITTED CRT code.
  */
 static void
 StdDeque_Dealloc(StdDeque_TimeEvent *self, void *ptr, uint32_t count)
@@ -194,6 +197,9 @@ StdDeque_Dealloc(StdDeque_TimeEvent *self, void *ptr, uint32_t count)
  * 0x0046C9E0 - StdDeque_Dealloc (SurfaceInfo allocator variant)
  *
  * Allocator deallocate - ignores self and count, frees ptr.
+ *
+ * MODIFIED: frees through free() where the binary calls the CRT
+ * deallocator wrapper, the project's convention for OMITTED CRT code.
  */
 void
 StdDeque_DeallocSI(CVector *self, void *ptr, int count)

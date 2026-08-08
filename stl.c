@@ -3266,24 +3266,6 @@ SortRaw_Main(uintptr_t *begin, uintptr_t *end, int depth)
 }
 
 /*
- * 0x0047F350
- */
-void *
-PacketGetDynamicSize(uint8_t *buf)
-{
-	uint16_t v;
-	void *result;
-
-	result = (void *)(uintptr_t)PacketIsDynamicSize(buf);
-	if (result) {
-		memcpy(&v, buf + 1, 2);
-		htons_inplace(&v);
-		result = memcpy(buf + 1, &v, 2);
-	}
-	return result;
-}
-
-/*
  * 0x00458040 - std::sort insertion entry for raw uint32_t
  *
  * Wrapper for insertion sort. Calls GameCentMon_GetPlayerCount (returns 0)
@@ -5785,6 +5767,24 @@ Vector_SortByDist(void *begin, void *end, CLocation *refLoc)
 }
 
 /*
+ * 0x0047F350 - PacketGetDynamicSize
+ */
+void *
+PacketGetDynamicSize(uint8_t *buf)
+{
+	uint16_t v;
+	void *result;
+
+	result = (void *)(uintptr_t)PacketIsDynamicSize(buf);
+	if (result) {
+		memcpy(&v, buf + 1, 2);
+		htons_inplace(&v);
+		result = memcpy(buf + 1, &v, 2);
+	}
+	return result;
+}
+
+/*
  * 0x0047F3A0 - PacketIsEDEDEDED
  *
  * Returns 1 when the 4-byte payload immediately after the opcode (or
@@ -6071,6 +6071,9 @@ StdPtrIter_Neq(StdPtrNode **a, StdPtrNode **b)
  * With flags & 2, runs StdPtrList16_DestroyAll on each 12-byte element
  * before freeing the slab header. Otherwise runs the single-element
  * destructor and optionally frees the object.
+ *
+ * MODIFIED: the element count is read at its native width, where the MSVC
+ * CRT stores it as a uint32 ahead of the slab.
  */
 void *
 StdPtrList16_VecDtor(StdPtrList *this, int flags)
@@ -6097,6 +6100,9 @@ StdPtrList16_VecDtor(StdPtrList *this, int flags)
  *
  * Allocates a new node, links it before pos, copy-constructs the 16-byte
  * value into it, bumps the count, and stores the iterator into *result.
+ *
+ * MODIFIED: the value is memcpy'd into the node where the binary
+ * copy-constructs it.
  */
 static void
 StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value)

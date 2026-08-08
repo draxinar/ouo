@@ -123,7 +123,7 @@ CItem *g_MoveBlocker;
 static CItem *g_DoMoveEntity;
 
 /*
- * 0x004243C0
+ * 0x004243C0 - CPlayer::IsPlayer
  */
 int
 CPlayer_IsPlayer(CPlayer *this)
@@ -620,7 +620,7 @@ GetStartLocation(CLocation *out, int index)
 }
 
 /*
- * 0x004503B6
+ * 0x004503B6 - ValidateSkinColor
  */
 static void
 ValidateSkinColor(uint32_t *color)
@@ -630,7 +630,7 @@ ValidateSkinColor(uint32_t *color)
 }
 
 /*
- * 0x004503DA
+ * 0x004503DA - ValidateHairColor
  */
 static void
 ValidateHairColor(uint32_t *color)
@@ -640,7 +640,7 @@ ValidateHairColor(uint32_t *color)
 }
 
 /*
- * 0x004503FE
+ * 0x004503FE - GetHairInfo
  */
 static void
 GetHairInfo(uint32_t *style, int genre)
@@ -659,7 +659,7 @@ GetHairInfo(uint32_t *style, int genre)
 }
 
 /*
- * 0x00450460
+ * 0x00450460 - GetBeardInfo
  */
 static void
 GetBeardInfo(uint32_t *style, int genre)
@@ -683,6 +683,9 @@ GetBeardInfo(uint32_t *style, int genre)
  *
  * Creates a new player character with validated stats, colors, hair,
  * beard, and starting backpack, then registers it with the world.
+ *
+ * CUSTOM (FEAT_CREATION_COLORS): the client's chosen clothing colours
+ * override the starting template's hues.
  */
 CPlayer *
 NewPlayer(char *name, uint16_t locX, uint16_t locY, uint8_t locZ, uint8_t genre, uint8_t strength, uint8_t dexterity, uint8_t intelligence, uint8_t skill1Number,
@@ -901,26 +904,13 @@ CPlayer_AttachStartupScripts(CPlayer *this)
 }
 
 /*
- * 0x00450B20
- */
-static CPlayer *
-CPlayer_FindByName(CPlayer *head, char *name)
-{
-	CPlayer *p;
-
-	for (p = head; p != NULL; p = p->next) {
-		char *pname = ((char *(*)(void *))VT_FN(&p->mobile.container.item, VT_GET_NAME))(p);
-		if (strcasecmp(pname, name) == 0)
-			return p;
-	}
-	return NULL;
-}
-
-/*
  * 0x00450A2E - NewCharacter
  *
  * Allocates a new CPlayer via NewPlayer, stores the password, links it
  * to the connection, and binds it to the socket's account.
+ *
+ * MODIFIED: the character is bound to its account and given the lowest
+ * free slot, which the binary has no equivalent for.
  */
 CPlayer *
 NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *name, char *password, uint8_t genre, uint8_t strength, uint8_t dexterity, uint8_t intelligence,
@@ -951,6 +941,22 @@ NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *
 	}
 
 	return player;
+}
+
+/*
+ * 0x00450B20 - CPlayer::FindByName
+ */
+static CPlayer *
+CPlayer_FindByName(CPlayer *head, char *name)
+{
+	CPlayer *p;
+
+	for (p = head; p != NULL; p = p->next) {
+		char *pname = ((char *(*)(void *))VT_FN(&p->mobile.container.item, VT_GET_NAME))(p);
+		if (strcasecmp(pname, name) == 0)
+			return p;
+	}
+	return NULL;
 }
 
 /*
@@ -1074,6 +1080,8 @@ CPlayer_Constructor(CPlayer *this)
  * Player destructor: hides the entity, cancels trades, removes from
  * the player and GM lists, frees friend lists, and chains to
  * CMobile_Destructor.
+ *
+ * CUSTOM (FEAT_CHAT): removes the player from the chat system.
  */
 void
 CPlayer_Destructor(CPlayer *this)
@@ -1212,6 +1220,9 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
  * Per-tick regen for an online player: ticks lifeclock, cooldown,
  * action state, mana/HP/stamina regen, and excess-stat drain. Dead
  * players skip all regen.
+ *
+ * CUSTOM (FEAT_SKILL_MEDITATION): meditation shortens the mana timer,
+ * doubles the regen step and exercises the skill.
  */
 static void
 CPlayer_RegenTick(CPlayer *this)
@@ -2879,6 +2890,9 @@ CPlayer_CheckGuardZone(CPlayer *this)
  * grid, dispatches visibility changes, scans for NPC range triggers,
  * handles trade distance, ranged weapon state, guard zone, and
  * z-climb stamina drain.
+ *
+ * CUSTOM (FEAT_SKILL_STEALTH, FEAT_SKILL_MEDITATION): moving spends a
+ * stealth step and breaks meditation.
  */
 void
 DoMove(CItem *this, int direction, int isPlayer, uint8_t sequence)
@@ -3157,7 +3171,7 @@ CPlayer_RefreshNearby(CPlayer *this)
 }
 
 /*
- * 0x004547B7
+ * 0x004547B7 - CPlayer::IsPlayerOnline
  */
 int
 CPlayer_IsPlayerOnline(CPlayer *this)
@@ -3324,7 +3338,7 @@ CPlayer_HeartbeatCleanup(CPlayer *this)
 }
 
 /*
- * 0x00454AE8
+ * 0x00454AE8 - CPlayer::PingReply
  */
 void
 CPlayer_PingReply(CPlayer *this, uint8_t sequence)

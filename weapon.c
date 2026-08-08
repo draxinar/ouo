@@ -42,6 +42,21 @@ static const struct WeaponLayerEntry g_WeaponLayerHandednessTable[14];
 CWeaponManager g_WeaponManager;
 
 /*
+ * 0x004CD9C0 - CItem::GetWeaponDefId
+ *
+ * Equipment items (weapons/armor) store a weaponDefId at CItem+0x50. For
+ * non-container items, the bytes at offset 0x50 onward contain weapon-
+ * specific data rather than CContainer.contents. The binary keeps this
+ * getter as a real function but inlines the same read at most call sites.
+ */
+uint8_t
+CItem_GetWeaponDefId(CItem *item)
+{
+	CContainer *cont = (CContainer *)item;
+	return cont->weaponClass;
+}
+
+/*
  * 0x004DE4BE - CArmorArray::CArmorArray
  *
  * Empty constructor.
@@ -1818,18 +1833,3 @@ static const struct WeaponLayerEntry g_WeaponLayerHandednessTable[14] = {
 	{ 7, 1 }, // gloves -> lefthand
 	{ 2, 3 }, // left hand -> 3
 };
-
-/*
- * Helper - CItem_GetWeaponDefId
- *
- * Equipment items (weapons/armor) store a weaponDefId at CItem+0x50. For
- * non-container items, the bytes at offset 0x50 onward contain weapon-
- * specific data rather than CContainer.contents. The binary inlines this
- * read at every call site.
- */
-uint8_t
-CItem_GetWeaponDefId(CItem *item)
-{
-	CContainer *cont = (CContainer *)item;
-	return cont->weaponClass;
-}

@@ -554,6 +554,11 @@ CNamedScope_Copy(CNamedScope *dst, const CNamedScope *src)
  * duplicate name exists. On success, reallocates the entries array,
  * updates the in-flight script's function and trigger scope
  * references, and grows totalSize by the type's aligned size.
+ *
+ * FIXED: the binary reads g_currentCompileScript->trigHandlers[i]
+ * without checking the global first, so adding a scope entry outside a
+ * compile - when nothing has set it - faults. The null check here skips
+ * the trigger pass instead.
  */
 int
 CNamedScope_Add(CNamedScope *scope, const char *name, int typeId, CFuncList *funcList)

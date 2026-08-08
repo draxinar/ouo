@@ -104,7 +104,7 @@ PacketManager_MakePacket_STRING_QUERY(uint8_t *buf, uint32_t serial, uint16_t ty
 }
 
 /*
- * 0x00498A83
+ * 0x00498A83 - PacketManager::MakePacket_DEATH_ANIM
  * Packet 0xAF (DEATH_ANIM) - 13 bytes
  * Sent when a mobile dies: triggers corpse animation on clients.
  * mobSerial: the dying mobile, corpseSerial: the corpse container, flag: container indicator.
@@ -172,20 +172,6 @@ PacketManager_MakePacket_SKILLS(uint8_t *buf, int maxSkills, CItem *player)
 }
 
 /*
- * 0x00498CE3
- * Packet 0x3A (SKILLS) single update - 10 bytes
- * Type byte 0xFF = single skill update
- */
-uint16_t
-PacketManager_MakePacket_SKILLS_SINGLE(uint8_t *buf, uint16_t skillID, uint16_t value)
-{
-	PutPacketType(buf, PacketType_SKILLS, 0x0A);
-	PutByte(buf, 0xFF);
-	PutWord(buf, skillID);
-	return PutWord(buf, value);
-}
-
-/*
  * 0x00498C5A - PacketManager::MakePacket_SKILLS_TYPED
  *
  * Builds packet 0x3A (SKILLS) exactly as 0x00498BCB does, except the
@@ -204,6 +190,20 @@ PacketManager_MakePacket_SKILLS_TYPED(uint8_t *buf, int maxSkills, CItem *player
 		PutWord(buf, (uint16_t)CMobile_GetSkillValue((CMobile *)player, (int8_t)i, 0));
 	}
 	PutWord(buf, 0x0000);
+}
+
+/*
+ * 0x00498CE3 - PacketManager::MakePacket_SKILLS_SINGLE
+ * Packet 0x3A (SKILLS) single update - 10 bytes
+ * Type byte 0xFF = single skill update
+ */
+uint16_t
+PacketManager_MakePacket_SKILLS_SINGLE(uint8_t *buf, uint16_t skillID, uint16_t value)
+{
+	PutPacketType(buf, PacketType_SKILLS, 0x0A);
+	PutByte(buf, 0xFF);
+	PutWord(buf, skillID);
+	return PutWord(buf, value);
 }
 
 /*
@@ -258,27 +258,6 @@ PacketManager_MakePacket_REVISION(uint8_t *buf, uint32_t serial, char *name, int
 }
 
 /*
- * 0x00498ED9
- */
-uint16_t
-PacketManager_MakePacket_SUNLIGHT(uint8_t *buf, uint8_t lightLevel)
-{
-	PutPacketType(buf, PacketType_SUNLIGHT, 2);
-	return PutByte(buf, lightLevel);
-}
-
-/*
- * 0x00498F6D
- */
-uint16_t
-PacketManager_MakePacket_LIGHTCHANGE(uint8_t *buf, uint32_t serial, uint8_t lightLevel)
-{
-	PutPacketType(buf, PacketType_LIGHTCHANGE, 6);
-	PutDWord(buf, serial);
-	return PutByte(buf, lightLevel);
-}
-
-/*
  * 0x00498E49 - PacketManager::MakePacket_UPD_SKILL_NAME
  *
  * Builds packet 0x94 (UPD_SKILL), variable length. Writes the skill
@@ -310,6 +289,16 @@ PacketManager_MakePacket_UPD_SKILL_NAME(uint8_t *buf, uint8_t skillIndex, CSkill
 }
 
 /*
+ * 0x00498ED9 - PacketManager::MakePacket_SUNLIGHT
+ */
+uint16_t
+PacketManager_MakePacket_SUNLIGHT(uint8_t *buf, uint8_t lightLevel)
+{
+	PutPacketType(buf, PacketType_SUNLIGHT, 2);
+	return PutByte(buf, lightLevel);
+}
+
+/*
  * 0x00498EFE - PacketManager::MakePacket_UNK_50
  *
  * Builds packet 0x50, size 0x53: a serial followed by a fixed 0x4C-byte
@@ -337,6 +326,17 @@ PacketManager_MakePacket_UNK_51(uint8_t *buf, char *text)
 }
 
 /*
+ * 0x00498F6D - PacketManager::MakePacket_LIGHTCHANGE
+ */
+uint16_t
+PacketManager_MakePacket_LIGHTCHANGE(uint8_t *buf, uint32_t serial, uint8_t lightLevel)
+{
+	PutPacketType(buf, PacketType_LIGHTCHANGE, 6);
+	PutDWord(buf, serial);
+	return PutByte(buf, lightLevel);
+}
+
+/*
  * 0x00498FAB - PacketManager::MakePacket_VER_OK
  *
  * Packet 0x45 (VER_OK), size 5. Writes packet type and a dword.
@@ -361,7 +361,7 @@ PacketManager_MakePacket_WARMODE(uint8_t *buf, uint8_t flag)
 }
 
 /*
- * 0x00498FF5
+ * 0x00498FF5 - PacketManager::MakePacket_FOLLOWMOVE
  * Packet 0x38 (FOLLOWMOVE) - 7 bytes
  */
 uint16_t
@@ -400,7 +400,39 @@ PacketManager_MakePacket_GROUPS(uint8_t *buf, uint32_t serial1, uint32_t serial2
 }
 
 /*
- * 0x0049918A
+ * 0x004990CC - PacketManager::MakePacket_UNK_3D
+ *
+ * Builds packet 0x3D, size 2 with a 0xFF/0x00 pair baked into the
+ * PutPacketType call. Writes a leading 0xFF, a mode byte, the two
+ * halves of loc as words, a word argument and a trailing zero word.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UNK_3D(uint8_t *buf, uint8_t mode, uint32_t loc, uint16_t arg)
+{
+	PutPacketType(buf, PacketType_UNK_3D, 2);
+	PutByte(buf, 0xFF);
+	PutByte(buf, mode);
+	PutWord(buf, (uint16_t)loc);
+	PutWord(buf, (uint16_t)(loc >> 16));
+	PutWord(buf, arg);
+	PutWord(buf, 0);
+}
+
+/*
+ * 0x00499154 - PacketManager::MakePacket_UNK_1E
+ *
+ * Builds packet 0x1E, size 4: a word followed by a byte.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UNK_1E(uint8_t *buf, uint16_t value, uint8_t flag)
+{
+	PutPacketType(buf, PacketType_UNK_1E, 4);
+	PutWord(buf, value);
+	PutByte(buf, flag);
+}
+
+/*
+ * 0x0049918A - PacketManager::MakePacket_DESTROY_OBJECT
  * Packet 0x1D (DESTROY_OBJECT) - 5 bytes
  */
 uint16_t
@@ -411,7 +443,7 @@ PacketManager_MakePacket_DESTROY_OBJECT(uint8_t *buf, uint32_t serial)
 }
 
 /*
- * 0x004991AF
+ * 0x004991AF - PacketManager::MakePacket_NAKED_MOB
  * Packet 0x77 (NAKED_MOB) - 17 bytes
  */
 uint16_t
@@ -430,7 +462,7 @@ PacketManager_MakePacket_NAKED_MOB(uint8_t *buf, CMobile *mob, uint8_t notoriety
 }
 
 /*
- * 0x00499281
+ * 0x00499281 - PacketManager::MakePacket_EQUIPPED_MOB
  * Packet 0x78 (EQUIPPED_MOB)
  * Parameters:
  *   buf       - packet buffer
@@ -488,38 +520,6 @@ PacketManager_MakePacket_EQUIPPED_MOB(uint8_t *buf, CMobile *mob, uint8_t notori
 	PutDWord(buf, 0);
 
 	return 0;
-}
-
-/*
- * 0x004990CC - PacketManager::MakePacket_UNK_3D
- *
- * Builds packet 0x3D, size 2 with a 0xFF/0x00 pair baked into the
- * PutPacketType call. Writes a leading 0xFF, a mode byte, the two
- * halves of loc as words, a word argument and a trailing zero word.
- */
-static __attribute__((unused)) void
-PacketManager_MakePacket_UNK_3D(uint8_t *buf, uint8_t mode, uint32_t loc, uint16_t arg)
-{
-	PutPacketType(buf, PacketType_UNK_3D, 2);
-	PutByte(buf, 0xFF);
-	PutByte(buf, mode);
-	PutWord(buf, (uint16_t)loc);
-	PutWord(buf, (uint16_t)(loc >> 16));
-	PutWord(buf, arg);
-	PutWord(buf, 0);
-}
-
-/*
- * 0x00499154 - PacketManager::MakePacket_UNK_1E
- *
- * Builds packet 0x1E, size 4: a word followed by a byte.
- */
-static __attribute__((unused)) void
-PacketManager_MakePacket_UNK_1E(uint8_t *buf, uint16_t value, uint8_t flag)
-{
-	PutPacketType(buf, PacketType_UNK_1E, 4);
-	PutWord(buf, value);
-	PutByte(buf, flag);
 }
 
 /*
@@ -666,7 +666,7 @@ PacketManager_MakePacket_LOGIN_CONFIRM(uint8_t *buf, CPlayer *player)
 }
 
 /*
- * 0x004998D3
+ * 0x004998D3 - PacketManager::MakePacket_BLOCKED_MOVE
  * Packet 0x21 (BLOCKED_MOVE) - 8 bytes
  */
 uint16_t
@@ -681,7 +681,7 @@ PacketManager_MakePacket_BLOCKED_MOVE(uint8_t *buf, uint8_t sequence, uint16_t x
 }
 
 /*
- * 0x0049993A
+ * 0x0049993A - PacketManager::MakePacket_OK_MOVE
  */
 uint16_t
 PacketManager_MakePacket_OK_MOVE(uint8_t *buf, uint8_t sequence, uint8_t notoriety)
@@ -692,7 +692,7 @@ PacketManager_MakePacket_OK_MOVE(uint8_t *buf, uint8_t sequence, uint8_t notorie
 }
 
 /*
- * 0x0049996F
+ * 0x0049996F - PacketManager::MakePacket_OBJMOVE
  * Packet 0x23 (OBJMOVE) - 26 bytes
  * Drag animation: shows an item moving between source and destination.
  * Note: packet writes destination info before source info.
@@ -719,7 +719,7 @@ PacketManager_MakePacket_OBJMOVE(uint8_t *buf, uint16_t itemID, uint8_t stackabl
 }
 
 /*
- * 0x00499A4B
+ * 0x00499A4B - PacketManager::MakePacket_OPEN_GUMP
  * Packet 0x24 (OPEN_GUMP) - 7 bytes
  */
 uint16_t
@@ -973,7 +973,7 @@ PacketManager_MakePacket_MULTI_OBJ_TO_OBJ(uint8_t *buf, CContainer *cont, int fi
 }
 
 /*
- * 0x0049A1AC
+ * 0x0049A1AC - PacketManager::MakePacket_GETOBJ_FAILED
  * Packet 0x27 (GETOBJ_FAILED) - 2 bytes
  */
 uint16_t
@@ -984,7 +984,7 @@ PacketManager_MakePacket_GETOBJ_FAILED(uint8_t *buf, uint8_t reason)
 }
 
 /*
- * 0x0049A1D1
+ * 0x0049A1D1 - PacketManager::MakePacket_DROPOBJ_FAILED
  * Packet 0x28 (DROPOBJ_FAILED) - 5 bytes
  */
 uint16_t
@@ -996,7 +996,7 @@ PacketManager_MakePacket_DROPOBJ_FAILED(uint8_t *buf, uint16_t x, uint16_t y)
 }
 
 /*
- * 0x0049A208
+ * 0x0049A208 - PacketManager::MakePacket_DROPOBJ_OK
  * Packet 0x29 (DROPOBJ_OK) - 1 byte
  */
 uint16_t
@@ -1006,7 +1006,7 @@ PacketManager_MakePacket_DROPOBJ_OK(uint8_t *buf)
 }
 
 /*
- * 0x0049A21D
+ * 0x0049A21D - PacketManager::MakePacket_DEATHACTION
  * Packet 0x2A (DEATHACTION) - 5 bytes
  */
 uint16_t
@@ -1017,7 +1017,7 @@ PacketManager_MakePacket_DEATHACTION(uint8_t *buf, uint32_t serial)
 }
 
 /*
- * 0x0049A242
+ * 0x0049A242 - PacketManager::MakePacket_GODMODE
  */
 uint16_t
 PacketManager_MakePacket_GODMODE(uint8_t *buf, uint8_t editing)
@@ -1027,7 +1027,7 @@ PacketManager_MakePacket_GODMODE(uint8_t *buf, uint8_t editing)
 }
 
 /*
- * 0x0049A267
+ * 0x0049A267 - PacketManager::MakePacket_DEATH
  * Packet 0x2C (DEATH) - 2 bytes. Shows death/resurrection screen on client.
  * flag=0: dead (show death dialog), flag=1: alive (dismiss death dialog).
  */
@@ -1039,7 +1039,7 @@ PacketManager_MakePacket_DEATH(uint8_t *buf, uint8_t flag)
 }
 
 /*
- * 0x0049A28C
+ * 0x0049A28C - PacketManager::MakePacket_HEALTH
  * Packet 0x2D (HEALTH / combined stat update) - 17 bytes
  */
 uint16_t
@@ -1056,7 +1056,7 @@ PacketManager_MakePacket_HEALTH(uint8_t *buf, uint32_t serial, uint16_t maxHp, u
 }
 
 /*
- * 0x0049A317
+ * 0x0049A317 - PacketManager::MakePacket_HP_HEALTH
  * Packet 0xA1 (HP_HEALTH) - 9 bytes
  */
 uint16_t
@@ -1069,7 +1069,7 @@ PacketManager_MakePacket_HP_HEALTH(uint8_t *buf, uint32_t serial, uint16_t maxHp
 }
 
 /*
- * 0x0049A361
+ * 0x0049A361 - PacketManager::MakePacket_MANA_HEALTH
  * Packet 0xA2 (MANA_HEALTH) - 9 bytes
  */
 uint16_t
@@ -1082,7 +1082,7 @@ PacketManager_MakePacket_MANA_HEALTH(uint8_t *buf, uint32_t serial, uint16_t max
 }
 
 /*
- * 0x0049A3AB
+ * 0x0049A3AB - PacketManager::MakePacket_FAT_HEALTH
  * Packet 0xA3 (FAT_HEALTH / stamina) - 9 bytes
  */
 uint16_t
@@ -1095,7 +1095,7 @@ PacketManager_MakePacket_FAT_HEALTH(uint8_t *buf, uint32_t serial, uint16_t maxS
 }
 
 /*
- * 0x0049A3F5
+ * 0x0049A3F5 - PacketManager::MakePacket_EQUIP_ITEM
  * Packet 0x2E (EQUIP_ITEM) - 15 bytes
  */
 uint16_t
@@ -1111,7 +1111,7 @@ PacketManager_MakePacket_EQUIP_ITEM(uint8_t *buf, CItem *item, CMobile *wearer, 
 }
 
 /*
- * 0x0049A47E
+ * 0x0049A47E - PacketManager::MakePacket_SWING
  * Packet 0x2F (SWING) - 10 bytes
  */
 uint16_t
@@ -1124,7 +1124,7 @@ PacketManager_MakePacket_SWING(uint8_t *buf, uint8_t flag, uint32_t attackerSeri
 }
 
 /*
- * 0x0049A4C3
+ * 0x0049A4C3 - PacketManager::MakePacket_ATTACK_OK
  * Packet 0x30 (ATTACK_OK) - 5 bytes
  */
 uint16_t
@@ -1135,7 +1135,7 @@ PacketManager_MakePacket_ATTACK_OK(uint8_t *buf, uint32_t targetSerial)
 }
 
 /*
- * 0x0049A4E8
+ * 0x0049A4E8 - PacketManager::MakePacket_ATTACK_END
  * Packet 0x31 (ATTACK_END) - 1 byte
  */
 uint16_t
@@ -1587,7 +1587,7 @@ PacketManager_MakePacket_LOGIN_REJECT(uint8_t *buf, uint8_t reason)
 }
 
 /*
- * 0x0049B3F5
+ * 0x0049B3F5 - PacketManager::MakePacket_LOGIN_COMPLETE
  */
 uint16_t
 PacketManager_MakePacket_LOGIN_COMPLETE(uint8_t *buf)
@@ -1627,7 +1627,22 @@ PacketManager_MakePacket_ACCT_LOGIN_OK(uint8_t *buf, uint8_t numCharacters, uint
 }
 
 /*
- * 0x0049B5A0
+ * 0x0049B55E - PacketManager::MakePacket_USER_SERVER_EMPTY
+ *
+ * Builds packet 0x8C (USER_SERVER), size 0xB, with every field zero -
+ * a zero address, zero port and zero key.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_USER_SERVER_EMPTY(uint8_t *buf)
+{
+	PutPacketType(buf, PacketType_USER_SERVER, 0xB);
+	PutDWord(buf, 0);
+	PutWord(buf, 0);
+	PutDWord(buf, 0);
+}
+
+/*
+ * 0x0049B5A0 - PacketManager::MakePacket_CHG_CHAR_RESULT
  * Reasons (from client 1.25.35):
  * 0x00 "That character password is invalid."
  * 0x01 "That character does not exist."
@@ -1641,21 +1656,6 @@ PacketManager_MakePacket_CHG_CHAR_RESULT(uint8_t *buf, uint8_t reason)
 {
 	PutPacketType(buf, PacketType_CHG_CHAR_RESULT, 2);
 	return PutByte(buf, reason);
-}
-
-/*
- * 0x0049B55E - PacketManager::MakePacket_USER_SERVER_EMPTY
- *
- * Builds packet 0x8C (USER_SERVER), size 0xB, with every field zero -
- * a zero address, zero port and zero key.
- */
-static __attribute__((unused)) void
-PacketManager_MakePacket_USER_SERVER_EMPTY(uint8_t *buf)
-{
-	PutPacketType(buf, PacketType_USER_SERVER, 0xB);
-	PutDWord(buf, 0);
-	PutWord(buf, 0);
-	PutDWord(buf, 0);
 }
 
 /*
@@ -1796,7 +1796,7 @@ PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, ch
 }
 
 /*
- * 0x0049B699
+ * 0x0049B699 - PacketManager::MakePacket_SOUND
  * Packet 0x54 (SOUND) - 12 bytes
  */
 uint16_t
@@ -1812,7 +1812,7 @@ PacketManager_MakePacket_SOUND(uint8_t *buf, uint8_t flags, uint16_t soundID, CL
 }
 
 /*
- * 0x0049B71B
+ * 0x0049B71B - PacketManager::MakePacket_GAMETIME
  */
 uint16_t
 PacketManager_MakePacket_GAMETIME(uint8_t *buf)
@@ -1835,19 +1835,6 @@ Stub_Return0(void *self)
 {
 	USED(self);
 	return 0;
-}
-
-/*
- * 0x0049B835
- * Packet 0x65 (WEATHERCHANGE) - 4 bytes
- */
-uint16_t
-PacketManager_MakePacket_WEATHERCHANGE(uint8_t *buf, uint8_t weatherType, uint8_t numEffects, uint8_t temperature)
-{
-	PutPacketType(buf, PacketType_WEATHERCHANGE, 4);
-	PutByte(buf, weatherType);
-	PutByte(buf, numEffects);
-	return PutByte(buf, temperature);
 }
 
 /*
@@ -1874,6 +1861,19 @@ PacketManager_MakePacket_SERVERSTATUS(uint8_t *buf)
 	memset(detail, 0, sizeof(detail));
 	Stub_Return0(detail);
 	PutWord(buf, detail[6]);
+}
+
+/*
+ * 0x0049B835 - PacketManager::MakePacket_WEATHERCHANGE
+ * Packet 0x65 (WEATHERCHANGE) - 4 bytes
+ */
+uint16_t
+PacketManager_MakePacket_WEATHERCHANGE(uint8_t *buf, uint8_t weatherType, uint8_t numEffects, uint8_t temperature)
+{
+	PutPacketType(buf, PacketType_WEATHERCHANGE, 4);
+	PutByte(buf, weatherType);
+	PutByte(buf, numEffects);
+	return PutByte(buf, temperature);
 }
 
 /*
@@ -1957,7 +1957,7 @@ PacketManager_MakePacket_FRIENDNOTIFY(uint8_t *buf, int friendIndex, int status)
 }
 
 /*
- * 0x0049BB4B
+ * 0x0049BB4B - PacketManager::MakePacket_TARGET
  * Packet 0x6C (TARGET) - 19 bytes
  * Outbound only: server sends to client to request a target cursor.
  * The client's response (also packet 0x6C) is discarded by UoDemo.exe.
@@ -1977,7 +1977,7 @@ PacketManager_MakePacket_TARGET(uint8_t *buf, uint8_t targetType, uint32_t curso
 }
 
 /*
- * 0x0049BBD6
+ * 0x0049BBD6 - PacketManager::MakePacket_TARGET_MULTI
  * Packet 0x99 (TARGET_MULTI) - 26 bytes
  */
 uint16_t
@@ -1998,7 +1998,7 @@ PacketManager_MakePacket_TARGET_MULTI(uint8_t *buf, uint8_t allowGround, uint32_
 }
 
 /*
- * 0x0049BC98
+ * 0x0049BC98 - PacketManager::MakePacket_TARGET_OBJLIST
  * Packet 0xB4 (TARGET_OBJLIST) - variable size
  *
  * Like TARGET_MULTI but includes a list of allowed object type IDs
@@ -2027,7 +2027,7 @@ PacketManager_MakePacket_TARGET_OBJLIST(uint8_t *buf, uint8_t allowGround, uint3
 }
 
 /*
- * 0x0049BD52
+ * 0x0049BD52 - PacketManager::MakePacket_MUSIC
  */
 uint16_t
 PacketManager_MakePacket_MUSIC(uint8_t *buf, uint16_t musicId)
@@ -2037,7 +2037,7 @@ PacketManager_MakePacket_MUSIC(uint8_t *buf, uint16_t musicId)
 }
 
 /*
- * 0x0049BD78
+ * 0x0049BD78 - PacketManager::MakePacket_ANIM
  * Packet 0x6E (ANIM) - 14 bytes
  */
 uint16_t
@@ -2051,46 +2051,6 @@ PacketManager_MakePacket_ANIM(uint8_t *buf, uint32_t serial, uint16_t action, ui
 	PutByte(buf, backward);
 	PutByte(buf, repeat);
 	return PutByte(buf, delay);
-}
-
-/*
- * 0x0049BEBF
- * Packet 0x70 (EFFECT) - 28 bytes
- */
-uint16_t
-PacketManager_MakePacket_EFFECT(uint8_t *buf, uint8_t type, uint32_t srcSerial, uint32_t dstSerial, uint16_t itemID, uint16_t srcX, uint16_t srcY, uint8_t srcZ, uint16_t dstX,
-        uint16_t dstY, uint8_t dstZ, uint8_t speed, uint8_t duration, uint8_t unk1, uint8_t fixedDir, uint8_t explode, uint8_t unk2)
-{
-	PutPacketType(buf, PacketType_EFFECT, 28);
-	PutByte(buf, type);
-	PutDWord(buf, srcSerial);
-	PutDWord(buf, dstSerial);
-	PutWord(buf, itemID);
-	PutWord(buf, srcX);
-	PutWord(buf, srcY);
-	PutByte(buf, srcZ);
-	PutWord(buf, dstX);
-	PutWord(buf, dstY);
-	PutByte(buf, dstZ);
-	PutByte(buf, speed);
-	PutByte(buf, duration);
-	PutByte(buf, unk1);
-	PutByte(buf, fixedDir);
-	PutByte(buf, explode);
-	return PutByte(buf, unk2);
-}
-
-/*
- * 0x0049BFFE
- */
-uint16_t
-PacketManager_MakePacket_COMBAT(uint8_t *buf, uint8_t warMode, uint8_t combatByte2, uint8_t combatByte3, uint8_t combatByte4)
-{
-	PutPacketType(buf, PacketType_COMBAT, 5);
-	PutByte(buf, warMode);
-	PutByte(buf, combatByte2);
-	PutByte(buf, combatByte3);
-	return PutByte(buf, combatByte4);
 }
 
 /*
@@ -2119,6 +2079,46 @@ PacketManager_MakePacket_TRADE(uint8_t *buf, uint8_t subtype, uint32_t serial, u
 	} else {
 		PutByte(buf, 0);
 	}
+}
+
+/*
+ * 0x0049BEBF - PacketManager::MakePacket_EFFECT
+ * Packet 0x70 (EFFECT) - 28 bytes
+ */
+uint16_t
+PacketManager_MakePacket_EFFECT(uint8_t *buf, uint8_t type, uint32_t srcSerial, uint32_t dstSerial, uint16_t itemID, uint16_t srcX, uint16_t srcY, uint8_t srcZ, uint16_t dstX,
+        uint16_t dstY, uint8_t dstZ, uint8_t speed, uint8_t duration, uint8_t unk1, uint8_t fixedDir, uint8_t explode, uint8_t unk2)
+{
+	PutPacketType(buf, PacketType_EFFECT, 28);
+	PutByte(buf, type);
+	PutDWord(buf, srcSerial);
+	PutDWord(buf, dstSerial);
+	PutWord(buf, itemID);
+	PutWord(buf, srcX);
+	PutWord(buf, srcY);
+	PutByte(buf, srcZ);
+	PutWord(buf, dstX);
+	PutWord(buf, dstY);
+	PutByte(buf, dstZ);
+	PutByte(buf, speed);
+	PutByte(buf, duration);
+	PutByte(buf, unk1);
+	PutByte(buf, fixedDir);
+	PutByte(buf, explode);
+	return PutByte(buf, unk2);
+}
+
+/*
+ * 0x0049BFFE - PacketManager::MakePacket_COMBAT
+ */
+uint16_t
+PacketManager_MakePacket_COMBAT(uint8_t *buf, uint8_t warMode, uint8_t combatByte2, uint8_t combatByte3, uint8_t combatByte4)
+{
+	PutPacketType(buf, PacketType_COMBAT, 5);
+	PutByte(buf, warMode);
+	PutByte(buf, combatByte2);
+	PutByte(buf, combatByte3);
+	return PutByte(buf, combatByte4);
 }
 
 /*
@@ -2215,7 +2215,7 @@ PacketManager_MakePacket_SHOP_SELL(uint8_t *buf, CMobile *vendor, uint16_t count
 }
 
 /*
- * 0x0049C341
+ * 0x0049C341 - PacketManager::MakePacket_SEQUENCE
  * Packet 0x7B (SEQUENCE) - 2 bytes
  */
 uint16_t
@@ -2301,7 +2301,7 @@ PacketManager_MakePacket_HUEPICKER(uint8_t *buf, uint32_t serial, uint16_t typeI
 }
 
 /*
- * 0x0049C58A
+ * 0x0049C58A - PacketManager::MakePacket_OPEN_PAPERDOLL
  * Packet 0x88 (OPEN_PAPERDOLL) - 66 bytes
  */
 uint16_t
@@ -2332,7 +2332,7 @@ PacketManager_MakePacket_DISPLAY_SIGN(uint8_t *buf, uint32_t serial, uint16_t gu
 }
 
 /*
- * 0x0049C688
+ * 0x0049C688 - PacketManager::MakePacket_PLAYERMOVE
  * Packet 0x97 (PLAYERMOVE) - 2 bytes
  */
 uint16_t
@@ -2825,6 +2825,9 @@ PacketManager_MakePacket_TEXT_UNICODE(uint8_t *buf, CItem *entity, CItem *entity
  * 7 bytes per entry: skillID(2) + value(2) + base(2) + lock(1).
  * Client 2.0.0 stores values for type 0x00; type 0x02 discards them.
  * SkillIDs are 1-based. Terminated by skillID 0.
+ *
+ * CUSTOM (FEAT_SKILL_LOCK): the per-skill lock byte carries the player's
+ * lock state; zero otherwise.
  */
 void
 PacketManager_MakePacket_SKILLS_Ext(uint8_t *buf, int maxSkills, CItem *player)

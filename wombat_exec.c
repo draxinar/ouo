@@ -8585,6 +8585,50 @@ Script_numInContainer(uint32_t serial)
 }
 
 /*
+ * 0x004139E4 - isVirtueGuard
+ *
+ * Returns 1 when the mobile is an order or a chaos guard.
+ */
+int
+Script_isVirtueGuard(uint32_t serial)
+{
+	return Script_checkMobile(serial, check_IsVirtueGuard, "isVirtueGuard");
+}
+
+/*
+ * 0x004139FF - isUsingVirtueShield
+ *
+ * Returns 1 when the mobile carries an order or a chaos shield.
+ */
+int
+Script_isUsingVirtueShield(uint32_t serial)
+{
+	return Script_checkMobile(serial, check_IsUsingVirtueShield, "isUsingVirtueShield");
+}
+
+/*
+ * 0x00413A1A - isOrderGuard
+ *
+ * Returns 1 when the mobile is an order guard.
+ */
+int
+Script_isOrderGuard(uint32_t serial)
+{
+	return Script_checkMobile(serial, check_IsOrderGuard, "isOrderGuard");
+}
+
+/*
+ * 0x00413A35 - isChaosGuard
+ *
+ * Returns 1 when the mobile is a chaos guard.
+ */
+int
+Script_isChaosGuard(uint32_t serial)
+{
+	return Script_checkMobile(serial, check_IsChaosGuard, "isChaosGuard");
+}
+
+/*
  * 0x00413A50 - isRidable
  *
  * Returns 1 when the mobile can be mounted.
@@ -9774,6 +9818,10 @@ Script_stopAttack(uint32_t serial)
  *
  * Removes mob2 from mob1's combat target list, leaving the
  * attacker list untouched.
+ *
+ * FIXED: the binary uses both lookups without testing either, so a
+ * serial that names no mobile faults - first reading mob2's serial
+ * field, then dispatching on mob1. Both are checked here.
  */
 void
 Script_stopFight(uint32_t serial1, uint32_t serial2)
@@ -16622,20 +16670,6 @@ Script_sendPlayerZmoveStuff(uint32_t serial)
 }
 
 /*
- * 0x0041CC82 - SendZMoveToPlayers
- *
- * Not a real function entry in the binary (int3 padding byte at 0x0041CC82,
- * code continues at 0x0041CC83 as part of Script_sendPlayerZmoveStuff).
- * Extracted as helper: calls vtable[0x130] (SendUpdateToList) on entity
- * with the player list and flag.
- */
-static void
-SendZMoveToPlayers(CItem *entity, CVector *list, int flag)
-{
-	((void (*)(void *, CVector *, int))VT_FN(entity, VT_NOTIFY_NEARBY))(entity, list, flag);
-}
-
-/*
  * 0x0041CCD2 - multiCanExistAt
  *
  * Checks if a multi of the given type can exist at the specified location.
@@ -20977,12 +21011,6 @@ check_IsOrderGuard(CItem *ent)
 	return 0;
 }
 
-int
-Script_isOrderGuard(uint32_t serial)
-{
-	return Script_checkMobile(serial, check_IsOrderGuard, "isOrderGuard");
-}
-
 /*
  * 0x0047235A - check_IsChaosGuard
  *
@@ -21003,12 +21031,6 @@ check_IsChaosGuard(CItem *ent)
 	return 0;
 }
 
-int
-Script_isChaosGuard(uint32_t serial)
-{
-	return Script_checkMobile(serial, check_IsChaosGuard, "isChaosGuard");
-}
-
 /*
  * 0x00472476 - check_IsUsingVirtueShield
  *
@@ -21025,12 +21047,6 @@ check_IsUsingVirtueShield(CItem *ent)
 	return 0;
 }
 
-int
-Script_isUsingVirtueShield(uint32_t serial)
-{
-	return Script_checkMobile(serial, check_IsUsingVirtueShield, "isUsingVirtueShield");
-}
-
 /*
  * 0x004724AE - check_IsVirtueGuard
  *
@@ -21045,12 +21061,6 @@ check_IsVirtueGuard(CItem *ent)
 	if (check_IsChaosGuard(ent))
 		return 1;
 	return 0;
-}
-
-int
-Script_isVirtueGuard(uint32_t serial)
-{
-	return Script_checkMobile(serial, check_IsVirtueGuard, "isVirtueGuard");
 }
 
 /*
@@ -21895,4 +21905,18 @@ EventParamBlock_BuildFromEventParams(EventParamBlock *pb, EventParam *params, in
 		} else
 			EventParamBlock_AddParam(pb, typeId, params[i].ival);
 	}
+}
+
+/*
+ * Helper - SendZMoveToPlayers
+ *
+ * Not a real function entry in the binary: 0x0041CC82 is an int3 padding
+ * byte and the code continues at 0x0041CC83 as part of
+ * Script_sendPlayerZmoveStuff. Extracted as a helper, it calls
+ * vtable[0x130] (SendUpdateToList) on entity with the player list and flag.
+ */
+static void
+SendZMoveToPlayers(CItem *entity, CVector *list, int flag)
+{
+	((void (*)(void *, CVector *, int))VT_FN(entity, VT_NOTIFY_NEARBY))(entity, list, flag);
 }

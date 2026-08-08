@@ -1488,6 +1488,10 @@ BroadcastToRangeWithLOS(uint8_t *buf, CLocation *loc, int maxCount, int range)
  *
  * Demo/1.25.x: 100 bytes.
  * Client 1.26.0: 104 bytes (+4 bytes for starting city index at end).
+ *
+ * MODIFIED: the packet is 100 bytes in the demo client and 104 in 1.26.0,
+ * so the trailing starting-city index is read only for the newer clients.
+ * The account check and the five-character-per-account limit are custom.
  */
 void
 HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
@@ -1630,6 +1634,10 @@ HandlePacket_POSTLOGIN_UserSock(CUserSock *this)
  * Reads character name/password from the login packet and either binds
  * the found player to this socket (disconnecting any previous one) or
  * replies with LOGIN_REJECT.
+ *
+ * MODIFIED: the connection must be authenticated first, and the character
+ * is selected by slot index within the account rather than by the binary's
+ * global name lookup. Both belong to the custom account system.
  */
 void
 HandlePacket_PRELOGIN(CUserSock *this, uint8_t *buf)
@@ -1707,7 +1715,10 @@ HandlePacket_PRELOGIN(CUserSock *this, uint8_t *buf)
 }
 
 /*
- * 0x0047E8D8
+ * 0x0047E8D8 - HandlePacket_ACCT_LOGIN_REQ (binary original)
+ *
+ * The binary's own handler, kept verbatim. HandlePacket_ACCT_LOGIN_REQ
+ * below dispatches to it and is the entry the packet table names.
  * Unused in client >= 1.25.35.
  */
 void
@@ -2126,6 +2137,9 @@ range_check:
  *
  * Thin wrapper: calls Player_LoginSequence, then applies custom
  * account privilege logic (GM/Counselor flags) and debug GM mode.
+ *
+ * MODIFIED: the account privilege flags, the -gm switch and the -test
+ * centre mode are custom; the binary has none of them.
  */
 void
 Player_Login(CPlayer *this, uint32_t addr)
@@ -2158,7 +2172,7 @@ Player_Login(CPlayer *this, uint32_t addr)
 }
 
 /*
- * 0x0049275B
+ * 0x0049275B - PostLogin
  */
 void
 PostLogin(CPlayer *player, uint32_t addr)
@@ -2172,6 +2186,9 @@ PostLogin(CPlayer *player, uint32_t addr)
  *
  * 16-phase login sequence fired when POSTLOGIN admits a player into
  * the world.
+ *
+ * MODIFIED: the sequence bails out when the loaded flag did not take,
+ * closing the socket. The binary carries on regardless.
  */
 void
 Player_LoginSequence(CPlayer *this, uint32_t addr)
@@ -2345,7 +2362,7 @@ HandlePacket_GODMODE_TOGGLE(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x0C @ 0x00492D30 - TILEDATA
+ * 0x00492D30 - HandlePacket_TILEDATA (God Client subcommand 0x0C)
  *
  * GM editor tool: updates item tile data properties. Reads 11 fields and
  * forwards them to the editor singleton.
@@ -2382,7 +2399,7 @@ HandlePacket_TILEDATA(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x61 @ 0x00492E64 - DESTROY_STATIC
+ * 0x00492E64 - HandlePacket_DESTROY_STATIC (God Client subcommand 0x61)
  *
  * GM tool: removes a static item from the world. Reads source coordinates
  * and graphic ID, validates coordinates, locks statics, searches the
@@ -2429,7 +2446,7 @@ HandlePacket_DESTROY_STATIC(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x62 @ 0x00492F9E - MOVESTATIC
+ * 0x00492F9E - HandlePacket_MOVESTATIC (God Client subcommand 0x62)
  *
  * GM tool: moves a static item by a signed delta offset. Reads source
  * coordinates, graphic ID, and XYZ deltas. Validates coordinates, locks
@@ -2551,11 +2568,14 @@ HandlePacket_CHECK_VER(CPlayer *this, uint8_t *buf)
 /*
  * 0x00493248 - HandlePacket_GumpMenuSelection
  *
- * MODIFIED: added payload bounds checking. The binary has no bounds
+ * FIXED: added payload bounds checking. The binary has no bounds
  * checks on switchCount, textEntryCount, or textLen from the packet,
  * so a malformed or truncated packet causes unbounded reads past the
  * packet data, leading to heap corruption from garbage-driven
  * allocations and an infinite loop in UString_Length.
+ *
+ * The gump id GM_PLAYER_MENU_GUMP_ID is routed to its own C handler
+ * before the script event; that branch is a custom addition.
  *
  * Generic gump menu response. Reads: serial(DWord), gumpID(DWord),
  * buttonID(DWord), switchCount(DWord), switches[](DWord each),
@@ -2807,6 +2827,8 @@ Speech_BroadcastAlive(CPlayer *speaker, uint8_t speechType, char *text, uint16_t
  * Reveal hidden on speech via Entity_ExecuteEvent
  * "uninvis" event. Switch on speechType to dead/alive speech
  * sub-functions with type-specific ranges.
+ *
+ * MODIFIED: logs every line.
  */
 void
 HandlePacket_SPEECH(CPlayer *this, uint8_t *buf)
@@ -3401,13 +3423,6 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x00494D6F
- * Drop item. Reads serial(DWord) + x(Word) + y(Word) + z(Byte) + containerSerial(DWord).
- * Item being dropped is player->equipment[0] (held item on cursor).
- * containerSerial == 0xFFFFFFFF means drop on ground; otherwise drop into container.
- */
-
-/*
  * 0x00494C27 - ValidateSerials
  *
  * Cdecl, 6 args. Re-verifies 3 serial/entity-pointer pairs after
@@ -3495,6 +3510,10 @@ GetCanHoldFailReason(int code)
  * Decompilation of the binary drop handler. Handles dropping items on
  * ground, into containers, onto players (trade), and onto NPCs (sell).
  * Uses vtable dispatch for entity type checks and container operations.
+ * Reads serial (dword), x (word), y (word), z (byte) and container
+ * serial (dword); the item being dropped is player->equipment[0], the
+ * one on the cursor, and a container serial of 0xFFFFFFFF means drop on
+ * the ground.
  *
  * MODIFIED: when the player is in GM editing mode and the in-range
  * container lookup fails, fall back to CWorld_FindBySerial so the GM
@@ -4046,6 +4065,10 @@ HandlePacket_ATTACK(CPlayer *this, uint8_t *buf)
  *   0x43=OpenDoor, 0x56=UseSkillByID, 0x57=LastSkill,
  *   0x58=CastSpellByID, 0x59=LastSpell(stub), 0x5C=SetCombatBytes,
  *   0xC7=ArmDisarm; 0x07/0x08/0x09=NOP stubs
+ *
+ * CUSTOM (FEAT_SKILL_MEDITATION, FEAT_SKILL_STEALTH, FEAT_SKILL_REMOVE_TRAP):
+ * skills 46, 47 and 48 are refused when their flag is off, and stealth
+ * keeps the player hidden instead of revealing on use.
  */
 void
 HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
@@ -4614,6 +4637,9 @@ SendEntityResourceNodes(CItem *entity, CItem *player, uint32_t unused, uint32_t 
  * (0x02), vendor data (0x03), target status (0x04), skill list (0x05),
  * single skill (0x06), or resource nodes (0xFD). Requires the sentinel
  * serial 0xEDEDEDED.
+ *
+ * CUSTOM (FEAT_SKILL_LOCK): the single-skill reply carries the player's
+ * lock state; zero otherwise.
  */
 void
 HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
@@ -4725,7 +4751,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x35 @ 0x00496839 - AddResource
+ * 0x00496839 - HandlePacket_AddResource (God Client subcommand 0x35)
  *
  * GM editor tool: creates or updates a resource definition. Reads a
  * serial/ID; if 99999 (0x0001869F), allocates a new resource via the
@@ -5013,7 +5039,7 @@ HandlePacket_DESTROY_OBJECT(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x49 @ 0x00496EE2 - NEW_HUES
+ * 0x00496EE2 - HandlePacket_NEW_HUES (God Client subcommand 0x49)
  *
  * GM editor tool: uploads new hue palette data. Reads a hue group index,
  * 64 bytes of color data (32 uint16 palette entries), start/end color
@@ -5087,7 +5113,7 @@ HandlePacket_NEW_REGION(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x48 @ 0x00497161 - NEW_ANIM
+ * 0x00497161 - HandlePacket_NEW_ANIM (God Client subcommand 0x48)
  *
  * GM editor tool: uploads new animation data. Reads an animation
  * index (DWord) and 0x44 bytes of entry data, then delegates to
@@ -5110,7 +5136,7 @@ HandlePacket_NEW_ANIM(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x4A @ 0x004971B0 - DESTROY_ART
+ * 0x004971B0 - HandlePacket_DESTROY_ART (God Client subcommand 0x4A)
  *
  * GM editor tool: deletes an art tile entry. Reads artId, validates the
  * range [1, 0x00010000), then calls StoreArt with size=-1 and data=NULL
@@ -5134,7 +5160,7 @@ HandlePacket_DESTROY_ART(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x46 @ 0x004971FA - NEW_ART
+ * 0x004971FA - HandlePacket_NEW_ART (God Client subcommand 0x46)
  *
  * GM editor tool: uploads new art tile data. Reads artId and up to
  * 64KB of art data. Validates artId in [0, 0x00010000). Art size:
@@ -5177,7 +5203,7 @@ HandlePacket_NEW_ART(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x47 @ 0x00497298 - NEW_TERR
+ * 0x00497298 - HandlePacket_NEW_TERR (God Client subcommand 0x47)
  *
  * GM editor tool: sets terrain tile types. Single-tile mode (width=0xFFFF)
  * delegates to SetTerrSingle. Region mode walks the (width, height)
@@ -6149,7 +6175,7 @@ HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf)
 }
 
 /*
- * 0x9D @ 0x00498846 - GMSingle
+ * 0x00498846 - HandlePacket_GMSingle (God Client subcommand 0x9D)
  *
  * GM single-click event handler. Requires the GM flag. Reads 9 fields and
  * forwards a subset (type, player serial, serial, artId, x, y, z) to a
@@ -6219,6 +6245,9 @@ HandlePacket_GMSingle(CPlayer *this, uint8_t *buf)
  * Default falls through to GM switch if PlayerIsEditing.
  *
  * MODIFIED: Added CLIENT_VERSION (0xBD) case for 1.26+ clients.
+ *
+ * CUSTOM (FEAT_CHAT, FEAT_SKILL_LOCK): the chat text/open and skill-lock
+ * packets are only dispatched when their flag is on.
  */
 void
 DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
@@ -6444,6 +6473,26 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 }
 
 /*
+ * 0x0049DA80 - InitializeGlobalPacketOffset
+ */
+uint16_t
+InitializeGlobalPacketOffset(void)
+{
+	g_PacketOffset = 0;
+	return 0;
+}
+
+/*
+ * 0x0049DAA0 - SetPacketType
+ */
+uint16_t
+SetPacketType(uint8_t *buf, uint8_t type)
+{
+	*buf = type;
+	return type;
+}
+
+/*
  * 0x0049DAC0 - GetSizeLength
  *
  * Binary unconditionally reads g_PacketTable. We select the
@@ -6466,26 +6515,6 @@ GetSizeLength(uint8_t *buf)
 }
 
 /*
- * 0x0049DAA0
- */
-uint16_t
-SetPacketType(uint8_t *buf, uint8_t type)
-{
-	*buf = type;
-	return type;
-}
-
-/*
- * 0x0049DA80
- */
-uint16_t
-InitializeGlobalPacketOffset(void)
-{
-	g_PacketOffset = 0;
-	return 0;
-}
-
-/*
  * 0x0049DB00 - PacketManager::GetPacketByte
  *
  * Returns *ptr, zero-extended.
@@ -6497,17 +6526,7 @@ PacketManager_GetPacketByte(uint8_t *ptr)
 }
 
 /*
- * 0x0049DB50
- */
-uint16_t
-SetGlobalOffset(uint16_t off)
-{
-	g_PacketOffset = off;
-	return off;
-}
-
-/*
- * 0x0049DB10
+ * 0x0049DB10 - SetPacketOffset
  */
 uint16_t
 SetPacketOffset(uint8_t *buf, uint16_t off)
@@ -6515,6 +6534,16 @@ SetPacketOffset(uint8_t *buf, uint16_t off)
 	if (!PacketIsDynamicSize(buf))
 		return SetGlobalOffset(off);
 	memcpy(buf + 1, &off, 2);
+	return off;
+}
+
+/*
+ * 0x0049DB50 - SetGlobalOffset
+ */
+uint16_t
+SetGlobalOffset(uint16_t off)
+{
+	g_PacketOffset = off;
 	return off;
 }
 
@@ -8146,6 +8175,10 @@ BroadcastUnicodeSpeechAtEye(CItem *entity, uint8_t speechType, uint16_t *text, u
  * Converts to ASCII and builds a synthetic 0x03 (SPEECH) packet,
  * then delegates to HandlePacket_SPEECH which contains all the
  * speech broadcast, GM command, vendor keyword, and NPC conversation logic.
+ *
+ * MODIFIED: the binary's body is empty. The handler below converts the
+ * unicode packet to ASCII and re-enters HandlePacket_SPEECH so newer
+ * clients can talk.
  */
 void
 HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf)
@@ -9229,6 +9262,9 @@ event_0x17:
  *   TF_LIGHT (0x00800000) - calls UseLight(entity)
  *   TF_DOOR  (0x20000000) - calls UseDoor(entity)
  * Otherwise: dead code reads graphic again (result unused).
+ *
+ * CUSTOM (FEAT_LIGHTS): light sources the tiledata does not flag are
+ * recognised through LightToggleLookup.
  */
 void
 UseItem_Default(CPlayer *player, CItem *entity)

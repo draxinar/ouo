@@ -32,6 +32,9 @@ StdMapTree *g_HandleMap;                // 0x00701648
  * Wraps a file pointer in a paged cache: picks up the file size,
  * validates the 4-byte logical-size trailer, and registers the handle
  * in the global map.
+ *
+ * MODIFIED: the four-byte logical-size trailer is validated, where the
+ * binary trusts it unconditionally.
  */
 ContainerHandle *
 InitContainerHandle(ContainerHandle *this, void *fp, int writable, int isQFile)
@@ -264,6 +267,9 @@ FindContainerHandle(FILE *fp)
  *
  * Reloads a fresh page buffer at the current file position, decrypting
  * whatever was read. Returns bytes read.
+ *
+ * MODIFIED: the standalone branch reads through stdio when the file is
+ * not inside the container, which the binary has no equivalent for.
  */
 int
 ContainerHandle_AllocPage(ContainerHandle *this, int size)

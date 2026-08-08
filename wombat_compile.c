@@ -2649,6 +2649,11 @@ cleanup:
  * grouping parentheses/brackets, or binary operators that detach
  * the previous node as the LHS). Returns the cursor past the
  * expression, or NULL on error.
+ *
+ * FIXED: on a binary operator the binary detaches the last node by
+ * reading (*chain)->next without testing *chain, so an operator with
+ * no left-hand operand faults. Here an empty chain skips the operator
+ * and re-enters the evaluator instead.
  */
 const char *
 EvaluateExpression(CFuncScope *scope, const char *stream, ResultNode **chain, int endToken)

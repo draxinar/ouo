@@ -59,10 +59,10 @@ GetByte(uint8_t *buf, uint32_t *off, uint8_t *v)
 
 /*
  * 0x00492481 - GetWord
+ * 0x004924CB - GetWord
  *
  * Reads a big-endian 16-bit word at offset *off and advances *off by 2.
- * The binary emits two identical copies of this routine at 0x00492481
- * and 0x004924CB.
+ * The binary emits two identical copies of this routine.
  */
 uint32_t *
 GetWord(uint8_t *buf, uint32_t *off, uint16_t *v)
@@ -153,10 +153,11 @@ PutByte(uint8_t *buf, uint8_t v)
 
 /*
  * 0x00492610 - PutWord
+ * 0x00492660 - PutWord
  *
  * Appends a 16-bit value in network byte order at the current packet
  * offset and advances it by 2. The binary emits a duplicate of this
- * routine at 0x00492660.
+ * routine.
  */
 uint16_t
 PutWord(uint8_t *buf, ...)
