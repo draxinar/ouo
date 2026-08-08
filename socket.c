@@ -18,6 +18,8 @@
 #include <sys/epoll.h>
 #endif
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -25,6 +27,7 @@
 
 #include "dat.h"
 #include "huffman.h"
+#include "io.h"
 #include "listensocket.h"
 #include "packet_handler.h"
 #include "stl.h"
@@ -58,6 +61,43 @@ void
 Noop_47DF20(const char *msg)
 {
 	USED(msg);
+}
+
+/*
+ * 0x0047DF25 - Socket_CountPacket
+ *
+ * Counts one packet of the given type and adds its size to that type's
+ * running byte total, then once an hour opens /uo/packets.<tick> and
+ * closes it again. The loop that would have written the 256 counters
+ * has an empty body in the binary, so the file is always zero bytes and
+ * the counters are never read anywhere. Reproduced as it stands.
+ */
+static __attribute__((unused)) void
+Socket_CountPacket(uint32_t type, uint32_t size)
+{
+	// 0x00699B78, 0x00699F78, 0x0069A778
+	static int counts[256];
+	static int64_t totals[256];
+	static uint32_t lastDumpTick;
+
+	char path[256];
+	uint32_t now;
+	FILE *fp;
+	int i;
+
+	counts[type & 0xFF]++;
+	totals[type & 0xFF] += (int)size;
+
+	now = GetTickCount_UO();
+	if ((int)(now - lastDumpTick) <= 0xE10)
+		return;
+
+	lastDumpTick = now;
+	sprintf(path, "/uo/packets.%08d", now);
+	fp = fopen_ServerSide(path, "w");
+	for (i = 0; i < 0x100; i++) {
+	}
+	fclose_ServerSide(fp);
 }
 
 /*
@@ -506,6 +546,68 @@ CSocket_Send(CSocket *this)
 		}
 	} while (n && this->firstSocketBuffer && this->s != -1);
 	return this;
+}
+
+/*
+ * 0x004801DC - CSocket::FlushForOneSecond
+ *
+ * Pushes queued output by calling the Send slot until the buffer chain
+ * empties or the socket closes.
+ *
+ * The elapsed-time test is inverted: it returns when *less* than a
+ * second has passed since entry, so in practice one Send runs and the
+ * function returns, and the loop only continues if a single Send took a
+ * full second. Reproduced as it stands - nothing calls this.
+ */
+static __attribute__((unused)) void
+CSocket_FlushForOneSecond(CSocket *this)
+{
+	uint32_t start;
+
+	start = GetTickCount_UO();
+	for (;;) {
+		if (this->firstSocketBuffer == NULL)
+			return;
+		if (this->s == -1)
+			return;
+		this->vtable->Send(this);
+		if (GetTickCount_UO() < start + 1000)
+			return;
+	}
+}
+
+/*
+ * 0x00480226 - CSocket::Connect
+ *
+ * Opens a stream socket and connects it to addr:port, enabling
+ * TCP_NODELAY unless nagle is set and SO_KEEPALIVE always. A failed
+ * connect closes the socket and leaves the descriptor at -1.
+ */
+static __attribute__((unused)) void
+CSocket_Connect(CSocket *this, uint32_t addr, uint16_t port, int nagle)
+{
+	struct sockaddr_in sin;
+	int optval;
+
+	this->s = socket(AF_INET, SOCK_STREAM, 0);
+	if (this->s == -1)
+		return;
+
+	optval = 1;
+	if (nagle == 0)
+		setsockopt(this->s, IPPROTO_TCP, TCP_NODELAY, (char *)&optval, sizeof(optval));
+
+	optval = 1;
+	setsockopt(this->s, SOL_SOCKET, SO_KEEPALIVE, (char *)&optval, sizeof(optval));
+
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = htonl(addr);
+	sin.sin_port = htons(port);
+
+	if (connect(this->s, (struct sockaddr *)&sin, sizeof(sin)) != 0) {
+		close(this->s);
+		this->s = -1;
+	}
 }
 
 /*

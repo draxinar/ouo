@@ -241,6 +241,7 @@ int Terrain_GetLandZ(int x, int y); // 0x0046A91E
 int *CTerrainManager_GetLandZQuad(int x, int y); // 0x0046A974
 uint16_t Terrain_GetLandTileID(int x, int y); // 0x0046A9E6
 uint16_t CTerrainManager_GetLandTileID(CTerrainManager *this, int x, int y); // 0x0046AA3C
+int CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc2); // 0x0046ACC8
 void CTerrainManager_MovePlayer(CItem *player, int direction, uint8_t sequence); // 0x0046AA95
 int CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags); // 0x0046ADA5
 int CEntity_CanSee(CItem *entityA, CItem *entityB, int flags); // 0x0046B1E7

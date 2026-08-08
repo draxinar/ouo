@@ -93,7 +93,7 @@ void LoadDynamic0(void); // 0x004C8DD7
 void Dynamic_FireObjectLoadedEvents(void); // 0x004C90CC
 void Dynamic_SetPendingLoad(void); // 0x004C9161
 void Dynamic_ClearPendingAndFireEvents(void); // 0x004C9170
-void BackupFile(const char *src, const char *dst);
+void SaveDynamic0_WriteCommit(void);
 void CDataBuffer_WriteField(CDataBuffer *b, const char *key, const char *value);
 void CDataBuffer_WriteInt(CDataBuffer *b, const char *key, int value);
 void Dynamic_AddDeferredLoadedSerial(uint32_t serial);

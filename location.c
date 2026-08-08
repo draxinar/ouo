@@ -279,6 +279,27 @@ CLocation_AddWrapped(CLocation *this, CLocation *dst, CLocation *delta)
 }
 
 /*
+ * 0x0044D862 - CLocation::Wrap
+ *
+ * Folds x into [0, 0x1400) and y into [0, 0x1000) in place. This is the
+ * wrapping step CLocation_AddWrapped (0x0044D7A0) performs inline.
+ * Unlike AddWrapped it does not gate on the Felucca check first.
+ */
+static __attribute__((unused)) void
+CLocation_Wrap(CLocation *this)
+{
+	if ((int16_t)this->x >= 0x1400)
+		this->x -= 0x1400;
+	else if ((int16_t)this->x < 0)
+		this->x += 0x1400;
+
+	if ((int16_t)this->y >= 0x1000)
+		this->y -= 0x1000;
+	else if ((int16_t)this->y < 0)
+		this->y += 0x1000;
+}
+
+/*
  * 0x0044D8E9 - CLocation::ComputeDelta
  *
  * Writes src - dst into outDelta with map wrapping: x folded into

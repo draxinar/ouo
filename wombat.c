@@ -231,6 +231,10 @@ AnimSequence g_AnimSequence; /* 0x00698840 */
  * reads each line (stripping trailing CR/LF) and appends it as a
  * CSdbStr entry. Returns 1 when the file cannot be opened, 0 on
  * success.
+ *
+ * FIXED: the binary reads line[-1] when the line is empty. Harmless on
+ * the Windows stack, but it is undefined behaviour and ASAN catches it.
+ * Guarded with a length check before each trailing-byte test.
  */
 int
 CScriptStringDB_Load(CScriptStringDB *db, const char *path)
@@ -249,8 +253,6 @@ CScriptStringDB_Load(CScriptStringDB *db, const char *path)
 	while (!feof_ServerSide(f)) {
 		fgets_ServerSide(line, 0x400, f);
 
-		// FIXED: binary reads line[-1] when len==0 (harmless no-op
-		// on Windows stack, but ASAN catches the UB).
 		len = strlen(line);
 		if (len > 0 && line[len - 1] == '\n')
 			line[len - 1] = '\0';
@@ -266,6 +268,35 @@ CScriptStringDB_Load(CScriptStringDB *db, const char *path)
 
 	fclose_ServerSide(f);
 	return 0;
+}
+
+/*
+ * 0x00401313 - CScriptStringDB::Append
+ *
+ * Appends str to the string database and returns the index it had
+ * before the append.
+ *
+ * MODIFIED: the binary builds its temporary from an allocator byte it
+ * reads out of a stack slot it never writes, which String_CopyAssign
+ * copies into the new string's first byte. The slot is zeroed here so
+ * the build stays free of -Wuninitialized; nothing reads that byte
+ * back, and nothing calls this function.
+ */
+static __attribute__((unused)) uint32_t
+CScriptStringDB_Append(CScriptStringDB *db, const char *str)
+{
+	CSdbStr tmp;
+	uint32_t allocByte;
+	uint32_t index;
+
+	allocByte = 0;
+
+	index = CVector_GetCount16_Thiscall((CVector *)db);
+	String_CopyAssign(&tmp, (void *)(uintptr_t)str, &allocByte);
+	CSdbStrVector_Insert(db, &tmp);
+	String_Tidy(&tmp);
+
+	return index;
 }
 
 /*
@@ -888,6 +919,30 @@ CScript_Destructor(CScript *script)
 
 	// Step 8: Destroy funcList at +0x04
 	CFuncList_Destructor(&script->funcList);
+}
+
+/*
+ * 0x004087E2 - CScript::AddNamePair
+ *
+ * Allocates a 12-byte node holding strdup'd copies of name and value
+ * and pushes it onto the script's function-name list.
+ */
+static __attribute__((unused)) void
+CScript_AddNamePair(CScript *script, const char *name, const char *value)
+{
+	struct NamePairNode {
+		struct NamePairNode *next;
+		char *name;
+		char *value;
+	} *node;
+
+	node = (struct NamePairNode *)OperatorNew(sizeof(struct NamePairNode));
+	node->name = (char *)OperatorNew(strlen(name) + 1);
+	strcpy(node->name, name);
+	node->value = (char *)OperatorNew(strlen(value) + 1);
+	strcpy(node->value, value);
+	node->next = (struct NamePairNode *)script->funcListHead;
+	script->funcListHead = node;
 }
 
 /*
@@ -2023,6 +2078,26 @@ CScript_ScalarDelete(CScript *this, int flags)
 const char *g_womTypeNames[] = { "int", "str", "ust", "loc", "obj", "lis", "voi" };
 
 /*
+ * 0x004D7830 - CStringMatcher::CStringMatcher (default sizes)
+ *
+ * Same as 0x004D78AE but with the two sizes baked in: two capture
+ * buffers of 0x50 bytes each.
+ */
+static __attribute__((unused)) CStringMatcher *
+CStringMatcher_InitDefault(CStringMatcher *sm)
+{
+	int i;
+
+	sm->numBuffers = 2;
+	sm->bufLimit = 0x50;
+	sm->counter = 0;
+	sm->bufArray = (char **)OperatorNew(sm->numBuffers * sizeof(char *));
+	for (i = 0; i < sm->numBuffers; i++)
+		sm->bufArray[i] = (char *)OperatorNew(sm->bufLimit);
+	return sm;
+}
+
+/*
  * 0x004D78AE - CStringMatcher::CStringMatcher
  *
  * Constructor. Allocates numBuffers capture buffers of bufSize bytes each.
@@ -2124,6 +2199,97 @@ CStringMatcher_Match(CStringMatcher *sm, const char *text, const char *pattern)
 	}
 
 	return result;
+}
+
+// 0x006EFF48 - registered character set, filled by CStringMatcher_Tokenize
+static char g_MatcherCharSet[0x408];
+// 0x006F0350 - number of entries in g_MatcherCharSet
+static int g_MatcherCharSetCount;
+// 0x006F0348 - tokenizer scan position, kept across calls
+static char *g_MatcherScan;
+// 0x006F034C - start of the token the tokenizer is building
+static char *g_MatcherTokenStart;
+
+/*
+ * 0x004D7B34 - CStringMatcher::IsRegisteredChar
+ *
+ * Linear scan of the registered character set. Returns 1 when c is
+ * present, 0 otherwise.
+ */
+static __attribute__((unused)) int
+CStringMatcher_IsRegisteredChar(char c)
+{
+	int i;
+
+	for (i = 0; i < g_MatcherCharSetCount; i++) {
+		if (g_MatcherCharSet[i] == c)
+			return 1;
+	}
+	return 0;
+}
+
+/*
+ * 0x004D7B85 - CStringMatcher::Tokenize
+ *
+ * strtok with a memory of what it cut on: each delimiter consumed is
+ * appended to the registered character set, terminated by a NUL when
+ * the string runs out. A non-null str starts a new scan, otherwise the
+ * scan resumes where the last call left off. Runs of delimiters are
+ * skipped rather than returning empty tokens. Returns the token, or
+ * NULL at the end of the string.
+ *
+ * The character set is never reset below its 0x408 bytes, so a long
+ * enough input overruns it.
+ */
+static __attribute__((unused)) char *
+CStringMatcher_Tokenize(char *str, const char *delims)
+{
+	const char *d;
+	char *p;
+
+	g_MatcherCharSetCount = 0;
+
+	if (str != NULL) {
+		g_MatcherScan = str;
+		g_MatcherTokenStart = g_MatcherScan;
+	} else {
+		g_MatcherTokenStart = g_MatcherScan;
+	}
+
+	p = g_MatcherScan;
+	while (p != NULL && *p != '\0') {
+		int matched = 0;
+
+		for (d = delims; d != NULL && *d != '\0'; d++) {
+			if (*p != *d)
+				continue;
+
+			g_MatcherCharSet[g_MatcherCharSetCount] = *p;
+			g_MatcherCharSetCount++;
+			*p = '\0';
+			p++;
+			g_MatcherScan = p;
+
+			if (*g_MatcherTokenStart != '\0')
+				return g_MatcherTokenStart;
+
+			g_MatcherTokenStart = g_MatcherScan;
+			p = g_MatcherTokenStart;
+			matched = 1;
+			break;
+		}
+
+		if (!matched)
+			p++;
+	}
+
+	g_MatcherCharSet[g_MatcherCharSetCount] = '\0';
+	g_MatcherCharSetCount++;
+	g_MatcherScan = p;
+
+	if (*g_MatcherTokenStart == '\0')
+		return NULL;
+	return g_MatcherTokenStart;
 }
 
 /*

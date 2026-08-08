@@ -343,6 +343,28 @@ CDefcon_CheckLevel5(void)
 }
 
 /*
+ * 0x00437175 - CDefcon::SetConfig
+ *
+ * Stores the nine configurable thresholds in field order. The four
+ * runtime fields (defcon4Timer and the three active flags) are left
+ * alone.
+ */
+static __attribute__((unused)) void
+CDefcon_SetConfig(CDefcon *defcon, int maxNPCCount, int npcKillCount, int defcon4PThreshold, int defcon4Cooldown, int defcon4NPCThreshold, int defcon1PThreshold,
+        int defcon3PThreshold, int defcon5PThreshold, int defcon2PThreshold)
+{
+	defcon->maxNPCCount = maxNPCCount;
+	defcon->npcKillCount = npcKillCount;
+	defcon->defcon4PThreshold = defcon4PThreshold;
+	defcon->defcon4Cooldown = defcon4Cooldown;
+	defcon->defcon4NPCThreshold = defcon4NPCThreshold;
+	defcon->defcon1PThreshold = defcon1PThreshold;
+	defcon->defcon3PThreshold = defcon3PThreshold;
+	defcon->defcon5PThreshold = defcon5PThreshold;
+	defcon->defcon2PThreshold = defcon2PThreshold;
+}
+
+/*
  * 0x004371D2 - CDefcon::CheckLevel3
  *
  * DEFCON 3: toggles NPC slowdown on player-count threshold.

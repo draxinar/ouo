@@ -50,7 +50,9 @@ typedef struct {
  */
 enum {
 	PacketType_MOBILESTAT = 0x11,
+	PacketType_ELEVCHANGE_OUT = 0x14,
 	PacketType_FOLLOW = 0x15,
+	PacketType_UNK_1E = 0x1E,
 	// PacketType_MOVE = 0x1A, // client+server
 	PacketType_LOGIN_CONFIRM = 0x1B,
 	PacketType_TEXT = 0x1C,
@@ -75,6 +77,7 @@ enum {
 	PacketType_SKILLS = 0x3A,
 	// PacketType_OFFERACCEPT = 0x3B, // client+server
 	PacketType_MULTI_OBJ_TO_OBJ = 0x3C,
+	PacketType_UNK_3D = 0x3D,
 	PacketType_VERSIONS = 0x3E,
 	PacketType_UPD_OBJCHUNK = 0x3F,
 	PacketType_UPD_TERRCHUNK = 0x40,
@@ -85,11 +88,14 @@ enum {
 	PacketType_VER_OK = 0x45,
 	PacketType_LIGHTCHANGE = 0x4E,
 	PacketType_SUNLIGHT = 0x4F,
+	PacketType_UNK_50 = 0x50,
+	PacketType_UNK_51 = 0x51,
 	PacketType_LOGIN_REJECT = 0x53,
 	PacketType_SOUND = 0x54,
 	PacketType_LOGIN_COMPLETE = 0x55,
 	// PacketType_MAP_COMMAND = 0x56, // client+server
 	PacketType_UPD_REGIONS = 0x57,
+	PacketType_SERVERSTATUS = 0x63,
 	PacketType_GAMETIME = 0x5B,
 	PacketType_RESTARTVER = 0x5C,
 	PacketType_WEATHERCHANGE = 0x65,

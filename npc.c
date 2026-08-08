@@ -97,7 +97,6 @@ static void Path_GetCurrentStep(CNPC *npc, PathNode *out); // 0x0049DF20
 static void Path_AdvanceStep(CNPC *npc); // 0x0049DF51
 static int Path_StepCheck(CNPC *npc, PathNode *node, int dir, PathNode *result); // 0x0049DFA4
 static StdPtrNode **SearchNode_IterConstructor(StdPtrNode **self); // 0x0049E590
-static double PathNode_Interpolate(double x1, double x2, double t); // 0x0049E6E2
 static double PathNode_ComputeInterp(double x); // 0x0049E690
 static void PathNode_SetFromLoc(PathNode *this, CLocation *loc, int16_t dir); // 0x0049E650
 static PathNode *PathNode_Copy(PathNode *this, PathNode *src); // 0x0049E600
@@ -134,8 +133,6 @@ static void NPC_AddToFollowerTarget(CMobile *target); // 0x004AC248
 static int CNPC_CheckPetHunger(CNPC *npc); // 0x004AC69B
 static void CNPC_HandleCorpseEat(CNPC *npc, CItem *corpse); // 0x004AC7BC
 static void CNPC_WalkAnimDispatch(CMobile *mob); // 0x004AC9C0
-static int NPC_CalcDirectionSimple(CItem *target, CItem *source); // 0x004D7405
-static void AdvancePhaseIndex(int *phasePtr); // 0x004D7600
 
 // Local forward declarations
 
@@ -1072,6 +1069,30 @@ NPC_FindBySerial(uint32_t serial)
 		npc = npc->npcHashNext;
 	}
 	return NULL;
+}
+
+/*
+ * 0x00480ADB - CNPCManager::CreateMobileAt
+ *
+ * Builds a CResourceMobile with body type 1 at (x, y, 0). The result
+ * goes into a local the function never reads and it always returns 0,
+ * so the mobile is created and leaked. The binary's RET declares 0x24
+ * bytes of arguments while only the first two words are ever read.
+ */
+static __attribute__((unused)) int
+CNPCManager_CreateMobileAt(int16_t x, int16_t y)
+{
+	CLocation loc;
+	CNPC *npc;
+
+	CLocation_Init(&loc);
+	CLocation_Set(&loc, x, y, 0);
+
+	npc = calloc(1, sizeof(CNPC));
+	if (npc != NULL)
+		CResourceMobile_Constructor(&npc->mobile, 1, &loc);
+
+	return 0;
 }
 
 /*
@@ -2440,6 +2461,93 @@ tick_end:
 }
 
 /*
+ * 0x00483386 - CMobile::OffsetPastMulti
+ *
+ * For a mobile standing on a multi, walks loc clear of that multi's
+ * footprint: one axis by the multi's width, the other by its height,
+ * both chosen from the mobile's facing. Cardinal facings only move
+ * along one axis; the diagonals move along both. No-op when the mobile
+ * is not on a multi.
+ */
+static __attribute__((unused)) void
+CMobile_OffsetPastMulti(CMobile *this, CLocation *loc)
+{
+	CLocation minLoc, maxLoc;
+	int typeId, width, height;
+	int stepsX, stepsY, dirX, dirY;
+	int dir;
+
+	if (CItem_GetMultiSlave((CItem *)this) == NULL)
+		return;
+
+	dir = this->direction & 0x7F;
+	typeId = CMultiSlave_GetTypeId(CItem_GetMultiSlave((CItem *)this));
+
+	CLocation_Init(&minLoc);
+	CLocation_Init(&maxLoc);
+	CMultiManager_GetExtents(&g_MultiManager, typeId, &minLoc, &maxLoc);
+
+	width = (int16_t)maxLoc.x - (int16_t)minLoc.x + 1;
+	height = (int16_t)maxLoc.y - (int16_t)minLoc.y + 1;
+
+	stepsX = 0;
+	stepsY = 0;
+	switch (dir) {
+	case 0:
+	case 4:
+		stepsY = height;
+		break;
+	case 2:
+	case 6:
+		stepsX = width;
+		break;
+	default:
+		stepsX = width;
+		stepsY = height;
+		break;
+	}
+
+	dirX = 0;
+	dirY = 0;
+	switch (dir) {
+	case 0:
+		dirY = 0;
+		break;
+	case 1:
+		dirX = 2;
+		dirY = 0;
+		break;
+	case 2:
+		dirX = 2;
+		break;
+	case 3:
+		dirX = 2;
+		dirY = 4;
+		break;
+	case 4:
+		dirY = 4;
+		break;
+	case 5:
+		dirX = 6;
+		dirY = 4;
+		break;
+	case 6:
+		dirX = 6;
+		break;
+	case 7:
+		dirX = 6;
+		dirY = 0;
+		break;
+	}
+
+	for (; stepsX > 0; stepsX--)
+		CLocation_MoveDir(loc, dirX);
+
+	for (; stepsY > 0; stepsY--)
+		CLocation_MoveDir(loc, dirY);
+}
+
+/*
  * 0x0048356D - CNPC vtable[0x204] PaperdollTitle
  *
  * Writes "<name> the <job>" into title, omitting the suffix when
@@ -2962,6 +3070,99 @@ CNPCManager_DrainActiveList(void)
 }
 
 /*
+ * 0x00483FC5 - CNPCHash::CollectSerials
+ *
+ * Appends the serial of every hashed NPC matching filter to out.
+ * filter 1 keeps vendors (vtable[0xE8]), 2 keeps entities passing
+ * vtable[0xEC], anything else keeps all. The chain pointer is parked in
+ * g_NPCHashIterNext so an NPC can unhash itself mid-walk.
+ */
+static __attribute__((unused)) void
+CNPCHash_CollectSerials(CVector *out, int filter)
+{
+	CNPC *npc;
+	uint32_t serial;
+	int i, match;
+
+	for (i = 0; i < 0x40; i++) {
+		npc = g_NPCHash[i];
+		while (npc != NULL) {
+			g_NPCHashIterNext = npc->npcHashNext;
+			match = 0;
+			if (filter == 1) {
+				if (((int (*)(void *))VT_FN((CItem *)npc, VT_IS_VENDOR))(npc))
+					match = 1;
+			} else if (filter == 2) {
+				if (((int (*)(void *))VT_FN((CItem *)npc, VT_CHECK_EC))(npc))
+					match = 1;
+			} else {
+				match = 1;
+			}
+
+			if (match) {
+				serial = CMobile_GetSerial(&npc->mobile);
+				CVector_PushBack(out, serial);
+			}
+			npc = g_NPCHashIterNext;
+		}
+	}
+}
+
+/*
+ * 0x004840A5 - CNPC::HasVendorScript
+ *
+ * True when the "vendor" script is attached to this NPC.
+ */
+static __attribute__((unused)) int
+CNPC_HasVendorScript(CNPC *this)
+{
+	CString name;
+	int found;
+
+	CString_Constructor(&name, "vendor");
+	found = CItem_HasScript((CItem *)this, &name);
+	CString_Destructor(&name);
+
+	return found != 0;
+}
+
+/*
+ * 0x00484112 - CNPC::HasStablesScript
+ *
+ * True when the "stables" script is attached to this NPC.
+ */
+static __attribute__((unused)) int
+CNPC_HasStablesScript(CNPC *this)
+{
+	CString name;
+	int found;
+
+	CString_Constructor(&name, "stables");
+	found = CItem_HasScript((CItem *)this, &name);
+	CString_Destructor(&name);
+
+	return found != 0;
+}
+
+/*
+ * 0x0048417F - CNPC::HasBankerScript
+ *
+ * True when the "banker" script is attached to this NPC.
+ */
+static __attribute__((unused)) int
+CNPC_HasBankerScript(CNPC *this)
+{
+	CString name;
+	int found;
+
+	CString_Constructor(&name, "banker");
+	found = CItem_HasScript((CItem *)this, &name);
+	CString_Destructor(&name);
+
+	return found != 0;
+}
+
+/*
  * 0x004841EC - CNPC::CheckArmageddon
  *
  * MODIFIED: fires @armageddon (event 0x16) on the NPC with {0, flag} as
@@ -3420,7 +3621,7 @@ PathNode_ComputeInterp(double x)
  * Normalized PathNode::ComputeInterp-space interpolation between x1
  * and x2 by parameter t.
  */
-static __attribute__((unused)) double
+double
 PathNode_Interpolate(double x1, double x2, double t)
 {
 	double interpVal = (x2 - x1) * t + x1;
@@ -4788,6 +4989,61 @@ CNPC_FindNearestPrey(CNPC *self, int startLevel, int actionType)
 }
 
 /*
+ * 0x004AA8C9 - CNPC::CollectResourceDesires
+ *
+ * Walks the NPC's resource-template arrays and copies each entry whose
+ * kind byte is 0 or 2 into outIds, with the matching outKinds byte set
+ * to 0 or 1. Kinds 4 to 9 instead run a prey scan at level 1, 2 or 3
+ * with action type 0 or 1; kinds 1 and 3 do nothing. Stops once max
+ * entries have been written and returns how many were.
+ */
+static __attribute__((unused)) int
+CNPC_CollectResourceDesires(CNPC *this, uint8_t *outIds, uint8_t *outKinds, int max)
+{
+	const uint8_t *ids = (const uint8_t *)this->resTplPtr6;
+	const uint8_t *kinds = (const uint8_t *)this->resTplPtr7;
+	int count, i;
+
+	count = 0;
+	for (i = 0; i < (int)this->resTplCount1; i++) {
+		switch (kinds[i]) {
+		case 0:
+			outIds[count] = ids[i];
+			outKinds[count] = 0;
+			count++;
+			break;
+		case 2:
+			outIds[count] = ids[i];
+			outKinds[count] = 1;
+			count++;
+			break;
+		case 4:
+			CNPC_FindNearestPrey(this, 1, 0);
+			break;
+		case 5:
+			CNPC_FindNearestPrey(this, 2, 0);
+			break;
+		case 6:
+			CNPC_FindNearestPrey(this, 3, 0);
+			break;
+		case 7:
+			CNPC_FindNearestPrey(this, 1, 1);
+			break;
+		case 8:
+			CNPC_FindNearestPrey(this, 2, 1);
+			break;
+		case 9:
+			CNPC_FindNearestPrey(this, 3, 1);
+			break;
+		}
+
+		if (count >= max)
+			break;
+	}
+	return count;
+}
+
+/*
  * 0x004AAA0D - CNPC::IsHostileTo
  *
  * Hostile when the NPC's vulnFlags intersect the target's resistFlags
@@ -4968,6 +5224,46 @@ CNPC_RunawayTick(CNPC *npc)
 }
 
 /*
+ * 0x004AAE01 - CNPC::FindStepToward
+ *
+ * Tries up to 32 random offsets of [-2,+2] tiles times step around the
+ * NPC's own position, looking for one closer to target than the NPC is
+ * now. On the first hit target is overwritten with it and 1 is
+ * returned; 0 when all 32 tries miss.
+ */
+static __attribute__((unused)) int
+CNPC_FindStepToward(CNPC *this, CLocation *target, int step)
+{
+	CLocation *here = &this->mobile.container.item.resourceEntity.entity.location;
+	CLocation candidate;
+	int tries, bestDist, dist, dx, dy;
+
+	tries = 0x20;
+	CLocation_Init(&candidate);
+	bestDist = DistBetween(target, here);
+
+	for (;;) {
+		dx = GetRandomRange(1, 5) - 3;
+		dy = GetRandomRange(1, 5) - 3;
+		dx *= step;
+		dy *= step;
+		dx += (int16_t)here->x;
+		dy += (int16_t)here->y;
+		CLocation_Set(&candidate, (int16_t)dx, (int16_t)dy, 0);
+
+		dist = DistBetween(&candidate, target);
+		if (dist < bestDist) {
+			CLocation_SetLoc(target, &candidate);
+			return 1;
+		}
+
+		tries--;
+		if (tries == 0)
+			return 0;
+	}
+}
+
+/*
  * 0x004AAF1E - CNPC hunger/loyalty base value
  *
  * Returns a combined hunger/mood score used as the input to loyalty
@@ -4990,6 +5286,69 @@ CNPC_GetHungerLevel(CNPC *npc)
 	if ((npc->behaviorFlags & 0x4000) && !(npc->behaviorFlags & 0x800))
 		val = val * 8 / 10;
 	return val;
+}
+
+/*
+ * 0x004AAFE6 - CNPC::CollectSameSpecies
+ *
+ * Builds the set of template ids that count as the same species as this
+ * NPC - its own, the +/-1000 counterpart when it falls in 0-199 or
+ * 1000-1199, and every id in the template's body-type list - then adds
+ * every non-following hashed NPC with one of those templates to the
+ * prey arrays at level 100 and action -1.
+ *
+ * The id buffer holds ten entries while the sources can produce eleven
+ * (one own id, one counterpart, eight body types), so a full body-type
+ * list overruns it into the loop counter that follows it on the stack.
+ */
+static __attribute__((unused)) void
+CNPC_CollectSameSpecies(CNPC *this)
+{
+	uint16_t ids[10];
+	uint8_t count;
+	int i, j, k;
+	CNPC *npc;
+
+	count = 1;
+	ids[0] = (uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this);
+
+	if ((uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) <= 0xC7) {
+		ids[count] = (uint16_t)((uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) + 0x3E8);
+		count++;
+	}
+
+	if ((uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) >= 0x3E8 && (uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) <= 0x4AF) {
+		ids[count] = (uint16_t)((uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) - 0x3E8);
+		count++;
+	}
+
+	if (g_TemplateBodyTypes[(uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this)] != NULL) {
+		for (j = 0; j < (int)g_TemplateBodyTypes[(uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this)][0]; j++) {
+			ids[count] = *(uint16_t *)(g_TemplateBodyTypes[(uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this)] + 2 + j * 2);
+			count++;
+		}
+	}
+
+	for (i = 0; i < 0x40; i++) {
+		for (npc = g_NPCHash[i]; npc != NULL; npc = npc->npcHashNext) {
+			if (npc->mobile.isFollower != 0)
+				continue;
+
+			for (k = 0; k < (int)count; k++) {
+				if (ids[k] != (uint16_t)CResourceEntity_GetTemplateIndex((CItem *)npc) || npc == this)
+					continue;
+
+				if (g_EcoPreyCount >= 0x20)
+					return;
+
+				g_EcoPreyAction[g_EcoPreyCount] = -1;
+				g_EcoPreyResType[g_EcoPreyCount] = g_ResTypeId_Self;
+				g_EcoPreyTarget[g_EcoPreyCount] = npc;
+				g_EcoPreyLevel[g_EcoPreyCount] = 100;
+				g_EcoPreyCount++;
+			}
+		}
+	}
 }
 
 /*
@@ -5128,6 +5487,39 @@ NPC_PackMerge(CMobile *mobA, CMobile *mobB)
 
 	CMobile_AddFollower(leaderA, leaderB);
 	USED(count);
+}
+
+/*
+ * 0x004AB4D8 - CNPC::TryFollowOppositeSex
+ *
+ * Locks the NPC onto other as a follow target when its resource type is
+ * Self or Humans, its resource AI target flag is set, behaviour bit
+ * 0x1000 is clear, it is not already following that serial and the two
+ * sexes differ. A resourceAITarget of 2 also sets behaviour 0x2000 and
+ * seeds followObj3 with a 100 to 1000 roll. Anything else drops the NPC
+ * into state 11 with a 2 to 20 step wander countdown.
+ */
+static __attribute__((unused)) void
+CNPC_TryFollowOppositeSex(CNPC *this, CItem *other)
+{
+	if ((this->resourceType == g_ResTypeId_Self || this->resourceType == g_ResTypeId_Humans) && this->resourceAITarget != 0 && (this->behaviorFlags & 0x1000) == 0 &&
+	        this->followObj2 != other->serial && this->mobile.sex != ((CMobile *)other)->sex) {
+		this->npcInfo1_1 = 1000;
+		((void (*)(void *, int))VT_FN((CItem *)this, VT_SET_BEHAVIOR))(this, 0x1002);
+		this->followObj1 = other->serial;
+		this->followObj2 = this->followObj1;
+
+		if (this->resourceAITarget == 2) {
+			((void (*)(void *, int))VT_FN((CItem *)this, VT_SET_BEHAVIOR))(this, 0x2000);
+			this->followObj3 = GetRandomRange(100, 1000);
+		}
+
+		CNPC_ShouldProcess(this);
+		CNPC_SetState(this, 10);
+	} else {
+		CNPC_SetState(this, 11);
+		this->wanderSteps = GetRandomRange(2, 20);
+	}
 }
 
 /*
@@ -5372,6 +5764,46 @@ CNPC_ResourceWander(CNPC *npc)
 	npc->ltype = 6;
 	npc->stateInfo2 = 6;
 	npc->isWalking = 1;
+}
+
+/*
+ * 0x004ABBAB - CNPC::PickBestPrey
+ *
+ * Scores every prey entry whose level reaches the NPC's per-action
+ * threshold by distance times level, halving the score for entries that
+ * are not mobiles, and keeps the lowest. Writes the winning index to
+ * outIndex (-1 when nothing qualified) and returns its target.
+ */
+static __attribute__((unused)) CNPC *
+CNPC_PickBestPrey(CNPC *this, int *outIndex)
+{
+	const uint8_t *thresholds = (const uint8_t *)this->resTplPtr1;
+	CLocation *targetLoc;
+	int best, score, i;
+
+	best = 0x7FFFFFFF;
+	*outIndex = -1;
+
+	for (i = 0; i < g_EcoPreyCount; i++) {
+		if (g_EcoPreyLevel[i] < (int)thresholds[g_EcoPreyAction[i]])
+			continue;
+
+		targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)g_EcoPreyTarget[i], VT_GET_LOCATION))(g_EcoPreyTarget[i]);
+		score = DistBetween(targetLoc, &this->mobile.container.item.resourceEntity.entity.location);
+		score *= g_EcoPreyLevel[i];
+
+		if (((int (*)(void *))VT_FN((CItem *)g_EcoPreyTarget[i], VT_IS_MOBILE))(g_EcoPreyTarget[i]) == 0)
+			score >>= 1;
+
+		if (score < best) {
+			best = score;
+			*outIndex = i;
+		}
+	}
+
+	if (*outIndex < 0)
+		return NULL;
+	return g_EcoPreyTarget[*outIndex];
 }
 
 /*
@@ -5871,6 +6303,53 @@ CNPC_HandleCorpseEat(CNPC *npc, CItem *corpse)
 }
 
 /*
+ * 0x004AC8E7 - ResEntitySlot_FindTypeThreeValue
+ *
+ * Scans slot slotIndex's resource-node chain for the first type 3 node
+ * whose id is non-zero and equal to id, and returns its value1.
+ * Returns -1 when there is no such node.
+ */
+static __attribute__((unused)) int
+ResEntitySlot_FindTypeThreeValue(int slotIndex, int id)
+{
+	CResourceNode *node;
+
+	for (node = g_ResEntitySlots[slotIndex].nodeHead; node != NULL; node = node->next) {
+		if (node->type == 3 && node->id != 0 && node->id == id)
+			return node->value1;
+	}
+	return -1;
+}
+
+/*
+ * 0x004AC946 - CreateItemAtLocation
+ *
+ * Creates item id, hues it from the tiledata entry for its body type
+ * and drops it at loc. Returns the item, or NULL when it no longer
+ * validates against the world.
+ *
+ * The binary copies loc to entity+0x10 - CResourceEntity::nextInContainer,
+ * six bytes past CEntity::location at +0x0A - so the copy lands on the
+ * container link instead of the coordinates. Reproduced as it stands;
+ * the drop below re-places the item anyway.
+ */
+static __attribute__((unused)) CItem *
+CreateItemAtLocation(uint16_t id, CLocation loc)
+{
+	CItem *item;
+
+	item = CWorld_CreateItem(g_World, id);
+	if (item != NULL) {
+		CLocation_SetLoc((CLocation *)(void *)&item->resourceEntity.nextInContainer, &loc);
+		item->resourceEntity.entity.color = g_ItemTileData[CEntity_GetBodyType(item)].value2;
+		((void (*)(void *, CLocation *))VT_FN(item, VT_DROP_AT_FEET))(item, &loc);
+		if (ValidateInWorld(item) == 0)
+			item = NULL;
+	}
+	return item;
+}
+
+/*
  * 0x004AC9C0 - CNPC::WalkAnimDispatch
  *
  * Sets run state to 1 for flying/ghost mobs (movementType == 2), else 0.
@@ -6060,7 +6539,7 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
  * mapping {-1,0,+1} X/Y deltas through the g_DirOffset table, with a
  * random fallback.
  */
-static __attribute__((unused)) int
+int
 NPC_CalcDirectionSimple(CItem *target, CItem *source)
 {
 	static const int32_t dirX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 }; // 0061BB28
@@ -6111,16 +6590,116 @@ NPC_CalcDirectionSimple(CItem *target, CItem *source)
 }
 
 /*
+ * 0x004D7536 - NPC_CalcDirectionBetweenLocs
+ *
+ * Same mapping as NPC_CalcDirectionSimple but on two locations passed
+ * by value. The table covers every {-1,0,+1} pair but {0,0}, so the
+ * fallback is reached only when the two locations coincide, and it
+ * returns -1 where NPC_CalcDirectionSimple rolls a random direction.
+ */
+static __attribute__((unused)) int
+NPC_CalcDirectionBetweenLocs(CLocation target, CLocation source)
+{
+	static const int32_t dirX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 }; // 0061BB28
+	static const int32_t dirY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 }; // 0061BB50
+	int dx, dy;
+	int i;
+
+	dx = 0;
+	dy = 0;
+
+	if ((int16_t)source.x < (int16_t)target.x)
+		dx = -1;
+	if ((int16_t)source.y < (int16_t)target.y)
+		dy = -1;
+	if ((int16_t)source.x > (int16_t)target.x)
+		dx = 1;
+	if ((int16_t)source.y > (int16_t)target.y)
+		dy = 1;
+	if ((int16_t)source.x == (int16_t)target.x)
+		dx = 0;
+	if ((int16_t)source.y == (int16_t)target.y)
+		dy = 0;
+
+	for (i = 0; i < 8; i++) {
+		if (dirX[i] == dx && dirY[i] == dy)
+			return i;
+	}
+
+	return -1;
+}
+
+/*
  * 0x004D7600 - AdvancePhaseIndex
  *
  * Increments *phasePtr by 4 modulo 8.
  */
-static __attribute__((unused)) void
+void
 AdvancePhaseIndex(int *phasePtr)
 {
 	*phasePtr += 4;
 	if (*phasePtr > 8)
 		*phasePtr -= 8;
+}
+
+/*
+ * 0x004D7CD0 - PickRandomWorldLocation
+ *
+ * Writes a randomly chosen entry of the location table into out.
+ */
+static __attribute__((unused)) void
+PickRandomWorldLocation(CLocation *out)
+{
+	/*
+	 * 0x00625300 - 137 world locations, read only from here. Entries 0
+	 * to 64 trace a continuous route; the rest are scattered across the
+	 * map. Stored as 32-bit fields of which only the low word is read.
+	 */
+	// clang-format off
+	static const struct {
+		int32_t x, y, z;
+	} table[137] = {
+		{ 1483, 2167, 0 }, { 1495, 2190, 0 }, { 1498, 2204, 0 }, { 1494, 2221, 2 },
+		{ 1503, 2242, 5 }, { 1525, 2245, 5 }, { 1549, 2255, 0 }, { 1561, 2281, 0 },
+		{ 1583, 2283, 0 }, { 1612, 2261, 5 }, { 1606, 2297, 0 }, { 1634, 2322, 0 },
+		{ 1646, 2354, 0 }, { 1599, 2393, 5 }, { 1612, 2420, 0 }, { 1636, 2454, 0 },
+		{ 1670, 2481, 10 }, { 1666, 2516, 5 }, { 1661, 2549, 5 }, { 1666, 2590, 5 },
+		{ 1676, 2620, 0 }, { 1685, 2636, 5 }, { 1704, 2648, 0 }, { 1702, 2682, 5 },
+		{ 1702, 2719, 10 }, { 1693, 2737, 10 }, { 1693, 2761, 10 }, { 1708, 2775, 5 },
+		{ 1730, 2782, 5 }, { 1740, 2788, 5 }, { 1756, 2790, 0 }, { 1780, 2790, 0 },
+		{ 1800, 2781, 0 }, { 1822, 2781, 0 }, { 1896, 2778, 0 }, { 1935, 2816, 0 },
+		{ 1906, 2856, 20 }, { 1953, 2764, 9 }, { 1945, 2699, 20 }, { 1914, 2700, 18 },
+		{ 1867, 2704, 10 }, { 1657, 2463, 5 }, { 1637, 2454, 2 }, { 1623, 2433, 0 },
+		{ 1611, 2422, 0 }, { 1599, 2405, 5 }, { 1626, 2371, 0 }, { 1643, 2352, 0 },
+		{ 1639, 2347, 0 }, { 1629, 2329, 0 }, { 1622, 2316, 0 }, { 1608, 2310, 5 },
+		{ 1611, 2290, 0 }, { 1618, 2279, 5 }, { 1612, 2263, 5 }, { 1596, 2282, 0 },
+		{ 1571, 2286, 0 }, { 1560, 2276, 0 }, { 1559, 2261, 0 }, { 1542, 2258, 0 },
+		{ 1539, 2254, 0 }, { 1527, 2245, 5 }, { 1501, 2245, 0 }, { 1491, 2229, 5 },
+		{ 1497, 2211, 0 }, { 1351, 1229, 0 }, { 1220, 937, 0 }, { 1138, 1054, 5 },
+		{ 945, 1111, 0 }, { 852, 1172, 0 }, { 723, 1130, 0 }, { 1495, 801, 0 },
+		{ 1818, 730, 0 }, { 1327, 1074, 0 }, { 1954, 747, 0 }, { 2060, 804, 0 },
+		{ 1857, 866, -1 }, { 2193, 820, 0 }, { 2356, 965, 0 }, { 2500, 922, 0 },
+		{ 2603, 986, 0 }, { 2298, 1194, 0 }, { 2017, 922, 0 }, { 1993, 1071, 0 },
+		{ 1929, 1148, 0 }, { 2042, 239, 10 }, { 1300, 641, 16 }, { 1011, 1937, 0 },
+		{ 903, 2229, 0 }, { 735, 2236, 0 }, { 2600, 649, 0 }, { 2583, 528, 15 },
+		{ 2706, 522, 8 }, { 2852, 575, 0 }, { 2967, 638, 0 }, { 2786, 760, 0 },
+		{ 2796, 836, 0 }, { 2285, 928, 0 }, { 2249, 846, 0 }, { 2162, 807, 0 },
+		{ 2059, 877, 0 }, { 1895, 1203, 0 }, { 2019, 992, 0 }, { 1972, 752, 0 },
+		{ 1889, 748, 0 }, { 1819, 730, 0 }, { 1749, 781, 0 }, { 1657, 800, 0 },
+		{ 1567, 837, 0 }, { 1505, 844, 0 }, { 1448, 780, 0 }, { 1368, 823, 0 },
+		{ 1442, 905, 0 }, { 1303, 859, 0 }, { 1238, 850, 0 }, { 1237, 928, 0 },
+		{ 1164, 987, 5 }, { 1076, 1013, 0 }, { 1044, 1055, 0 }, { 1008, 1108, 0 },
+		{ 933, 1149, 0 }, { 796, 1153, 0 }, { 663, 1142, 0 }, { 968, 1236, 0 },
+		{ 1072, 1085, 5 }, { 967, 982, 0 }, { 1133, 1053, 5 }, { 1335, 887, 0 },
+		{ 1508, 760, 16 }, { 1581, 860, 0 }, { 1645, 763, 0 }, { 1762, 814, 0 },
+		{ 1811, 798, 0 }, { 1782, 705, 6 }, { 1959, 772, 0 }, { 1980, 733, 0 },
+		{ 2002, 783, 0 },
+	};
+	// clang-format on
+	int idx;
+
+	idx = rand() % 137;
+	CLocation_Set(out, (int16_t)table[idx].x, (int16_t)table[idx].y, (int16_t)table[idx].z);
 }
 
 /*
@@ -7639,8 +8218,9 @@ CNPC_CarnivoreFeed(CNPC *npc)
 
 					mob->stomach = (uint8_t)((int)(uint8_t)mob->stomach + bite);
 
-					if ((CEntity_GetBodyType(ent) & 0xFFFF) == 0x2006)
+					if ((CEntity_GetBodyType(ent) & 0xFFFF) == 0x2006) {
 						CNPC_HandleCorpseEat(npc, ent);
+					}
 					return 1;
 				}
 

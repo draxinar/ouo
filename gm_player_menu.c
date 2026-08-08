@@ -26,6 +26,7 @@
 #include "list.h"
 #include "location.h"
 #include "mobile.h"
+#include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
 #include "vtable.h"
@@ -113,6 +114,76 @@ count_name_matches(const char *name, CPlayer *exclude)
 			count++;
 	}
 	return count;
+}
+
+/*
+ * Custom - GM_ResolveConnectedPlayer
+ *
+ * Resolves arg to a connected CPlayer*. arg may be a hex/dec serial
+ * (parsed via strtoul base 0) or a case-insensitive name match. Returns
+ * NULL on miss or ambiguity, after emitting an explanatory system
+ * message to gm. cmdName is the slash command being resolved for; it
+ * fills the "Use .<cmdName> 0xSERIAL to pick one." disambiguation hint.
+ */
+static CPlayer *
+GM_ResolveConnectedPlayer(CPlayer *gm, const char *arg, const char *cmdName)
+{
+	CPlayer *target;
+	CPlayer *p;
+	char *pname;
+	uint32_t serial;
+	char *endp;
+	int isSerial;
+	int matches;
+	char msg[120];
+
+	if (arg == NULL || arg[0] == '\0') {
+		CPlayer_SystemMessage(gm, "Player not found.");
+		return NULL;
+	}
+
+	isSerial = 0;
+	target = NULL;
+	endp = NULL;
+	if ((arg[0] == '0' && (arg[1] == 'x' || arg[1] == 'X')) || (arg[0] >= '0' && arg[0] <= '9')) {
+		unsigned long parsed = strtoul(arg, &endp, 0);
+		if (endp != NULL && *endp == '\0') {
+			isSerial = 1;
+			serial = (uint32_t)parsed;
+			target = CPlayerList_FindBySerial(serial);
+		}
+	}
+
+	if (!isSerial) {
+		matches = count_name_matches(arg, gm);
+		if (matches == 0) {
+			CPlayer_SystemMessage(gm, "Player not found.");
+			return NULL;
+		}
+		if (matches > 1) {
+			snprintf(msg, sizeof(msg), "Multiple players named '%s':", arg);
+			CPlayer_SystemMessage(gm, msg);
+			for (p = g_PlayerList.head; p != NULL; p = p->next) {
+				if (p == gm)
+					continue;
+				pname = ((char *(*)(void *))VT_FN(&p->mobile.container.item, VT_GET_NAME))(p);
+				if (pname != NULL && strcasecmp(pname, arg) == 0) {
+					snprintf(msg, sizeof(msg), "  %s [0x%08X]", pname, CMobile_GetSerial(&p->mobile));
+					CPlayer_SystemMessage(gm, msg);
+				}
+			}
+			snprintf(msg, sizeof(msg), "Use .%s 0xSERIAL to pick one.", cmdName);
+			CPlayer_SystemMessage(gm, msg);
+			return NULL;
+		}
+		target = GM_FindConnectedPlayerByName(arg);
+	}
+
+	if (target == NULL) {
+		CPlayer_SystemMessage(gm, "Player not found.");
+		return NULL;
+	}
+	return target;
 }
 
 /*
@@ -253,63 +324,98 @@ void
 GM_GotoPlayerCommand(CPlayer *gm, const char *arg)
 {
 	CPlayer *target;
-	CPlayer *p;
-	char *pname;
-	uint32_t serial;
-	int matches;
-	char msg[120];
-	char *endp;
-	int isSerial;
 
-	if (arg == NULL || arg[0] == '\0') {
+	target = GM_ResolveConnectedPlayer(gm, arg, "gotoplayer");
+	if (target == NULL)
+		return;
+	if (target == gm) {
 		CPlayer_SystemMessage(gm, "Player not found.");
 		return;
 	}
-
-	// Try parsing as a serial first. Accept 0x-prefixed hex, plain hex,
-	// or decimal. strtoul with base 0 handles all three.
-	isSerial = 0;
-	target = NULL;
-	endp = NULL;
-	if ((arg[0] == '0' && (arg[1] == 'x' || arg[1] == 'X')) || (arg[0] >= '0' && arg[0] <= '9')) {
-		unsigned long parsed = strtoul(arg, &endp, 0);
-		if (endp != NULL && *endp == '\0') {
-			isSerial = 1;
-			serial = (uint32_t)parsed;
-			target = CPlayerList_FindBySerial(serial);
-		}
-	}
-
-	if (!isSerial) {
-		matches = count_name_matches(arg, gm);
-		if (matches == 0) {
-			CPlayer_SystemMessage(gm, "Player not found.");
-			return;
-		}
-		if (matches > 1) {
-			snprintf(msg, sizeof(msg), "Multiple players named '%s':", arg);
-			CPlayer_SystemMessage(gm, msg);
-			for (p = g_PlayerList.head; p != NULL; p = p->next) {
-				if (p == gm)
-					continue;
-				pname = ((char *(*)(void *))VT_FN(&p->mobile.container.item, VT_GET_NAME))(p);
-				if (pname != NULL && strcasecmp(pname, arg) == 0) {
-					snprintf(msg, sizeof(msg), "  %s [0x%08X]", pname, CMobile_GetSerial(&p->mobile));
-					CPlayer_SystemMessage(gm, msg);
-				}
-			}
-			CPlayer_SystemMessage(gm, "Use .gotoplayer 0xSERIAL to pick one.");
-			return;
-		}
-		target = GM_FindConnectedPlayerByName(arg);
-	}
-
-	if (target == NULL || target == gm) {
-		CPlayer_SystemMessage(gm, "Player not found.");
-		return;
-	}
-
 	GM_TeleportGmAdjacentTo(gm, target);
+}
+
+/*
+ * Helper - GM_BeginRemoteView / GM_EndRemoteView
+ *
+ * Make a non-nearby player addressable by the GM's client without
+ * leaving a visible avatar at the GM's feet.
+ *
+ * Begin: spoof target's location to the GM's tile, then push an
+ * EQUIPPED_MOB update. The UO client only caches entity updates
+ * whose coordinates are inside its view range, so a real far-away
+ * location would be filtered and the follow-up OPEN_PAPERDOLL /
+ * OPEN_GUMP packets dropped. VT_SEND_ENTITY_UPDATE sends to a
+ * single viewer, so only the GM sees the spoof.
+ *
+ * End: restore the target's real location server-side, then push a
+ * second EQUIPPED_MOB. The cache update moves the avatar to the
+ * real (off-screen) coordinates so the client stops drawing it,
+ * while the gump UI sent in between - referenced by serial, not
+ * location - stays open.
+ */
+static void
+GM_BeginRemoteView(CPlayer *gm, CPlayer *target, CLocation *savedLoc)
+{
+	CEntity *targetEnt;
+	CLocation *gmLoc;
+
+	targetEnt = &target->mobile.container.item.resourceEntity.entity;
+	*savedLoc = targetEnt->location;
+	gmLoc = CEntity_GetLocation(&gm->mobile.container.item.resourceEntity.entity);
+	targetEnt->location = *gmLoc;
+
+	((void (*)(CItem *, CItem *, int))VT_FN(&target->mobile.container.item, VT_SEND_ENTITY_UPDATE))(&target->mobile.container.item, (CItem *)gm, 1);
+}
+
+static void
+GM_EndRemoteView(CPlayer *gm, CPlayer *target, CLocation *savedLoc)
+{
+	target->mobile.container.item.resourceEntity.entity.location = *savedLoc;
+	((void (*)(CItem *, CItem *, int))VT_FN(&target->mobile.container.item, VT_SEND_ENTITY_UPDATE))(&target->mobile.container.item, (CItem *)gm, 1);
+}
+
+/*
+ * Custom - GM_BankCommand
+ *
+ * Implements `.bank <name|0xSERIAL>` for opening the bank box of a
+ * connected, possibly non-nearby player. Mirrors GotoPlayerCommand's
+ * name/serial resolution.
+ */
+void
+GM_BankCommand(CPlayer *gm, const char *arg)
+{
+	CPlayer *target;
+	CLocation savedLoc;
+
+	target = GM_ResolveConnectedPlayer(gm, arg, "bank");
+	if (target == NULL)
+		return;
+	GM_BeginRemoteView(gm, target, &savedLoc);
+	CMobile_OpenBankGump(&target->mobile, gm);
+	GM_EndRemoteView(gm, target, &savedLoc);
+}
+
+/*
+ * Custom - GM_PaperdollCommand
+ *
+ * Implements `.paperdoll <name|0xSERIAL>` for opening the paperdoll of
+ * a connected, possibly non-nearby player. Reuses the binary's
+ * OpenPaperdoll (0x004DC388); since the GM is in editing mode, the
+ * full (un-truncated) title is sent.
+ */
+void
+GM_PaperdollCommand(CPlayer *gm, const char *arg)
+{
+	CPlayer *target;
+	CLocation savedLoc;
+
+	target = GM_ResolveConnectedPlayer(gm, arg, "paperdoll");
+	if (target == NULL)
+		return;
+	GM_BeginRemoteView(gm, target, &savedLoc);
+	OpenPaperdoll(gm, CMobile_GetSerial(&gm->mobile), &target->mobile.container.item);
+	GM_EndRemoteView(gm, target, &savedLoc);
 }
 
 /*

@@ -13,6 +13,7 @@
 #include "stl.h"
 
 __extension__ typedef struct CLocation CLocation;
+__extension__ typedef struct CResBankSetMember CResBankSetMember;
 __extension__ typedef struct CResList CResList;
 __extension__ typedef struct CResManager CResManager;
 __extension__ typedef struct CVector CVector;
@@ -84,6 +85,7 @@ extern CRegionGrid *g_RegionGrid;
 
 int Region_HasWeatherData(CRegion *region); // 0x0042FEA0
 void *WeatherNode_ScalarDelete(WeatherNode *this, int flags); // 0x004A3E30
+void *CResBankSetMember_ScalarDelete(CResBankSetMember *this, int flags); // 0x004A3E60
 void *WeatherNodeList_ScalarDelete(PathNodeList *this, int flags); // 0x004A3E90
 CRegion *CRegion_Init(CRegion *this); // 0x004A3EC0
 CRegion *CRegion_Assign(CRegion *this, CRegion *src); // 0x004A3ED6

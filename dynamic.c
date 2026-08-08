@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "dat.h"
 
@@ -21,6 +22,7 @@
 #include "dynamic.h"
 #include "egg.h"
 #include "entitymanager.h"
+#include "fns.h"
 #include "io.h"
 #include "multi.h"
 #include "npc.h"
@@ -1323,54 +1325,22 @@ CPlayer_Save(CPlayer *player, CDataBuffer *b, int writeMarker)
 /*
  * 0x004C8A5C - SaveDynamic0
  *
- * Saves all dynamic objects into dynidx0.mul / dynamic0.mul, one
- * buffer per map block. Dead code - never called.
+ * Synchronous world save: faults the archived (logged-out) entities
+ * into the grid, serializes every map block, and then removes them
+ * again. The binary writes dynidx0.mul / dynamic0.mul in place; we
+ * delegate the write to SaveDynamic0_WriteCommit, which stages to temp
+ * files and atomically renames them in so an interrupted save can never
+ * leave a torn file. The binary leaves this unwired ("dead code - never
+ * called"); our periodic cadence and the shutdown save call it.
+ *
+ * MODIFIED: atomic temp+rename commit replaces the binary's in-place write.
  */
 void
 SaveDynamic0(void)
 {
-	CIndexedFileManager indexedFile;
-	int blockIdx;
-
-	CIndexedFileManager_Constructor(&indexedFile);
-
 	EntityManager_AddAllToWorld();
-
-	CIndexedFileManager_Open(&indexedFile, GLOBAL_file_dynidx0_mul, GLOBAL_file_dynamic0_mul, "wb");
-
-	for (blockIdx = 0; blockIdx < g_SpatialGrid.totalBlocks; blockIdx++) {
-		CItem *itemHead;
-		CItem *item;
-		CDataBuffer buf;
-
-		CDataBuffer_Constructor(&buf);
-		itemHead = g_MapBlocks[blockIdx].itemHead;
-
-		if (itemHead == NULL) {
-			CIndexedFileManager_WriteBlock(&indexedFile, blockIdx, NULL, -1, 0);
-			CDataBuffer_Destructor(&buf);
-			continue;
-		}
-
-		item = itemHead;
-		while (item != NULL) {
-			if (!(item->itemFlags & 0x08)) {
-				((void (*)(CItem *, CDataBuffer *, int))VT_FN(item, VT_SAVE))(item, &buf, 1);
-			}
-			item = item->spatialNext;
-		}
-
-		CDataBuffer_Append(&buf, "end", 4);
-
-		CIndexedFileManager_WriteBlock(&indexedFile, blockIdx, buf.data, buf.len, 0);
-		CDataBuffer_Destructor(&buf);
-	}
-
-	CIndexedFileManager_Close(&indexedFile);
-
+	SaveDynamic0_WriteCommit();
 	EntityManager_RemoveAllFromWorld();
-
-	CIndexedFileManager_Destructor(&indexedFile);
 }
 
 /*
@@ -2836,33 +2806,120 @@ done_with_object:
 }
 
 /*
- * Custom - BackupFile
+ * Custom - CommitSaveFile
  *
- * Copies src to dst via ServerSide I/O, restoring the .mul-to-.bkp
- * backup step whose code was stripped from the demo build.
+ * Atomically swaps tmpPath in as finalPath, first preserving the
+ * current finalPath as bkpPath via a hard link. finalPath is only ever
+ * replaced by rename(2) - atomic within a directory - so it is never
+ * absent or half-written, and bkpPath keeps the previous save. Replaces
+ * the demo build's byte-copy .mul-to-.bkp backup step.
+ *
+ * fopen_ServerSide lowercases every path it opens, so the on-disk files
+ * sit at the lowercased path; rename/link/unlink bypass that layer, so
+ * we lowercase here to match. tmpPath is already lowercased by the caller.
+ */
+static void
+CommitSaveFile(const char *finalPath, const char *bkpPath, const char *tmpPath)
+{
+	char finalL[1024];
+	char bkpL[1024];
+
+	snprintf(finalL, sizeof(finalL), "%s", finalPath);
+	strlwr(finalL);
+	snprintf(bkpL, sizeof(bkpL), "%s", bkpPath);
+	strlwr(bkpL);
+
+	unlink(bkpL);
+	link(finalL, bkpL);
+	rename(tmpPath, finalL);
+}
+
+/*
+ * Custom - SaveDynamic0_WriteCommit
+ *
+ * Serializes every spatial-grid block to temporary index/data files,
+ * fsyncs them, and atomically renames them into place (keeping the
+ * previous save as .bkp via CommitSaveFile). Used by SaveDynamic0.
+ * Assumes the world is already populated (EntityManager_AddAllToWorld
+ * done by the caller). The new files are promoted only if every write
+ * and fsync
+ * succeeded; on any I/O error the previous .mul is left untouched.
  */
 void
-BackupFile(const char *src, const char *dst)
+SaveDynamic0_WriteCommit(void)
 {
-	FILE *fin, *fout;
-	char buf[4096];
-	int n;
+	CIndexedFileManager indexedFile;
+	char idxTmp[1024];
+	char dataTmp[1024];
+	int blockIdx;
+	int ok;
 
-	fin = fopen_ServerSide(src, "rb");
-	if (!fin)
-		return;
-	fout = fopen_ServerSide(dst, "wb");
-	if (!fout) {
-		fclose_ServerSide(fin);
+	snprintf(idxTmp, sizeof(idxTmp), "%s.tmp", GLOBAL_file_dynidx0_mul);
+	snprintf(dataTmp, sizeof(dataTmp), "%s.tmp", GLOBAL_file_dynamic0_mul);
+	// fopen_ServerSide lowercases the path it opens, so the temp files
+	// land at the lowercased path. Match that here so the unlink() below
+	// and the rename() in CommitSaveFile hit the real files.
+	strlwr(idxTmp);
+	strlwr(dataTmp);
+
+	CIndexedFileManager_Constructor(&indexedFile);
+	CIndexedFileManager_Open(&indexedFile, idxTmp, dataTmp, "wb");
+
+	if (indexedFile.indexFile == NULL || indexedFile.dataFile == NULL) {
+		CIndexedFileManager_Close(&indexedFile);
+		CIndexedFileManager_Destructor(&indexedFile);
+		unlink(idxTmp);
+		unlink(dataTmp);
 		return;
 	}
-	while ((n = fread_ServerSide(buf, 1, sizeof(buf), fin)) > 0) {
-		fwrite_ServerSide(buf, 1, n, fout);
-		if (n < (int)sizeof(buf))
-			break;
+
+	for (blockIdx = 0; blockIdx < g_SpatialGrid.totalBlocks; blockIdx++) {
+		CItem *itemHead;
+		CItem *item;
+		CDataBuffer buf;
+
+		CDataBuffer_Constructor(&buf);
+		itemHead = g_MapBlocks[blockIdx].itemHead;
+
+		if (itemHead == NULL) {
+			CIndexedFileManager_WriteBlock(&indexedFile, blockIdx, NULL, -1, 0);
+			CDataBuffer_Destructor(&buf);
+			continue;
+		}
+
+		item = itemHead;
+		while (item != NULL) {
+			if (!(item->itemFlags & 0x08)) {
+				((void (*)(CItem *, CDataBuffer *, int))VT_FN(item, VT_SAVE))(item, &buf, 1);
+			}
+			item = item->spatialNext;
+		}
+
+		CDataBuffer_Append(&buf, "end", 4);
+
+		CIndexedFileManager_WriteBlock(&indexedFile, blockIdx, buf.data, buf.len, 0);
+		CDataBuffer_Destructor(&buf);
 	}
-	fclose_ServerSide(fout);
-	fclose_ServerSide(fin);
+
+	// Promote the temp files only if every write and fsync succeeded so
+	// a disk error cannot corrupt the live save.
+	ok = (ferror(indexedFile.indexFile) == 0 && ferror(indexedFile.dataFile) == 0);
+	if (ok && (fflush(indexedFile.indexFile) != 0 || fsync(fileno(indexedFile.indexFile)) != 0))
+		ok = 0;
+	if (ok && (fflush(indexedFile.dataFile) != 0 || fsync(fileno(indexedFile.dataFile)) != 0))
+		ok = 0;
+
+	CIndexedFileManager_Close(&indexedFile);
+
+	if (ok) {
+		CommitSaveFile(GLOBAL_file_dynidx0_mul, GLOBAL_file_dynidx0_bkp, idxTmp);
+		CommitSaveFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp, dataTmp);
+	} else {
+		unlink(idxTmp);
+		unlink(dataTmp);
+	}
+
+	CIndexedFileManager_Destructor(&indexedFile);
 }
 
 /*

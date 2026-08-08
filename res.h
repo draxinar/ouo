@@ -166,6 +166,7 @@ CResListNode *CResListNode_Constructor_bin(CResListNode *node); // 0x00440B10
 CResListNode *CResList_RecycleNodeD(CResList *list, CResListNode *afterNode); // 0x00440EF0
 CResListNode *CResList_InsertBeforeNode(CResList *list, CResListNode *beforeNode); // 0x00441610
 CResListNode *CResList_Prev(CResList *list, CResListNode *node); // 0x00441830
+void CResManager_InsertByRef(CResList *list, uint32_t val); // 0x0045EC0D
 void CResList_RemoveByValue(CResList *list, uint32_t value); // 0x0045EC26
 CResListNode *CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, int flag); // 0x0045F290
 CResListNode *CResList_FindByValue(CResList *list, void *keyPtr, CResListNode *startNode, int direction); // 0x0045F330
@@ -203,6 +204,8 @@ void *CResManager_GetResult(CResManager *rm, CSearchCtx *ctx); // 0x0047A800
 CSearchCtx *CResManager_BeginIter_MultiA(CResManager *this, CSearchCtx *output); // 0x0047A8C0
 CSearchCtx *CResManager_NextIter_MultiA(CResManager *this, CSearchCtx *output, CSearchCtx *current); // 0x0047A8E0
 void CResManager_ClearMultiB_Thunk(CResManager *rm); // 0x0047A910
+CSearchCtx *CResManager_FindOrInsert_B(CResManager *this, CSearchCtx *output, void *keyPtr, int direction); // 0x0047AA80
+void *CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outData, int direction); // 0x0047AB40
 void CResList_Destructor_MultiA(CResList *list); // 0x0047BA00
 void CResList_Destructor_MultiB(CResList *list); // 0x0047BA50
 void CResList_Destructor_MultiVal(CResList *list); // 0x0047BE50
@@ -247,6 +250,7 @@ void CSearchCtx_SetKeyNode(CSearchCtx *ctx, uintptr_t val); // 0x004C1440
 void CSearchCtx_SetBucket(CSearchCtx *ctx, uint32_t val); // 0x004C1460
 void *CResManager_NextIterInternal_Templates(CResManager *rm, CSearchCtx *output, void *searchKey, CSearchCtx *ctx, int direction); // 0x004C1520
 void CResManager_InitTables(CResManager *rm); // 0x004C15D0
+void *CResManager_GetResult_Defines(CResManager *this, CSearchCtx *ctx); // 0x004C0D00
 void *CResList_GetData(CResList *list, CResListNode *node); // 0x004C1670
 void *CResManager_SearchBucket_DefinesStrB(CResManager *rm, CSearchCtx *output, void *searchKey, CSearchCtx *ctx, int direction); // 0x004C19D0
 void CResManager_BeginIterInternalK(CResManager *rm, CSearchCtx *output, int startBucket, int direction); // 0x004C1D60

@@ -41,15 +41,12 @@ static void CSdbStrVector_Init(CScriptStringDB *this); // 0x0040106A
 static void *Tree_Isnil_Guard(StdTreeNode *this); // 0x00401400
 static unsigned char Tree_Isnil(StdTreeNode *this); // 0x00401430
 static void Stream_DestructorHelper(CBasicFstream *this); // 0x00401490
-static void *String_CopyAssign(CSdbStr *this, void *dest, void *src); // 0x004014C0
-static void String_Tidy(CSdbStr *this); // 0x004014F0
 static char *String_CStr(CSdbStr *this); // 0x00401510
 static void CallFnPtrWithThis(uintptr_t *this, void (*fn)(void *)); // 0x00401540
 static void *IStream_Putback(CBasicFstream *this, char ch); // 0x00401560
 static void *IStream_Ipfx(CBasicFstream *this); // 0x004016A0
 static void BasicIos_Init(CIosBase *this); // 0x00401710
 static void CSdbStrVector_DestroyDealloc(CScriptStringDB *this); // 0x00401960
-static void *CSdbStrVector_Insert(CScriptStringDB *this, CSdbStr *value); // 0x00401A20
 static void CSdbStrVector_Clear(CScriptStringDB *this); // 0x00401A50
 static void *CSdbStr_VectorCtor(CBasicFstream *this, void *filename, int openMode, int constructBase); // 0x00401A80
 static void Stream_SubDestructor(CIosBase *this); // 0x00401B60
@@ -162,6 +159,23 @@ static uintptr_t g_vt_LocaleCategory[] = { 0 };       /* 0x005F794C */
 static uint32_t g_locale_facet_id;                  /* 0x009A3BFC */
 
 /*
+ * 0x00401000 - CScriptStringDB::CScriptStringDB
+ *
+ * Constructs the string vector, then loads path into it. The vector
+ * constructor takes a stack element as its fill prototype.
+ */
+static __attribute__((unused)) CScriptStringDB *
+CScriptStringDB_Constructor(CScriptStringDB *db, const char *path)
+{
+	char proto;
+
+	proto = 0;
+	CVector_Constructor((CVector *)db, &proto);
+	CScriptStringDB_Load(db, path);
+	return db;
+}
+
+/*
  * 0x00401057 - std::vector<CSdbStr>::~vector wrapper
  *
  * Delegates to the vector destructor.
@@ -243,7 +257,7 @@ Stream_DestructorHelper(CBasicFstream *this)
  * Copies the first byte from src, releases own data, then assigns from
  * the c_str of dest.
  */
-static __attribute__((unused)) void *
+void *
 String_CopyAssign(CSdbStr *this, void *dest, void *src)
 {
 	*(char *)this = *(char *)src;
@@ -257,7 +271,7 @@ String_CopyAssign(CSdbStr *this, void *dest, void *src)
  *
  * Releases the string buffer and frees the storage.
  */
-static void
+void
 String_Tidy(CSdbStr *this)
 {
 	CString_Release_Stl(this, 1);
@@ -412,7 +426,7 @@ CSdbStrVector_At(CScriptStringDB *this, uint32_t index)
  *
  * Reads the current size and forwards to CSdbStrVector_InsertN to append value.
  */
-static __attribute__((unused)) void *
+void *
 CSdbStrVector_Insert(CScriptStringDB *this, CSdbStr *value)
 {
 	uintptr_t count = (uintptr_t)((CVector *)this)->end;

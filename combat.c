@@ -7,6 +7,7 @@
  * observed nearby.
  */
 
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 #include "container.h"
 #include "dat.h"
 #include "dynamic.h"
+#include "egg.h"
 #include "multi.h"
 #include "npc.h"
 #include "packet_handler.h"
@@ -77,6 +79,29 @@ static struct WeaponSkillEntry weaponSkillTable[5] = {
 	{ 0x02, 42 },    // Piercing -> Fencing
 	{ 0x08, 31 },    // Ranged -> Archery
 };
+
+/*
+ * 0x00443093 - Combat_ConsumeTypeZero
+ *
+ * Consumes one item of body type 0 from mob's equipment, but only when
+ * it carries any. The body type comes from a local the function zeroes
+ * and never changes, so the query is always for type 0. Returns 1 when
+ * the consume ran, 0 when nothing matched.
+ */
+static __attribute__((unused)) int
+Combat_ConsumeTypeZero(CMobile *mob)
+{
+	uint16_t bodyType;
+	uint16_t quantity;
+
+	bodyType = 0;
+	quantity = (uint16_t)CMobile_GetTotalQuantityOfType(mob, bodyType);
+	if (quantity == 0)
+		return 0;
+
+	CMobile_FindItemInEquipment(mob, bodyType, 1);
+	return 1;
+}
 
 /*
  * 0x004430D9 - IsCoordInDiamond
@@ -157,6 +182,49 @@ int
 RadianToUODir(float angle)
 {
 	return (int)(angle * 128.0f / 3.14152);
+}
+
+/*
+ * 0x00443227 - Combat_TurnPerpendicularTo
+ *
+ * Turns a non-player mobile a quarter circle off the bearing toward
+ * other, then detaches and re-drops it at its own location so nearby
+ * clients see the new facing. No-op when either entity has left the
+ * world or self is a player.
+ *
+ * The bearing is wrapped by subtracting 0x100 only when it exceeds
+ * 0x100, so a bearing of exactly 0x100 survives and stores direction 8,
+ * one past the 0-7 range. Reproduced as it stands.
+ */
+static __attribute__((unused)) void
+Combat_TurnPerpendicularTo(CItem *self, CItem *other)
+{
+	CLocation loc;
+	float angle;
+	int dir, dx, dy;
+
+	if (self->resourceEntity.entity.removedFromWorld != 0)
+		return;
+	if (other->resourceEntity.entity.removedFromWorld != 0)
+		return;
+	if (((int (*)(void *))VT_FN(self, VT_IS_PLAYER))(self))
+		return;
+
+	dx = (int16_t)((CLocation * (*)(void *)) VT_FN(other, VT_GET_LOCATION))(other)->x - (int16_t)((CLocation * (*)(void *)) VT_FN(self, VT_GET_LOCATION))(self)->x;
+	dy = (int16_t)((CLocation * (*)(void *)) VT_FN(other, VT_GET_LOCATION))(other)->y - (int16_t)((CLocation * (*)(void *)) VT_FN(self, VT_GET_LOCATION))(self)->y;
+
+	angle = (float)(atan2((float)dy, (float)dx) + 6.2831853072);
+	dir = RadianToUODir(angle);
+
+	dir += 0x40;
+	if (dir > 0x100)
+		dir -= 0x100;
+	dir = dir / 32;
+
+	((void (*)(void *))VT_FN(self, VT_DETACH_SPATIAL))(self);
+	CLocation_SetLoc(&loc, ((CLocation * (*)(void *)) VT_FN(self, VT_GET_LOCATION))(self));
+	((CMobile *)self)->direction = (uint8_t)dir;
+	((void (*)(void *, CLocation *))VT_FN(self, VT_DROP_AT_FEET))(self, &loc);
 }
 
 /*
@@ -310,6 +378,40 @@ Combat_GetSwingAnimType(CItem *weapon)
 		return 2; /* chop */
 
 	return 0; /* default: slash */
+}
+
+/*
+ * 0x0044352A - Combat_FireProjectilePastTarget
+ *
+ * Fires the shooter's ammo graphic at a point twice the shooter-to-
+ * target offset beyond the target, at the target's own z. No-op when
+ * the shooter has no weapon.
+ */
+static __attribute__((unused)) void
+Combat_FireProjectilePastTarget(CItem *shooter, CItem *target)
+{
+	CLocation dest;
+	CItem *weapon;
+	int dx, dy;
+	uint16_t ammoType;
+
+	CLocation_Init(&dest);
+
+	dx = (int16_t)((CLocation * (*)(void *)) VT_FN(target, VT_GET_LOCATION))(target)->x - (int16_t)((CLocation * (*)(void *)) VT_FN(shooter, VT_GET_LOCATION))(shooter)->x;
+	dy = (int16_t)((CLocation * (*)(void *)) VT_FN(target, VT_GET_LOCATION))(target)->y - (int16_t)((CLocation * (*)(void *)) VT_FN(shooter, VT_GET_LOCATION))(shooter)->y;
+	dx *= 2;
+	dy *= 2;
+
+	dest.x = (uint16_t)((int16_t)((CLocation * (*)(void *)) VT_FN(target, VT_GET_LOCATION))(target)->x + dx);
+	dest.y = (uint16_t)((int16_t)((CLocation * (*)(void *)) VT_FN(target, VT_GET_LOCATION))(target)->y + dy);
+	dest.z = ((CLocation * (*)(void *)) VT_FN(target, VT_GET_LOCATION))(target)->z;
+
+	weapon = CMobile_GetWeapon((CMobile *)shooter);
+	if (weapon == NULL)
+		return;
+
+	ammoType = CItem_GetAmmoType(weapon);
+	Script_doMissile_Mob2Loc(shooter->serial, &dest, ammoType + 3, 5, 0, 0);
 }
 
 /*
@@ -859,6 +961,114 @@ Combat_CalcArmorClass(CMobile *mob)
 	if (totalAR > 9999)
 		totalAR = 9999;
 	return totalAR;
+}
+
+/*
+ * 0x00444610 - Combat_GetMaterialModifiers
+ *
+ * Writes three percent-style modifiers for a (kind, resource type)
+ * pair. Only kinds 4 and 2 are recognised, and within them only wood,
+ * cloth, leather and metal; every other combination leaves all three
+ * outputs untouched. Kind 4 gives bonuses, kind 2 mostly penalties.
+ */
+static __attribute__((unused)) void
+Combat_GetMaterialModifiers(int kind, int resType, int *out1, int *out2, int *out3)
+{
+	if (kind == 4) {
+		if (resType == g_ResTypeId_Wood) {
+			*out1 = 40;
+			*out2 = 40;
+			*out3 = 40;
+		} else if (resType == g_ResTypeId_Cloth) {
+			*out1 = 40;
+			*out2 = 40;
+			*out3 = 40;
+		} else if (resType == g_ResTypeId_Leather) {
+			*out1 = 20;
+			*out3 = 20;
+		} else if (resType == g_ResTypeId_Metal) {
+			*out2 = 20;
+			*out3 = 20;
+		}
+	} else if (kind == 2) {
+		if (resType == g_ResTypeId_Cloth) {
+			*out1 = -40;
+			*out2 = -20;
+		} else if (resType == g_ResTypeId_Leather) {
+			*out1 = -20;
+			*out2 = -40;
+		} else if (resType == g_ResTypeId_Metal) {
+			*out1 = -20;
+			*out2 = 40;
+			*out3 = 40;
+		}
+	}
+}
+
+/*
+ * 0x00444717 - Combat_AverageMaterialBonus
+ *
+ * Adds a bonus to *inOut for each damage-type bit the material answers
+ * to - 20 for cloth, leather and metal, 40 for bone and wood - then
+ * divides the running total by how many bits matched. Bits 2 and 8
+ * count as one. Leaves *inOut untouched when nothing matched.
+ */
+static __attribute__((unused)) void
+Combat_AverageMaterialBonus(uint32_t flags, int resType, int *inOut)
+{
+	int count;
+
+	count = 0;
+
+	if (resType == g_ResTypeId_Cloth) {
+		if (flags & 1) {
+			count++;
+			*inOut += 20;
+		}
+		if ((flags & 2) || (flags & 8)) {
+			count++;
+			*inOut += 20;
+		}
+	}
+
+	if (resType == g_ResTypeId_Leather) {
+		if (flags & 1) {
+			count++;
+			*inOut += 20;
+		}
+		if ((flags & 2) || (flags & 8)) {
+			count++;
+			*inOut += 20;
+		}
+	}
+
+	if (resType == g_ResTypeId_Metal) {
+		if (flags & 1) {
+			count++;
+			*inOut += 20;
+		}
+		if ((flags & 2) || (flags & 8)) {
+			count++;
+			*inOut += 20;
+		}
+		if (flags & 4) {
+			count++;
+			*inOut += 20;
+		}
+	}
+
+	if (resType == g_ResTypeId_Bone && (flags & 4)) {
+		count++;
+		*inOut += 40;
+	}
+
+	if (resType == g_ResTypeId_Wood && (flags & 4)) {
+		count++;
+		*inOut += 40;
+	}
+
+	if (count != 0)
+		*inOut /= count;
 }
 
 /*
@@ -1847,6 +2057,30 @@ miss_handler: {
 	if (weapon == NULL || !CItem_IsRangedWeapon(weapon))
 		Combat_PlayMeleeMissSfx((CItem *)mob, (CItem *)target, weapon);
 	Combat_PlayRangedMissEffects((CItem *)mob, (CItem *)target, weapon);
+}
+
+/*
+ * 0x0044669C - Combat_BarkTaunt
+ *
+ * Speaks one of three taunts. The roll is GetRandomRange(0, 3), which
+ * is inclusive, but the table at 0x00614F68 holds three pointers and a
+ * null terminator - so one call in four says a null string.
+ * Reproduced as it stands.
+ */
+static __attribute__((unused)) void
+Combat_BarkTaunt(CItem *speaker)
+{
+	// 0x00614F68 - three taunts and a null terminator
+	static const char *taunts[4] = {
+		"Vultures will pick thy bones!",
+		"Thou wilt regret ever meeting me.",
+		"Die!",
+		NULL,
+	};
+	const char *line;
+
+	line = taunts[GetRandomRange(0, 3)];
+	((void (*)(void *, const char *, int, int, int))VT_FN(speaker, VT_SAY_CSTRING))(speaker, line, -1, -1, -1);
 }
 
 /*

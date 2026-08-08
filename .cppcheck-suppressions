@@ -33,3 +33,4 @@ uselessAssignmentPtrArg
 pointerSize
 CastAddressToIntegerAtReturn
 arrayIndexThenCheck
+objectIndex:player.c

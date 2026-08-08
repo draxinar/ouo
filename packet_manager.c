@@ -19,6 +19,7 @@
 #include "feature.h"
 #include "main.h"
 #include "multi.h"
+#include "npc.h"
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "packet_utils.h"
@@ -185,6 +186,27 @@ PacketManager_MakePacket_SKILLS_SINGLE(uint8_t *buf, uint16_t skillID, uint16_t 
 }
 
 /*
+ * 0x00498C5A - PacketManager::MakePacket_SKILLS_TYPED
+ *
+ * Builds packet 0x3A (SKILLS) exactly as 0x00498BCB does, except the
+ * list-type byte is a parameter instead of the fixed 0x00.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_SKILLS_TYPED(uint8_t *buf, int maxSkills, CItem *player, uint8_t listType)
+{
+	int i;
+
+	PutPacketType(buf, PacketType_SKILLS, 0x0404);
+	PutByte(buf, listType);
+
+	for (i = 0; i < (maxSkills & 0xFFFF); i++) {
+		PutWord(buf, (uint16_t)(i + 1));
+		PutWord(buf, (uint16_t)CMobile_GetSkillValue((CMobile *)player, (int8_t)i, 0));
+	}
+	PutWord(buf, 0x0000);
+}
+
+/*
  * 0x00498D31 - PacketManager::MakePacket_RESTARTVER
  *
  * Builds a RESTARTVER (0x5C) packet (2 bytes, one trailing zero).
@@ -257,6 +279,64 @@ PacketManager_MakePacket_LIGHTCHANGE(uint8_t *buf, uint32_t serial, uint8_t ligh
 }
 
 /*
+ * 0x00498E49 - PacketManager::MakePacket_UPD_SKILL_NAME
+ *
+ * Builds packet 0x94 (UPD_SKILL), variable length. Writes the skill
+ * index, a zero dword, a flag byte carrying bit 0 when the skill is
+ * actively usable, then the skill's name.
+ *
+ * The binary reaches the name through 0x004E30A0, which MSVC folded
+ * with `_Container_base::_Container_base` because both just return
+ * `this`; CSkillDef::name lives at offset 0, so the def pointer is the
+ * name pointer.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UPD_SKILL_NAME(uint8_t *buf, uint8_t skillIndex, CSkillDef *def)
+{
+	uint8_t flags;
+	char *name;
+
+	PutPacketType(buf, PacketType_UPD_SKILL, 0x10009);
+	PutByte(buf, skillIndex);
+	PutDWord(buf, 0);
+
+	flags = 0;
+	if (CSkillEntry_GetCanUse(def) == 1)
+		flags |= 1;
+	PutByte(buf, flags);
+
+	name = (char *)def;
+	PutString(buf, name, strlen(name) + 1);
+}
+
+/*
+ * 0x00498EFE - PacketManager::MakePacket_UNK_50
+ *
+ * Builds packet 0x50, size 0x53: a serial followed by a fixed 0x4C-byte
+ * string field. Nothing in the binary sends it and no handler names the
+ * opcode, so the enum entry is numeric.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UNK_50(uint8_t *buf, char *text, uint32_t serial)
+{
+	PutPacketType(buf, PacketType_UNK_50, 0x53);
+	PutDWord(buf, serial);
+	PutString(buf, text, 0x4C);
+}
+
+/*
+ * 0x00498F35 - PacketManager::MakePacket_UNK_51
+ *
+ * Builds packet 0x51, variable length: a NUL-terminated string.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UNK_51(uint8_t *buf, char *text)
+{
+	PutPacketType(buf, PacketType_UNK_51, 0x2879);
+	PutString(buf, text, strlen(text) + 1);
+}
+
+/*
  * 0x00498FAB - PacketManager::MakePacket_VER_OK
  *
  * Packet 0x45 (VER_OK), size 5. Writes packet type and a dword.
@@ -291,6 +371,19 @@ PacketManager_MakePacket_FOLLOWMOVE(uint8_t *buf, uint16_t x, uint16_t y, uint16
 	PutWord(buf, x);
 	PutWord(buf, y);
 	return PutWord(buf, z);
+}
+
+/*
+ * 0x0049903D - PacketManager::MakePacket_FOLLOW
+ *
+ * Builds packet 0x15 (FOLLOW), size 9: the follower and target serials.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_FOLLOW(uint8_t *buf, uint32_t follower, uint32_t target)
+{
+	PutPacketType(buf, PacketType_FOLLOW, 9);
+	PutDWord(buf, follower);
+	PutDWord(buf, target);
 }
 
 /*
@@ -395,6 +488,38 @@ PacketManager_MakePacket_EQUIPPED_MOB(uint8_t *buf, CMobile *mob, uint8_t notori
 	PutDWord(buf, 0);
 
 	return 0;
+}
+
+/*
+ * 0x004990CC - PacketManager::MakePacket_UNK_3D
+ *
+ * Builds packet 0x3D, size 2 with a 0xFF/0x00 pair baked into the
+ * PutPacketType call. Writes a leading 0xFF, a mode byte, the two
+ * halves of loc as words, a word argument and a trailing zero word.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UNK_3D(uint8_t *buf, uint8_t mode, uint32_t loc, uint16_t arg)
+{
+	PutPacketType(buf, PacketType_UNK_3D, 2);
+	PutByte(buf, 0xFF);
+	PutByte(buf, mode);
+	PutWord(buf, (uint16_t)loc);
+	PutWord(buf, (uint16_t)(loc >> 16));
+	PutWord(buf, arg);
+	PutWord(buf, 0);
+}
+
+/*
+ * 0x00499154 - PacketManager::MakePacket_UNK_1E
+ *
+ * Builds packet 0x1E, size 4: a word followed by a byte.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UNK_1E(uint8_t *buf, uint16_t value, uint8_t flag)
+{
+	PutPacketType(buf, PacketType_UNK_1E, 4);
+	PutWord(buf, value);
+	PutByte(buf, flag);
 }
 
 /*
@@ -1130,6 +1255,20 @@ MakePacket_RESTYPE_DATA(uint8_t *buf, int typeId)
 }
 
 /*
+ * 0x0049A970 - PacketManager::MakePacket_ELEVCHANGE
+ *
+ * Builds packet 0x14 (ELEVCHANGE), size 6: two words and a byte.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_ELEVCHANGE(uint8_t *buf, uint16_t a, uint16_t b, uint8_t c)
+{
+	PutPacketType(buf, PacketType_ELEVCHANGE_OUT, 6);
+	PutWord(buf, a);
+	PutWord(buf, b);
+	PutByte(buf, c);
+}
+
+/*
  * 0x0049A9B7 - PacketManager::MakePacket_RESOURCETILEDATA
  *
  * Builds a single RESOURCETILEDATA (0x36) packet for one resource node.
@@ -1192,6 +1331,26 @@ PacketManager_MakePacket_RESOURCETILEDATA_Region(uint8_t *buf, uint32_t regionIn
 		PutWord(buf, node->id);
 	else
 		PutWord(buf, defaultNodeId);
+}
+
+/*
+ * 0x0049ABDA - PacketManager::MakePacket_VERSIONS_FULL
+ *
+ * Builds packet 0x3E (VERSIONS), size 0x25: nine consecutive dwords.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_VERSIONS_FULL(uint8_t *buf, uint32_t v1, uint32_t v2, uint32_t v3, uint32_t v4, uint32_t v5, uint32_t v6, uint32_t v7, uint32_t v8, uint32_t v9)
+{
+	PutPacketType(buf, PacketType_VERSIONS, 0x25);
+	PutDWord(buf, v1);
+	PutDWord(buf, v2);
+	PutDWord(buf, v3);
+	PutDWord(buf, v4);
+	PutDWord(buf, v5);
+	PutDWord(buf, v6);
+	PutDWord(buf, v7);
+	PutDWord(buf, v8);
+	PutDWord(buf, v9);
 }
 
 /*
@@ -1311,6 +1470,27 @@ PacketManager_MakePacket_TILEDATA(uint8_t *buf, int groupIndex)
 			PutString(buf, g_ItemTileData[startIdx + i].name, 0x14);
 		}
 	}
+}
+
+/*
+ * 0x0049B0A5 - PacketManager::MakePacket_UPD_ART_TEXT
+ *
+ * Builds packet 0x42 (UPD_ART), variable length: a serial, a trailing
+ * dword, then a length-prefixed string. A NULL text forces the length
+ * to -1, and the string itself is only appended when the length is
+ * positive - so the -1 case writes the length and stops.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_UPD_ART_TEXT(uint8_t *buf, uint32_t serial, char *text, int textLen, uint32_t tail)
+{
+	PutPacketType(buf, PacketType_UPD_ART, 0x1000F);
+	PutDWord(buf, serial);
+	PutDWord(buf, tail);
+	if (text == NULL)
+		textLen = -1;
+	PutDWord(buf, (uint32_t)textLen);
+	if (textLen > 0)
+		PutString(buf, text, textLen);
 }
 
 /*
@@ -1461,6 +1641,21 @@ PacketManager_MakePacket_CHG_CHAR_RESULT(uint8_t *buf, uint8_t reason)
 {
 	PutPacketType(buf, PacketType_CHG_CHAR_RESULT, 2);
 	return PutByte(buf, reason);
+}
+
+/*
+ * 0x0049B55E - PacketManager::MakePacket_USER_SERVER_EMPTY
+ *
+ * Builds packet 0x8C (USER_SERVER), size 0xB, with every field zero -
+ * a zero address, zero port and zero key.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_USER_SERVER_EMPTY(uint8_t *buf)
+{
+	PutPacketType(buf, PacketType_USER_SERVER, 0xB);
+	PutDWord(buf, 0);
+	PutWord(buf, 0);
+	PutDWord(buf, 0);
 }
 
 /*
@@ -1653,6 +1848,32 @@ PacketManager_MakePacket_WEATHERCHANGE(uint8_t *buf, uint8_t weatherType, uint8_
 	PutByte(buf, weatherType);
 	PutByte(buf, numEffects);
 	return PutByte(buf, temperature);
+}
+
+/*
+ * 0x0049B785 - PacketManager::MakePacket_SERVERSTATUS
+ *
+ * Builds packet 0x63 (SERVERSTATUS), size 0xD: online player count,
+ * players near a map border, a zero word, the NPC count, and a final
+ * word taken from a stack struct that Stub_Return0 never writes.
+ *
+ * MODIFIED: that last word is read from uninitialised stack in the
+ * binary. It is zeroed here so the build stays free of
+ * -Wuninitialized; nothing calls this.
+ */
+static __attribute__((unused)) void
+PacketManager_MakePacket_SERVERSTATUS(uint8_t *buf)
+{
+	uint16_t detail[8];
+
+	PutPacketType(buf, PacketType_SERVERSTATUS, 0xD);
+	PutWord(buf, (uint16_t)CPlayerList_GetCount());
+	PutWord(buf, (uint16_t)CPlayerList_CountNearBorder());
+	PutWord(buf, 0);
+	PutWord(buf, (uint16_t)g_NPCCount);
+	memset(detail, 0, sizeof(detail));
+	Stub_Return0(detail);
+	PutWord(buf, detail[6]);
 }
 
 /*
@@ -2311,6 +2532,36 @@ PlayMusicToEntity(CItem *entity, uint16_t musicId)
 
 	PacketManager_MakePacket_MUSIC(buf, musicId);
 	SendToClient(entity, buf, -1);
+}
+
+/*
+ * 0x0049E750 - InterpolateBetween
+ *
+ * Maps t onto the x1..x2 range with PathNode_Interpolate, then lerps
+ * between lo and hi by the fraction that comes back.
+ */
+static __attribute__((unused)) double
+InterpolateBetween(double x1, double x2, double lo, double hi, double t)
+{
+	return (hi - lo) * PathNode_Interpolate(x1, x2, t) + lo;
+}
+
+/*
+ * 0x0049E78C - RoundToNearest
+ *
+ * Truncates value toward zero via the CRT's __ftol, then adds one when
+ * the discarded fraction is 0.5 or more. Rounds half away from zero for
+ * positive input and toward zero for negative input.
+ */
+static __attribute__((unused)) int
+RoundToNearest(double value)
+{
+	int truncated;
+
+	truncated = (int)value;
+	if (value - (double)truncated >= 0.5)
+		truncated++;
+	return truncated;
 }
 
 /*

@@ -74,6 +74,37 @@ CConfig_InitAll(CConfig *this)
 }
 
 /*
+ * 0x0046836D - CConfig::ReadLine
+ *
+ * Reads one line from f into a static 0x100-byte buffer, stopping at
+ * newline or EOF and dropping carriage returns. Returns the buffer.
+ *
+ * There is no bound on the write, so a line longer than the buffer runs
+ * past it. Reproduced as it stands - nothing calls this.
+ */
+static __attribute__((unused)) char *
+CConfig_ReadLine(FILE *f)
+{
+	// 0x00698D90 - static line buffer returned to the caller
+	static char lineBuf[0x100];
+	char *dst;
+	int ch;
+
+	dst = lineBuf;
+	while (!feof_ServerSide(f)) {
+		ch = fgetc_ServerSide(f);
+		if (ch == '\n')
+			break;
+		if (ch != '\r' && ch != -1) {
+			*dst = (char)ch;
+			dst++;
+		}
+	}
+	*dst = '\0';
+	return lineBuf;
+}
+
+/*
  * 0x004683CF - CConfig::~CConfig
  *
  * Registered via atexit; flushes and closes every container handle.
@@ -131,6 +162,31 @@ GetLine(FILE *f)
 	} else
 		line = 0;
 	return line;
+}
+
+/*
+ * 0x00468982 - Location_ZRangesOverlap
+ *
+ * True when two same-tile locations' vertical spans touch: a occupies
+ * [a.z, a.z + aHeight] and b occupies [b.z, b.z + bHeight]. Returns 0
+ * outright when the x/y do not match.
+ */
+static __attribute__((unused)) int
+Location_ZRangesOverlap(CLocation *a, int aHeight, CLocation *b, int bHeight)
+{
+	if ((int16_t)a->x != (int16_t)b->x || (int16_t)a->y != (int16_t)b->y)
+		return 0;
+
+	if (a->z > b->z) {
+		if (a->z <= b->z + bHeight)
+			return 1;
+	} else {
+		if (b->z <= a->z)
+			return 1;
+		if (b->z <= a->z + aHeight)
+			return 1;
+	}
+	return 0;
 }
 
 /*

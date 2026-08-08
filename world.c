@@ -1200,6 +1200,40 @@ CWorld_FindEntityInRange(CWorld *world, CEntity *refEntity, uint32_t serial, int
 }
 
 /*
+ * 0x0048DAF7 - CWorld::FindEntityBySerialInRange
+ *
+ * Scans every block within range of loc for the entity with the given
+ * serial, and for any mobile in range also searches its contents.
+ * Returns NULL once the block list terminates.
+ */
+static __attribute__((unused)) CItem *
+CWorld_FindEntityBySerialInRange(CWorld *world, CLocation *loc, uint32_t serial, int range)
+{
+	int blockBuf[0x100];
+	CItem *iter;
+	CItem *found;
+	int i;
+
+	USED(world);
+	CBlockManager_GetNearbyBlocks(&g_SpatialGrid, loc, range, blockBuf, 0x100);
+
+	for (i = 0; blockBuf[i] != -1; i++) {
+		for (iter = g_SpatialGrid.cells[blockBuf[i]].itemHead; iter != NULL; iter = iter->spatialNext) {
+			if (CLocation_ChebyshevDistance(&iter->resourceEntity.entity.location, loc) > range)
+				continue;
+			if (iter->serial == serial)
+				return iter;
+			if (((int (*)(void *))VT_FN(iter, VT_IS_MOBILE2))(iter)) {
+				found = CContainer_FindItemBySerial((CContainer *)iter, serial);
+				if (found != NULL)
+					return found;
+			}
+		}
+	}
+	return NULL;
+}
+
+/*
  * 0x0048DBDB - FindHighestItemAtXY
  *
  * Returns the dynamic or static item with the highest Z at (x, y),
@@ -1247,6 +1281,139 @@ FindHighestItemAtXY(CWorld *world, int16_t x, int16_t y)
 	}
 
 	return best;
+}
+
+/*
+ * 0x0048DCD9 - CWorld::FindEntityAtXY
+ *
+ * Returns the first entity whose location matches loc in x and y,
+ * searching the dynamic chain before the static one. z is ignored.
+ */
+static __attribute__((unused)) CItem *
+CWorld_FindEntityAtXY(CWorld *world, CLocation *loc)
+{
+	int blockIdx;
+	CItem *iter;
+
+	USED(world);
+	blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, loc, 0);
+
+	// Dynamic item chain (block+0x104, spatialNext at 0x20)
+	iter = g_SpatialGrid.cells[blockIdx].itemHead;
+	while (iter != NULL) {
+		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y)
+			return iter;
+		iter = iter->spatialNext;
+	}
+
+	// Static item chain (block+0x100, nextInContainer at 0x10)
+	iter = g_SpatialGrid.cells[blockIdx].staticHead;
+	while (iter != NULL) {
+		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y)
+			return iter;
+		iter = (CItem *)iter->resourceEntity.nextInContainer;
+	}
+
+	return NULL;
+}
+
+/*
+ * 0x0048DD9B - CWorld::FindEntityAtXYZ
+ *
+ * As 0x0048DCD9 but also requires the z to match the given value.
+ */
+static __attribute__((unused)) CItem *
+CWorld_FindEntityAtXYZ(CWorld *world, CLocation *loc, int16_t z)
+{
+	int blockIdx;
+	CItem *iter;
+
+	USED(world);
+	blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, loc, 0);
+
+	iter = g_SpatialGrid.cells[blockIdx].itemHead;
+	while (iter != NULL) {
+		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y && (int16_t)iter->resourceEntity.entity.location.z == z)
+			return iter;
+		iter = iter->spatialNext;
+	}
+
+	iter = g_SpatialGrid.cells[blockIdx].staticHead;
+	while (iter != NULL) {
+		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y && (int16_t)iter->resourceEntity.entity.location.z == z)
+			return iter;
+		iter = (CItem *)iter->resourceEntity.nextInContainer;
+	}
+
+	return NULL;
+}
+
+/*
+ * 0x0048DF7B - CWorld::GetItemTileDataCopy
+ *
+ * Copies the tiledata entry for id into a static TileDataEntry and
+ * returns it. The layer byte is refreshed from CWorld_GetItemLayer
+ * rather than taken from the table, and the 21-byte name is copied one
+ * byte at a time - only 0x14 of the 21, so the last byte of the static
+ * copy keeps whatever the previous call left there.
+ */
+static __attribute__((unused)) TileDataEntry *
+CWorld_GetItemTileDataCopy(int id)
+{
+	// 0x006CA8B8 - static tiledata record returned to the caller
+	static TileDataEntry copy;
+	TileDataEntry *src;
+	char *dst;
+	int i;
+
+	src = &g_ItemTileData[id];
+	copy.flags = src->flags;
+	copy.weight = src->weight;
+	copy.layer = (uint8_t)CWorld_GetItemLayer((uint16_t)id);
+	copy.miscData = src->miscData;
+	copy.value1 = src->value1;
+	copy.value2 = src->value2;
+	copy.height = src->height;
+	copy.quantity = src->quantity;
+
+	dst = copy.name;
+	for (i = 0; i < 0x14; i++) {
+		*dst = src->name[i];
+		dst++;
+	}
+	return &copy;
+}
+
+/*
+ * 0x0048E084 - CWorld::NotifyEntityArrival
+ *
+ * Sends an entity update for entity to every entity within 18 tiles,
+ * and tells the NPCs among them that a player came into range. Unlike
+ * its live neighbours this walks the spatial grid blocks directly. The
+ * world pointer is never touched.
+ */
+static __attribute__((unused)) void
+CWorld_NotifyEntityArrival(CWorld *world, CItem *entity)
+{
+	int blockIds[256];
+	int i;
+	CItem *cur;
+
+	USED(world);
+
+	CBlockManager_GetNearbyBlocks(&g_SpatialGrid, &entity->resourceEntity.entity.location, 0x12, blockIds, 0x100);
+
+	for (i = 0; blockIds[i] != -1; i++) {
+		for (cur = g_SpatialGrid.cells[blockIds[i]].itemHead; cur != NULL; cur = cur->spatialNext) {
+			if (CLocation_ChebyshevDistance(&cur->resourceEntity.entity.location, &entity->resourceEntity.entity.location) >= 0x13)
+				continue;
+
+			((void (*)(void *, CItem *, int))VT_FN(cur, VT_SEND_ENTITY_UPDATE))(cur, entity, 1);
+
+			if (((int (*)(void *))VT_FN(cur, VT_IS_NPC))(cur))
+				CNPC_OnPlayerEnteredRange((CMobile *)cur, (CMobile *)entity);
+		}
+	}
 }
 
 /*
@@ -1336,6 +1503,73 @@ CWorld_CreateContainerItem(CWorld *world, uint16_t bodyType)
 	if (item != NULL)
 		((void (*)(void *))VT_FN(item, VT_DELETE))(item);
 	return NULL;
+}
+
+/*
+ * 0x0048E450 - CWorld::CreateWeaponItem
+ *
+ * Creates an item and keeps it only when it reports as a weapon;
+ * otherwise deletes it through the vtable and returns NULL.
+ */
+static __attribute__((unused)) CItem *
+CWorld_CreateWeaponItem(CWorld *world, uint16_t bodyType)
+{
+	CItem *item;
+
+	item = CWorld_CreateItem(world, bodyType);
+	if (item == NULL)
+		return NULL;
+	if (((int (*)(void *))VT_FN(item, VT_IS_WEAPON))(item) == 0) {
+		((void (*)(void *))VT_FN(item, VT_DELETE))(item);
+		return NULL;
+	}
+	return item;
+}
+
+/*
+ * 0x0048E4A6 - CItem::TestTypeBit
+ *
+ * Maps a single-bit type selector onto the matching vtable predicate
+ * and returns its result. 0x0200 and 0x0400 are recognised but always
+ * answer 0, and so does any value that is not one of the listed bits or
+ * a null entity.
+ */
+static __attribute__((unused)) int
+CItem_TestTypeBit(CItem *entity, int bit)
+{
+	if (entity == NULL)
+		return 0;
+
+	switch (bit) {
+	case 0x0002:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_CONTAINER))(entity);
+	case 0x0004:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_MOBILE2))(entity);
+	case 0x0008:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_SPATIAL))(entity);
+	case 0x0010:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_MOBILE))(entity);
+	case 0x0020:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_NPC))(entity);
+	case 0x0040:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_VENDOR))(entity);
+	case 0x0080:
+		return ((int (*)(void *))VT_FN(entity, VT_CHECK_EC))(entity);
+	case 0x0100:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_PLAYER))(entity);
+	case 0x0200:
+		return 0;
+	case 0x0400:
+		return 0;
+	case 0x0800:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_DEAD))(entity);
+	case 0x1000:
+		return ((int (*)(void *))VT_FN(entity, VT_IS_WEAPON))(entity);
+	case 0x2000:
+		return ((int (*)(void *))VT_FN(entity, VT_CHECK_DC))(entity);
+	default:
+		return 0;
+	}
 }
 
 /*

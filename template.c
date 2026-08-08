@@ -902,6 +902,50 @@ CTemplateManager_ParseDamageType(const char *name)
 }
 
 /*
+ * 0x004BC58E - CTemplateManager::ParseDamageTypeList8
+ *
+ * Walks a whitespace-separated keyword list, mapping each through
+ * ParseDamageType into a byte local. Nothing accumulates and nothing
+ * reads the local afterwards, so the loop only consumes the string.
+ * Reproduced as it stands - nothing calls this.
+ */
+static __attribute__((unused)) void
+CTemplateManager_ParseDamageTypeList8(CTemplateData *tmpl, char *list)
+{
+	char buf[128];
+	uint8_t value;
+
+	USED(tmpl);
+	value = 0;
+	while (strlen(list) != 0) {
+		list = GetValue(list, buf);
+		value = CTemplateManager_ParseDamageType(buf);
+	}
+	USED(value);
+}
+
+/*
+ * 0x004BC5E0 - CTemplateManager::ParseDamageTypeList32
+ *
+ * As 0x004BC58E but widens each mapped value into an int local. Also
+ * discarded.
+ */
+static __attribute__((unused)) void
+CTemplateManager_ParseDamageTypeList32(CTemplateData *tmpl, char *list)
+{
+	char buf[128];
+	int value;
+
+	USED(tmpl);
+	value = 0;
+	while (strlen(list) != 0) {
+		list = GetValue(list, buf);
+		value = (int)(int8_t)CTemplateManager_ParseDamageType(buf);
+	}
+	USED(value);
+}
+
+/*
  * 0x004BC635 - CTemplateManager::ParseAttitude
  *
  * Sets the mobile's attack mode from a rolled dice expression.
@@ -1499,6 +1543,39 @@ Template_SetRealName(CItem *item, char *text)
 	text = SCommand_ParseToken(text, nameBuf);
 	CMobile_SetName((CMobile *)item, nameBuf);
 	USED(text);
+}
+
+/*
+ * 0x004BD6C4 - CTemplateManager::GetTemplateFirstValue
+ *
+ * Looks a template up by id, skips the first key on its data line and
+ * returns the following "=value" parsed as a number. Returns 0 when the
+ * id is unknown. The key buffer is filled and discarded.
+ */
+static __attribute__((unused)) uint16_t
+CTemplateManager_GetTemplateFirstValue(CResManager *this, uint32_t templateId)
+{
+	CSearchCtx ctx;
+	NPCTemplate *tpl;
+	CString value;
+	char keyBuf[512];
+	char *cursor;
+	uint16_t result;
+
+	CResManager_FindByIntCtx(this, &ctx, &templateId, 1);
+	if (!CSearchCtx_Find(&ctx))
+		return 0;
+
+	tpl = (NPCTemplate *)CResManager_GetResultCtx(this, &ctx);
+	cursor = tpl->rawFields[0].data;
+	cursor = GetValue(cursor, keyBuf);
+
+	CString_DefaultConstructor(&value);
+	cursor = CTemplateManager_GetNextEqValue(cursor, &value);
+	result = (uint16_t)CString_GetString(&value);
+	CString_Destructor(&value);
+
+	return result;
 }
 
 /*

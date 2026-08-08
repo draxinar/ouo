@@ -23,8 +23,6 @@
 #include "vtable.h"
 #include "world.h"
 
-static void Player_StepInDirection(CItem *entity, int direction); // 0x004D73B0
-
 /*
  * 0x004D64E0 - SendReadOnlyError
  *
@@ -488,7 +486,7 @@ World_RestoreUpdates(void)
  * Moves a player entity one tile in the given direction, gated by
  * the virtual WalkCheck hook.
  */
-static __attribute__((unused)) void
+void
 Player_StepInDirection(CItem *entity, int direction)
 {
 	CLocation outLoc;

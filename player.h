@@ -316,5 +316,8 @@ void SendPacketToPlayer(CPlayer *player, uint8_t *buf, int size);
 
 int CPlayer_IsTestCenter(CPlayer *this); // CUSTOM
 void CPlayer_AddTestCenterKit(CPlayer *this, CItem *backpack); // CUSTOM
+int CPlayerList_AccountCharCount(uint32_t accountId); // CUSTOM
+int CPlayerList_AccountUsedSlots(uint32_t accountId, CPlayer *exclude); // CUSTOM
+void CPlayerList_CollectByAccountIDSorted(CVector *results, uint32_t accountId); // CUSTOM
 
 #endif /* PLAYER_H_ */

@@ -202,6 +202,32 @@ CResBankSet_DumpSetInfo(CResBankSet *set, FILE *fp, int textMode)
 }
 
 /*
+ * 0x0049EEF7 - CResBankSet::~CResBankSet
+ *
+ * Deletes every member off the tail of the chain, then unlinks the set
+ * from the global list.
+ */
+static __attribute__((unused)) void
+CResBankSet_Destructor(CResBankSet *set)
+{
+	CResBankSetMember *member;
+
+	while (set->memberTail != NULL) {
+		member = set->memberTail;
+		if (member != NULL)
+			CResBankSetMember_ScalarDelete(member, 1);
+	}
+
+	if (set->next != NULL)
+		set->next->prev = set->prev;
+
+	if (set->prev != NULL)
+		set->prev->next = set->next;
+	else
+		g_ResBankSetListHead = set->next;
+}
+
+/*
  * 0x0049EF98 - CResBankSet::ContainsMember
  *
  * Returns 1 if the set has a member with matching tileId and subtype.
@@ -576,6 +602,23 @@ CResBankVertex_DumpInfo(CResBankVertex *vertex, FILE *fp, int textMode)
 }
 
 /*
+ * 0x0049FF59 - CResBankVertex::~CResBankVertex
+ *
+ * Unlinks the vertex from the global list.
+ */
+static __attribute__((unused)) void
+CResBankVertex_Destructor(CResBankVertex *vertex)
+{
+	if (vertex->listNext != NULL)
+		vertex->listNext->listPrev = vertex->listPrev;
+
+	if (vertex->listPrev != NULL)
+		vertex->listPrev->listNext = vertex->listNext;
+	else
+		g_ResBankVertexListHead = vertex->listNext;
+}
+
+/*
  * 0x0049FFA2 - ResBankVertex_LookupByIndex
  *
  * Returns the vertex with the given vertexIndex, or NULL.
@@ -943,6 +986,129 @@ CResBankManager_ProcessEntry(CDistribEntry *entry, CEntity *entity)
 			}
 		}
 	}
+}
+
+/*
+ * 0x004A0C1C - ResBankVertex_LoadAllBinary
+ *
+ * Reads a vertex count from bankdefs.mul and loads that many vertices,
+ * then shifts each one to a zero base and scales it down by divisor.
+ * The x/y halving reads the coordinate zero-extended, so a negative
+ * coordinate divides as a large positive one.
+ *
+ * A failed allocation leaves the vertex pointer null and the code
+ * dereferences it anyway.
+ */
+static __attribute__((unused)) void
+ResBankVertex_LoadAllBinary(FILE *fp, int divisor)
+{
+	CResBankVertex *vertex;
+	int count, i;
+
+	fread_ServerSide(&count, 4, 1, fp);
+	SwapEndian(&count);
+
+	for (i = 0; i < count; i++) {
+		vertex = (CResBankVertex *)OperatorNew(sizeof(CResBankVertex));
+		if (vertex != NULL)
+			CResBankVertex_DumpInfo(vertex, fp, 0);
+
+		vertex->x = (int16_t)(vertex->x - 1);
+		vertex->y = (int16_t)(vertex->y - 1);
+		vertex->x = (int16_t)((int)(uint16_t)vertex->x / divisor);
+		vertex->y = (int16_t)((int)(uint16_t)vertex->y / divisor);
+	}
+}
+
+/*
+ * 0x004A0D17 - ResBankVertex_LoadAllText
+ *
+ * As ResBankVertex_LoadAllBinary but reads the count from the
+ * "NumVertices %d" line of bankdefs.txt and loads each vertex in text
+ * mode.
+ */
+static __attribute__((unused)) void
+ResBankVertex_LoadAllText(FILE *fp, int divisor)
+{
+	CResBankVertex *vertex;
+	int count, i;
+
+	fscanf(fp, "NumVertices %d\n", &count);
+
+	for (i = 0; i < count; i++) {
+		vertex = (CResBankVertex *)OperatorNew(sizeof(CResBankVertex));
+		if (vertex != NULL)
+			CResBankVertex_DumpInfo(vertex, fp, 1);
+
+		vertex->x = (int16_t)(vertex->x - 1);
+		vertex->y = (int16_t)(vertex->y - 1);
+		vertex->x = (int16_t)((int)(uint16_t)vertex->x / divisor);
+		vertex->y = (int16_t)((int)(uint16_t)vertex->y / divisor);
+	}
+}
+
+/*
+ * 0x004A0E09 - ResBankSet_LoadAllBinary
+ *
+ * Reads a set count from bankdefs.mul and loads that many sets.
+ */
+static __attribute__((unused)) void
+ResBankSet_LoadAllBinary(FILE *fp)
+{
+	CResBankSet *set;
+	int count, i;
+
+	fread_ServerSide(&count, 4, 1, fp);
+	SwapEndian(&count);
+
+	for (i = 0; i < count; i++) {
+		set = (CResBankSet *)OperatorNew(sizeof(CResBankSet));
+		if (set != NULL)
+			CResBankSet_DumpSetInfo(set, fp, 0);
+	}
+}
+
+/*
+ * 0x004A0EB2 - ResBankSet_LoadAllText
+ *
+ * As ResBankSet_LoadAllBinary but reads the count from the
+ * "NumSets %d" line of bankdefs.txt and loads each set in text mode.
+ */
+static __attribute__((unused)) void
+ResBankSet_LoadAllText(FILE *fp)
+{
+	CResBankSet *set;
+	int count, i;
+
+	fscanf(fp, "NumSets %d\n", &count);
+
+	for (i = 0; i < count; i++) {
+		set = (CResBankSet *)OperatorNew(sizeof(CResBankSet));
+		if (set != NULL)
+			CResBankSet_DumpSetInfo(set, fp, 1);
+	}
+}
+
+/*
+ * 0x004A0F50 - ResBankVertex_LinkAndValidateAll
+ *
+ * Resolves every vertex's NSWE links, then walks the list again and
+ * returns 0 on the first vertex whose connections do not check out,
+ * 1 when all of them do.
+ */
+static __attribute__((unused)) int
+ResBankVertex_LinkAndValidateAll(void)
+{
+	CResBankVertex *vertex;
+
+	for (vertex = g_ResBankVertexListHead; vertex != NULL; vertex = vertex->listNext)
+		CResBankVertex_LinkConnections(vertex);
+
+	for (vertex = g_ResBankVertexListHead; vertex != NULL; vertex = vertex->listNext) {
+		if (CResBankVertex_ValidateConnections(vertex) == 0)
+			return 0;
+	}
+	return 1;
 }
 
 /*

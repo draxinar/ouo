@@ -12,6 +12,7 @@
  */
 
 __extension__ typedef struct CPlayer CPlayer;
+__extension__ typedef struct CSkillUseCtx CSkillUseCtx;
 __extension__ typedef struct CString CString;
 __extension__ typedef struct StdPtrList StdPtrList;
 __extension__ typedef struct StdPtrNode StdPtrNode;
@@ -59,6 +60,20 @@ int CHelpQueue_ShowQueue(CHelpQueue *q, CPlayer *player, int maxEntries); // 0x0
 int CHelpQueue_GotoCur(CHelpQueue *q, CPlayer *player); // 0x0044EB44
 int CHelpQueue_Next(CHelpQueue *q, CPlayer *player); // 0x0044EBFA
 int CHelpQueue_TransferEntry(CHelpQueue *q, CPlayer *player, CString *gmName, uint32_t victimSerial); // 0x0044ECF8
+/*
+ * Counselor/GM assistance record (0x38 bytes on 32-bit) submitted via the
+ * help-request packet handler.
+ */
+typedef struct CAssistance {
+	uint32_t serial;
+	CString name;
+	uint8_t type;
+	uint8_t level;
+	uint8_t _pad[2];
+	CString subject;
+	CString body;
+} CAssistance;
+
 int CHelpQueue_GmTransfer(CHelpQueue *q, CPlayer *player, const char *gmName); // 0x0044EE33
 int CHelpQueue_GotoBySerial(CHelpQueue *q, CPlayer *player, int queueIndex); // 0x0044EEEF
 int CHelpQueue_GotoByName(CHelpQueue *q, CPlayer *player, const char *locName); // 0x0044EFF1
@@ -68,6 +83,32 @@ int CHelpQueue_Who(CHelpQueue *q, CPlayer *player); // 0x0044F24A
 void CHelpQueue_NotifyLogin(CHelpQueue *this, CPlayer *player); // 0x0044F47B
 void CHelpQueue_DecrCounselors(CHelpQueue *this, CPlayer *player); // 0x0044F497
 void StdHelpList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x0044F530
+/*
+ * Assistance dispatch node (0x34 bytes on 32-bit) paired with CAssistance
+ * for the request-type C/D record variants.
+ */
+typedef struct CAssistanceNode {
+	uint32_t id1;
+	uint32_t id2;
+	uint16_t field;
+	uint8_t _pad0A[2];
+	CString str1;
+	uint8_t typeFlag;
+	uint8_t _pad1[3];
+	CString str2;
+	uint16_t field1;
+	uint16_t field2;
+} CAssistanceNode;
+
+void CAssistance_Destructor(CAssistance *this); // 0x0045F1E0
+CAssistance *CAssistance_Constructor(CAssistance *self); // 0x0045F6C0
+uint8_t CAssistance_LoadRecordD(CAssistance *this, uint8_t *buf, int unused); // 0x0045F740
+uint8_t CAssistance_LoadRecordA(CAssistance *this, uint8_t *buf, int unused, uint32_t *serialOut); // 0x0045F8A0
+void CAssistance_NodeDestructor(CAssistanceNode *this); // 0x0045F240
+uint8_t *CAssistance_SaveRecordB(CSkillUseCtx *this); // 0x0045FA20
+uint8_t CAssistance_LoadRecordB(CSkillUseCtx *this, uint8_t *buf, int unused); // 0x0045FBB0
+CAssistanceNode *CAssistanceNode_Constructor(CAssistanceNode *self); // 0x0045FD20
+uint8_t CAssistance_LoadRecordC(CAssistanceNode *this, uint8_t *buf, int unused); // 0x0045FDB0
 void StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004696D0
 
 void TC_CommandDispatch(CPlayer *player, const char *text); // CUSTOM (-test)

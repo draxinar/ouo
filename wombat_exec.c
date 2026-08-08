@@ -1208,6 +1208,44 @@ ExecAbortCurrent(void)
 }
 
 /*
+ * 0x0040A576 - CExecThread::StoreResultFirst
+ *
+ * StoreResult without the index walk: always stores into the first node
+ * of the argument chain.
+ */
+static __attribute__((unused)) void
+CExecThread_StoreResultFirst(CExecThread *thread, void *data, int size)
+{
+	ResultNode *node;
+	int varType;
+	char *base;
+	CNamedScopeEntry *varDef;
+
+	node = (ResultNode *)(uintptr_t)((ResultNode *)thread->stream)->extra;
+
+	varType = (int)node->type - 2;
+	if ((unsigned int)varType > 3)
+		return;
+
+	base = NULL;
+	switch (varType) {
+	case 0:
+	case 1:
+		// Types 2-3: base = scope.data + hstack frame base
+		base = thread->scope.data + (int)thread->hstack.arr[thread->hstack.count - 2];
+		break;
+	case 2:
+	case 3:
+		// Types 4-5: base = scriptRef->data (at offset +8)
+		base = (char *)((ScriptAttachNode *)thread->scriptRef)->memberScope;
+		break;
+	}
+
+	varDef = (CNamedScopeEntry *)(uintptr_t)((ResultNode *)(uintptr_t)((ResultNode *)thread->stream)->extra)->value;
+	memcpy(base + varDef->offset, data, size);
+}
+
+/*
  * 0x0040A608 - CExecThread::StoreResult
  *
  * Walks the argument chain (from stream->extra) to the index-th node,
@@ -6429,6 +6467,28 @@ check_IsGuard(CItem *ent) // 0x00424450
 }
 
 /*
+ * 0x0041140B - Script_checkContainer
+ *
+ * Resolves serial to a non-removed container and runs checker against
+ * it. Returns 0 for non-containers or removed entities. Like its
+ * checkMobile and checkPlayer siblings, the complaint is formatted into
+ * a stack buffer and never printed.
+ */
+static __attribute__((unused)) int
+Script_checkContainer(uint32_t serial, int (*checker)(CItem *), const char *name)
+{
+	CItem *ent;
+	char buf[256];
+
+	ent = CWorld_FindBySerial(g_World, serial);
+	if (ent == NULL || !VT_IsMobile2(ent) || ent->resourceEntity.entity.removedFromWorld) {
+		sprintf(buf, "%s: tried to check invalid container.\n", name ? name : "(null)");
+		return 0;
+	}
+	return checker(ent);
+}
+
+/*
  * 0x0041148D - Script_checkPlayer
  *
  * Resolves serial to a non-removed player and runs checker against
@@ -10586,6 +10646,63 @@ Script_setStatAttributeMax(uint32_t serial, int statId, int value)
 }
 
 /*
+ * 0x0041574C - setSkillLevel (value-returning twin)
+ *
+ * Sets the mobile's base value for skillId and returns what was
+ * stored. Script_setSkillLevel at 0x004158FD is the same binding with
+ * the result discarded; the two share the script name but not the
+ * string literal, so this one keeps its address in the C name.
+ */
+static __attribute__((unused)) int
+Script_setSkillLevel_41574C(uint32_t serial, int skillId, int value)
+{
+	CItem *ent;
+
+	ent = FindMobileValidated(serial, "setSkillLevel");
+	if (ent == NULL)
+		return 0;
+	return CMobile_SetSkill((CMobile *)ent, (int8_t)skillId, (uint16_t)value);
+}
+
+/*
+ * 0x00415783 - addSkillLevel (value-returning twin)
+ *
+ * Adds delta to the mobile's base value for skillId and returns the
+ * amount actually applied. Script_addSkillLevel at 0x00415932 is the
+ * same binding with the result discarded.
+ */
+static __attribute__((unused)) int
+Script_addSkillLevel_415783(uint32_t serial, int skillId, int delta)
+{
+	CItem *ent;
+
+	ent = FindMobileValidated(serial, "addSkillLevel");
+	if (ent == NULL)
+		return 0;
+	return CMobile_AddToSkill((CMobile *)ent, (int8_t)skillId, delta);
+}
+
+/*
+ * 0x004157B9 - loseSkillLevel (value-returning twin)
+ *
+ * Subtracts delta from the mobile's base value for skillId and returns
+ * the amount actually removed, both negated so the caller passes and
+ * receives a positive loss. Script_loseSkillLevel at 0x00415966 is the
+ * same binding with the result discarded and no negation on the way
+ * out.
+ */
+static __attribute__((unused)) int
+Script_loseSkillLevel_4157B9(uint32_t serial, int skillId, int delta)
+{
+	CItem *ent;
+
+	ent = FindMobileValidated(serial, "loseSkillLevel");
+	if (ent == NULL)
+		return 0;
+	return -CMobile_AddToSkill((CMobile *)ent, (int8_t)skillId, -delta);
+}
+
+/*
  * 0x004157F5 - getSkillLevel
  *
  * Returns the mobile's skill value for skillId divided by 10 (the
@@ -11962,6 +12079,36 @@ Script_getObjectsInSpecRange(CList *list, CLocation *loc, int minRange, int maxR
 			if (!VT_IsMobile(cur)) {
 				int dist = CLocation_ChebyshevDistance(loc, CEntity_GetLocation(&cur->resourceEntity.entity));
 				if (dist > minRange && dist < maxRange)
+					CList_Append(list, WTYPE_OBJ, (uintptr_t)cur->serial);
+			}
+			cur = cur->spatialNext;
+		}
+	}
+}
+
+/*
+ * 0x00416F83 - getPlayersInRangeByBlock
+ *
+ * Appends every player strictly closer than range to loc to list,
+ * walking the spatial grid blocks itself instead of going through the
+ * entity map the way getPlayersInRange does.
+ */
+static __attribute__((unused)) void
+Script_getPlayersInRangeByBlock(CList *list, CLocation *loc, int range)
+{
+	int blockIds[1024];
+	int i;
+	CItem *cur;
+
+	CList_Clear(list);
+
+	CBlockManager_GetNearbyBlocks(&g_SpatialGrid, loc, range, blockIds, 0x400);
+
+	for (i = 0; blockIds[i] != -1; i++) {
+		cur = g_SpatialGrid.cells[blockIds[i]].itemHead;
+		while (cur != NULL) {
+			if (((int (*)(void *))VT_FN(cur, VT_IS_PLAYER))(cur)) {
+				if (CLocation_ChebyshevDistance(loc, CEntity_GetLocation(&cur->resourceEntity.entity)) < range)
 					CList_Append(list, WTYPE_OBJ, (uintptr_t)cur->serial);
 			}
 			cur = cur->spatialNext;
@@ -20055,6 +20202,37 @@ CheckGoldLimit(CMobile *mob)
 	if (total >= 0x7D0)
 		CMobile_FindItemInEquipment(mob, 0xEED, total);
 }
+/*
+ * 0x0042F95E - World_DeleteAllButFixtures
+ *
+ * Walks the whole serial hash and deletes every entity whose tiledata
+ * flags carry none of TF_DOOR, TF_LIGHT or 0x00010000. The flags are
+ * fetched through vtable[0x30] once per bit rather than once per
+ * entity.
+ */
+static __attribute__((unused)) void
+World_DeleteAllButFixtures(void)
+{
+	CItem *ent, *next;
+	int i;
+
+	for (i = 0; i < 0x10000; i++) {
+		for (ent = g_World->hashTable[i]; ent != NULL; ent = next) {
+			next = ent->hashNext;
+
+			if (((uint32_t (*)(void *))VT_FN(ent, VT_GET_FLAGS))(ent)&TF_DOOR)
+				continue;
+			if (((uint32_t (*)(void *))VT_FN(ent, VT_GET_FLAGS))(ent)&TF_LIGHT)
+				continue;
+			if (((uint32_t (*)(void *))VT_FN(ent, VT_GET_FLAGS))(ent) & 0x00010000)
+				continue;
+
+			if (ent != NULL)
+				((void (*)(void *))VT_FN(ent, VT_DELETE))(ent);
+		}
+	}
+}
+
 /*
  * 0x00432EA0 - BM_CaseInsensitiveSearch
  *

@@ -257,6 +257,7 @@ void CWorld_SpeechNotifyNearbyUnicode(CWorld *self, uint32_t serial, CLocation *
 void DoorClose(CItem *door, int unused); // 0x004DB6CC
 void UseDoor(CItem *door); // 0x004DBC41
 void SendOpenGump(CPlayer *player, uint32_t playerSerial, uint32_t containerSerial, uint16_t gumpType); // 0x004DC355
+void OpenPaperdoll(CPlayer *player, uint32_t playerSerial, CItem *target); // 0x004DC388
 void UseItem_Default(CPlayer *player, CItem *entity); // 0x004DCC42
 void UseItemDispatch(CItem *player, CItem *entity); // 0x004DCCB5
 void DispatchDoubleClick(CPlayer *this, CItem *entity, int isPaperdoll); // 0x004DCD04

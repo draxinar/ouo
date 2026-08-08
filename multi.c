@@ -1610,6 +1610,79 @@ skip_min_z:
 }
 
 /*
+ * 0x004765FC - CMultiManager::BuildComponents
+ *
+ * Instantiates every component of multi type typeId. The first
+ * component becomes the owner - reusing existing when it is non-null -
+ * and takes the multi slave; the rest attach to it as components. Each
+ * gets the definition's scripts, and its server-only flag comes from
+ * the definition unless serverOnly is set. Returns the owner, or 0 when
+ * typeId is unknown.
+ */
+static __attribute__((unused)) CItem *
+CMultiManager_BuildComponents(CResManager *this, uint32_t typeId, int serverOnly, CItem *existing)
+{
+	CSearchCtx ctx, found;
+	CMultiDef *def;
+	CMultiComponentDef *ptr;
+	CItem *owner;
+	CItem *item;
+	int isFirst;
+	int counter;
+	void *iterCtx;
+	void *scriptOutput;
+	uintptr_t entity;
+
+	owner = NULL;
+	item = NULL;
+
+	CSearchCtx_Constructor(&ctx);
+	CSearchCtx_Add(&ctx, CResManager_FindByKey_A(this, &found, &typeId, 1));
+	if (!CSearchCtx_Find(&ctx))
+		return NULL;
+
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &ctx);
+	isFirst = 1;
+	counter = 0;
+
+	for (ptr = (CMultiComponentDef *)def->components.begin; ptr != (CMultiComponentDef *)def->components.end; ptr++) {
+		if (isFirst == 1 && existing != NULL)
+			item = existing;
+		else
+			item = CWorld_CreateItem(g_World, ptr->bodyType);
+
+		counter++;
+
+		if (isFirst) {
+			isFirst = 0;
+			owner = item;
+			CItem_AttachMultiSlave(owner, &ptr->offset);
+			CMultiSlave_SetTypeId(CItem_GetMultiSlave(owner), (int32_t)typeId);
+		} else {
+			CItem_AttachMultiComponent(item, CMobile_GetSerial((CMobile *)owner), &ptr->offset);
+		}
+
+		CMultiSlave_AddComponent(CItem_GetMultiSlave(owner), CMobile_GetSerial((CMobile *)item));
+
+		CIterCtx_Set(&iterCtx, item);
+		entity = (uintptr_t)*(void **)&iterCtx;
+		AttachScriptsFromVector(&scriptOutput, (char *)ptr->scriptBegin, (char *)ptr->scriptEnd, entity);
+
+		if (serverOnly == 0)
+			CItem_SetServerOnly(item, ptr->invisible);
+		else
+			CItem_SetServerOnly(item, 1);
+	}
+
+	USED(counter);
+
+	if (owner != NULL)
+		CMultiSlave_ComputeRange(CItem_GetMultiSlave(owner), def);
+
+	return owner;
+}
+
+/*
  * 0x004767A4 - CMultiManager::Create
  *
  * Instantiates a multi of the given typeId: the first component becomes
@@ -2574,6 +2647,30 @@ CMultiManager_GetNumInType(CResManager *this, int typeId, int *outCount)
 }
 
 /*
+ * 0x00477BA1 - CMultiManager::GetSize
+ *
+ * Writes the multi's extent spans - max minus min on each axis, without
+ * the +1 CMobile_OffsetPastMulti adds - and returns 1. Returns 0 and
+ * leaves the outputs alone when typeId is unknown.
+ */
+static __attribute__((unused)) int
+CMultiManager_GetSize(CResManager *this, int typeId, int *outWidth, int *outHeight, int *outDepth)
+{
+	CLocation minLoc, maxLoc;
+
+	CLocation_Init(&minLoc);
+	CLocation_Init(&maxLoc);
+
+	if (!CMultiManager_GetExtents(this, typeId, &minLoc, &maxLoc))
+		return 0;
+
+	*outWidth = (int16_t)maxLoc.x - (int16_t)minLoc.x;
+	*outHeight = (int16_t)maxLoc.y - (int16_t)minLoc.y;
+	*outDepth = maxLoc.z - minLoc.z;
+	return 1;
+}
+
+/*
  * 0x00477C0E - CMultiDef::CalcBounds
  *
  * Adds loc to every component's offset in place. The per-iteration
@@ -2616,6 +2713,79 @@ CMultiDef_SetAllSerial(CMultiDef *def, uint32_t serial)
 
 		iter++;
 	}
+}
+
+/*
+ * 0x00477CB9 - CMultiManager::OffsetDef
+ *
+ * Looks the multi definition for typeId up, shifts every component
+ * offset in it by loc, seeks the map file to the type's block and
+ * broadcasts the multi info. Returns 0 when typeId is unknown.
+ */
+static __attribute__((unused)) int
+CMultiManager_OffsetDef(CResManager *this, uint32_t typeId, CLocation *loc)
+{
+	CSearchCtx ctx;
+	CMultiDef *def;
+
+	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
+	if (!CSearchCtx_Find(&ctx))
+		return 0;
+
+	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	CMultiDef_CalcBounds(def, loc);
+
+	MapFileManager_SeekBlock(g_PoolBaseField_C4 + typeId);
+	CMulti_SendMultiInfo(this, typeId);
+	return 1;
+}
+
+/*
+ * 0x00477D26 - CMultiManager::SetDefSerial
+ *
+ * As CMultiManager_OffsetDef but stamps serial onto every component of
+ * the definition instead of shifting it.
+ */
+static __attribute__((unused)) int
+CMultiManager_SetDefSerial(CResManager *this, uint32_t typeId, uint32_t serial)
+{
+	CSearchCtx ctx;
+	CMultiDef *def;
+
+	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
+	if (!CSearchCtx_Find(&ctx))
+		return 0;
+
+	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	CMultiDef_SetAllSerial(def, serial);
+
+	MapFileManager_SeekBlock(g_PoolBaseField_C4 + typeId);
+	CMulti_SendMultiInfo(this, typeId);
+	return 1;
+}
+
+/*
+ * 0x00477DB6 - CMultiManager::EraseSlaveRecord
+ *
+ * Looks key up in the manager's second CResManager and erases the
+ * matching key/value pair, handing the value back through outData.
+ * Returns 0 when the key is not there.
+ */
+static __attribute__((unused)) int
+CMultiManager_EraseSlaveRecord(CResManager *this, uint32_t key, void **outData)
+{
+	CSearchCtx ctx, found, erased;
+
+	USED(this);
+
+	CSearchCtx_Constructor(&ctx);
+	CSearchCtx_Add(&ctx, CResManager_FindOrInsert_B(&g_MultiManagerSlaves, &found, &key, 1));
+
+	if (!CSearchCtx_Find(&ctx))
+		return 0;
+
+	CResManager_EraseMultiB(&g_MultiManagerSlaves, &erased, &ctx, outData, 1);
+	return 1;
 }
 
 /*
@@ -2860,6 +3030,36 @@ CMultiSlave_ComputeRange(CMultiSlave *ms, CMultiDef *def)
 
 		ptr++;
 	}
+}
+
+/*
+ * 0x0047830D - CMultiSlave::MinDistToLocation
+ *
+ * Returns the minimum 3D distance from any of the multi's components to
+ * loc, defaulting to 0xFF when nothing compares. The location-only
+ * counterpart of CMultiSlave_MinDistToEntity.
+ */
+static __attribute__((unused)) int
+CMultiSlave_MinDistToLocation(CMultiSlave *slave, CLocation *loc)
+{
+	int bestDist, dist;
+	uintptr_t *iter;
+	CItem *comp;
+
+	bestDist = 0xFF;
+
+	for (iter = (uintptr_t *)slave->components.begin; iter != (uintptr_t *)slave->components.end; iter++) {
+		comp = CWorld_FindBySerial(g_World, (uint32_t)*iter);
+		if (comp == NULL)
+			continue;
+
+		dist = Location_Distance3D((int16_t)comp->resourceEntity.entity.location.x, (int16_t)comp->resourceEntity.entity.location.y, comp->resourceEntity.entity.location.z,
+		        (int16_t)loc->x, (int16_t)loc->y, loc->z);
+		if (dist < bestDist)
+			bestDist = dist;
+	}
+
+	return bestDist;
 }
 
 /*
@@ -4838,6 +5038,14 @@ CItem_IsSameType(CSearchCtx *a, CSearchCtx *b)
  * keyed by typeId).
  */
 CResManager g_MultiManager; /* 0x006470A0 */
+
+/*
+ * 0x006472B8 - the second CResManager the binary's CMultiManager
+ * carries at +0x218, immediately after the first. Only the two
+ * orphan slave-record helpers below reach it, through pointer
+ * arithmetic on the manager; here it is a separate global.
+ */
+CResManager g_MultiManagerSlaves;
 
 /*
  * Helper - CVector_ClearFreeRaw

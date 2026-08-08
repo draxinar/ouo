@@ -23,6 +23,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "skill.h"
 #include "terrain.h"
 #include "utils.h"
@@ -117,6 +118,84 @@ int
 CSkillEntry_GetCanUse(CSkillDef *entry)
 {
 	return entry->canUse;
+}
+
+/*
+ * 0x00624530 - skill id to internal name table
+ *
+ * 46 {id, name} pairs terminated by a {0, NULL} sentinel. These are the
+ * script-level skill identifiers, distinct from the display names in
+ * skills.txt.
+ */
+static const struct {
+	int id;
+	const char *name;
+} g_SkillNames[] = {
+	{ 0x00, "ALCHEMY" },
+	{ 0x01, "ANATOMY" },
+	{ 0x02, "ANIMAL_LORE" },
+	{ 0x03, "APPRAISE" },
+	{ 0x04, "ARMSLORE" },
+	{ 0x05, "BATTLE_DEFENSE" },
+	{ 0x06, "BEGGING" },
+	{ 0x07, "BLACKSMITH" },
+	{ 0x08, "FLETCHER" },
+	{ 0x09, "CALM" },
+	{ 0x0A, "CAMPING" },
+	{ 0x0B, "CARPENTRY" },
+	{ 0x0C, "MAPMAKING" },
+	{ 0x0D, "COOKING" },
+	{ 0x0E, "DETECT_HIDDEN" },
+	{ 0x0F, "ENTICE" },
+	{ 0x10, "EVALUATE" },
+	{ 0x11, "FIRST_AID" },
+	{ 0x12, "FISHING" },
+	{ 0x13, "FORENSICS" },
+	{ 0x14, "HERDING" },
+	{ 0x15, "HIDE" },
+	{ 0x16, "INCITE" },
+	{ 0x17, "INSCRIBE" },
+	{ 0x18, "PICK_LOCK" },
+	{ 0x19, "MAGIC" },
+	{ 0x1A, "MAGIC_DEFENSE" },
+	{ 0x1B, "FIGHTING" },
+	{ 0x1C, "PEEK" },
+	{ 0x1D, "PLAY" },
+	{ 0x1E, "POISONING" },
+	{ 0x1F, "WEAPON_RANGED" },
+	{ 0x20, "SEANCE" },
+	{ 0x21, "STEALING" },
+	{ 0x22, "TAILOR" },
+	{ 0x23, "TAME_ANIMAL" },
+	{ 0x24, "TASTE" },
+	{ 0x25, "TINKER" },
+	{ 0x26, "TRACKING" },
+	{ 0x27, "VET" },
+	{ 0x28, "WEAPON_SLASHING" },
+	{ 0x29, "WEAPON_BASHING" },
+	{ 0x2A, "WEAPON_PIERCING" },
+	{ 0x2B, "MELEE" },
+	{ 0x2C, "LUMBERJACK" },
+	{ 0x2D, "MINING" },
+	{ 0, NULL },
+};
+
+/*
+ * 0x004D4290 - Skill_GetInternalName
+ *
+ * Linear scan of the skill id table. Returns the internal name for
+ * skillId, or NULL when the sentinel is reached first.
+ */
+static __attribute__((unused)) const char *
+Skill_GetInternalName(int skillId)
+{
+	int i;
+
+	for (i = 0; g_SkillNames[i].name != NULL; i++) {
+		if (g_SkillNames[i].id == skillId)
+			return g_SkillNames[i].name;
+	}
+	return NULL;
 }
 
 /*
@@ -292,6 +371,29 @@ CSkillDef_GetStatReq(CSkillDef *def, int statIndex)
 }
 
 /*
+ * 0x004D4631 - Skill_NormalizeNamePair
+ *
+ * Splits src into two whitespace-separated tokens and reprints them
+ * with a single space between, into a fresh 0x100-byte allocation.
+ *
+ * The two scan buffers are 256 bytes each and sscanf is unbounded, and
+ * the result is printed into 0x100 bytes without a cap, so a long token
+ * overruns either. Reproduced as it stands - nothing calls this.
+ */
+static __attribute__((unused)) char *
+Skill_NormalizeNamePair(const char *src)
+{
+	char first[256];
+	char second[256];
+	char *out;
+
+	out = (char *)OperatorNew(0x100);
+	sscanf(src, "%s %s", first, second);
+	sprintf(out, "%s %s", first, second);
+	return out;
+}
+
+/*
  * 0x004D468F - CSkillManager::InitCounters
  *
  * Zeroes all per-skill and aggregate usage counters.
@@ -318,6 +420,38 @@ static void
 CSkillManager_ResetCounters(CSkillManager *mgr)
 {
 	CSkillManager_InitCounters(mgr);
+}
+
+/*
+ * 0x004D4701 - CSkillManager::LoadUsageCounters
+ *
+ * Reads 50 little-endian ints from src. Each is added to the matching
+ * perSkillSomeValue entry, that entry is then zeroed, the running total
+ * is stored into perSkillUsageCounter, and allSkillUsageCounter
+ * accumulates it. allSkillSomeTotal is cleared at the end.
+ *
+ * The accumulator carries across iterations rather than restarting, so
+ * perSkillUsageCounter ends up holding a prefix sum rather than the
+ * per-skill value.
+ */
+static __attribute__((unused)) void
+CSkillManager_LoadUsageCounters(CSkillManager *mgr, const char *src)
+{
+	int running;
+	int i;
+
+	CSkillManager_Stub47A8(mgr);
+	mgr->allSkillUsageCounter = 0;
+	running = 0;
+	for (i = 0; i < MAX_SKILLS; i++) {
+		memcpy(&running, src, 4);
+		src += 4;
+		running += mgr->perSkillSomeValue[i];
+		mgr->perSkillSomeValue[i] = 0;
+		mgr->perSkillUsageCounter[i] = running;
+		mgr->allSkillUsageCounter += (uint32_t)running;
+	}
+	mgr->allSkillSomeTotal = 0;
 }
 
 /*

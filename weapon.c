@@ -80,6 +80,23 @@ CWeaponDef_Constructor(CWeaponDef *def)
 }
 
 /*
+ * 0x004DE577 - CWeaponDef::CWeaponDef (copy construct in place)
+ *
+ * Default-constructs the three CDiceRoll members and the scalar
+ * defaults, then copies every field from other.
+ */
+static __attribute__((unused)) CWeaponDef *
+CWeaponDef_ConstructCopy(CWeaponDef *def, CWeaponDef *other)
+{
+	CDiceRoll_Constructor(&def->weaponClass);
+	CDiceRoll_Constructor(&def->armorClass);
+	CDiceRoll_Constructor(&def->hitPoints);
+	CWeaponDef_InitDefaults(def);
+	CWeaponDef_CopyConstructor(def, other);
+	return def;
+}
+
+/*
  * 0x004DE5BC - CWeaponDef::~CWeaponDef
  *
  * Empty destructor.
@@ -1012,6 +1029,7 @@ CItem_GetHandedness(CItem *item)
  * 0x004DF9F3 - CItem::GetWeaponDamageType
  *
  * Returns the weapon definition's damage-type flags.
+ * FIXED: binary does not null-check the def pointer.
  */
 uint8_t
 CItem_GetWeaponDamageType(CItem *item)
@@ -1019,8 +1037,6 @@ CItem_GetWeaponDamageType(CItem *item)
 	CWeaponDef *def;
 
 	def = CWeaponManager_LookupWeaponDef(&g_WeaponManager, CItem_GetWeaponDefId(item));
-	// FIXED: binary dereferences without NULL check, crashes if
-	// weapon def ID has no entry in the weapon table.
 	if (def == NULL)
 		return 0;
 	return def->typeFlags;

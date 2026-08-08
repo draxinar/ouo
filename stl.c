@@ -31,7 +31,6 @@
 
 #include "weapon.h"
 
-static uint32_t CVector_GetCount16_Thiscall(CVector *this); // 0x004013A1
 static StdPtrIterFull *StdPtrIter_Begin(StdPtrIterFull *this, StdPtrNode *sentinel); // 0x00420E50
 static StdPtrIterFull *StdPtrIter_Next(StdPtrIterFull *this); // 0x00420E80
 static StdPtrIterFull *StdPtrIter_Prev(StdPtrIterFull *this); // 0x00420EA0
@@ -232,7 +231,7 @@ int g_StdTreeNilRef;            // 0x0063D8A8
  *
  * Delegates to CVector_GetCount16.
  */
-static __attribute__((unused)) uint32_t
+uint32_t
 CVector_GetCount16_Thiscall(CVector *this)
 {
 	return CVector_GetCount16(this);
@@ -603,6 +602,54 @@ StdPtrIter_Next(StdPtrIterFull *this)
  * OMITTED - MSVC CRT runtime function (_output number formatting). Part of
  * the CRT printf formatting engine. Not decompiled; Linux uses glibc
  * printf.
+ */
+
+/*
+ * 0x00458B0C - CRT_printf_mode1
+ *
+ * OMITTED - MSVC CRT printf wrapper. Formats through CRT_output
+ * (0x004582FB) into a 1024-byte stack buffer, sets the output-mode
+ * global at 0x00645B24 to 1, emits the buffer with "%s", then clears
+ * the mode. Not decompiled; Linux uses glibc printf.
+ */
+
+/*
+ * 0x00458BAB - CRT_fprintf_mode2
+ *
+ * OMITTED - as 0x00458B0C but writes to a FILE * with mode 2.
+ */
+
+/*
+ * 0x00458C1D - CRT_printf_mode3
+ *
+ * OMITTED - as 0x00458B0C with mode 3 and an explicit va_list.
+ */
+
+/*
+ * 0x00458C75 - CRT_fprintf_mode4
+ *
+ * OMITTED - as 0x00458BAB with mode 4 and an explicit va_list.
+ */
+
+/*
+ * 0x00458CF5 - CRT_AtexitRegister
+ *
+ * OMITTED - MSVC C++ static-teardown registry. Lazily allocates the
+ * 12-byte registry head at 0x00645B28 and appends the callback under an
+ * SEH frame. Linux registers destructors through glibc atexit.
+ */
+
+/*
+ * 0x00458DC8 - CRT_AtexitRunOne
+ *
+ * OMITTED - walks the 0x00645B28 registry with StdPtrList iterators and
+ * invokes the matching entry. Counterpart of 0x00458CF5.
+ */
+
+/*
+ * 0x00458E5B - CRT_AtexitRunAll
+ *
+ * OMITTED - as 0x00458DC8 but runs every registered entry.
  */
 
 /*

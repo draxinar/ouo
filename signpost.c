@@ -51,6 +51,36 @@ CSignpost_Constructor(CSignpost *this)
 }
 
 /*
+ * 0x0048ADBE - CSignpost::CSignpost (full args)
+ *
+ * As the no-args constructor but also sets the body type, marks the
+ * signpost removed from the world and drops it at loc. The binary's
+ * RET declares 0x10 bytes of arguments while only the body type at
+ * +0x08 and the location at +0x10 are read.
+ */
+static __attribute__((unused)) CSignpost *
+CSignpost_ConstructorAt(CSignpost *this, uint16_t bodyType, CLocation loc)
+{
+	CItem_Constructor(&this->item);
+	CEntity_SetType(&this->item.resourceEntity.entity, ETYPE_SIGNPOST);
+	g_SignpostCount++;
+	this->vectHead = NULL;
+	this->lockOwner = NULL;
+
+	CEntity_SetBodyType(&this->item, bodyType);
+	this->item.resourceEntity.entity.removedFromWorld = 1;
+	CItem_DropAtFeet(&this->item, &loc);
+
+	this->mapExtent[5] = 0;
+	this->mapExtent[4] = 0;
+	this->mapExtent[3] = 0;
+	this->mapExtent[2] = 0;
+	this->mapExtent[1] = 0;
+	this->mapExtent[0] = 0;
+	return this;
+}
+
+/*
  * 0x0048AE85 - CSignpost::~CSignpost
  *
  * Frees the vectHead list, hides the item if still in world, clears

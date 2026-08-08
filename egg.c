@@ -741,8 +741,11 @@ CResourceTypeManager_RegisterType(CResourceType *rt)
 
 /*
  * 0x004A87C3 - CResourceTypeManager::FindByName
+ * 0x004A881C (duplicate)
  *
- * Walks the hash chain with a case-insensitive name compare.
+ * Walks the hash chain with a case-insensitive name compare. The copy
+ * at 0x004A881C is the same code emitted a second time, differing only
+ * in its branch targets, and nothing references it.
  */
 CResourceType *
 CResourceTypeManager_FindByName(const char *name)

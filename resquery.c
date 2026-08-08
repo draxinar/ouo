@@ -949,6 +949,21 @@ skip:
 }
 
 /*
+ * 0x004B9A24 - TracedMemmove
+ *
+ * memmove with a call-site trace. The trace line is formatted into a
+ * stack buffer and never printed, so only the copy has any effect.
+ */
+static __attribute__((unused)) void
+TracedMemmove(void *dst, const void *src, size_t len, const char *file, int line)
+{
+	char buf[512];
+
+	sprintf(buf, "File : %s Line %d from %X to %X len %d\n", file, line, (unsigned)(uintptr_t)src, (unsigned)(uintptr_t)dst, (unsigned)len);
+	memmove(dst, src, len);
+}
+
+/*
  * 0x004B9A80 - ResQuery_SessionDestruct
  *
  * Destructor: cleans up and optionally frees the session.

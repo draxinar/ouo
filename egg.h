@@ -219,6 +219,11 @@ void RefundResourceNodesToBank(CItem *item);
 // Called from every NPC spawn path under FEAT_CLOSED_ECONOMY. Defined in resbank.c.
 void DeductSpawnFromBank(uint16_t templateId, CLocation *loc);
 
+// CUSTOM: diagnostic flag and per-region quantities[] dump (-dumpbank).
+// Defined in resbank.c. No effect on binary-match behavior.
+extern int g_DumpBankEnabled;
+void CResBankManager_DumpQuantities(uint32_t tickCount);
+
 void PendingNPCRespawn_Enqueue(uint16_t templateId, int16_t x, int16_t y, int8_t z);
 void PendingNPCRespawn_Tick(void);
 extern uint32_t g_HarvestableBodyTypes[]; // 0x00621A20

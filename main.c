@@ -300,8 +300,6 @@ Server_Loop(void)
 
 	// CUSTOM: world-state persistence (binary has no disk-save path).
 	Watchdog_Shutdown();
-	BackupFile(GLOBAL_file_dynidx0_mul, GLOBAL_file_dynidx0_bkp);
-	BackupFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp);
 	SaveDynamic0();
 	Account_SaveAll();
 	// CUSTOM (FEAT_CLOSED_ECONOMY): final bank snapshot on clean exit.
@@ -565,6 +563,8 @@ parseargs(int argc, char **argv)
 			else
 				fprintf(stderr, "invalid fast multiplier: %s (1-100)\n", argv[i + 1]);
 			i++;
+		} else if (strcmp(argv[i], "-dumpbank") == 0) {
+			g_DumpBankEnabled = 1;
 		} else if (strcmp(argv[i], "-watchdog") == 0 && i + 1 < argc) {
 			int ms = atoi(argv[i + 1]);
 			if (ms >= 1000) {
@@ -597,6 +597,7 @@ parseargs(int argc, char **argv)
 			       "  -gm               enable GM mode for all players\n"
 			       "  -test             enable Test Center mode for all players\n"
 			       "  -fast N           skill/stat gain multiplier (1-100)\n"
+			       "  -dumpbank         log per-region resource-bank slots near/below the spawn floor (diagnostic)\n"
 			       "  -watchdog MS      enable infinite-loop watchdog (timeout ms, min 1000)\n"
 			       "  -features LIST    feature flags (all, none, or comma-separated)\n"
 			       "  -spawn-cooldown N per-NPC respawn delay in seconds (default 1024)\n"

@@ -51,37 +51,6 @@ typedef struct CHelpEntry {
 	CString message;
 } CHelpEntry;
 
-/*
- * Counselor/GM assistance record (0x38 bytes on 32-bit) submitted via the
- * help-request packet handler.
- */
-typedef struct CAssistance {
-	uint32_t serial;
-	CString name;
-	uint8_t type;
-	uint8_t level;
-	uint8_t _pad[2];
-	CString subject;
-	CString body;
-} CAssistance;
-
-/*
- * Assistance dispatch node (0x34 bytes on 32-bit) paired with CAssistance
- * for the request-type C/D record variants.
- */
-typedef struct CAssistanceNode {
-	uint32_t id1;
-	uint32_t id2;
-	uint16_t field;
-	uint8_t _pad0A[2];
-	CString str1;
-	uint8_t typeFlag;
-	uint8_t _pad1[3];
-	CString str2;
-	uint16_t field1;
-	uint16_t field2;
-} CAssistanceNode;
-
 static void GM_TargetRename(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetHue(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetMulti(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
@@ -105,16 +74,7 @@ static CHelpEntry *CHelpEntry_ScalarDelete(CHelpEntry *self, int flags); // 0x00
 static CHelpEntry *CHelpEntry_CopyConstructor(CHelpEntry *self, CHelpEntry *src); // 0x0044F810
 static CHelpEntry *CHelpEntry_Constructor(CHelpEntry *self, uint32_t serial, uint8_t type, uint8_t priority, CString *name, CString *message); // 0x0044F8A0
 static void CHelpEntry_Destructor(CHelpEntry *self); // 0x0044F920
-static void CAssistance_Destructor(CAssistance *this); // 0x0045F1E0
-static void CAssistance_NodeDestructor(CAssistanceNode *this); // 0x0045F240
-static CAssistance *CAssistance_Constructor(CAssistance *self); // 0x0045F6C0
-static uint8_t CAssistance_LoadRecordD(CAssistance *this, uint8_t *buf, int unused); // 0x0045F740
-static uint8_t CAssistance_LoadRecordA(CAssistance *this, uint8_t *buf, int unused, uint32_t *serialOut); // 0x0045F8A0
-static uint8_t *CAssistance_SaveRecordB(CSkillUseCtx *this); // 0x0045FA20
 static int CAssistance_GetSerializedSizeB(CSkillUseCtx *this); // 0x0045FBA0
-static uint8_t CAssistance_LoadRecordB(CSkillUseCtx *this, uint8_t *buf, int unused); // 0x0045FBB0
-static CAssistanceNode *CAssistanceNode_Constructor(CAssistanceNode *self); // 0x0045FD20
-static uint8_t CAssistance_LoadRecordC(CAssistanceNode *this, uint8_t *buf, int unused); // 0x0045FDB0
 static void CAssistance_QueueDestructorWrapper(CAssistance *this); // 0x00469530
 static uint8_t *CAssistanceQueue_Submit(CAssistance *this, uint8_t requestType); // 0x0049DBD0
 static int CAssistanceQueue_GetSerializedSize(CAssistance *this); // 0x0049DD90
@@ -146,6 +106,7 @@ static void GM_TargetLight(CPlayer *player, uint8_t type, uint32_t serial, uint1
 static void GM_TargetResurrect(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetFillSpellbook(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetBank(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
+static void GM_TargetPaperdoll(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetSpawnNPC(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetLock(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
 static void GM_TargetUnlock(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
@@ -1916,6 +1877,36 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		return;
 	}
 
+	// Custom: .packmerge NPC_A NPC_B - directly fold two packing NPCs into
+	// one pack via NPC_PackMerge, bypassing the random idle pack-scan, so
+	// tests/test_pack_merge.py can deterministically exercise the
+	// FEAT_ECOLOGY pack-merge path (UoDemo.exe's merge gate is inert - it
+	// only merges when combined hungerCapacity <= 3). The weaker NPC (by
+	// encumbrance) becomes a follower of the stronger; read the resulting
+	// follower link back with .dumpnpc (the NpcPack line).
+	if (strncmp(cmd, "packmerge ", 10) == 0 && CPlayer_IsEditing(player)) {
+		uint32_t serialA, serialB;
+		int n;
+		n = sscanf(cmd + 10, "0x%x 0x%x", &serialA, &serialB);
+		if (n != 2)
+			n = sscanf(cmd + 10, "%u %u", &serialA, &serialB);
+		if (n != 2) {
+			CPlayer_SystemMessage(player, ".packmerge NPC_A NPC_B");
+			return;
+		}
+		CItem *itemA = CWorld_FindBySerial(g_World, serialA);
+		CItem *itemB = CWorld_FindBySerial(g_World, serialB);
+		if (itemA == NULL || !VT_IsNPC(itemA) || itemB == NULL || !VT_IsNPC(itemB)) {
+			CPlayer_SystemMessage(player, "packmerge: both serials must be NPCs");
+			return;
+		}
+		NPC_PackMerge((CMobile *)itemA, (CMobile *)itemB);
+		char msg[120];
+		snprintf(msg, sizeof(msg), "packmerge: 0x%08X + 0x%08X done", serialA, serialB);
+		CPlayer_SystemMessage(player, msg);
+		return;
+	}
+
 	// Custom: .rename NAME - target a mobile and rename it
 	if (strncmp(cmd, "rename ", 7) == 0 && CPlayer_IsEditing(player)) {
 		uint8_t tbuf[20];
@@ -2344,13 +2335,39 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		return;
 	}
 
-	// Custom: .bank - open target mobile's bank box
+	// Custom: .bank <name|0xSERIAL> - open the bank box of a connected
+	// player by name or serial (no cursor; works on non-nearby players).
+	// Must precede the cursor-form check below since both start with "bank".
+	if (strncmp(cmd, "bank ", 5) == 0 && CPlayer_IsEditing(player)) {
+		GM_BankCommand(player, cmd + 5);
+		return;
+	}
+
+	// Custom: .bank - open target mobile's bank box (cursor target).
 	if (strcmp(cmd, "bank") == 0 && CPlayer_IsEditing(player)) {
 		uint8_t tbuf[20];
 		player->targetCallback = GM_TargetBank;
 		PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
 		SendPacketToPlayer(player, tbuf, -1);
 		CPlayer_SystemMessage(player, "Select mobile to open bank");
+		return;
+	}
+
+	// Custom: .paperdoll <name|0xSERIAL> - open the paperdoll of a
+	// connected player by name or serial (no cursor; works on
+	// non-nearby players). Must precede the cursor-form check.
+	if (strncmp(cmd, "paperdoll ", 10) == 0 && CPlayer_IsEditing(player)) {
+		GM_PaperdollCommand(player, cmd + 10);
+		return;
+	}
+
+	// Custom: .paperdoll - open target mobile's paperdoll (cursor target).
+	if (strcmp(cmd, "paperdoll") == 0 && CPlayer_IsEditing(player)) {
+		uint8_t tbuf[20];
+		player->targetCallback = GM_TargetPaperdoll;
+		PacketManager_MakePacket_TARGET(tbuf, 0, 0, 0);
+		SendPacketToPlayer(player, tbuf, -1);
+		CPlayer_SystemMessage(player, "Select mobile to open paperdoll");
 		return;
 	}
 
@@ -2503,8 +2520,6 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 
 	// Custom: .save - force immediate world save
 	if (strcmp(cmd, "save") == 0 && CPlayer_IsEditing(player)) {
-		BackupFile(GLOBAL_file_dynidx0_mul, GLOBAL_file_dynidx0_bkp);
-		BackupFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp);
 		SaveDynamic0();
 		// CUSTOM (FEAT_CLOSED_ECONOMY): a manual save persists the live bank too.
 		SaveAll_ResBank();
@@ -2987,7 +3002,8 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			CPlayer_SystemMessage(player, ".nearby - dump nearby entities");
 			CPlayer_SystemMessage(player, ".create <ID|name> [count] - create item in backpack");
 			CPlayer_SystemMessage(player, ".spawn <ID|name> - spawn NPC near you");
-			CPlayer_SystemMessage(player, ".bank - open target's bank box");
+			CPlayer_SystemMessage(player, ".bank [name|0xSERIAL] - open bank box");
+			CPlayer_SystemMessage(player, ".paperdoll [name|0xSERIAL] - open paperdoll");
 			CPlayer_SystemMessage(player, ".fillspellbook - fill spellbook with all spells");
 			CPlayer_SystemMessage(player, ".hue <ID|name> - set hue on target");
 			CPlayer_SystemMessage(player, ".multi <ID|name|list> - place multi");
@@ -3375,6 +3391,27 @@ CHelpQueue_Who(CHelpQueue *q, CPlayer *player)
 }
 
 /*
+ * 0x0044F3D4 - CHelpQueue::AddNewPlayer
+ *
+ * Queues player at level 0 with the fixed message "(New player)".
+ */
+static __attribute__((unused)) int
+CHelpQueue_AddNewPlayer(CHelpQueue *this, CItem *player)
+{
+	CString message, name;
+	int result;
+
+	CString_Constructor(&message, "(New player)");
+	CString_Constructor(&name, ((char *(*)(void *))VT_FN(player, VT_GET_NAME))(player));
+
+	result = CHelpQueue_Add(this, CMobile_GetSerial((CMobile *)player), CString_GetBuffer(&name), 0, CString_GetBuffer(&message));
+
+	CString_Destructor(&name);
+	CString_Destructor(&message);
+	return result;
+}
+
+/*
  * 0x0044F47B - CHelpQueue::NotifyLogin
  *
  * Called when a counselor logs in. Increments counselorCount; the
@@ -3624,7 +3661,7 @@ CHelpEntry_Destructor(CHelpEntry *self)
  *
  * Destroys the three CString fields in reverse declaration order.
  */
-static __attribute__((unused)) void
+void
 CAssistance_Destructor(CAssistance *this)
 {
 	CString_Destructor(&this->body);
@@ -3637,7 +3674,7 @@ CAssistance_Destructor(CAssistance *this)
  *
  * Destroys the two CString fields in reverse declaration order.
  */
-static __attribute__((unused)) void
+void
 CAssistance_NodeDestructor(CAssistanceNode *this)
 {
 	CString_Destructor(&this->str2);
@@ -3650,7 +3687,7 @@ CAssistance_NodeDestructor(CAssistanceNode *this)
  * Default-constructs a CAssistance: zeros the scalar fields and
  * default-constructs the three CStrings.
  */
-static __attribute__((unused)) CAssistance *
+CAssistance *
 CAssistance_Constructor(CAssistance *self)
 {
 	self->serial = 0;
@@ -3669,7 +3706,7 @@ CAssistance_Constructor(CAssistance *self)
  * + level + 30-byte name + 15-byte subject + 256-byte body) and
  * returns the leading flag byte.
  */
-static __attribute__((unused)) uint8_t
+uint8_t
 CAssistance_LoadRecordD(CAssistance *this, uint8_t *buf, int unused)
 {
 	CAssistance *a = this;
@@ -3714,7 +3751,7 @@ CAssistance_LoadRecordD(CAssistance *this, uint8_t *buf, int unused)
  * Like LoadRecord_TypeD, but the buffer begins with a 4-byte target
  * serial that is returned via serialOut.
  */
-static __attribute__((unused)) uint8_t
+uint8_t
 CAssistance_LoadRecordA(CAssistance *this, uint8_t *buf, int unused, uint32_t *serialOut)
 {
 	CAssistance *a = this;
@@ -3769,7 +3806,7 @@ CAssistance_LoadRecordA(CAssistance *this, uint8_t *buf, int unused, uint32_t *s
  * Serializes a CGMPageEntry into a newly allocated 54-byte buffer:
  * type + 3x serial + xyz + dword + byte + 30-byte name.
  */
-static __attribute__((unused)) uint8_t *
+uint8_t *
 CAssistance_SaveRecordB(CSkillUseCtx *this)
 {
 	uint8_t *buf;
@@ -3832,7 +3869,7 @@ CAssistance_GetSerializedSizeB(CSkillUseCtx *this)
  *
  * Inverse of SaveRecord_TypeB. Returns the leading type byte.
  */
-static __attribute__((unused)) uint8_t
+uint8_t
 CAssistance_LoadRecordB(CSkillUseCtx *this, uint8_t *buf, int unused)
 {
 	int offset;
@@ -3881,7 +3918,7 @@ CAssistance_LoadRecordB(CSkillUseCtx *this, uint8_t *buf, int unused)
  * Default constructor: IDs and sentinel word set to -1/0xFFFF, the
  * rest zeroed, and the two CStrings default constructed.
  */
-static __attribute__((unused)) CAssistanceNode *
+CAssistanceNode *
 CAssistanceNode_Constructor(CAssistanceNode *self)
 {
 	CString_DefaultConstructor(&self->str1);
@@ -3903,7 +3940,7 @@ CAssistanceNode_Constructor(CAssistanceNode *self)
  * Deserializes a CAssistanceNode record (two IDs, a 30-byte name,
  * a 4K data blob, and two trailing words) and returns the type flag.
  */
-static __attribute__((unused)) uint8_t
+uint8_t
 CAssistance_LoadRecordC(CAssistanceNode *this, uint8_t *buf, int unused)
 {
 	CAssistanceNode *n = this;
@@ -4411,6 +4448,10 @@ GM_TargetResources(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, u
 		snprintf(msg, sizeof(msg), "NpcPos x=%d y=%d z=%d", (int)(int16_t)target->resourceEntity.entity.location.x, (int)(int16_t)target->resourceEntity.entity.location.y,
 		        (int)(int8_t)target->resourceEntity.entity.location.z);
 		CPlayer_SystemMessage(player, msg);
+		snprintf(msg, sizeof(msg), "NpcPack isFollower=%u owner=0x%08X hasFollowers=%u nfollowers=%d", (unsigned)npc->mobile.isFollower,
+		        npc->mobile.owner != NULL ? (unsigned)npc->mobile.owner->container.item.serial : 0u, (unsigned)npc->mobile.hasFollowers,
+		        CMobile_CountFollowers(&npc->mobile));
+		CPlayer_SystemMessage(player, msg);
 	}
 }
 
@@ -4797,6 +4838,26 @@ GM_TargetBank(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16
 	}
 	CMobile *mob = (CMobile *)target;
 	CMobile_OpenBankGump(mob, player);
+}
+
+static void
+GM_TargetPaperdoll(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z)
+{
+	USED(type);
+	USED(x);
+	USED(y);
+	USED(z);
+	player->targetCallback = NULL;
+	if (serial == 0) {
+		CPlayer_SystemMessage(player, "Paperdoll cancelled");
+		return;
+	}
+	CItem *target = CWorld_FindBySerial(g_World, serial);
+	if (target == NULL || !VT_IsMobile(target)) {
+		CPlayer_SystemMessage(player, "Not a mobile");
+		return;
+	}
+	OpenPaperdoll(player, CMobile_GetSerial(&player->mobile), target);
 }
 
 static void

@@ -18,6 +18,7 @@
 #include "egg.h"
 #include "gmedit.h"
 #include "main.h"
+#include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
 #include "stddeque.h"
@@ -34,7 +35,6 @@ static CTerrainManager *CTerrainManager_Constructor(CTerrainManager *this); // 0
 static void CTerrainManager_ConstructorVTable(void); // 0x00469AC2
 static int CTerrainManager_IsNotWaterTile(CTerrainManager *this, int tileId); // 0x00469AD6
 static void Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *mob, int zOffset); // 0x00469AF4
-static int CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc2); // 0x0046ACC8
 static int CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob); // 0x0046B276
 static SurfaceInfo *SurfaceInfo_Constructor(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B920
 static void SurfaceInfo_Set(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B950
@@ -994,7 +994,7 @@ CTerrainManager_MovePlayer(CItem *player, int direction, uint8_t sequence)
  * Chebyshev distance between two locations: max(|dx|, |dy|, |dz|/11).
  * ORPHANED: zero callers in binary.
  */
-static __attribute__((unused)) int
+int
 CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc2)
 {
 	int dx, dy, dz;
@@ -1921,6 +1921,22 @@ static int
 LOS_GetFlags(CItem *ent)
 {
 	return ((int (*)(void *))VT_FN(ent, VT_GET_FLAGS))(ent);
+}
+
+/*
+ * 0x004DE50E - SendVerOk
+ *
+ * Builds a VER_OK (0x45) packet carrying value and sends it to the
+ * client with no length cap.
+ */
+static __attribute__((unused)) void
+SendVerOk(uint32_t value, void *unused, CItem *target)
+{
+	uint8_t buf[8];
+
+	USED(unused);
+	PacketManager_MakePacket_VER_OK(buf, value);
+	SendToClient(target, buf, 0xFFFFFFFF);
 }
 
 /*

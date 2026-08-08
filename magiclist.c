@@ -26,7 +26,6 @@ static void *CMagicItemList_InitAndCopyInt(CResList *this, CResList *src); // 0x
 static void *CMagicItemList_FindValue(CResManager *rm, CSearchCtx *ctx); // 0x00466D00
 static void *CMagicItemList_InitAndCopyEffects(CResList *this, CResList *src); // 0x00466C40
 static void *CMagicItemList_CopyStrList(CResList *dst, CResList *src); // 0x00466BF0
-static void *CMagicItemList_InitAndCopyStr(CResList *this, CResList *src); // 0x00466BB0
 static void *CMagicItemList_CopyConstructor(CMagicItemList *this, CMagicItemList *src); // 0x00466B80
 static void CMagicItemList_Init(CMagicItemList *obj); // 0x004663A3
 
@@ -60,6 +59,23 @@ CEffectTableEntry_Constructor(CEffectTableEntry *this)
 }
 
 /*
+ * 0x00466270 - CEffectTableEntry::CEffectTableEntry (copy constructor)
+ *
+ * Copies the type, the name string and the entry list. The binary
+ * reaches the list copy through CMagicItemList's copy constructor,
+ * which MSVC folded with CStringList's because both are CResList
+ * copies. weight and direction are left uncopied.
+ */
+static __attribute__((unused)) CEffectTableEntry *
+CEffectTableEntry_CopyConstructor(CEffectTableEntry *this, CEffectTableEntry *src)
+{
+	this->type = src->type;
+	CString_CopyConstructor(&this->name, &src->name);
+	CMagicItemList_CopyConstructor((CMagicItemList *)&this->entries, (CMagicItemList *)&src->entries);
+	return this;
+}
+
+/*
  * 0x004662DB - CMagicItemListNode::CMagicItemListNode (copy constructor)
  *
  * Copy-constructs the CString and copies the int payload.
@@ -83,6 +99,21 @@ CMagicItemList_Constructor(CMagicItemList *obj)
 	CResListNode_Constructor_bin((CResListNode *)obj);
 	CMagicItemList_Init(obj);
 }
+/*
+ * 0x0046634E - CMagicItemList::CopyFrom
+ *
+ * Copies the effect entries from src, then the three scalar fields.
+ */
+static __attribute__((unused)) CMagicItemList *
+CMagicItemList_CopyFrom(CMagicItemList *obj, CMagicItemList *src)
+{
+	CMagicItemList_InitAndCopyEffects(&obj->list, &src->list);
+	obj->mlCount = src->mlCount;
+	obj->itemId = src->itemId;
+	obj->result = src->result;
+	return obj;
+}
+
 /*
  * 0x00466390 - CMagicItemList::~CMagicItemList
  *
@@ -117,6 +148,106 @@ CItem *
 CMagicItemList_GetResult(CMagicItemList *obj)
 {
 	return CWorld_CreateItem(g_World, obj->itemId);
+}
+
+/*
+ * 0x004663F0 - CMagicItemList::PlaceInContainer
+ *
+ * Takes the factory's pending result and adds it to the container with
+ * the given serial at (-1, -1, 0), then records it in the list.
+ * Returns the placed entity's serial, or 0 when there is no result, the
+ * serial resolves to nothing, or the target is not a container.
+ */
+static __attribute__((unused)) int
+CMagicItemList_PlaceInContainer(CMagicItemList *obj, uint32_t serial)
+{
+	CItem *result;
+	CItem *container;
+	CLocation loc;
+
+	result = CMagicItemList_GetResult(obj);
+	if (result != NULL && ValidateInWorld(result) == 0)
+		result = NULL;
+	if (result == NULL)
+		return 0;
+
+	container = CWorld_FindBySerial(g_World, serial);
+	if (container == NULL)
+		return 0;
+
+	if (((int (*)(void *))VT_FN(container, VT_IS_MOBILE2))(container) == 0)
+		return 0;
+
+	CLocation_Init(&loc);
+	CLocation_Set(&loc, -1, -1, 0);
+	((void (*)(void *, void *, CLocation *))VT_FN(result, VT_ADD_TO_CONTAINER))(result, container, &loc);
+
+	CItem_Setup(result, 0, ((CLocation * (*)(void *)) VT_FN(container, VT_GET_LOCATION))(container), 0, 1);
+	CMagicItemList_AddItem(obj, result);
+	return (int)result->serial;
+}
+
+/*
+ * 0x004664C0 - CMagicItemList::PlaceAtLocation
+ *
+ * Takes the factory's pending result, drops it at loc and records it in
+ * the list. Returns the placed entity's serial, or 0 when there is no
+ * result or it no longer validates against the world.
+ */
+static __attribute__((unused)) int
+CMagicItemList_PlaceAtLocation(CMagicItemList *obj, CLocation *loc)
+{
+	CItem *result;
+
+	result = CMagicItemList_GetResult(obj);
+	if (result != NULL && ValidateInWorld(result) == 0)
+		result = NULL;
+	if (result == NULL)
+		return 0;
+
+	CItem_Setup(result, 0, loc, 0, 1);
+	((void (*)(void *, void *))VT_FN(result, VT_DROP_AT_FEET))(result, loc);
+	CMagicItemList_AddItem(obj, result);
+	return (int)result->serial;
+}
+
+/*
+ * 0x00466534 - CMagicItemList::EquipOnMobile
+ *
+ * Takes the factory's pending result and equips it on the mobile with
+ * the given serial. Returns the equipped entity's serial, or 0 when
+ * there is no result, the serial resolves to nothing, or the target is
+ * not a mobile. A failed equip deletes the result.
+ */
+static __attribute__((unused)) int
+CMagicItemList_EquipOnMobile(CMagicItemList *obj, uint32_t serial, uint8_t layer)
+{
+	CItem *result;
+	CItem *mobile;
+
+	result = CMagicItemList_GetResult(obj);
+	if (result != NULL && ValidateInWorld(result) == 0)
+		result = NULL;
+	if (result == NULL)
+		return 0;
+
+	mobile = CWorld_FindBySerial(g_World, serial);
+	if (mobile == NULL)
+		return 0;
+
+	if (((int (*)(void *))VT_FN(mobile, VT_IS_MOBILE))(mobile) == 0)
+		return 0;
+
+	if (((int (*)(void *, void *, int))VT_FN(result, VT_EQUIP_ON_MOBILE))(result, mobile, layer) != 1) {
+		if (result != NULL)
+			((void (*)(void *))VT_FN(result, VT_DELETE))(result);
+		result = NULL;
+		return 0;
+	}
+
+	CItem_Setup(result, 0, ((CLocation * (*)(void *)) VT_FN(mobile, VT_GET_LOCATION))(mobile), 0, 1);
+	CMagicItemList_AddItem(obj, result);
+	return (int)result->serial;
 }
 
 /*
@@ -302,7 +433,7 @@ CMagicItemList_CopyConstructor(CMagicItemList *this, CMagicItemList *src)
  *
  * Zeros the list head/tail/count and copies entries from src.
  */
-static __attribute__((unused)) void *
+void *
 CMagicItemList_InitAndCopyStr(CResList *this, CResList *src)
 {
 	this->head = NULL;

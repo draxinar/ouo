@@ -26,6 +26,7 @@
 #include "magiclist.h"
 #include "main.h"
 #include "multi.h"
+#include "npc.h"
 #include "player.h"
 #include "random.h"
 #include "region.h"
@@ -131,6 +132,11 @@ CResManager g_DefinesRM;    // +0x430: string-keyed (name -> DefineEntry*)
 int g_SpawnType12Count;
 // 0x006E7678 - total spawn counter
 int g_SpawnTotalCount;
+
+// CUSTOM: diagnostic flag (-dumpbank). When set, the periodic tick logs
+// per-region quantities[] slots that have gone negative. See
+// CResBankManager_DumpQuantities. No effect on binary-match behavior.
+int g_DumpBankEnabled = 0;
 
 // 0x006EFECC - Vendor (shopkeeper) linked list head.
 // Vendors are linked via prevNPC (0x478) as next and npcSfx (0x47C) area as prev.
@@ -3732,6 +3738,115 @@ EnsureSpawnEntriesBuilt(void)
 }
 
 /*
+ * 0x10-byte node of the location list the four functions below manage:
+ * a doubly-linked chain hung off a {head, tail} pair. Nothing in the
+ * binary constructs or reads the list, so the names are descriptive.
+ */
+__extension__ typedef struct ResBankLocNode ResBankLocNode;
+struct ResBankLocNode {
+	uint16_t x;           // 0x00
+	uint16_t y;           // 0x02
+	int8_t z;             // 0x04
+	uint8_t _pad05[0x03]; // 0x05
+	ResBankLocNode *next; // 0x08
+	ResBankLocNode *prev; // 0x0C
+};
+
+__extension__ typedef struct ResBankLocList ResBankLocList;
+struct ResBankLocList {
+	ResBankLocNode *head; // 0x00
+	ResBankLocNode *tail; // 0x04
+};
+
+/*
+ * 0x004B1A24 - ResBankLocList::Clear
+ *
+ * Frees every node in the chain. head and tail are left pointing at
+ * freed nodes.
+ */
+static __attribute__((unused)) void
+ResBankLocList_Clear(ResBankLocList *list)
+{
+	ResBankLocNode *node, *next;
+
+	node = list->head;
+	while (node != NULL) {
+		next = node->next;
+		OperatorDelete(node);
+		node = next;
+	}
+}
+
+/*
+ * 0x004B1A64 - ResBankLocList::PushBack
+ *
+ * Appends an existing node to the tail of the chain.
+ */
+static __attribute__((unused)) void
+ResBankLocList_PushBack(ResBankLocList *list, ResBankLocNode *node)
+{
+	node->prev = list->tail;
+	if (node->prev != NULL)
+		node->prev->next = node;
+
+	list->tail = node;
+	if (list->head == NULL)
+		list->head = node;
+
+	node->next = NULL;
+}
+
+/*
+ * 0x004B1AB5 - ResBankLocList::AddLocation
+ *
+ * Allocates a node for loc and appends it. The allocation is not
+ * checked, and only the low byte of z is kept.
+ */
+static __attribute__((unused)) void
+ResBankLocList_AddLocation(ResBankLocList *list, CLocation loc)
+{
+	ResBankLocNode *node;
+
+	node = (ResBankLocNode *)OperatorNew(sizeof(ResBankLocNode));
+	node->x = loc.x;
+	node->y = loc.y;
+	node->z = (int8_t)loc.z;
+
+	node->prev = list->tail;
+	if (node->prev != NULL)
+		node->prev->next = node;
+
+	list->tail = node;
+	if (list->head == NULL)
+		list->head = node;
+
+	node->next = NULL;
+}
+
+/*
+ * 0x004B1B33 - ResBankLocList::Unlink
+ *
+ * Detaches a node from the chain and clears its links. The node itself
+ * is not freed.
+ */
+static __attribute__((unused)) void
+ResBankLocList_Unlink(ResBankLocList *list, ResBankLocNode *node)
+{
+	if (list->tail == node)
+		list->tail = node->prev;
+	if (list->head == node)
+		list->head = node->next;
+
+	if (node->prev != NULL)
+		node->prev->next = node->next;
+	if (node->next != NULL)
+		node->next->prev = node->prev;
+
+	node->prev = NULL;
+	node->next = NULL;
+}
+
+/*
  * 0x004B1BB0 - CClassification::InsertEntry
  *
  * Appends entryIdx to the classEntryIndices[templateId] array (growing
@@ -5475,8 +5590,9 @@ DeductSpawnFromBank(uint16_t templateId, CLocation *loc)
 		// so the closed economy starves the spawn, not the shopkeeper.
 		avail = CResBankRegion_GetQuantity(region, nd->id);
 		take = nd->value1;
-		if (take > avail)
+		if (take > avail) {
 			take = (avail > 0) ? avail : 0;
+		}
 
 		CResBankRegion_SubtractFromQuantity(region, nd->id, take);
 		CResBankRegion_AddToSpawnedCount(region, nd->id, nd->value1);
@@ -5514,5 +5630,125 @@ RefundResourceNodesToBank(CItem *item)
 		if (nd->type != 3 || nd->id == 0 || nd->value3 <= 0)
 			continue;
 		CResBankRegion_AddToQuantity(region, nd->id, nd->value3);
+	}
+}
+
+/*
+ * Custom - CResBankManager_DumpQuantities (diagnostic, -dumpbank)
+ *
+ * Reports the closed-economy resource bank (per-region quantities[]). A
+ * negative balance is the "seized" state in which ResBankLimitCheck rejects
+ * a vendor's stock item; when a shopkeeper's whole stock is rejected,
+ * CTemplateManager_CreateFromTemplate culls the stockless vendor (template.c)
+ * - which is why enabling closed economy can make shopkeepers disappear.
+ *
+ * Event-based to stay readable over long runs: a per-slot line is emitted
+ * only when a (region, resource) slot CHANGES state - WENT-NEGATIVE
+ * (qty < 0), NEAR-FLOOR (0 <= qty <= maxSpawns>>4, the CanSpawnTemplate
+ * respawn floor), or RECOVERED - not every dump. A compact one-line summary
+ * is emitted every dump with the live vendor count and the running trend
+ * (total balance, worst slot).
+ *
+ * Each per-slot line is tagged vendor=yes/no: "yes" means the resource id
+ * backs the stock of at least one shopkeeper (so a negative balance there can
+ * empty a vendor's stock and get it culled). The vendor-backing set is
+ * accumulated across dumps from the live vendor list (g_VendorListHead, via
+ * prevNPC) by collecting the type-3 node ids in each vendor's sell/offer/buy
+ * containers (equipment[26..28]); the first dump runs before any culling, so
+ * an id stays tagged even after its vendors are culled and leave the list.
+ *
+ * Gated at the call site by g_DumpBankEnabled; no effect on binary-match
+ * behavior.
+ */
+void
+CResBankManager_DumpQuantities(uint32_t tickCount)
+{
+	// Cumulative across dumps: ids seen backing vendor stock, and the prior
+	// per-(region,resource) state for transition detection (0 ok, 1 floor,
+	// 2 negative). prevState is indexed by region walk order, stable once
+	// region setup has finished at load.
+	enum { DUMP_MAX_REGIONS = 64 };
+	static uint8_t vendorBacked[RESBANK_MAX_TEMPLATES];
+	static int8_t prevState[DUMP_MAX_REGIONS][RESBANK_MAX_TEMPLATES];
+	static const int stockSlots[3] = { 26, 27, 28 }; // sellable, offer, buyable
+	CResBankRegion *region;
+	CNPC *vendor;
+	int vendorCount = 0;
+	int totalNeg = 0;
+	int vendorNeg = 0;
+	int nearFloor = 0;
+	int regionIdx = 0;
+	int64_t totalBal = 0;
+	int32_t worstQty = 0x7FFFFFFF;
+	int worstId = -1;
+	const char *worstRegion = NULL;
+
+	// Refresh the vendor-backing id set and the live vendor count from the
+	// vendor list. The head is the newest vendor; LinkToVendorList chains
+	// older entries through prevNPC, so walk via prevNPC. The count is the
+	// direct signal for actual shopkeeper disappearance.
+	for (vendor = g_VendorListHead; vendor != NULL; vendor = vendor->prevNPC) {
+		int s;
+		vendorCount++;
+		for (s = 0; s < 3; s++) {
+			CItem *cont = vendor->mobile.equipment[stockSlots[s]];
+			CItem *it;
+			if (cont == NULL)
+				continue;
+			for (it = ((CContainer *)cont)->contents; it != NULL; it = it->spatialNext) {
+				CResourceNode *nd;
+				for (nd = it->resourceEntity.firstChild; nd != NULL; nd = nd->next) {
+					if (nd->type == 3 && nd->id != 0 && nd->id < RESBANK_MAX_TEMPLATES)
+						vendorBacked[nd->id] = 1;
+				}
+			}
+		}
+	}
+
+	for (region = g_ResBankManager.first; region != NULL; region = region->next) {
+		int i;
+
+		if (region == g_ResBankManager.noRegion)
+			continue;
+
+		for (i = 0; i < RESBANK_MAX_TEMPLATES; i++) {
+			int32_t q = region->quantities[i];
+			int floor = region->maxSpawns[i] >> 4;
+			int cur = (q < 0) ? 2 : (region->maxSpawns[i] > 0 && q <= floor) ? 1 : 0;
+
+			totalBal += q;
+			if (q < worstQty) {
+				worstQty = q;
+				worstId = i;
+				worstRegion = region->name;
+			}
+			if (cur == 2) {
+				totalNeg++;
+				if (vendorBacked[i])
+					vendorNeg++;
+			} else if (cur == 1) {
+				nearFloor++;
+			}
+
+			// Per-slot line only on a state transition, to stay concise.
+			if (regionIdx < DUMP_MAX_REGIONS && cur != prevState[regionIdx][i]) {
+				CResourceType *rt = CResourceTypeManager_GetId(i);
+				const char *name = (rt != NULL) ? CResourceType_GetInternalName(rt) : "?";
+				const char *ev = (cur == 2) ? "WENT-NEGATIVE" : (cur == 1) ? "NEAR-FLOOR" : "RECOVERED";
+
+				fprintf(stderr, "[bankdump] EVENT tick=%u %s region=\"%s\" id=%d name=%s qty=%d max=%d vendor=%s\n", tickCount, ev, region->name, i, name, q,
+				        region->maxSpawns[i], vendorBacked[i] ? "yes" : "no");
+				prevState[regionIdx][i] = (int8_t)cur;
+			}
+		}
+		regionIdx++;
+	}
+
+	{
+		CResourceType *wrt = (worstId >= 0) ? CResourceTypeManager_GetId(worstId) : NULL;
+		const char *wname = (wrt != NULL) ? CResourceType_GetInternalName(wrt) : "?";
+
+		fprintf(stderr, "[bankdump] summary tick=%u vendors=%d overdrawn=%d(vendor=%d) nearfloor=%d totalbal=%lld worst=%d(%s@%s)\n", tickCount, vendorCount, totalNeg,
+		        vendorNeg, nearFloor, (long long)totalBal, (worstId >= 0) ? worstQty : 0, wname, (worstRegion != NULL) ? worstRegion : "?");
 	}
 }

@@ -1648,6 +1648,25 @@ CItem_GetResourceNodeValue(CItem *item, CResourceNode *node, int valueIndex, int
 }
 
 /*
+ * 0x00485E65 - CItem::AddToResourceNodeValue
+ *
+ * Adds delta to node->value1/2/3 (selected by valueIndex 0..2) and
+ * returns 1, or returns 0 when the index is out of range. The item is
+ * not used.
+ */
+static __attribute__((unused)) int
+CItem_AddToResourceNodeValue(CItem *item, CResourceNode *node, int valueIndex, int delta)
+{
+	USED(item);
+
+	if (valueIndex < 0 || valueIndex > 2)
+		return 0;
+
+	(&node->value1)[valueIndex] += delta;
+	return 1;
+}
+
+/*
  * 0x00485EB9 - CItem::Setup
  *
  * Seeds the secondary location (when currently -1 and type is 0), then
@@ -1732,6 +1751,31 @@ CItem_GetObjVarResType(CItem *item, int *resultOut, int resTypeId, int8_t type, 
 	if (resType == NULL)
 		return 0;
 	return CItem_GetObjVarResTypeInner(item, resultOut, resType, type, valueIndex);
+}
+
+/*
+ * 0x00486236 - CItem::GetObjVarResTypeByName
+ *
+ * As CItem_GetObjVarResType but resolves the resource type by name
+ * rather than by id. The name arrives as a by-value CString the caller
+ * owns the buffer of and this function destroys.
+ */
+static __attribute__((unused)) int
+CItem_GetObjVarResTypeByName(CItem *item, int *resultOut, CString resTypeName, int8_t type, int valueIndex)
+{
+	CResourceType *resType;
+	int result;
+
+	resType = CResourceTypeManager_FindByName(CString_GetBuffer(&resTypeName));
+	if (resType == NULL) {
+		result = 0;
+		CString_Destructor(&resTypeName);
+		return result;
+	}
+
+	result = CItem_GetObjVarResTypeInner(item, resultOut, resType, type, valueIndex);
+	CString_Destructor(&resTypeName);
+	return result;
 }
 
 /*
@@ -2795,6 +2839,46 @@ Item_IsSpecialBodyType(CItem *item)
 
 	if (bt == 0x0E1C || bt == 0x0FA6 || bt == 0x0FAD)
 		return 1;
+	return 0;
+}
+
+/*
+ * 0x00487A47 - Item_IsBodyTypeInList_487A47
+ *
+ * True when the item's body type is one of the twelve at 0x0061DA88.
+ * Nothing in the binary names the list, so it keeps its address.
+ */
+static __attribute__((unused)) int
+Item_IsBodyTypeInList_487A47(CItem *item)
+{
+	// 0x0061DA88
+	static const uint32_t bodyTypes[12] = { 0x12C, 0x121, 0x120, 0x122, 0x123, 0x39, 0x2FF, 0x11, 0x136, 0x137, 0x2F9, 0x2FA };
+	int i;
+
+	for (i = 0; i < 12; i++) {
+		if (bodyTypes[i] == (uint32_t)(CEntity_GetBodyType(item) & 0xFFFF))
+			return 1;
+	}
+	return 0;
+}
+
+/*
+ * 0x00487A90 - Item_IsBodyTypeInList_487A90
+ *
+ * True when the item's body type is one of the eight at 0x0061DAB8.
+ * Nothing in the binary names the list, so it keeps its address.
+ */
+static __attribute__((unused)) int
+Item_IsBodyTypeInList_487A90(CItem *item)
+{
+	// 0x0061DAB8
+	static const uint32_t bodyTypes[8] = { 0x3D5D, 0x3D5E, 0x3D5F, 0x3D60, 0x3D54, 0x3D55, 0x3D56, 0x3D57 };
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		if (bodyTypes[i] == (uint32_t)(CEntity_GetBodyType(item) & 0xFFFF))
+			return 1;
+	}
 	return 0;
 }
 
@@ -5008,6 +5092,28 @@ CItem_MoveMultiCheck(CItem *item, CLocation *loc, int checkFlag)
 }
 
 /*
+ * 0x0048EBFB - CItem::HasHarvestableResource
+ *
+ * True when the item carries a type 3 resource node with a non-zero id
+ * and a positive value3. Items with no such node still qualify when
+ * their body type falls in 0x2008 to 0x20CF.
+ */
+static __attribute__((unused)) int
+CItem_HasHarvestableResource(CItem *item)
+{
+	CResourceNode *node;
+
+	for (node = item->resourceEntity.firstChild; node != NULL; node = node->next) {
+		if (node->id != 0 && node->type == 3 && node->value3 > 0)
+			return 1;
+	}
+
+	if (CEntity_GetBodyType(item) > 0x2007 && CEntity_GetBodyType(item) < 0x20D0)
+		return 1;
+	return 0;
+}
+
+/*
  * 0x0048EC7D - CItem::MultiAwareDistance
  *
  * 3D distance between self and target, measured to the nearest multi
@@ -5334,6 +5440,27 @@ CMobile_SetLocation_VT(CItem *self, CLocation *loc)
 }
 
 /*
+ * 0x00490725 - CWorld::CollectAllSerials
+ *
+ * Appends the serial of every entity in the world's serial hash to out.
+ * The binary reads the table through its absolute address rather than
+ * through the passed world pointer, which it never touches.
+ */
+static __attribute__((unused)) void
+CWorld_CollectAllSerials(CWorld *world, CVector *out)
+{
+	CItem *ent;
+	int i;
+
+	USED(world);
+
+	for (i = 0; i < 0x10000; i++) {
+		for (ent = g_World->hashTable[i]; ent != NULL; ent = ent->hashNext)
+			CVector_PushBack(out, ent->serial);
+	}
+}
+
+/*
  * 0x00490780 - CItem::HasScript
  *
  * Loads scriptName through the script manager and reports whether
@@ -5434,6 +5561,22 @@ void
 CItem_SetMsgDay(CItem *item, uint32_t day)
 {
 	CEntity_SetObjVar(item, "msgDay", 0, day);
+}
+
+/*
+ * 0x004908D7 - CItem::GetMsgDay
+ *
+ * Reads the msgDay ObjVar, or 0 when unset.
+ */
+static __attribute__((unused)) uint32_t
+CItem_GetMsgDay(CItem *item)
+{
+	int val;
+
+	val = 0;
+	if (CResourceEntity_HasTag(item, "msgDay", 0))
+		CResourceEntity_GetTagInt(item, "msgDay", &val);
+	return (uint32_t)val;
 }
 
 /*

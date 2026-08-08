@@ -23,6 +23,7 @@
 #include "log.h"
 #include "main.h"
 #include "multi.h"
+#include "gmedit.h"
 #include "npc.h"
 #include "packet_handler.h"
 #include "packet_manager.h"
@@ -269,6 +270,24 @@ CMobile_HandleFollowerMovement(CMobile *owner, int direction)
 		if (!((int (*)(void *, int, int))VT_FN((CItem *)follower, VT_WALK_CHECK))(follower, direction, 0))
 			continue;
 		((void (*)(void *, int, int))VT_FN((CItem *)follower, VT_DO_WALK))(follower, direction, -128);
+	}
+}
+
+/*
+ * 0x0045E48A - CMobile::CommandFollowerNPCs
+ *
+ * Walks the owner's follower list and calls CNPC::DoWalk directly on
+ * every follower that is an NPC.
+ */
+static __attribute__((unused)) void
+CMobile_CommandFollowerNPCs(CMobile *owner, int mode, CLocation *loc)
+{
+	CMobile *follower;
+
+	for (follower = owner->firstFollower; follower != NULL; follower = follower->nextFollower) {
+		if (!((int (*)(void *))VT_FN((CItem *)follower, VT_IS_NPC))(follower))
+			continue;
+		CNPC_DoWalk((CNPC *)follower, mode, loc);
 	}
 }
 
@@ -1377,6 +1396,25 @@ CMobile_IsWalkableBodyType(CNPC *npc)
 }
 
 /*
+ * 0x0046E05A - CMobile::FindWhatIUnlock
+ *
+ * Looks target's serial up in this mobile's "whatIUnlock" tag list
+ * through vtable[0x164] and returns the match.
+ */
+static __attribute__((unused)) CItem *
+CMobile_FindWhatIUnlock(CMobile *this, CMobile *target)
+{
+	CString name;
+	CItem *found;
+
+	CString_Constructor(&name, "whatIUnlock");
+	found = ((CItem * (*)(void *, CString *, uint32_t)) VT_FN((CItem *)this, VT_FIND_IN_TAG_LIST))(this, &name, CMobile_GetSerial(target));
+	CString_Destructor(&name);
+
+	return found;
+}
+
+/*
  * 0x0046E0F9 - CheckWalkDir_IsSelf
  *
  * Verifies the NPC's serial still resolves to itself after door use.
@@ -2422,6 +2460,35 @@ CMobile_SetLight(CMobile *mob, uint8_t lightTime, uint8_t lightVal)
 }
 
 /*
+ * 0x0046F60E - Skill_GetGraphic
+ *
+ * Maps a skill number to a graphic id. The three weapon skills get one
+ * each (slashing 0x3D65, bashing 0x3D64, piercing 0x3D66), as do three
+ * skill numbers past the end of the demo's skill table (50, 52, 53).
+ * Everything else, including skill 0, gets 0x3D67.
+ */
+static __attribute__((unused)) uint16_t
+Skill_GetGraphic(uint16_t skillId)
+{
+	switch (skillId) {
+	case 0x28:
+		return 0x3D65;
+	case 0x29:
+		return 0x3D64;
+	case 0x2A:
+		return 0x3D66;
+	case 0x32:
+		return 0x3D6A;
+	case 0x34:
+		return 0x3D69;
+	case 0x35:
+		return 0x3D6B;
+	default:
+		return 0x3D67;
+	}
+}
+
+/*
  * 0x0046F6BD - FixBank
  *
  * Guarantees the bank box at equipment[29] is a CContainer with
@@ -3285,6 +3352,26 @@ CMobile_Destructor(CMobile *mob)
 
 	// Chain to CContainer destructor
 	CContainer_Destructor(&mob->container.item);
+}
+
+/*
+ * 0x00470F96 - CMobile::TickWaitState
+ *
+ * Counts one tick against the pending wait-state action and clears both
+ * the counter and the action once the tick count passes waitStateMax.
+ * The comparison is signed, so a waitStateMax above 0x7F never fires.
+ */
+static __attribute__((unused)) void
+CMobile_TickWaitState(CMobile *this)
+{
+	if (this->waitStateAction == 0)
+		return;
+
+	this->waitStateTick++;
+	if ((int8_t)this->waitStateTick > (int8_t)this->waitStateMax) {
+		this->waitStateTick = 0;
+		this->waitStateAction = 0;
+	}
 }
 
 /*
@@ -5251,6 +5338,27 @@ Entity_SendSystemMessage(CItem *entity, uint32_t serial, char *message)
 }
 
 /*
+ * 0x00485352 - Entity_SendSystemMessage_Unicode
+ *
+ * The unicode twin of Entity_SendSystemMessage: sends a system SPEECH
+ * packet (hue 0x3B2, font 3, language 0) on behalf of entity; no-op for
+ * non-player, non-NULL entities.
+ */
+static __attribute__((unused)) void
+Entity_SendSystemMessage_Unicode(CItem *entity, uint32_t serial, uint16_t *text)
+{
+	uint8_t obuf[0x830];
+
+	if (entity != NULL) {
+		if (!VT_IsPlayer(entity))
+			return;
+	}
+
+	PacketManager_MakePacket_TEXT_UNICODE(obuf, entity, entity, 0, text, 0x03B2, 3, 0);
+	Entity_BroadcastPacket(entity, serial, obuf);
+}
+
+/*
  * 0x00486641 - CMobile::GetSurfaceFlags (vtable[0x40])
  *
  * Mobiles are TF_IMPASSABLE (0x40), except when g_IgnoreMobiles is
@@ -5879,6 +5987,70 @@ Mobile_GetMeleeRange(CMobile *mob)
 	if (weapon != NULL)
 		return CItem_GetMeleeRange(weapon) & 0xFF;
 	return 1;
+}
+
+/*
+ * 0x004D767B - CMobile::CombatApproachOrFlee
+ *
+ * Steps the mobile relative to the first valid entry of its combat
+ * target list. Above the flee threshold - 100 minus combatByte4 - it
+ * closes when the target is further than its own melee range; below it
+ * it backs off, stepping in the reversed direction when the target is
+ * inside the target's melee range. No-op when combatByte2 is clear, the
+ * list is empty, or the target is not a mobile.
+ */
+static __attribute__((unused)) void
+CMobile_CombatApproachOrFlee(CMobile *this)
+{
+	StdPtrNode *iter, *endIter;
+	CItem *target;
+	CMobile *targetMob;
+	int8_t active, fleeThreshold;
+	uint8_t unusedByte;
+	int hpPercent, closeIn, fleeing;
+	int myRange, targetRange, dist, dir;
+
+	active = (int8_t)this->combatByte2;
+	unusedByte = this->combatByte3;
+	fleeThreshold = (int8_t)(100 - (int8_t)this->combatByte4);
+	USED(unusedByte);
+
+	if (active == 0)
+		return;
+
+	hpPercent = (CMobile_GetHp(this) * 100) / CMobile_GetMaxHp(this);
+	if (fleeThreshold > hpPercent) {
+		fleeing = 1;
+		closeIn = 0;
+		USED(fleeing);
+	} else {
+		closeIn = 1;
+	}
+
+	CSerialList_FindFirstValidTarget((StdPtrList *)&this->combatTargetList, &iter);
+	if (StdPtrIter_Eq(&iter, StdPtrList_End((StdPtrList *)&this->combatTargetList, &endIter)))
+		return;
+
+	target = CWorld_FindBySerial(g_World, CSearchCtx_Find((CSearchCtx *)StdPtrIter_Deref(&iter)));
+	if (target == NULL || !VT_IsMobile(target))
+		return;
+
+	targetMob = (CMobile *)target;
+	myRange = Mobile_GetMeleeRange(this);
+	targetRange = Mobile_GetMeleeRange(targetMob);
+
+	dist = CTerrainManager_GetDistance(NULL, this->container.item.resourceEntity.entity.location, targetMob->container.item.resourceEntity.entity.location);
+	dir = NPC_CalcDirectionSimple((CItem *)this, (CItem *)targetMob);
+
+	if (closeIn) {
+		if (dist > myRange)
+			Player_StepInDirection((CItem *)this, dir);
+	} else {
+		if (dist < targetRange) {
+			AdvancePhaseIndex(&dir);
+			Player_StepInDirection((CItem *)this, dir);
+		}
+	}
 }
 
 /*

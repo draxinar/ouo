@@ -252,6 +252,45 @@ CLightManager_NotifyMoonChange(int trammelChanged, int feluccaChanged)
 	}
 }
 /*
+ * 0x004D7E70 - CTimeManager::ScanRemovedEntities
+ *
+ * Walks every world hash bucket and calls IsPlayer on each entity
+ * flagged removedFromWorld. The result is discarded, so the scan has no
+ * observable effect.
+ */
+static __attribute__((unused)) void
+CTimeManager_ScanRemovedEntities(void)
+{
+	int i;
+	CItem *ent;
+
+	for (i = 0; i < 0x10000; i++) {
+		for (ent = g_World->hashTable[i]; ent != NULL; ent = ent->hashNext) {
+			if (ent->resourceEntity.entity.removedFromWorld != 0)
+				((void (*)(void *))VT_FN(ent, VT_IS_PLAYER))(ent);
+		}
+	}
+}
+
+/*
+ * 0x004D7ECE - CTimeManager::ValidateAllRegions
+ *
+ * Walks every world hash bucket and calls the region-validation slot on
+ * each entity, active or not.
+ */
+static __attribute__((unused)) void
+CTimeManager_ValidateAllRegions(void)
+{
+	int i;
+	CItem *ent;
+
+	for (i = 0; i < 0x10000; i++) {
+		for (ent = g_World->hashTable[i]; ent != NULL; ent = ent->hashNext)
+			((void (*)(void *))VT_FN(ent, VT_VALIDATE_REG))(ent);
+	}
+}
+
+/*
  * 0x004D7F23 - CTimeManager::CTimeManager
  *
  * Initializes clock fields (hour=12), event list arrays, and moon phase
@@ -468,8 +507,6 @@ CTimeManager_Update(void)
 	// ships SaveDynamic0 unwired; this restores a save cadence using
 	// the same bitmask pattern as the other periodic subsystems.
 	if ((tickCount & 0xFFF) == 0 && tickCount != 0) {
-		BackupFile(GLOBAL_file_dynidx0_mul, GLOBAL_file_dynidx0_bkp);
-		BackupFile(GLOBAL_file_dynamic0_mul, GLOBAL_file_dynamic0_bkp);
 		SaveDynamic0();
 		Account_SaveAll();
 		// CUSTOM (FEAT_CLOSED_ECONOMY): persist the live resource bank alongside
@@ -484,6 +521,14 @@ CTimeManager_Update(void)
 	// mobiles).
 	if (feat(FEAT_RESOURCE_REGROWTH) && (tickCount & 0x3FFF) == 0 && tickCount != 0)
 		ResourceRegrowthTick();
+
+	// Custom: resource-bank diagnostic dump (-dumpbank), every 64 ticks
+	// (~16s). Emits per-region quantities[] state-transition events (a slot
+	// going negative empties vendor stock and culls shopkeepers under
+	// FEAT_CLOSED_ECONOMY) plus a one-line trend summary. tickCount is
+	// pre-incremented above, so the first dump lands at tick 64, not tick 0.
+	if (g_DumpBankEnabled && (tickCount & 0x3F) == 0)
+		CResBankManager_DumpQuantities(tickCount);
 }
 
 /*
@@ -823,6 +868,20 @@ CTimeManager_Tick(void)
 			}
 		}
 	}
+}
+
+/*
+ * 0x004D8C29 - CTimeManager::TicksSince
+ *
+ * Returns tick - tickCount, adding 0x40000000 when tick has wrapped
+ * past the stored counter.
+ */
+static __attribute__((unused)) int
+CTimeManager_TicksSince(CTimeManager *this, int tick)
+{
+	if (tick < (int)this->tickCount)
+		return (tick - (int)this->tickCount) + 0x40000000;
+	return tick - (int)this->tickCount;
 }
 
 /*

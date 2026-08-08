@@ -17,5 +17,6 @@ int AnimData_UpdateEntry(CPlayer *player, int animIndex, uint8_t *data); // 0x00
 int MapBlock_ReadEntry(CPlayer *player, CRegion *region); // 0x004D716B
 void World_SuppressUpdates(void); // 0x004D721C
 void World_RestoreUpdates(void); // 0x004D7238
+void Player_StepInDirection(CItem *entity, int direction); // 0x004D73B0
 
 #endif /* GMEDIT_H_ */

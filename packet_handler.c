@@ -97,7 +97,7 @@ static void UseSpellbook(CPlayer *player, CItem *spellbook); // 0x004DBE7B
 static void UseScrollCase(CPlayer *player, CItem *scrollcase); // 0x004DC0BC
 static void DispatchDoubleClickMobile(CPlayer *player, uint32_t serial, CLocation *loc, CItem *entity, int isPaperdoll); // 0x004DC220
 static void UseLight(CItem *entity); // 0x004DC350
-static void OpenPaperdoll(CPlayer *player, uint32_t playerSerial, CItem *target); // 0x004DC388
+void OpenPaperdoll(CPlayer *player, uint32_t playerSerial, CItem *target); // 0x004DC388
 static void OpenSpellbook(CPlayer *player, uint32_t playerSerial, CItem *spellbook); // 0x004DC511
 static void DoDoubleClick(CPlayer *this, uint32_t playerSerial, CLocation *playerLoc, CItem *entity, int isPaperdoll); // 0x004DC611
 static void DeadDoubleClick(CPlayer *this, CItem *entity); // 0x004DCD62
@@ -1151,6 +1151,24 @@ SIMPED_Apply(uint32_t startX, uint32_t startY, uint32_t data, uint16_t extentX, 
 }
 
 /*
+ * 0x0045B625 - SIMPED_FreeTileGroups
+ *
+ * Frees every loaded editor tile group and clears its slot.
+ */
+static __attribute__((unused)) void
+SIMPED_FreeTileGroups(void)
+{
+	int i;
+
+	for (i = 0; i < 0x40; i++) {
+		if (g_EditorTileGroups[i] != NULL) {
+			OperatorDelete(g_EditorTileGroups[i]);
+			g_EditorTileGroups[i] = NULL;
+		}
+	}
+}
+
+/*
  * 0x0045B67D - SIMPED_FindTileEntry
  *
  * Searches a tile group's tile ID array (64 entries at entry+0x58)
@@ -1507,6 +1525,17 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 		return;
 	}
 
+	// Custom: enforce the 5-character-per-account limit. The character
+	// list (0xA9) shows only 5 slots; without a cap an account accumulates
+	// unreachable characters that appear to vanish as they move between the
+	// live and archived lists.
+	if (CPlayerList_AccountCharCount(this->account->accountNum) >= 5) {
+		Log_Game(this->addr, "'%s' character create rejected (account full)", this->account->login);
+		PacketManager_MakePacket_LOGIN_REJECT(&obuf[0], 0x00);
+		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
+		return;
+	}
+
 	locX = locY = locZ = -1;
 
 	off = 0;
@@ -1641,7 +1670,7 @@ HandlePacket_PRELOGIN(CUserSock *this, uint8_t *buf)
 		CVector cv;
 		char tf = '\x01';
 		CVector_Constructor(&cv, &tf);
-		CPlayerList_CollectByAccountID(&cv, this->account->accountNum);
+		CPlayerList_CollectByAccountIDSorted(&cv, this->account->accountNum);
 		uint32_t cc = CVector_GetCount(&cv);
 		if (charSlot < cc) {
 			player = (CPlayer *)((uintptr_t *)cv.begin)[charSlot];
@@ -1715,7 +1744,7 @@ HandlePacket_ACCT_LOGIN_REQ_original(CUserSock *this, uint8_t *buf)
 		char typeFlag = '\x01';
 		uint32_t i, count;
 		CVector_Constructor(&charVec, &typeFlag);
-		CPlayerList_CollectByAccountID(&charVec, acct->accountNum);
+		CPlayerList_CollectByAccountIDSorted(&charVec, acct->accountNum);
 		count = CVector_GetCount(&charVec);
 		for (i = 0; i < count && numCharacters < 5; i++) {
 			CPlayer *p = (CPlayer *)((uintptr_t *)charVec.begin)[i];
@@ -1822,7 +1851,7 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	// Custom: find the player at the requested slot using account's character list
 	typeFlag = '\x01';
 	CVector_Constructor(&charVec, &typeFlag);
-	CPlayerList_CollectByAccountID(&charVec, this->account->accountNum);
+	CPlayerList_CollectByAccountIDSorted(&charVec, this->account->accountNum);
 	numCharacters = CVector_GetCount(&charVec);
 	target = ((int)characterSlot < numCharacters) ? (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot] : NULL;
 	CVector_Destructor(&charVec);
@@ -1855,7 +1884,7 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 
 	typeFlag = '\x01';
 	CVector_Constructor(&charVec, &typeFlag);
-	CPlayerList_CollectByAccountID(&charVec, this->account->accountNum);
+	CPlayerList_CollectByAccountIDSorted(&charVec, this->account->accountNum);
 	numCharacters = CVector_GetCount(&charVec);
 	for (i = 0; i < numCharacters && i < 5; i++) {
 		CPlayer *p = (CPlayer *)((uintptr_t *)charVec.begin)[i];
@@ -2935,6 +2964,33 @@ HandlePacket_REQ_OBJUSE(CPlayer *this, uint8_t *buf)
 }
 
 /*
+ * 0x00493EDE - PlayDropSoundAtItem
+ *
+ * The same gold/backpack sound selection as PlayDropSound, but played
+ * on the item itself rather than on a separate listener entity.
+ */
+static __attribute__((unused)) void
+PlayDropSoundAtItem(CItem *item, CItem *container)
+{
+	int amount;
+
+	if ((CEntity_GetBodyType(item) & 0xFFFF) == 0x0EED) {
+		amount = ((int (*)(void *))VT_FN(item, VT_GET_ITEM_AMOUNT))(item);
+		if (amount <= 1) {
+			PlaySoundAtEntity(item, 0x35, 0);
+		} else if (amount <= 5) {
+			PlaySoundAtEntity(item, 0x36, 0);
+		} else {
+			PlaySoundAtEntity(item, 0x37, 0);
+		}
+	} else if (container != NULL && (VT_IsMobile(container) || (CEntity_GetBodyType(container) & 0xFFFF) == 0x0E75 || (CEntity_GetBodyType(container) & 0xFFFF) == 0x0E76)) {
+		PlaySoundAtEntity(item, 0x48, 0);
+	} else {
+		PlaySoundAtEntity(item, 0x42, 0);
+	}
+}
+
+/*
  * 0x00493FAF - PlayDropSound
  *
  * Gold (0xEED): amount<=1 → 0x35, amount<=5 → 0x36, else → 0x37.
@@ -3368,9 +3424,15 @@ GetCanHoldFailReason(int code)
 /*
  * 0x00494D6F - HandlePacket_REQ_DROPOBJ
  *
- * Exact decompilation of the binary drop handler. Handles dropping items
- * on ground, into containers, onto players (trade), and onto NPCs (sell).
+ * Decompilation of the binary drop handler. Handles dropping items on
+ * ground, into containers, onto players (trade), and onto NPCs (sell).
  * Uses vtable dispatch for entity type checks and container operations.
+ *
+ * MODIFIED: when the player is in GM editing mode and the in-range
+ * container lookup fails, fall back to CWorld_FindBySerial so the GM
+ * can drop into a container the binary's spatial scan would miss
+ * (e.g. a remote bank box parented to a far-away mobile, opened via
+ * the custom .bank <name|0xSERIAL> command).
  */
 void
 HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf)
@@ -3430,6 +3492,14 @@ HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf)
 		CLocation_Set(&targetLoc, dropX, dropY, (int16_t)(int8_t)dropZ);
 	} else {
 		contEntity = CWorld_FindEntityInRange(g_World, &this->mobile.container.item.resourceEntity.entity, contSerial, 18);
+
+		// CUSTOM: GMs in editing mode bypass the range check so that
+		// .bank <name> on a far-away player accepts drops into the
+		// remote bank box. The target container is parented to a
+		// mobile outside the spatial-grid scan from the GM's tile.
+		if (contEntity == NULL && CPlayer_IsEditing(this)) {
+			contEntity = CWorld_FindBySerial(g_World, contSerial);
+		}
 
 		if (contEntity == NULL) {
 			DropObj_Bounce((CItem *)this, item, &dropLoc);
@@ -7895,6 +7965,27 @@ TriggerEdit_CString_GetCStr(void *cstr)
 }
 
 /*
+ * 0x004DB130 - BroadcastUnicodeSpeechAtEye
+ *
+ * Builds a unicode speech packet for entity and broadcasts it from the
+ * entity's eye position - its own location raised by half its height -
+ * to everyone within 12 tiles with line of sight.
+ */
+static __attribute__((unused)) void
+BroadcastUnicodeSpeechAtEye(CItem *entity, uint8_t speechType, uint16_t *text, uint16_t hue, uint16_t font, uint32_t lang, uint16_t range)
+{
+	uint8_t obuf[0x830];
+	CLocation eyeLoc, delta;
+
+	PacketManager_MakePacket_TEXT_UNICODE(obuf, entity, NULL, speechType, text, hue, font, lang);
+
+	CLocation_Constructor3D(&delta, 0, 0, (int16_t)(((int (*)(void *))VT_FN(entity, VT_GET_HEIGHT))(entity) / 2));
+	CLocation_AddWrapped(CEntity_GetLocation(&entity->resourceEntity.entity), &eyeLoc, &delta);
+
+	BroadcastToRangeWithLOS(obuf, &eyeLoc, range, 0xC);
+}
+
+/*
  * 0x004DB1C1 - HandlePacket_SPEECH_UNICODE
  *
  * Empty in UoDemo.exe (Unicode speech not implemented in the demo).
@@ -8692,7 +8783,7 @@ SendOpenGump(CPlayer *player, uint32_t playerSerial, uint32_t containerSerial, u
  * target fameLevel < 3: truncates title at last comma. Otherwise uses
  * full title.
  */
-static void
+void
 OpenPaperdoll(CPlayer *player, uint32_t playerSerial, CItem *target)
 {
 	CString title;
@@ -9168,7 +9259,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 		char typeFlag = '\x01';
 		uint32_t i, count;
 		CVector_Constructor(&charVec, &typeFlag);
-		CPlayerList_CollectByAccountID(&charVec, acct->accountNum);
+		CPlayerList_CollectByAccountIDSorted(&charVec, acct->accountNum);
 		count = CVector_GetCount(&charVec);
 		for (i = 0; i < count && numCharacters < 5; i++) {
 			CPlayer *p = (CPlayer *)((uintptr_t *)charVec.begin)[i];

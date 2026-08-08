@@ -294,6 +294,7 @@ CNPC *CNPCManager_GetIterNext(void); // 0x00484CB0
 void CNPCManager_SetIterNext(CNPC *val); // 0x00484CD0
 uint8_t CNPC_GetMovementType_VT(CNPC *npc); // 0x0048B596
 void CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps); // 0x0049E0C9
+double PathNode_Interpolate(double x1, double x2, double t); // 0x0049E6E2
 PathNodeList *PathNodeList_Constructor(PathNodeList *this); // 0x0049E814
 void CNPC_StartCombatAI(CMobile *npc, CMobile *target); // 0x004A829F
 int CNPC_ShouldProcess(CNPC *npc); // 0x004A8361
@@ -316,6 +317,8 @@ void ResourceQuery_Stub(void); // 0x004AC7B7
 void BroadcastAnimation(CMobile *mob, uint16_t action, uint16_t frameCount, uint16_t repeatCount, uint8_t backward, uint8_t repeat, uint8_t delay); // 0x004AC9F5
 void CNPC_SetRunState(CMobile *mob, int running); // 0x004ACA3C
 void CMobile_NPC_SetAIState(CMobile *mob, int state); // 0x004ACB07
+int NPC_CalcDirectionSimple(CItem *target, CItem *source); // 0x004D7405
+void AdvancePhaseIndex(int *phasePtr); // 0x004D7600
 void Noop_4D7D1A(CPlayer *player); // 0x004D7D1A
 void CNPC_SetupPath8Dir(CNPC *npc, CLocation *loc, int maxSteps);
 

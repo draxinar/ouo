@@ -1905,6 +1905,79 @@ CoerceToInt(ResultNode **chainPtr)
 }
 
 /*
+ * 0x00428741 - CoerceVarRefToInt
+ *
+ * Coercion for var-ref nodes only: rewrites node type 2 to 3 and 4 to
+ * 5, then accepts the node when its declared variable is WTYPE_INT.
+ * Every other node type is rejected outright, where CoerceToInt would
+ * have consulted the handler and function tables.
+ */
+static __attribute__((unused)) int
+CoerceVarRefToInt(ResultNode **chainPtr)
+{
+	ResultNode *node;
+	CNamedScopeEntry *var;
+
+	if (*chainPtr == NULL)
+		return 1;
+
+	node = *chainPtr;
+	switch (node->type) {
+	case 2:
+	case 4:
+		node->type = (node->type == 2) ? 3 : 5;
+		break;
+	case 3:
+	case 5:
+		break;
+	default:
+		return 1;
+	}
+
+	var = (CNamedScopeEntry *)(uintptr_t)node->value;
+	if (var->typeId != WTYPE_INT)
+		return 1;
+
+	*chainPtr = node->next;
+	return 0;
+}
+
+/*
+ * 0x004287CA - CoerceVarRefToUString
+ *
+ * As CoerceVarRefToInt but accepts WTYPE_USTRING instead.
+ */
+static __attribute__((unused)) int
+CoerceVarRefToUString(ResultNode **chainPtr)
+{
+	ResultNode *node;
+	CNamedScopeEntry *var;
+
+	if (*chainPtr == NULL)
+		return 1;
+
+	node = *chainPtr;
+	switch (node->type) {
+	case 2:
+	case 4:
+		node->type = (node->type == 2) ? 3 : 5;
+		break;
+	case 3:
+	case 5:
+		break;
+	default:
+		return 1;
+	}
+
+	var = (CNamedScopeEntry *)(uintptr_t)node->value;
+	if (var->typeId != WTYPE_USTRING)
+		return 1;
+
+	*chainPtr = node->next;
+	return 0;
+}
+
+/*
  * 0x004289EE - CoerceToStr
  *
  * Coerces the current ResultNode to WTYPE_STRING. String literals

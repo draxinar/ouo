@@ -557,6 +557,23 @@ CResourceEntity_FindNode(CItem *entity, uint16_t id, int8_t type)
 }
 
 /*
+ * 0x00485D78 - CResourceEntity::FindOrAddNode
+ *
+ * Returns the existing node for (resType->typeId, type), allocating and
+ * inserting one when none is present.
+ */
+static __attribute__((unused)) CResourceNode *
+CResourceEntity_FindOrAddNode(CItem *this, CResourceType *resType, int8_t type)
+{
+	CResourceNode *node;
+
+	node = CItem_FindResourceNodeByIdAndType(this, resType, type);
+	if (node == NULL)
+		node = CResourceEntity_AddOrFindNode(this, resType, type);
+	return node;
+}
+
+/*
  * 0x00485DB6 - CResourceEntity::AddOrFindNode
  *
  * Returns NULL if a matching node already exists; otherwise allocates a

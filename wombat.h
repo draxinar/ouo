@@ -1057,7 +1057,10 @@ extern int g_HintCapacity;
 int CScriptStringDB_Load(CScriptStringDB *db, const char *path); // 0x0040107D
 void CScriptStringDB_BuildIndex(CScriptStringDB *db, void *arg); // 0x004011D7
 const char *CScriptStringDB_Get(CScriptStringDB *db, int index); // 0x00401381
+void *String_CopyAssign(CSdbStr *this, void *dest, void *src); // 0x004014C0
+void String_Tidy(CSdbStr *this); // 0x004014F0
 void IosBase_SetState(CIosBase *this, uint32_t state, char excflag); // 0x00401730
+void *CSdbStrVector_Insert(CScriptStringDB *this, CSdbStr *value); // 0x00401A20
 unsigned int char_traits_to_int_type(const char *p); // 0x00401E20
 char char_traits_deref(const char *p); // 0x00401F50
 char *String_Nullstr(void); // 0x00402C60

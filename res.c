@@ -138,7 +138,6 @@ static CResListNode *CResList_FreeNodeT(CResList *list, CResListNode *node, int 
 static CResListNode *CResList_FreeNodeC(CResList *list, CResListNode *node, int direction); // 0x00441910
 static CResListNode *CResList_FreeNodeS(CResList *list, CResListNode *node, int direction); // 0x004418B0
 static CResListNode *CResList_FreeNodeI(CResList *list, CResListNode *node, int direction); // 0x00441850
-static void CResManager_InsertByRef(CResList *list, uint32_t val); // 0x0045EC0D
 static CResListNode *CResList_AllocAndSetData(CResList *list, uint32_t *valuePtr); // 0x0045F300
 static CResListNode *CResList_AllocNode(CResList *list); // 0x0045F3A0
 static CResListNode *CResList_PushFront_SpawnLocal(CResList *list, CResListNode *afterNode); // 0x0045F5D0
@@ -192,8 +191,6 @@ static void *CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearc
 static void *CResManager_NextIterInternalMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047B730
 static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, int startBucket, int direction); // 0x0047B630
 static CSearchCtx *CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction); // 0x0047B580
-static void *CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outData, int direction); // 0x0047AB40
-static CSearchCtx *CResManager_FindOrInsert_B(CResManager *this, CSearchCtx *output, void *keyPtr, int direction); // 0x0047AA80
 static int CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr); // 0x0047A930
 static CSearchCtx *CResManager_CreateOrFind_R(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047A840
 static void CResListNode_FreeData(CResListNode *node); // 0x0047D460
@@ -223,7 +220,6 @@ static void *CResManager_FindNextBucket_ByFile(CResManager *rm, CSearchCtx *out,
 static void CResList_ValNodeDestructor_Region(CResListNode *this); // 0x004A80E0
 static void CSearchCtx_FreeKeyVal(CSearchCtx *this); // 0x004A864D
 static void *CResList_EraseAndFree_ByFileVal(CResList *list, uintptr_t valNode, uint32_t direction); // 0x004A8150
-static void *CResManager_GetResult_Defines(CResManager *this, CSearchCtx *ctx); // 0x004C0D00
 static void *CResManager_FindByInt_Templates(CResManager *rm, CSearchCtx *output, void *keyPtr, int direction); // 0x004C0C40
 static int CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr); // 0x004C0AF0
 static void CResManager_ClearJ_Thunk(CResManager *this); // 0x004C0F50
@@ -421,6 +417,33 @@ void
 CResListNode_SetNext(CResListNode *node, CResListNode *next)
 {
 	node->next = next;
+}
+
+/*
+ * 0x0042F854 - EntityMap_SortAndValidate
+ *
+ * Sorts the entity range by location, then runs the Z validation pass
+ * over it. Always returns 1; the validation result is stored to a local
+ * and dropped.
+ *
+ * MODIFIED: both calls take their comparator byte from an uninitialised
+ * stack slot - the binary never writes EBP-0x4 or EBP-0xc before
+ * pushing them. The locals are zeroed here so the build stays free of
+ * -Wuninitialized; the value is only a scratch accumulator whose result
+ * this function discards, and nothing calls this.
+ */
+static __attribute__((unused)) int
+EntityMap_SortAndValidate(void *container)
+{
+	char cmpSort = 0;
+	char cmpValidate = 0;
+	char unused;
+
+	SortByLocation_Entry((uintptr_t *)CSearchCtx_GetBucket((CSearchCtx *)container), (uintptr_t *)(uintptr_t)StdList_GetSize((StdPtrList *)container), cmpSort);
+	unused = EntityMap_ForEachValidateZ(
+	        (uintptr_t *)CSearchCtx_GetBucket((CSearchCtx *)container), (uintptr_t *)(uintptr_t)StdList_GetSize((StdPtrList *)container), cmpValidate);
+	USED(unused);
+	return 1;
 }
 
 /*
@@ -4853,7 +4876,7 @@ CResListNodeE_Destructor(CResListNode *node)
  *
  * Inserts value into list via CResList_AllocAndSetData.
  */
-static __attribute__((unused)) void
+void
 CResManager_InsertByRef(CResList *list, uint32_t val)
 {
 	CResList_AllocAndSetData(list, &val);
@@ -6412,7 +6435,7 @@ CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr
  *
  * Seeds a ctx at the bucket head for key and delegates to FindByKey_B2.
  */
-static __attribute__((unused)) CSearchCtx *
+CSearchCtx *
 CResManager_FindOrInsert_B(CResManager *this, CSearchCtx *output, void *keyPtr, int direction)
 {
 	CSearchCtx ctx;
@@ -6438,7 +6461,7 @@ CResManager_FindOrInsert_B(CResManager *this, CSearchCtx *output, void *keyPtr, 
  * Erases the key/val pair at current, dropping the owning bucket lists
  * when they become empty, and writes the successor ctx to *output.
  */
-static __attribute__((unused)) void *
+void *
 CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outData, int direction)
 {
 	CSearchCtx localCtx;
@@ -8818,7 +8841,7 @@ CResManager_FindByInt_Templates(CResManager *rm, CSearchCtx *output, void *keyPt
  * Delegates to CResManager_GetResultCtx with the defines-variant
  * search context.
  */
-static __attribute__((unused)) void *
+void *
 CResManager_GetResult_Defines(CResManager *this, CSearchCtx *ctx)
 {
 	return CResManager_GetResultCtx(this, ctx);

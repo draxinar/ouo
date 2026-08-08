@@ -5,6 +5,7 @@
  * helpers reproduced from MSVC's binary layout.
  */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -378,6 +379,22 @@ CString_ConcatInt(CString *s, int value)
 }
 
 /*
+ * 0x004D3500 - CString::operator+=(float)
+ *
+ * Formats the value with "%f" into a 256-byte stack buffer and appends
+ * it. The argument is promoted to double for the sprintf call.
+ */
+static __attribute__((unused)) CString *
+CString_ConcatFloat(CString *s, float value)
+{
+	char buf[256];
+
+	sprintf(buf, "%f", (double)value);
+	CString_ConcatCStr(s, buf);
+	return s;
+}
+
+/*
  * 0x004D354A - CString::ConcatUInt
  *
  * Formats value as an unsigned decimal string and appends it.
@@ -452,6 +469,33 @@ CString_CompareStr(CString *s, const char *str)
 }
 
 /*
+ * 0x004D3708 - CString::operator!=(char)
+ *
+ * Returns 0 when the string holds exactly one character equal to c
+ * ignoring case, 1 otherwise.
+ */
+static __attribute__((unused)) int
+CString_NotEqualChar(CString *s, char c)
+{
+	if (s->length != 1)
+		return 1;
+	if (tolower((unsigned char)s->data[0]) == tolower((unsigned char)c))
+		return 0;
+	return 1;
+}
+
+/*
+ * 0x004D3754 - CString::operator!=(const CString&)
+ *
+ * Case-insensitive comparison via stricmp. Returns 1 if different.
+ */
+static __attribute__((unused)) int
+CString_NotEqualCString(CString *s, CString *other)
+{
+	return strcasecmp(s->data, other->data) != 0;
+}
+
+/*
  * 0x004D3782 - CString::CompareNoCase
  *
  * Case-insensitive compare. Returns 0 if equal, 1 if not.
@@ -497,6 +541,26 @@ CString_OpPlusCStr(CString *s, const char *str)
 }
 
 /*
+ * 0x004D3848 - CString::operator+(char)
+ *
+ * Same as 0x004D37D5 but appends a single character.
+ */
+static __attribute__((unused)) CString *
+CString_OpPlusChar(CString *s, char c)
+{
+	static CString g_opPlusChar;
+	static int g_opPlusChar_init;
+
+	if (!g_opPlusChar_init) {
+		g_opPlusChar_init = 1;
+		CString_DefaultConstructor(&g_opPlusChar);
+	}
+	CString_AssignCStr(&g_opPlusChar, s->data);
+	CString_ConcatChar(&g_opPlusChar, c);
+	return &g_opPlusChar;
+}
+
+/*
  * 0x004D38BB - CString::operator+(const CString&)
  *
  * Same as 0x004D37D5 but appends a CString.
@@ -518,6 +582,131 @@ CString_OpPlusCString(CString *s, CString *other)
 
 // 0x006EFEE0 - static CString returned by CString_Mid
 static CString g_MidResult = { NULL, 0, 1, 0 };
+
+/*
+ * 0x004D392E - CString::MakeUpper
+ *
+ * Uppercases the string in place via toupper.
+ */
+static __attribute__((unused)) CString *
+CString_MakeUpper(CString *s)
+{
+	char *p;
+
+	if (s->data != NULL && s->data[0] != '\0') {
+		for (p = s->data; *p != '\0'; p++)
+			*p = (char)toupper((unsigned char)*p);
+	}
+	return s;
+}
+
+/*
+ * 0x004D3988 - CString::MakeLower
+ *
+ * Lowercases the string in place via tolower.
+ */
+static __attribute__((unused)) CString *
+CString_MakeLower(CString *s)
+{
+	char *p;
+
+	if (s->data != NULL && s->data[0] != '\0') {
+		for (p = s->data; *p != '\0'; p++)
+			*p = (char)tolower((unsigned char)*p);
+	}
+	return s;
+}
+
+/*
+ * 0x004D39E2 - CString::Prepend(char)
+ *
+ * Inserts a character in front of the current contents, growing the
+ * buffer by refCount bytes when length + 1 no longer fits.
+ *
+ * Prepend never rewrites capacity, so repeated calls keep reallocating
+ * from the same stale value. Reproduced as it stands - nothing calls
+ * this.
+ */
+static __attribute__((unused)) CString *
+CString_PrependChar(CString *s, char c)
+{
+	char *newBuf;
+	int cap;
+
+	if (s->length + 1 < s->capacity)
+		cap = s->capacity;
+	else
+		cap = s->capacity + s->refCount;
+
+	newBuf = (char *)OperatorNew(cap);
+	newBuf[0] = c;
+	strcpy(newBuf + 1, s->data);
+	OperatorDelete(s->data);
+	s->data = newBuf;
+	s->length = strlen(s->data);
+	return s;
+}
+
+/*
+ * 0x004D3A81 - CString::Prepend(const char *)
+ *
+ * Inserts a C string in front of the current contents. The growth step
+ * is the larger of the inserted length and refCount.
+ *
+ * The old buffer is leaked - unlike 0x004D39E2 this one never releases
+ * it. Reproduced as it stands - nothing calls this.
+ */
+static __attribute__((unused)) CString *
+CString_PrependCStr(CString *s, const char *str)
+{
+	char *newBuf;
+	int grow;
+	int cap;
+
+	grow = (int)strlen(str);
+	if (grow < s->refCount)
+		grow = s->refCount;
+	if (s->length + grow < s->capacity)
+		cap = s->capacity;
+	else
+		cap = s->capacity + grow;
+
+	newBuf = (char *)OperatorNew(cap);
+	strcpy(newBuf, str);
+	strcat(newBuf, s->data);
+	s->data = newBuf;
+	s->length = strlen(s->data);
+	return s;
+}
+
+/*
+ * 0x004D3B3F - CString::Prepend(const CString&)
+ *
+ * Same as 0x004D3A81 but takes the inserted length from other's length
+ * field instead of measuring it, and leaks the old buffer the same way.
+ */
+static __attribute__((unused)) CString *
+CString_PrependCString(CString *s, CString *other)
+{
+	char *newBuf;
+	int grow;
+	int cap;
+
+	grow = other->length;
+	if (grow < s->refCount)
+		grow = s->refCount;
+	if (s->length + grow < s->capacity)
+		cap = s->capacity;
+	else
+		cap = s->capacity + grow;
+
+	newBuf = (char *)OperatorNew(cap);
+	strcpy(newBuf, other->data);
+	strcat(newBuf, s->data);
+	s->data = newBuf;
+	s->length = strlen(s->data);
+	return s;
+}
 
 /*
  * 0x004D3BF9 - CString::Mid

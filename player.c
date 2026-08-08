@@ -265,6 +265,20 @@ CPlayerList_Heartbeat(void)
 }
 
 /*
+ * 0x0044FACA - CPlayerList::ListNames
+ *
+ * Sends the name of every player in the list to gm as a system message.
+ */
+static __attribute__((unused)) void
+CPlayerList_ListNames(CPlayerList *this, CPlayer *gm)
+{
+	CPlayer *p;
+
+	for (p = this->head; p != NULL; p = p->next)
+		CPlayer_SystemMessage(gm, ((char *(*)(void *))VT_FN((CItem *)p, VT_GET_NAME))(p));
+}
+
+/*
  * 0x0044FB0B - CPlayerList::GetCount
  *
  * Returns (g_PlayerCreateCount - entity manager list size) masked to 16 bits.
@@ -298,6 +312,107 @@ CPlayerList_CountNearBorder(void)
 			count++;
 	}
 	return (int16_t)count;
+}
+
+/*
+ * 0x0044FBA5 - CPlayerList::DeleteByName
+ *
+ * Deletes every player whose name matches name, announcing each one to
+ * gm. Tells gm "No such player." when nothing matched.
+ */
+static __attribute__((unused)) void
+CPlayerList_DeleteByName(CPlayerList *this, CPlayer *gm, const char *name)
+{
+	CPlayer *p, *next;
+	char buf[128];
+	int found;
+
+	found = 0;
+	for (p = this->head; p != NULL; p = next) {
+		next = p->next;
+		if (strcasecmp(name, ((char *(*)(void *))VT_FN((CItem *)p, VT_GET_NAME))(p)) == 0) {
+			sprintf(buf, "Deleting %s.", ((char *(*)(void *))VT_FN((CItem *)p, VT_GET_NAME))(p));
+			CPlayer_SystemMessage(gm, buf);
+			found = 1;
+			if (p != NULL)
+				((void (*)(void *))VT_FN((CItem *)p, VT_DELETE))(p);
+		}
+	}
+
+	if (found == 0)
+		CPlayer_SystemMessage(gm, "No such player.");
+}
+
+/*
+ * 0x0044FC8F - CPlayerList::DeletePlayer
+ *
+ * Announces the deletion of target to gm and deletes it. The list is
+ * not consulted. The name is fetched through target's vtable before the
+ * null check below it, so a null target faults on the first line.
+ */
+static __attribute__((unused)) void
+CPlayerList_DeletePlayer(CPlayerList *this, CPlayer *gm, CPlayer *target)
+{
+	char buf[128];
+
+	USED(this);
+
+	sprintf(buf, "Deleting %s.", ((char *(*)(void *))VT_FN((CItem *)target, VT_GET_NAME))(target));
+	CPlayer_SystemMessage(gm, buf);
+
+	if (target != NULL)
+		((void (*)(void *))VT_FN((CItem *)target, VT_DELETE))(target);
+}
+
+/*
+ * 0x0044FCE1 - CPlayerList::DeleteByCharacterNum
+ *
+ * Deletes the first player whose characterNum matches, then stops. The
+ * "Deleting %s." line is formatted into a stack buffer the function
+ * never sends anywhere, so the deletion happens silently.
+ */
+static __attribute__((unused)) void
+CPlayerList_DeleteByCharacterNum(CPlayerList *this, uint32_t characterNum)
+{
+	CPlayer *p, *next;
+	char buf[128];
+
+	for (p = this->head; p != NULL; p = next) {
+		next = p->next;
+		if (characterNum == p->characterNum) {
+			sprintf(buf, "Deleting %s.", ((char *(*)(void *))VT_FN((CItem *)p, VT_GET_NAME))(p));
+			if (p != NULL)
+				((void (*)(void *))VT_FN((CItem *)p, VT_DELETE))(p);
+			break;
+		}
+	}
+}
+
+/*
+ * 0x0044FD82 - CPlayerList::DeleteByAccountNum
+ *
+ * Deletes every player whose accountNum matches. Like the characterNum
+ * variant the "Deleting %s." line goes nowhere, and the match counter
+ * is never read.
+ */
+static __attribute__((unused)) void
+CPlayerList_DeleteByAccountNum(CPlayerList *this, uint32_t accountNum)
+{
+	CPlayer *p, *next;
+	char buf[128];
+	int count;
+
+	count = 0;
+	for (p = this->head; p != NULL; p = next) {
+		next = p->next;
+		if (accountNum == p->accountNum) {
+			sprintf(buf, "Deleting %s.", ((char *(*)(void *))VT_FN((CItem *)p, VT_GET_NAME))(p));
+			if (p != NULL)
+				((void (*)(void *))VT_FN((CItem *)p, VT_DELETE))(p);
+			count++;
+		}
+	}
+	USED(count);
 }
 
 /*
@@ -480,6 +595,28 @@ CPlayerList_SendPacketToAll(uint8_t *buf)
 
 	SendToClientList(&list, buf);
 	CVector_Destructor(&list);
+}
+
+/*
+ * 0x00450352 - GetStartLocation
+ *
+ * Writes start location index into out, shifted by the map origin.
+ * The binary reads a table of {x, y, z} 16-bit triples based at
+ * g_ConfigStartX (0x00645AF0), but CConfig_Init only ever fills entry
+ * 0, so any other index reads whatever follows in .bss.
+ */
+static __attribute__((unused)) CLocation *
+GetStartLocation(CLocation *out, int index)
+{
+	const uint16_t *table = &g_ConfigStartX;
+	CLocation loc;
+
+	CLocation_Init(&loc);
+	loc.x = (uint16_t)(table[index * 3 + 0] + g_Config.x);
+	loc.y = (uint16_t)(table[index * 3 + 1] + g_Config.y);
+	loc.z = (int16_t)table[index * 3 + 2];
+	CLocation_SetLoc(out, &loc);
+	return out;
 }
 
 /*
@@ -798,15 +935,19 @@ NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *
 	player->usersock = this;
 	this->player = player;
 
-	// Custom: bind character to account
+	// Custom: bind character to account. Assign the lowest free 0-4 slot
+	// (a stable characterNum), not an ever-growing append index, so the
+	// 5-slot character-select list does not reshuffle when a character
+	// logs out and moves from the live list to the archived list.
 	if (this->account != NULL) {
-		CVector charVec;
-		char typeFlag = '\x01';
-		CVector_Constructor(&charVec, &typeFlag);
+		int usedMask = CPlayerList_AccountUsedSlots(this->account->accountNum, player);
+		int slot;
+		for (slot = 0; slot < 5; slot++) {
+			if (!(usedMask & (1 << slot)))
+				break;
+		}
 		player->accountNum = this->account->accountNum;
-		CPlayerList_CollectByAccountID(&charVec, this->account->accountNum);
-		player->characterNum = CVector_GetCount(&charVec) - 1;
-		CVector_Destructor(&charVec);
+		player->characterNum = (uint32_t)slot;
 	}
 
 	return player;
@@ -2171,6 +2312,33 @@ CPlayer_CheckHouseDoor(CPlayer *this)
 }
 
 /*
+ * 0x00452F5E - CPlayer::SetBodyTypeAndRefresh
+ *
+ * Changes the body type and pushes an entity update to every player
+ * within 18 tiles. A dead player that is not manifesting is only shown
+ * to other dead players.
+ */
+static __attribute__((unused)) void
+CPlayer_SetBodyTypeAndRefresh(CPlayer *this, uint16_t bodyType)
+{
+	CPlayer *p;
+
+	CPlayer_SetBodyType(this, bodyType);
+
+	for (p = g_PlayerList.head; p != NULL; p = p->next) {
+		if (CLocation_ChebyshevDistance(
+		            CEntity_GetLocation(&p->mobile.container.item.resourceEntity.entity), CEntity_GetLocation(&this->mobile.container.item.resourceEntity.entity)) > 0x12)
+			continue;
+
+		if (((int (*)(void *))VT_FN((CItem *)this, VT_IS_DEAD))(this) && (this->pflags & PlayerIsManifesting) == 0 &&
+		        ((int (*)(void *))VT_FN((CItem *)p, VT_IS_DEAD))(p) == 0)
+			continue;
+
+		((void (*)(void *, void *, int))VT_FN((CItem *)this, VT_SEND_ENTITY_UPDATE))(this, p, 0);
+	}
+}
+
+/*
  * 0x00453000 - CPlayer vtable[0x204] PaperdollTitle
  *
  * Builds the paperdoll title string, dispatching on role (GM,
@@ -2971,6 +3139,24 @@ next_entity:;
 }
 
 /*
+ * 0x00454740 - CPlayer::RefreshNearby
+ *
+ * Collects the players within 18 tiles and dispatches vtable[0x130]
+ * SendUpdateToList with mode 1.
+ */
+static __attribute__((unused)) void
+CPlayer_RefreshNearby(CPlayer *this)
+{
+	CVector players;
+	char typeFlag[16] = { 0 };
+
+	CVector_Constructor(&players, typeFlag);
+	GetNearbyPlayers(&players, &this->mobile.container.item.resourceEntity.entity.location, 0x12);
+	((void (*)(void *, CVector *, int))VT_FN((CItem *)this, VT_NOTIFY_NEARBY))(this, &players, 1);
+	CVector_Destructor(&players);
+}
+
+/*
  * 0x004547B7
  */
 int
@@ -2992,6 +3178,27 @@ CPlayer_IsDead(CPlayer *this)
 	if ((uint16_t)CResourceEntity_GetBodyType((CItem *)this) == 0x193)
 		return 1;
 	return 0;
+}
+
+/*
+ * 0x00454810 - CPlayer::GetClientIPString
+ *
+ * Formats the socket's remote address as dotted decimal into a shared
+ * static buffer, most significant byte first. Returns the literal
+ * "0.0.0.0" when the player has no socket.
+ */
+static __attribute__((unused)) const char *
+CPlayer_GetClientIPString(CPlayer *this)
+{
+	// 0x00645AB8 - static buffer shared by every caller
+	static char buf[128];
+
+	if (this->usersock == NULL)
+		return "0.0.0.0";
+
+	sprintf(buf, "%d.%d.%d.%d", (unsigned)this->usersock->addr >> 24, ((unsigned)this->usersock->addr >> 16) & 0xFF, ((unsigned)this->usersock->addr >> 8) & 0xFF,
+	        (unsigned)this->usersock->addr & 0xFF);
+	return buf;
 }
 
 /*
@@ -3230,6 +3437,23 @@ CPlayer_AddToGMCallQueue(CPlayer *this)
 	ctx.field0C = 0;
 
 	CEditorObj_HandleGMSingle((CEditorObj *)&g_GMPlayerList, &ctx);
+}
+
+/*
+ * 0x00454D7D - CPlayer::MakeGameMaster
+ *
+ * Grants GM status and registers the player in the GM list. Returns 1
+ * when the flag was granted, 0 when it was already set.
+ */
+static __attribute__((unused)) int
+CPlayer_MakeGameMaster(CPlayer *this)
+{
+	if (CPlayer_IsGameMaster(this))
+		return 0;
+
+	this->pflags |= PlayerIsGameMaster;
+	CResManager_InsertByRef(&g_GMPlayerList, (uint32_t)(uintptr_t)this);
+	return 1;
 }
 
 /*
@@ -3924,6 +4148,21 @@ CMobile_ActionBark(CItem *player, int hueVal, char *text1, char *text2)
 }
 
 /*
+ * 0x00455CEA - CPlayer::IsOverWeight
+ *
+ * True when the carried weight exceeds the carry cap.
+ */
+static __attribute__((unused)) int
+CPlayer_IsOverWeight(CPlayer *this)
+{
+	int weight, maxWeight;
+
+	weight = ((int (*)(void *))VT_FN((CItem *)this, VT_GET_WEIGHT))(this);
+	maxWeight = ((int (*)(void *))VT_FN((CItem *)this, VT_GET_MAX_WEIGHT))(this);
+	return weight > maxWeight;
+}
+
+/*
  * 0x00455D26 - CPlayer::CheckWeight
  *
  * Returns 1 if the player is overweight, sending an "overloaded"
@@ -3972,6 +4211,28 @@ CPlayer_ProcessDeath(CPlayer *this)
 	CMobile_SetStatusFlag(&this->mobile, 0x02, 0);
 	CPlayer_SetMovePrevented(this, 0);
 	return 1;
+}
+
+/*
+ * 0x00455E2E - CPlayer::AdjustNotorietyScaled
+ *
+ * Adds delta divided by a tenth of the current notoriety's magnitude.
+ * The binary divides by abs(notoriety) / 10, which is 0 for any
+ * notoriety of magnitude 1 to 9, and the IDIV then faults. Reproduced
+ * as it stands.
+ */
+static __attribute__((unused)) void
+CPlayer_AdjustNotorietyScaled(CPlayer *this, int delta)
+{
+	int divisor;
+
+	divisor = abs(CMobile_GetNotoriety(&this->mobile));
+	if (divisor == 0)
+		divisor = 1;
+	else
+		divisor /= 10;
+
+	((void (*)(void *, int))VT_FN((CItem *)this, VT_SET_NOTORIETY))(this, CMobile_GetNotoriety(&this->mobile) + delta / divisor);
 }
 
 /*
@@ -4091,6 +4352,46 @@ CPlayer_FillAggroInfo_VT(CPlayer *self, AggroInfo *info)
 	CResourceEntity_GetTagInt((CItem *)self, "guildType", &ai->guildType);
 	name = ((const char *(*)(void *))VT_FN((CItem *)self, VT_GET_NAME))(self);
 	CString_AssignCStr(&ai->name, name);
+}
+
+/*
+ * 0x004560BE - SendMessageToParticipants
+ *
+ * Formats fmt with the names of the three entities - "NULL" for any
+ * that is absent - and sends the result to whichever of them are
+ * players. The third is skipped when it is one of the first two.
+ */
+static __attribute__((unused)) void
+SendMessageToParticipants(CItem *first, CItem *second, CItem *third, const char *fmt)
+{
+	const char *firstName, *secondName, *thirdName;
+	char buf[256];
+
+	if (third == NULL)
+		thirdName = "NULL";
+	else
+		thirdName = ((char *(*)(void *))VT_FN(third, VT_GET_NAME))(third);
+
+	if (second == NULL)
+		secondName = "NULL";
+	else
+		secondName = ((char *(*)(void *))VT_FN(second, VT_GET_NAME))(second);
+
+	if (first == NULL)
+		firstName = "NULL";
+	else
+		firstName = ((char *(*)(void *))VT_FN(first, VT_GET_NAME))(first);
+
+	sprintf(buf, fmt, firstName, secondName, thirdName);
+
+	if (first != NULL && ((int (*)(void *))VT_FN(first, VT_IS_PLAYER))(first))
+		CPlayer_SystemMessage((CPlayer *)first, buf);
+
+	if (second != NULL && ((int (*)(void *))VT_FN(second, VT_IS_PLAYER))(second))
+		CPlayer_SystemMessage((CPlayer *)second, buf);
+
+	if (third != NULL && third != first && third != second && ((int (*)(void *))VT_FN(third, VT_IS_PLAYER))(third))
+		CPlayer_SystemMessage((CPlayer *)third, buf);
 }
 
 /*
@@ -4527,6 +4828,43 @@ CPlayerList_AddSunlight(int amount)
 }
 
 /*
+ * 0x004569BD - CPlayerList::CollectSerials
+ *
+ * Appends the serial of every player matching filter to out. filter 1
+ * selects online counselors, 2 online game masters, 3 ordinary players
+ * (not editing, not a GM, not a counselor); any other value selects
+ * everyone.
+ */
+static __attribute__((unused)) void
+CPlayerList_CollectSerials(CPlayerList *this, CVector *out, int filter)
+{
+	CPlayer *p;
+	uint32_t serial;
+	int match;
+
+	for (p = this->head; p != NULL; p = p->next) {
+		match = 0;
+		if (filter == 1) {
+			if (CPlayer_IsPlayerOnline(p) && CPlayer_IsCounselor(p))
+				match = 1;
+		} else if (filter == 2) {
+			if (CPlayer_IsPlayerOnline(p) && CPlayer_IsGameMaster(p))
+				match = 1;
+		} else if (filter == 3) {
+			if (!CPlayer_IsEditing(p) && !CPlayer_IsGameMaster(p) && !CPlayer_IsCounselor(p))
+				match = 1;
+		} else {
+			match = 1;
+		}
+
+		if (match) {
+			serial = CMobile_GetSerial(&p->mobile);
+			CVector_PushBack(out, serial);
+		}
+	}
+}
+
+/*
  * 0x00456ABC - exit combat mode
  *
  * Sets or clears bit 0x20 (PlayerIsManifesting) in pflags.
@@ -4543,6 +4881,25 @@ CMobile_ExitCombat(CMobile *this, int flag)
 		player->pflags |= PlayerIsManifesting;
 	else
 		player->pflags &= ~PlayerIsManifesting;
+}
+
+/*
+ * 0x00456AFB - CPlayer::ToggleManifest
+ *
+ * Flips the manifesting flag, then hides the player and drops it back
+ * at the same location so nearby clients pick up the change, and
+ * rebroadcasts war mode.
+ */
+static __attribute__((unused)) void
+CPlayer_ToggleManifest(CPlayer *this)
+{
+	CLocation loc;
+
+	this->pflags ^= PlayerIsManifesting;
+	CLocation_SetLoc(&loc, CEntity_GetLocation(&this->mobile.container.item.resourceEntity.entity));
+	((void (*)(void *))VT_FN((CItem *)this, VT_HIDE))(this);
+	((void (*)(void *, CLocation *))VT_FN((CItem *)this, VT_DROP_AT_FEET))(this, &loc);
+	CPlayer_SetWarModeBroadcast(this, 1);
 }
 
 /*
@@ -4697,6 +5054,20 @@ CPlayer_IsGoldAccount(CPlayer *this)
 	if (this->pflags & PlayerIsGold)
 		return 1;
 	return 0;
+}
+
+/*
+ * 0x00456E91 - CPlayer::SetGoldAccount
+ *
+ * Sets or clears the gold-account flag.
+ */
+static __attribute__((unused)) void
+CPlayer_SetGoldAccount(CPlayer *this, int gold)
+{
+	if (gold)
+		this->pflags |= PlayerIsGold;
+	else
+		this->pflags &= ~PlayerIsGold;
 }
 
 /*
@@ -5353,6 +5724,155 @@ CPlayerList_SendToAllInRange(CResList *list, uint8_t *buf)
 }
 
 /*
+ * 0x0045ECD5 - CPlayerList::BroadcastAssistanceRequest
+ *
+ * Parses a type D assistance record out of buf and, when it parses,
+ * broadcasts the resulting RequestAssistance packet to every player in
+ * range.
+ */
+static __attribute__((unused)) void
+CPlayerList_BroadcastAssistanceRequest(CResList *list, uint8_t *buf, int unused)
+{
+	CAssistance rec;
+	uint8_t obuf[0x1FC];
+
+	CAssistance_Constructor(&rec);
+
+	if (CAssistance_LoadRecordD(&rec, buf, unused) == 0) {
+		PacketManager_MakePacket_RequestAssistance(
+		        obuf, rec.type, rec.level, rec.serial, CString_GetBuffer(&rec.name), CString_GetBuffer(&rec.subject), CString_GetBuffer(&rec.body));
+		CPlayerList_SendToAllInRange(list, obuf);
+	}
+
+	CAssistance_Destructor(&rec);
+}
+
+/*
+ * 0x0045ED96 - CPlayerList::SendAssistanceRequestToPlayer
+ *
+ * As BroadcastAssistanceRequest but reads a type A record, which
+ * carries the recipient's serial, and sends only to that player.
+ */
+static __attribute__((unused)) void
+CPlayerList_SendAssistanceRequestToPlayer(CResList *list, uint8_t *buf, int unused)
+{
+	CAssistance rec;
+	uint8_t obuf[0x1FC];
+	uint32_t serial;
+	CPlayer *target;
+
+	USED(list);
+
+	CAssistance_Constructor(&rec);
+
+	if (CAssistance_LoadRecordA(&rec, buf, unused, &serial) == 0) {
+		target = CPlayerList_FindBySerial(serial);
+		if (target != NULL) {
+			PacketManager_MakePacket_RequestAssistance(
+			        obuf, rec.type, rec.level, rec.serial, CString_GetBuffer(&rec.name), CString_GetBuffer(&rec.subject), CString_GetBuffer(&rec.body));
+			SendToClient((CItem *)target, obuf, -1);
+		}
+	}
+
+	CAssistance_Destructor(&rec);
+}
+
+/*
+ * 0x0045EE75 - CPlayerList::HandleAssistanceRecordB
+ *
+ * Reads a type B record. Result 1 answers the requester with a filled
+ * type B record built from the named player - serial, location, account
+ * and character numbers and name - which is serialised and then thrown
+ * away. Result 2 forwards the record to that player as a GMSingle
+ * packet. Anything else is ignored.
+ */
+static __attribute__((unused)) void
+CPlayerList_HandleAssistanceRecordB(CResList *list, uint8_t *buf, int unused)
+{
+	CSkillUseCtx ctx, reply;
+	uint8_t obuf[0x38];
+	CPlayer *target;
+	uint8_t *saved;
+
+	USED(list);
+
+	CSkillUseCtx_Init(&ctx);
+
+	switch (CAssistance_LoadRecordB(&ctx, buf, unused)) {
+	case 1:
+		target = CPlayerList_FindBySerial(ctx.field0C);
+		if (target == NULL)
+			break;
+
+		CSkillUseCtx_Init(&reply);
+		reply.type = 2;
+		reply.serial = ctx.serial;
+		reply.field08 = ctx.field08;
+		reply.field0C = CMobile_GetSerial(&target->mobile);
+		CLocation_SetLoc(&reply.location, CEntity_GetLocation(&target->mobile.container.item.resourceEntity.entity));
+		reply.field18 = target->accountNum;
+		reply.field1C = (uint8_t)target->characterNum;
+		strncpy(reply.name, ((char *(*)(void *))VT_FN((CItem *)target, VT_GET_NAME))(target), 0x1E);
+
+		saved = CAssistance_SaveRecordB(&reply);
+		free(saved);
+		break;
+
+	case 2:
+		target = CPlayerList_FindBySerial(ctx.field08);
+		if (target == NULL)
+			break;
+
+		PacketManager_MakePacket_GMSingle(
+		        obuf, ctx.type, ctx.field08, ctx.field0C, ctx.location.x, ctx.location.y, (uint16_t)ctx.location.z, ctx.field18, ctx.field1C, ctx.name);
+		SendToClient((CItem *)target, obuf, -1);
+		break;
+
+	default:
+		break;
+	}
+}
+
+/*
+ * 0x0045EFE3 - CPlayerList::DispatchAssistanceSpeech
+ *
+ * Reads a type C record and speaks it as ASCII speech: to every online
+ * player when the record's first id is -1, otherwise to the one player
+ * that id names.
+ */
+static __attribute__((unused)) void
+CPlayerList_DispatchAssistanceSpeech(CResList *list, uint8_t *buf, int unused)
+{
+	CAssistanceNode node;
+	uint8_t obuf[0x42C];
+	CPlayer *p;
+
+	USED(list);
+
+	CAssistanceNode_Constructor(&node);
+	CAssistance_LoadRecordC(&node, buf, unused);
+
+	if (node.id1 == 0xFFFFFFFF) {
+		for (p = g_PlayerList.head; p != NULL; p = p->next) {
+			if (!CPlayer_IsPlayerOnline(p))
+				continue;
+			PacketManager_MakePacket_ASCII_SPEECH(
+			        obuf, node.id2, node.field, CString_GetBuffer(&node.str1), node.typeFlag, CString_GetBuffer(&node.str2), node.field1, node.field2);
+			SendToClient((CItem *)p, obuf, -1);
+		}
+	} else {
+		p = CPlayerList_FindBySerial(node.id1);
+		if (p != NULL && CPlayer_IsPlayerOnline(p)) {
+			PacketManager_MakePacket_ASCII_SPEECH(
+			        obuf, node.id2, node.field, CString_GetBuffer(&node.str1), node.typeFlag, CString_GetBuffer(&node.str2), node.field1, node.field2);
+			SendToClient((CItem *)p, obuf, -1);
+		}
+	}
+
+	CAssistance_NodeDestructor(&node);
+}
+
+/*
  * 0x0045F2E0 - CPlayerList destructor
  *
  * Thiscall. Calls CPlayerList_DisconnectAll.
@@ -5913,5 +6433,86 @@ CPlayer_AddTestCenterKit(CPlayer *this, CItem *backpack)
 			if (ser != 0)
 				Script_addGlobalQuantity(ser, 99);
 		}
+	}
+}
+
+/*
+ * Custom - CPlayerList_AccountCharCount
+ *
+ * Counts characters bound to accountId (live in g_PlayerList plus archived
+ * in the entity manager). Used to enforce the per-account character cap at
+ * creation.
+ */
+int
+CPlayerList_AccountCharCount(uint32_t accountId)
+{
+	CVector cv;
+	char typeFlag = '\x01';
+	int n;
+
+	CVector_Constructor(&cv, &typeFlag);
+	CPlayerList_CollectByAccountID(&cv, accountId);
+	n = (int)CVector_GetCount(&cv);
+	CVector_Destructor(&cv);
+	return n;
+}
+
+/*
+ * Custom - CPlayerList_AccountUsedSlots
+ *
+ * Returns a bitmask of the characterNum slots (0-4) already used by
+ * accountId's characters, excluding the given player. NewCharacter assigns
+ * the lowest free slot so characterNum is a stable 0-4 index rather than an
+ * ever-growing append counter.
+ */
+int
+CPlayerList_AccountUsedSlots(uint32_t accountId, CPlayer *exclude)
+{
+	CVector cv;
+	char typeFlag = '\x01';
+	uint32_t i, count;
+	int mask = 0;
+
+	CVector_Constructor(&cv, &typeFlag);
+	CPlayerList_CollectByAccountID(&cv, accountId);
+	count = CVector_GetCount(&cv);
+	for (i = 0; i < count; i++) {
+		CPlayer *p = (CPlayer *)((uintptr_t *)cv.begin)[i];
+		if (p == exclude)
+			continue;
+		if (p->characterNum < 5)
+			mask |= 1 << p->characterNum;
+	}
+	CVector_Destructor(&cv);
+	return mask;
+}
+
+/*
+ * Custom - CPlayerList_CollectByAccountIDSorted
+ *
+ * Like CPlayerList_CollectByAccountID but orders the result by characterNum
+ * ascending. The character-select list and slot-based selection use this so
+ * the visible 5 slots stay stable: the plain collection lists live players
+ * before archived ones, which otherwise reshuffles the list (dropping a
+ * character past slot 5) the moment it logs out and archives.
+ */
+void
+CPlayerList_CollectByAccountIDSorted(CVector *results, uint32_t accountId)
+{
+	uintptr_t *base;
+	uint32_t count, i, j;
+
+	CPlayerList_CollectByAccountID(results, accountId);
+	base = (uintptr_t *)results->begin;
+	count = CVector_GetCount(results);
+	for (i = 1; i < count; i++) {
+		uintptr_t key = base[i];
+		uint32_t keyNum = ((CPlayer *)key)->characterNum;
+		j = i;
+		while (j > 0 && ((CPlayer *)base[j - 1])->characterNum > keyNum) {
+			base[j] = base[j - 1];
+			j--;
+		}
+		base[j] = key;
 	}
 }

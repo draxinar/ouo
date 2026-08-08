@@ -210,6 +210,7 @@ struct CFileEntry {
 extern void *g_StdTreeNilNode; // 0x0063D8A4
 extern int g_StdTreeNilRef; // 0x0063D8A8
 
+uint32_t CVector_GetCount16_Thiscall(CVector *this); // 0x004013A1
 int CmpPtrValueEqual(const void *a, const void *b); // 0x00401670
 int StdNilRef(void); // 0x00401690
 uint32_t CVector_GetCount16(CVector *list); // 0x004019C0

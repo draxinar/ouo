@@ -267,6 +267,7 @@ CItem_HasMulti(CItem *item)
 }
 
 extern CResManager g_MultiManager; // 0x006470A0
+extern CResManager g_MultiManagerSlaves; // 0x006472B8 (CMultiManager+0x218)
 
 void *Allocate16_Inner(int count); // 0x0047B1A0
 void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740

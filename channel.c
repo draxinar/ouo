@@ -46,6 +46,37 @@ CChannelMsg_Destructor(CChannelMsg *this)
 }
 
 /*
+ * 0x004374F5 - CChannel::CChannel
+ *
+ * Runs the CSocket constructor, clears the message queue and byte
+ * counter, then links the channel at the head of the global list and
+ * sets status 2.
+ *
+ * The binary stamps the CChannel vtable at 0x005EE848 over the CSocket
+ * one the base constructor installed. Our CChannel dispatches through
+ * direct calls rather than a second vtable object, so the base pointer
+ * from CSocket_Constructor is left in place.
+ */
+static __attribute__((unused)) CChannel *
+CChannel_Constructor(CChannel *this)
+{
+	CSocket_Constructor((CSocket *)this);
+	this->msgHead = NULL;
+	this->msgTail = NULL;
+	this->currentMsg = NULL;
+	this->curr = 0;
+	this->prevChannel = NULL;
+	this->totalQueuedBytes = 0;
+	this->socket.name = "CChannel";
+	this->nextChannel = g_channelHead;
+	if (this->nextChannel != NULL)
+		this->nextChannel->prevChannel = this;
+	g_channelHead = this;
+	this->socket.status = 2;
+	return this;
+}
+
+/*
  * 0x0043759F - CChannel::Delete
  *
  * Destroys pending messages, unlinks from the global channel list, and
@@ -287,6 +318,31 @@ CChannel_Flush(CChannel *this)
 			prev = cur;
 		}
 		cur = nextNode;
+	}
+}
+
+/*
+ * 0x00437BB3 - CChannel::FlushAll
+ *
+ * Walks the global channel list skipping closed sockets (s == -1).
+ * When mode is 0 every channel gets FlushMessages; otherwise every
+ * channel except skip gets Flush.
+ */
+static __attribute__((unused)) void
+CChannel_FlushAll(int mode, CChannel *skip)
+{
+	CChannel *ch;
+
+	if (mode == 0) {
+		for (ch = g_channelHead; ch != NULL; ch = ch->nextChannel) {
+			if (ch->socket.s != -1)
+				CChannel_FlushMessages(ch);
+		}
+	} else {
+		for (ch = g_channelHead; ch != NULL; ch = ch->nextChannel) {
+			if (ch->socket.s != -1 && ch != skip)
+				CChannel_Flush(ch);
+		}
 	}
 }
 

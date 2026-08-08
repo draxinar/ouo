@@ -116,3 +116,54 @@ CRandom_ParseAndRoll(const char *str)
 		return sign * CRandom_RollDice(numValue, numSides);
 	}
 }
+
+/*
+ * 0x00468760 - CRandom::ParseAndAverage
+ *
+ * Parses the same "NdM+K" / "NdM-K" dice string CRandom_ParseAndRoll
+ * takes but returns its average instead of a roll: (N + N*M) / 2 plus
+ * the bonus. Unlike ParseAndRoll it has no leading-sign handling, so a
+ * string starting with '-' parses as zero dice and yields only the
+ * bonus.
+ */
+static __attribute__((unused)) int
+CRandom_ParseAndAverage(const char *str)
+{
+	int numValue, numSides, bonus;
+
+	numSides = 0;
+	bonus = 0;
+	numValue = 0;
+
+	while (*str >= '0' && *str <= '9') {
+		numValue = numValue * 10 + (*str - '0');
+		str++;
+	}
+
+	if (*str == 'd') {
+		str++;
+		while (*str >= '0' && *str <= '9') {
+			numSides = numSides * 10 + (*str - '0');
+			str++;
+		}
+	}
+
+	if (*str == '+') {
+		str++;
+		while (*str >= '0' && *str <= '9') {
+			bonus = bonus * 10 + (*str - '0');
+			str++;
+		}
+	}
+
+	if (*str == '-') {
+		str++;
+		while (*str >= '0' && *str <= '9') {
+			bonus = bonus * 10 + (*str - '0');
+			str++;
+		}
+		bonus = -bonus;
+	}
+
+	return (numValue + numValue * numSides) / 2 + bonus;
+}

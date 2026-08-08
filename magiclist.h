@@ -35,6 +35,7 @@ void CMagicItemList_Constructor(CMagicItemList *obj); // 0x00466303
 void CMagicItemList_Destructor(CMagicItemList *obj); // 0x00466390
 CItem *CMagicItemList_GetResult(CMagicItemList *obj); // 0x004663D3
 void CMagicItemList_AddItem(CMagicItemList *obj, CItem *entity); // 0x00466612
+void *CMagicItemList_InitAndCopyStr(CResList *this, CResList *src); // 0x00466BB0
 void SmartPtr_Destructor_CString(CSmartPtr *self); // 0x00466FD0
 
 #endif /* MAGICLIST_H_ */

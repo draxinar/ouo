@@ -51,7 +51,6 @@ static void *CRegionDefList_Constructor(CRegionDefList *this, int count, char fl
 static void CRegionDefList_Cleanup(CRegionDefList *this); // 0x00469600
 static void *CRegionDefNode_ScalarDelete(CRegionDefNode *this, int flags); // 0x004696A0
 static void CRegionDefNode_ScalarDtor(CRegionDefNode *this); // 0x00469720
-static void *CResBankSetMember_ScalarDelete(CResBankSetMember *this, int flags); // 0x004A3E60
 static void CRegion_InitFields(CRegion *this); // 0x004A3EF2
 static int CRegion_GetOccupancy(CRegion *this, int unused); // 0x004A418E
 static void RegionManager_Destructor(void); // 0x004A4371
@@ -205,7 +204,7 @@ WeatherNode_ScalarDelete(WeatherNode *this, int flags)
  *
  * Removes the member from the spatial list and optionally frees it.
  */
-static __attribute__((unused)) void *
+void *
 CResBankSetMember_ScalarDelete(CResBankSetMember *this, int flags)
 {
 	CResBankSetMember_RemoveFromSpatialList(this);
@@ -934,6 +933,40 @@ RegionManager_FilterEmptyDesc(CResList *list)
 			node = CResList_Next(list, node);
 		}
 	}
+}
+
+/*
+ * 0x004A509A - RegionManager::GetDescAt
+ *
+ * Writes the description of the first described region containing loc
+ * into outStr and returns 1, or clears outStr and returns 0 when no
+ * region qualifies. The cut-down form of GetLocalizedDesc: no sort, no
+ * dungeon-entrance table and no second location.
+ */
+static __attribute__((unused)) int
+RegionManager_GetDescAt(CString *outStr, CLocation *loc)
+{
+	CResList list;
+	CResListNode *node;
+	int found;
+
+	CResListNode_Constructor_bin((CResListNode *)&list);
+
+	RegionManager_PopulateByLocation(&list, loc);
+	RegionManager_FilterEmptyDesc(&list);
+	CString_Clear(outStr);
+
+	node = CResList_Begin(&list);
+	if (!CResList_IsValid(&list, node)) {
+		found = 0;
+		CResList_Destructor_ByNameAllVal(&list);
+		return found;
+	}
+
+	CString_AssignCStr(outStr, (*(CRegion **)CResList_GetData(&list, node))->name2);
+	found = 1;
+	CResList_Destructor_ByNameAllVal(&list);
+	return found;
 }
 
 /*

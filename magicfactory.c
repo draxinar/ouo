@@ -186,6 +186,35 @@ CMagicItemFactory_LogInfo(CMagicItemFactory *factory, const char *msg, int lineN
 }
 
 /*
+ * 0x004386B9 - CMagicItemFactory::SkipToToken
+ *
+ * Reads tokens until one equals wanted, returning 1, or the stream runs
+ * out, returning 0.
+ */
+static __attribute__((unused)) int
+CMagicItemFactory_SkipToToken(CMagicItemFactory *factory, CString *buf, int *pos, int *lineCount, CString *wanted, CString *delimiters, CString *whitespace, CString *lineDelimiter)
+{
+	CString token;
+	int result;
+
+	CString_DefaultConstructor(&token);
+
+	for (;;) {
+		if (!CMagicItemFactory_ReadToken(factory, buf, pos, lineCount, &token, delimiters, whitespace, lineDelimiter)) {
+			result = 0;
+			CString_Destructor(&token);
+			return result;
+		}
+
+		if (CString_EqualCString2(&token, wanted)) {
+			result = 1;
+			CString_Destructor(&token);
+			return result;
+		}
+	}
+}
+
+/*
  * 0x00438783 - CMagicItemFactory::ReadToken
  *
  * Reads the next non-comment token via CString_Tokenize, skipping
@@ -1682,6 +1711,42 @@ CMagicItemFactory_FindNameInKeys(CMagicItemFactory *factory, CString *name, CRes
 }
 
 /*
+ * 0x0043C432 - CMagicItemFactory::FindNameInIncludes
+ *
+ * The includeRM twin of FindNameInKeys: searches list for name and
+ * follows each non-numeric entry through the include table into
+ * FindNameInList. Returns 1 on hit.
+ */
+static __attribute__((unused)) int
+CMagicItemFactory_FindNameInIncludes(CMagicItemFactory *factory, CString *name, CResList *list)
+{
+	CSearchCtx searchCtx, tempCtx;
+	CResListNode *node;
+
+	CSearchCtx_Constructor(&searchCtx);
+
+	node = CResList_Begin(list);
+	while (CResList_IsValid(list, node)) {
+		if (CString_EqualCString2((CString *)CResList_GetData(list, node), name))
+			return 1;
+
+		if (!CString_IsNumeric((CString *)CResList_GetData(list, node))) {
+			CResManager_FindByStrCtxA(&factory->includeRM, &tempCtx, (const char *)CResList_GetData(list, node), 1);
+			CSearchCtx_Add(&searchCtx, &tempCtx);
+
+			if (CSearchCtx_Find(&searchCtx)) {
+				CStringList *subList = (CStringList *)CResManager_GetResultCtx(&factory->includeRM, &searchCtx);
+				if (CMagicItemFactory_FindNameInList(factory, name, subList))
+					return 1;
+			}
+		}
+
+		node = CResList_Next(list, node);
+	}
+	return 0;
+}
+
+/*
  * 0x0043C514 - CMagicItemFactory::FindNameInList
  *
  * Recursively searches a CStringList for name, following type-1
@@ -2433,6 +2498,28 @@ CItemEffectDef_Constructor(CItemEffectDef *def)
 	CResListNode_Constructor_bin((CResListNode *)&def->sublist2);
 	def->minVal = -1;
 	def->maxVal = -1;
+	return def;
+}
+
+/*
+ * 0x004660CF - CItemEffectDef::CItemEffectDef (copy constructor)
+ *
+ * Copy-constructs the three strings and the two sublists, then copies
+ * minVal and maxVal. The binary reaches the name through 0x004E30A0,
+ * which MSVC folded with StdPtrIter's base constructor because both
+ * just return their argument; name sits at offset 0, so the def
+ * pointer is the name pointer.
+ */
+static __attribute__((unused)) CItemEffectDef *
+CItemEffectDef_CopyConstructor(CItemEffectDef *def, CItemEffectDef *src)
+{
+	CString_CopyConstructor(&def->name, &src->name);
+	CString_CopyConstructor(&def->category, CItemEffectDef_GetCategoryStr(src));
+	CString_CopyConstructor(&def->subcat, CItemEffectDef_GetSubcatStr(src));
+	CMagicItemList_InitAndCopyStr(&def->sublist1, CItemEffectDef_GetList1(src));
+	CMagicItemList_InitAndCopyStr(&def->sublist2, CItemEffectDef_GetList2(src));
+	def->minVal = CItemEffectDef_GetMinVal(src);
+	def->maxVal = CItemEffectDef_GetMaxVal(src);
 	return def;
 }
 
