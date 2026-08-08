@@ -13,6 +13,7 @@
 #include "fns.h"
 
 #include "containerhandle.h"
+#include "region.h"
 
 /*
  * 0x004E5CFA - fopen_ServerSide
@@ -68,7 +69,7 @@ fopen_ServerSide(const char *fileName, const char *mode)
 	if (qp != NULL && qp[2] == '\0') {
 		writable = (strchr(mode, '+') != NULL || strchr(mode, 'w') != NULL) ? 1 : 0;
 
-		ch = malloc(sizeof(ContainerHandle));
+		ch = OperatorNew(sizeof(ContainerHandle));
 
 		if (ch != NULL)
 			InitContainerHandle(ch, entry, writable, isQFile);
@@ -149,7 +150,7 @@ fclose_ServerSide(FILE *f)
 
 	result = ContainerHandle_Close(ch);
 	ContainerHandle_Unregister(ch);
-	free(ch);
+	OperatorDelete(ch);
 	return result;
 }
 

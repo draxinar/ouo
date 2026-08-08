@@ -255,7 +255,7 @@ void
 CUString_Destructor(CUString *s)
 {
 	if (s->data != NULL) {
-		free(s->data);
+		OperatorDelete(s->data);
 		s->data = NULL;
 	}
 }
@@ -340,9 +340,9 @@ CUString_AssignInternal(CUString *s, const void *wstr)
 	needed = UString_Length(wstr) + 1;
 	if (needed > s->capacity) {
 		if (s->data != NULL)
-			free(s->data);
+			OperatorDelete(s->data);
 		s->capacity = UString_Length(wstr) + s->refCount;
-		s->data = (char *)malloc(s->capacity * 2);
+		s->data = (char *)OperatorNew(s->capacity * 2);
 	}
 	wcscpy16(s->data, wstr);
 	s->length = UString_Length(s->data);
@@ -369,9 +369,9 @@ CUString_Mid(CUString *s, const void *src, int count)
 		count = srcLen;
 	if (count + 1 > s->capacity) {
 		if (s->data != NULL)
-			free(s->data);
+			OperatorDelete(s->data);
 		s->capacity = count + s->refCount;
-		s->data = (char *)malloc(s->capacity * 2);
+		s->data = (char *)OperatorNew(s->capacity * 2);
 	}
 	wcsncpy16(s->data, src, count);
 	((unsigned short *)s->data)[count] = 0;
@@ -397,13 +397,13 @@ CUString_ConcatInternal(CUString *s, const void *wstr)
 	needed = UString_Length(wstr) + s->length + 1;
 	if (needed > s->capacity) {
 		s->capacity = UString_Length(wstr) + s->length + s->refCount;
-		newBuf = (char *)malloc(s->capacity * 2);
+		newBuf = (char *)OperatorNew(s->capacity * 2);
 		*(unsigned short *)newBuf = 0;
 		if (s->data != NULL)
 			wcscpy16(newBuf, s->data);
 		wcscat16(newBuf, wstr);
 		if (s->data != NULL)
-			free(s->data);
+			OperatorDelete(s->data);
 		s->data = newBuf;
 	} else {
 		wcscat16(s->data, wstr);
@@ -601,10 +601,10 @@ CUString_ConcatChar(CUString *s, unsigned short c)
 	char *newBuf;
 
 	if (s->length + 2 > s->capacity) {
-		newBuf = (char *)malloc(s->length * 2 + 4);
+		newBuf = (char *)OperatorNew(s->length * 2 + 4);
 		if (s->data != NULL) {
 			wcscpy16(newBuf, s->data);
-			free(s->data);
+			OperatorDelete(s->data);
 		}
 		((unsigned short *)newBuf)[s->length] = c;
 		((unsigned short *)newBuf)[s->length + 1] = 0;

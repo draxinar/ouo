@@ -410,7 +410,7 @@ AddDeferredContainerLink(CItem *child, uint32_t parentSerial, uint32_t skipFlag)
 	if (parentSerial == 0)
 		return;
 
-	node = malloc(sizeof(DeferredContainerLink));
+	node = OperatorNew(sizeof(DeferredContainerLink));
 	if (node == NULL)
 		return;
 
@@ -445,7 +445,7 @@ ProcessDeferredContainerLinks(void)
 			}
 		}
 
-		free(node);
+		OperatorDelete(node);
 	}
 }
 
@@ -1489,7 +1489,7 @@ LoadDynamic0(void)
 		LoadDynamic0_ParseBlock(blockIdx, (char *)data, dataLen, NULL, NULL);
 
 		if (data != NULL)
-			free(data);
+			OperatorDelete(data);
 	}
 
 	CIndexedFileManager_Close(&indexedFile);
@@ -2667,11 +2667,8 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 				CEntity_GetBodyType(obj);
 		} else {
 
-			if (recursiveLoc != NULL) {
-				CLocation tmpLoc;
-				CLocation *wrapped = CLocation_AddWrapped(&obj->resourceEntity.entity.location, &tmpLoc, recursiveLoc);
-				CLocation_SetLoc(&obj->resourceEntity.entity.location, wrapped);
-			}
+			if (recursiveLoc != NULL)
+				CEntity_SetLocationByDelta(obj, recursiveLoc);
 
 			// Path unused: recursiveParent always NULL from caller.
 			if (recursiveParent != NULL) {

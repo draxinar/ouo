@@ -273,6 +273,16 @@ void StdPtrIter_Inc(StdPtrNode **iter); // 0x0045AC90
 StdPtrNode **StdPtrList_End(StdPtrList *list, StdPtrNode **outIter); // 0x00462050
 void Vector_SortByDistPairEntry(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x004625D0
 void **StdPtrIter_Deref(StdPtrNode **iter); // 0x004626A0
+void *CVector_VecDestructor_Region(CVector *this, int flags); // 0x004A6410
+__extension__ typedef struct CFragment CFragment;
+__extension__ typedef struct CDefine CDefine;
+__extension__ typedef struct StdPtrIterFull StdPtrIterFull;
+StdPtrIterFull *StdPtrIter_Next(StdPtrIterFull *this); // 0x00420E80
+StdPtrIterFull *StdPtrIter_Prev(StdPtrIterFull *this); // 0x00420EA0
+void Vector_SortByDistPair(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00462390
+void *StdPtrList_InitLogin(StdPtrList *this, const void *init); // 0x0045AAB0
+void *CMapNode_ScalarDtor(CFragment *this, int flags); // 0x0044D710
+void *CMapIterator_ScalarDtor(CDefine *this, int flags); // 0x0044D740
 void vector_SwapWrapper(uintptr_t *a, uintptr_t *b); // 0x00463990
 void StdPtrList_Destructor_HelpQueue(StdPtrList *this); // 0x00469550
 void CVector_DestroyRangeSI(CVector *this, SurfaceInfo *first, SurfaceInfo *last); // 0x0046BB50

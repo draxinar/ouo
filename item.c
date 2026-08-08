@@ -1474,7 +1474,7 @@ CMobile_ScalarDelete(CMobile *mob, int flags)
 {
 	CMobile_Destructor(mob);
 	if (flags & 1)
-		free(mob);
+		OperatorDelete(mob);
 	return NULL;
 }
 
@@ -2206,7 +2206,6 @@ CItem_SetMultiComponent(CItem *item)
  *
  * Allocates a CMultiSlave bound to (item, offset) and stores it on the
  * item, unless a multi component is already present.
- * MODIFIED: malloc replaces operator new.
  */
 int
 CItem_AttachMultiSlave(CItem *item, CLocation *offset)
@@ -2216,7 +2215,7 @@ CItem_AttachMultiSlave(CItem *item, CLocation *offset)
 	if (CItem_HasMulti_Filter(item))
 		return 0;
 
-	ms = malloc(sizeof(CMultiSlave));
+	ms = OperatorNew(sizeof(CMultiSlave));
 	if (ms != NULL)
 		CMultiSlave_Constructor_args(ms, item, offset);
 
@@ -2229,7 +2228,6 @@ CItem_AttachMultiSlave(CItem *item, CLocation *offset)
  *
  * Allocates a zero-offset CMultiSlave and stores it on the item, unless
  * a multi component is already present.
- * MODIFIED: malloc replaces operator new.
  */
 int
 CItem_SetMultiSlave(CItem *item)
@@ -2239,7 +2237,7 @@ CItem_SetMultiSlave(CItem *item)
 	if (CItem_HasMulti_Filter(item))
 		return 0;
 
-	ms = malloc(sizeof(CMultiSlave));
+	ms = OperatorNew(sizeof(CMultiSlave));
 	if (ms != NULL)
 		CMultiSlave_Constructor(ms, item);
 
@@ -6196,12 +6194,12 @@ StaticEntity_ScalarDelete(CItem *self, int flags)
 			cur = (CItem *)((char *)cur - sizeof(CResourceEntity));
 			StaticEntity_Destructor(cur);
 		}
-		free((char *)self - sizeof(uintptr_t));
+		OperatorDelete((char *)self - sizeof(uintptr_t));
 		return NULL;
 	}
 	StaticEntity_Destructor(self);
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 
@@ -6215,7 +6213,7 @@ CItem_ScalarDelete(CItem *item, int flags)
 {
 	CItem_Destructor(item);
 	if (flags & 1)
-		free(item);
+		OperatorDelete(item);
 	return NULL;
 }
 
@@ -6300,7 +6298,7 @@ CCorpse_ScalarDelete(CCorpse *corpse, int flags)
 {
 	CCorpse_Destructor(corpse);
 	if (flags & 1)
-		free(corpse);
+		OperatorDelete(corpse);
 	return NULL;
 }
 

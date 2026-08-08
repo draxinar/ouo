@@ -17,6 +17,7 @@
 #include "npc.h"
 #include "packet_handler.h"
 #include "player.h"
+#include "region.h"
 #include "timer.h"
 #include "vg_pool.h"
 #include "vtable.h"
@@ -472,7 +473,7 @@ AddSerialToEntityList(uint32_t serial)
 {
 	TimerEntityNode *node;
 
-	node = malloc(sizeof(TimerEntityNode));
+	node = OperatorNew(sizeof(TimerEntityNode));
 	node->prev = g_entityListTail;
 	if (node->prev != NULL)
 		node->prev->next = node;
@@ -518,7 +519,7 @@ static void
 FreeTimerNode(TimerNode *node)
 {
 	if (node->extraData != NULL) {
-		free(node->extraData);
+		OperatorDelete(node->extraData);
 		node->extraData = NULL;
 	}
 	node->next = g_timerFreeList;
@@ -552,7 +553,7 @@ AllocTimerNode(void)
 		g_timerFreeList = node->next;
 		return node;
 	}
-	block = malloc(0x400 * sizeof(TimerNode));
+	block = OperatorNew(0x400 * sizeof(TimerNode));
 	for (i = 0x3FF; i >= 1; i--) {
 		block[i].next = g_timerFreeList;
 		g_timerFreeList = &block[i];
@@ -670,7 +671,7 @@ CEntity_AddTimer(CItem *entity, int countdown, int eventType, int timerType, int
 	if (extraData != 0) {
 		const char *src = (const char *)extraData;
 		size_t len = strlen(src);
-		node->extraData = malloc(len + 1);
+		node->extraData = OperatorNew(len + 1);
 		strcpy(node->extraData, src);
 	} else {
 		node->extraData = NULL;

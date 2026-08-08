@@ -322,6 +322,8 @@ int CMultiSlave_MinDistToEntity(CMultiSlave *slave, CItem *target); // 0x004783B
 int TriggerEdit_MultiUpdate(CItem *ent, CLocation *loc); // 0x0047850D
 void *CMultiDef_ScalarDelete(CMultiDef *this, int flags); // 0x004785C0
 CMultiRotateRect *CMultiRotateRect_Init(CMultiRotateRect *this, CLocation *loc1, CLocation *loc2, uint32_t rotation); // 0x00478710
+CMultiRotateRect *CMultiRotateRect_SetRotation(CMultiRotateRect *rect, uintptr_t value); // 0x00478750
+void CEntity_SetLocationByDelta(CItem *this, CLocation *delta); // 0x004CD910
 void CMultiDef_Constructor(CMultiDef *def); // 0x00478C10
 void CMultiComponent_SetOffset(CMultiComponent *mc, CLocation *loc); // 0x00478D90
 void CMultiSlave_SetTypeId(CMultiSlave *ms, int32_t typeId); // 0x00478DE0

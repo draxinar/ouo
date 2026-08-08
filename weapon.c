@@ -19,6 +19,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "utils.h"
 #include "vtable.h"
 #include "weapon.h"
@@ -300,7 +301,7 @@ CWeaponManager_LoadWeaponDef(CWeaponManager *mgr, int id)
 	if (f == NULL)
 		return 0;
 
-	def = (CWeaponDef *)malloc(sizeof(CWeaponDef));
+	def = (CWeaponDef *)OperatorNew(sizeof(CWeaponDef));
 	if (def != NULL)
 		CWeaponDef_Constructor(def);
 
@@ -1443,7 +1444,7 @@ CWeapon_Create(uint16_t bodyType)
 {
 	CItem *item;
 
-	item = (CItem *)malloc(sizeof(CContainer));
+	item = (CItem *)OperatorNew(sizeof(CContainer));
 	if (item != NULL)
 		item = CWeapon_Constructor(item, bodyType);
 	else
@@ -1468,7 +1469,7 @@ CWeaponDef_ScalarDeletingDtor(CWeaponDef *def, int flags)
 {
 	CWeaponDef_Destructor(def);
 	if (flags & 1)
-		free(def);
+		OperatorDelete(def);
 	return NULL;
 }
 
@@ -1485,7 +1486,7 @@ CWeaponArray_Constructor(CWeaponManager *mgr, int capacity)
 
 	mgr->data = NULL;
 	mgr->capacity = capacity;
-	mgr->data = (CWeaponDef **)malloc(capacity * sizeof(CWeaponDef *));
+	mgr->data = (CWeaponDef **)OperatorNew(capacity * sizeof(CWeaponDef *));
 	for (i = 0; i < mgr->capacity; i++)
 		mgr->data[i] = NULL;
 	return mgr;
@@ -1575,7 +1576,7 @@ void
 CWeaponArray_Destructor(CWeaponManager *mgr)
 {
 	CWeaponArray_RemoveAll(mgr);
-	free(mgr->data);
+	OperatorDelete(mgr->data);
 }
 
 /*

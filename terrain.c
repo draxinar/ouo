@@ -67,26 +67,6 @@ __extension__ typedef struct SurfaceList {
 	int count;
 } SurfaceList;
 
-static void
-SurfaceList_Init(SurfaceList *list)
-{
-	list->count = 0;
-}
-
-static void
-SurfaceList_Add(SurfaceList *list, uint32_t flags, int16_t z, int16_t height, CItem *item)
-{
-	SurfaceInfo *s;
-
-	if (list->count >= SURFACE_LIST_MAX)
-		return;
-	s = &list->entries[list->count++];
-	s->flags = flags;
-	s->z = z;
-	s->height = height;
-	s->item = item;
-}
-
 // LOSContext type (used by LOS raycast functions).
 __extension__ typedef struct LOSContext {
 	int zValue; // 0x00
@@ -1661,7 +1641,7 @@ CTerrainManager_ScalarDelete(CTerrainManager *this, int flags)
 	CTerrainManager_ConstructorVTable();
 	USED(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -1670,7 +1650,7 @@ CTerrainManager_ScalarDelete(CTerrainManager *this, int flags)
  *
  * Constructor that delegates to SurfaceInfo_Set.
  */
-static __attribute__((unused)) SurfaceInfo *
+static SurfaceInfo *
 SurfaceInfo_Constructor(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item)
 {
 	SurfaceInfo_Set(this, flags, z, height, item);
@@ -1895,7 +1875,7 @@ SurfaceInfo_AllocateN(int count)
 {
 	if (count < 0)
 		count = 0;
-	return malloc(count * sizeof(SurfaceInfo));
+	return OperatorNew(count * sizeof(SurfaceInfo));
 }
 
 /*
@@ -2118,7 +2098,7 @@ Terrain_LoadStatics(void)
 		Terrain_LoadStaticsBlock(extra, blockIdx, data, dataLen);
 
 		if (data != NULL) {
-			free(data);
+			OperatorDelete(data);
 			data = NULL;
 		}
 	}
@@ -2260,4 +2240,34 @@ SurfaceInfo_CompareZ(const void *a, const void *b)
 	if (sa->height != sb->height)
 		return (sa->height < sb->height) ? -1 : 1;
 	return 0;
+}
+
+/*
+ * Custom - SurfaceList_Init
+ *
+ * Empties the surface list. The binary holds surfaces in a
+ * CVector<SurfaceInfo> and constructs it; this is the fixed-array stand-in.
+ */
+static void
+SurfaceList_Init(SurfaceList *list)
+{
+	list->count = 0;
+}
+
+/*
+ * Custom - SurfaceList_Add
+ *
+ * Appends a surface. The binary calls CVector::push_back (0x0046BA80) onto a
+ * vector that grows without limit; this array holds SURFACE_LIST_MAX and
+ * drops anything past it, which is logic the binary does not have.
+ */
+static void
+SurfaceList_Add(SurfaceList *list, uint32_t flags, int16_t z, int16_t height, CItem *item)
+{
+	SurfaceInfo *s;
+
+	if (list->count >= SURFACE_LIST_MAX)
+		return;
+	s = &list->entries[list->count++];
+	SurfaceInfo_Constructor(s, flags, z, height, item);
 }

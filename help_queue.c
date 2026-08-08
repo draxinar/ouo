@@ -26,6 +26,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "resbank.h"
 #include "resource_regrowth.h"
 #include "skill.h"
@@ -1010,6 +1011,10 @@ CHelpQueue_MakeCounselorGhost(CHelpQueue *this, CPlayer *player, int counType)
  * 0x0044E1FE - CHelpQueue::FindBySerial
  *
  * Returns the queue entry with the given serial, or NULL if none.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 CHelpRequestNode *
 CHelpQueue_FindBySerial(CHelpQueue *q, uint32_t serial)
@@ -1043,6 +1048,10 @@ CHelpQueue_Add(CHelpQueue *q, uint32_t serial, const char *name, uint8_t level, 
  *
  * Appends a CHelpRequestEntry with the given fields. Returns 0 if
  * a request for the same serial is already queued.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_AddEntry(CHelpQueue *q, uint32_t serial, char level, char origLevel, const char *name, const char *message)
@@ -1089,6 +1098,10 @@ CHelpQueue_AddWithLevel(CHelpQueue *q, uint32_t serial, const char *name, uint8_
  * 0x0044E389 - CHelpQueue::UpdateLevel
  *
  * Delegates to SetLevel when the queued serial is found.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_UpdateLevel(CHelpQueue *q, uint32_t serial, char level)
@@ -1106,6 +1119,10 @@ CHelpQueue_UpdateLevel(CHelpQueue *q, uint32_t serial, char level)
  *
  * Updates the level byte for an entry, or removes the entry when
  * level == 'd'. Returns 0 if no match.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_SetLevel(CHelpQueue *q, uint32_t serial, char level)
@@ -1152,6 +1169,10 @@ CHelpQueue_GotoEntity(CHelpQueue *q, uint32_t gmSerial, uint32_t victimSerial)
  * 0x0044E4A2 - CHelpQueue::FindNextPending
  *
  * Returns the first entry with level == 'n' (new/pending), or NULL.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 CHelpRequestNode *
 CHelpQueue_FindNextPending(CHelpQueue *q)
@@ -3130,6 +3151,10 @@ CHelpQueue_OnLogout(CHelpQueue *q, CPlayer *player)
  *
  * Sends queue contents to the GM. maxEntries bounds output (4 for
  * .q, -1 to show all for .aq).
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_ShowQueue(CHelpQueue *q, CPlayer *player, int maxEntries)
@@ -3170,6 +3195,10 @@ CHelpQueue_ShowQueue(CHelpQueue *q, CPlayer *player, int maxEntries)
  *
  * Teleports the GM to their current victim from the counVictim tag.
  * Returns 0 when no victim is set or the queued entry is stale.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_GotoCur(CHelpQueue *q, CPlayer *player)
@@ -3200,6 +3229,10 @@ CHelpQueue_GotoCur(CHelpQueue *q, CPlayer *player)
  *
  * Closes the GM's current request as 'd' (done) and assigns the
  * next 'n' (new) entry as 'h' (handling), then teleports the GM.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_Next(CHelpQueue *q, CPlayer *player)
@@ -3237,6 +3270,10 @@ CHelpQueue_Next(CHelpQueue *q, CPlayer *player)
  * Forwards a queued request to a named GM, prepending "Transfered: "
  * to the message. AddWithLevel is a no-op in the binary, so this
  * effectively just formats the banner.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_TransferEntry(CHelpQueue *q, CPlayer *player, CString *gmName, uint32_t victimSerial)
@@ -3298,6 +3335,10 @@ CHelpQueue_GmTransfer(CHelpQueue *q, CPlayer *player, const char *gmName)
  *
  * .goto <number>: relinquishes any current victim, then teleports
  * to the queue entry at the given index.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_GotoBySerial(CHelpQueue *q, CPlayer *player, int queueIndex)
@@ -3429,6 +3470,10 @@ CHelpQueue_Clear(CHelpQueue *q, CPlayer *player)
  *
  * .who command: shows the current victim's queue entry, or clears
  * the stale victim tag if the entry is gone.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 int
 CHelpQueue_Who(CHelpQueue *q, CPlayer *player)
@@ -3516,6 +3561,10 @@ CHelpQueue_DecrCounselors(CHelpQueue *this, CPlayer *player)
  *
  * std::list constructor template for CHelpEntry. Installs a
  * self-referencing sentinel node and zeros the count.
+ *
+ * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
+ * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
+ * driving begin/end iterators.
  */
 static void *
 StdHelpList_Init(StdPtrList *list, void *src)
@@ -3683,7 +3732,7 @@ CHelpEntry_ScalarDelete(CHelpEntry *self, int flags)
 	CHelpEntry_Destructor(self);
 
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 
@@ -3889,7 +3938,7 @@ CAssistance_SaveRecordB(CSkillUseCtx *this)
 	int offset;
 
 	size = CAssistance_GetSerializedSizeB(this);
-	buf = (uint8_t *)malloc(size);
+	buf = (uint8_t *)OperatorNew(size);
 
 	offset = 0;
 
@@ -4105,7 +4154,7 @@ CAssistanceQueue_Submit(CAssistance *this, uint8_t requestType)
 	char tmp[256];
 
 	size = CAssistanceQueue_GetSerializedSize(this);
-	buf = (uint8_t *)malloc(size);
+	buf = (uint8_t *)OperatorNew(size);
 	memset(buf, 0, CAssistanceQueue_GetSerializedSize(this));
 
 	offset = 0;

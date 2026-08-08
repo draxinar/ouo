@@ -12,10 +12,12 @@
 #include "dat.h"
 
 #include "nodepool.h"
+#include "region.h"
 #include "stdptrlist.h"
 #include "taglist.h"
 #include "vg_pool.h"
 #include "wombat.h"
+#include "wombat_compile.h"
 
 __extension__ typedef struct TagNodePool TagNodePool;
 __extension__ typedef struct ScriptNodePool ScriptNodePool;
@@ -68,15 +70,13 @@ static StdPtrList g_pendingReturnB;
  * 0x0042446A - ScriptNodePool::Init
  *
  * Initializes the global ScriptAttachNode pool (4096 nodes per block).
- * Binary calls NodePool_Init(&g_scriptNodePool, 0x1000); inlined here
- * to avoid a cross-module cast between the near-identical pool structs.
+ * ScriptNodePool, TagNodePool and NodePool have the same {head, size,
+ * flag} layout, so the binary drives all three through NodePool::Init.
  */
 static void
 ScriptNodePool_Init(void)
 {
-	g_scriptNodePool.freeHead = NULL;
-	g_scriptNodePool.blockSize = 0x1000;
-	g_scriptNodePool.allocated = 0;
+	NodePool_Init((NodePool *)&g_scriptNodePool, 0x1000);
 }
 
 /*
@@ -181,7 +181,7 @@ StdTree_NodePool_Grow(ScriptNodePool *this)
 		this->allocated = 1;
 		count = this->blockSize;
 		// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-		block = (char *)malloc(count * sizeof(ScriptAttachNode) + sizeof(uintptr_t));
+		block = (char *)OperatorNew(count * sizeof(ScriptAttachNode) + sizeof(uintptr_t));
 		if (block != NULL) {
 			*(uint32_t *)block = count;
 			arr = (ScriptAttachNode *)(block + sizeof(uintptr_t));
@@ -230,19 +230,16 @@ ScriptNodePool_Free(ScriptAttachNode *node)
  *
  * MODIFIED: also runs the MSVC static init thunks ScriptNodePool_Init,
  * PendingReturnB_Init, and PendingFreeA_Init, since our Linux build
- * has no CRT static init.
+ * has no CRT static init. The valgrind pool annotations for both pools
+ * are issued by NodePool_Init.
  */
 void
 TagNodePool_InitA(void)
 {
-	g_tagNodePoolA.freeHead = NULL;
-	g_tagNodePoolA.blockSize = 0x1000;
-	g_tagNodePoolA.allocated = 0;
+	NodePool_Init((NodePool *)&g_tagNodePoolA, 0x1000);
 	ScriptNodePool_Init();
 	PendingReturnB_Init();
 	PendingFreeA_Init();
-	VG_CREATE_POOL(&g_tagNodePoolA);
-	VG_CREATE_POOL(&g_scriptNodePool);
 }
 
 /*
@@ -349,7 +346,7 @@ tagnode_destroy_value(TagNode *node)
 			CUString_ScalarDelete((CUString *)(uintptr_t)node->value, 1);
 		break;
 	case 3: // WTYPE_LOC
-		free((void *)(uintptr_t)node->value);
+		OperatorDelete((void *)(uintptr_t)node->value);
 		break;
 	case 5: // WTYPE_LIST
 		if ((void *)(uintptr_t)node->value != NULL)
@@ -387,7 +384,7 @@ NodePool_Alloc(TagNodePool *pool)
 
 	pool->allocated = 1;
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-	block = (char *)malloc(pool->blockSize * sizeof(TagNode) + sizeof(uintptr_t));
+	block = (char *)OperatorNew(pool->blockSize * sizeof(TagNode) + sizeof(uintptr_t));
 	*(uint32_t *)block = pool->blockSize;
 	nodes = (TagNode *)(block + sizeof(uintptr_t));
 

@@ -63,7 +63,7 @@ CBookContent_parse(CBookContent *book, uint8_t *data)
 	data += 0x5e;
 
 	if (book->numPages != 0)
-		book->pages = (BookPage *)malloc(book->numPages * sizeof(BookPage));
+		book->pages = (BookPage *)OperatorNew(book->numPages * sizeof(BookPage));
 	else
 		book->pages = NULL;
 
@@ -73,14 +73,14 @@ CBookContent_parse(CBookContent *book, uint8_t *data)
 		data += 4;
 
 		if (book->pages[i].numLines != 0)
-			book->pages[i].lines = (char **)malloc(book->pages[i].numLines * sizeof(char *));
+			book->pages[i].lines = (char **)OperatorNew(book->pages[i].numLines * sizeof(char *));
 		else
 			book->pages[i].lines = NULL;
 
 		for (j = 0; j < book->pages[i].numLines; j++) {
 			lineLen = *(signed char *)data;
 			data++;
-			book->pages[i].lines[j] = (char *)malloc(lineLen);
+			book->pages[i].lines[j] = (char *)OperatorNew(lineLen);
 			memcpy(book->pages[i].lines[j], data, lineLen);
 			data += lineLen;
 		}
@@ -186,15 +186,15 @@ BookContent_loadAll(void)
 			continue;
 
 		fseek_ServerSide(fmul, offset, 0);
-		data = (uint8_t *)malloc(length);
+		data = (uint8_t *)OperatorNew(length);
 		fread_ServerSide(data, length, 1, fmul);
 
-		book = (CBookContent *)malloc(sizeof(CBookContent));
+		book = (CBookContent *)OperatorNew(sizeof(CBookContent));
 		if (book != NULL)
 			CBookContent_parse(book, data);
 		g_BookTable[i] = book;
 
-		free(data);
+		OperatorDelete(data);
 	}
 
 	fclose_ServerSide(fidx);
@@ -222,7 +222,7 @@ MakePacket_BOOKHDR(CItem *item, int *outSize)
 	int j;
 	uint8_t lineLen;
 
-	buf = (uint8_t *)malloc(0x1F400);
+	buf = (uint8_t *)OperatorNew(0x1F400);
 	cursor = buf;
 
 	memset(title, 0, sizeof(title));
@@ -973,6 +973,6 @@ CBookContent_Destructor(CBookContent *book, int freeMemory)
 {
 	CBookContent_Cleanup(book);
 	if (freeMemory & 1)
-		free(book);
+		OperatorDelete(book);
 	return NULL;
 }

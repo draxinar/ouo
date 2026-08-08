@@ -12,6 +12,7 @@
 #include "mobile.h"
 #include "packet_handler.h"
 #include "packet_manager.h"
+#include "region.h"
 #include "vtable.h"
 
 /*
@@ -94,7 +95,7 @@ CSignpost_Destructor(CSignpost *this)
 	cur = this->vectHead;
 	while (cur != NULL) {
 		next = cur->next;
-		free(cur);
+		OperatorDelete(cur);
 		cur = next;
 	}
 	this->vectHead = NULL;
@@ -142,9 +143,9 @@ PlotOnMap(CSignpost *this, int command, int arg, uint16_t plotX, uint16_t plotY)
 			tailTarget = NULL;
 		}
 
-		newNode = (VectNode *)malloc(sizeof(VectNode));
+		newNode = (VectNode *)OperatorNew(sizeof(VectNode));
 		if (newNode != NULL)
-			CLocation_Init((CLocation *)newNode);
+			CLocation_Constructor((CLocation *)newNode);
 
 		newNode->x = plotX;
 		newNode->y = plotY;
@@ -172,9 +173,9 @@ PlotOnMap(CSignpost *this, int command, int arg, uint16_t plotX, uint16_t plotY)
 				tailTarget = NULL;
 		}
 
-		newNode = (VectNode *)malloc(sizeof(VectNode));
+		newNode = (VectNode *)OperatorNew(sizeof(VectNode));
 		if (newNode != NULL)
-			CLocation_Init((CLocation *)newNode);
+			CLocation_Constructor((CLocation *)newNode);
 
 		newNode->x = plotX;
 		newNode->y = plotY;
@@ -217,14 +218,14 @@ PlotOnMap(CSignpost *this, int command, int arg, uint16_t plotX, uint16_t plotY)
 		}
 
 		if (tailTarget != NULL)
-			free(tailTarget);
+			OperatorDelete(tailTarget);
 		break;
 
 	case 4:
 		curNode = this->vectHead;
 		while (curNode != NULL) {
 			tailTarget = curNode->next;
-			free(curNode);
+			OperatorDelete(curNode);
 			curNode = tailTarget;
 		}
 		this->vectHead = NULL;
@@ -360,6 +361,6 @@ CSignpost_ScalarDelete(CSignpost *sp, int flags)
 {
 	CSignpost_Destructor(sp);
 	if (flags & 1)
-		free(sp);
+		OperatorDelete(sp);
 	return NULL;
 }

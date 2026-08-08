@@ -14,6 +14,7 @@
 
 #include "dat.h"
 #include "io.h"
+#include "region.h"
 #include "stddeque.h"
 #include "terrain.h"
 #include "wombat.h"
@@ -112,7 +113,7 @@ ArenaAllocator_Alloc(uint32_t size, void **outPtr)
 	if (size > 0x8000)
 		pageSize = (size + 0x1FFF) & 0xFFFFE000;
 
-	newPage = (CDequeBlock *)malloc(sizeof(CDequeBlock));
+	newPage = (CDequeBlock *)OperatorNew(sizeof(CDequeBlock));
 	if (newPage != NULL)
 		page = CDequeBlock_Alloc(newPage, pageSize);
 	else
@@ -181,32 +182,26 @@ CDequeBlock_AllocFrom(CDequeBlock *this, uint32_t size)
  *
  * Deallocator wrapper for std::allocator::deallocate. Calls operator delete
  * on ptr; count is ignored.
- *
- * MODIFIED: frees through free() where the binary calls the CRT
- * deallocator wrapper, the project's convention for OMITTED CRT code.
  */
 static void
 StdDeque_Dealloc(StdDeque_TimeEvent *self, void *ptr, uint32_t count)
 {
 	USED(self);
 	USED(count);
-	free(ptr);
+	OperatorDelete(ptr);
 }
 
 /*
  * 0x0046C9E0 - StdDeque_Dealloc (SurfaceInfo allocator variant)
  *
  * Allocator deallocate - ignores self and count, frees ptr.
- *
- * MODIFIED: frees through free() where the binary calls the CRT
- * deallocator wrapper, the project's convention for OMITTED CRT code.
  */
 void
 StdDeque_DeallocSI(CVector *self, void *ptr, int count)
 {
 	USED(self);
 	USED(count);
-	free(ptr);
+	OperatorDelete(ptr);
 }
 
 /*

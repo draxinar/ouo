@@ -18,6 +18,7 @@
 #include "packet_utils.h"
 #include "pending_auth.h"
 #include "player.h"
+#include "region.h"
 #include "time.h"
 #include "twofish.h"
 #include "usersock.h"
@@ -310,7 +311,7 @@ CUserSock_Accept(CListenSocket *this)
 
 	s = CListenSocket_Accept(this, &addr);
 	if (s != -1) {
-		socket = (CUserSock *)malloc(sizeof(*socket));
+		socket = (CUserSock *)OperatorNew(sizeof(*socket));
 		if (socket)
 			res = CUserSock_Constructor(socket, s, addr);
 		else
@@ -539,7 +540,7 @@ CUserSock_SendPacketRaw(CUserSock *this, uint8_t *buf, uint32_t size)
 {
 	uint8_t *copy;
 
-	copy = (uint8_t *)malloc(size);
+	copy = (uint8_t *)OperatorNew(size);
 	memcpy(copy, buf, size);
 	PacketGetDynamicSize(copy);
 	Append_To_CSocketBuffer(&this->socket, copy, size);
@@ -556,7 +557,7 @@ CUserSock_Destructor(CUserSock *this, uint8_t v)
 {
 	CUserSock_Delete(this);
 	if (v & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 

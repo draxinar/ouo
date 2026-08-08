@@ -2550,7 +2550,7 @@ FixBank(CMobile *mob)
 		return;
 	}
 
-	newBank = (CItem *)malloc(sizeof(CContainer));
+	newBank = (CItem *)OperatorNew(sizeof(CContainer));
 	if (newBank != NULL)
 		CContainer_Constructor((CContainer *)newBank);
 
@@ -2761,7 +2761,7 @@ CMobile_CreateCorpse(CMobile *mob, CMobile *attacker, int dropLoot)
 		goto death_anim;
 	}
 
-	corpse = (CCorpse *)malloc(sizeof(CCorpse));
+	corpse = (CCorpse *)OperatorNew(sizeof(CCorpse));
 	if (corpse == NULL)
 		return NULL;
 	CCorpse_Constructor(corpse);
@@ -3380,7 +3380,7 @@ CMobile_Destructor(CMobile *mob)
 		g_MobileListHead = mob->nextMobile;
 
 	// Free name via operator delete
-	free(mob->name);
+	OperatorDelete(mob->name);
 	mob->name = NULL;
 
 	// Decrement mobile count

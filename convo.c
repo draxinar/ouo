@@ -24,6 +24,7 @@
 #include "multi.h"
 #include "npc.h"
 #include "player.h"
+#include "region.h"
 #include "utils.h"
 #include "vtable.h"
 #include "wombat_compile.h"
@@ -125,10 +126,10 @@ CConvoLinkedNode_Constructor(CConvoLinkedNode *this)
  *
  * Links an int-valued CSophLevel node into the list head.
  */
-static __attribute__((unused)) CConvoLinkedNode *
+static CConvoLinkedNode *
 CConvoLinkedNode_Int_Constructor(CConvoLinkedNode *this, int value, CConvoLinkedNode **listHead)
 {
-	this->type = 0;
+	CConvoLinkedNode_BaseConstructor(this);
 	this->next = *listHead;
 	*listHead = this;
 	this->u.value = value;
@@ -140,14 +141,14 @@ CConvoLinkedNode_Int_Constructor(CConvoLinkedNode *this, int value, CConvoLinked
  *
  * Links a CKey node holding a duplicated pattern string.
  */
-static __attribute__((unused)) CConvoLinkedNode *
+static CConvoLinkedNode *
 CConvoLinkedNode_String_Constructor(CConvoLinkedNode *this, const char *str, CConvoLinkedNode **listHead)
 {
-	this->type = 0;
+	CConvoLinkedNode_BaseConstructor(this);
 	this->type = 1;
 	this->next = *listHead;
 	*listHead = this;
-	this->u.pattern = malloc(strlen(str) + 1);
+	this->u.pattern = OperatorNew(strlen(str) + 1);
 	strcpy(this->u.pattern, str);
 	return this;
 }
@@ -161,7 +162,7 @@ static void
 CConvoLinkedNode_String_Destructor(CConvoLinkedNode *this)
 {
 	this->type = 1;
-	free(this->u.pattern);
+	OperatorDelete(this->u.pattern);
 	this->type = 0;
 }
 
@@ -179,13 +180,13 @@ CFragment_Init(CFragment *this, const char *name)
 	this->next = g_ConvoMgr.fragmentList;
 	g_ConvoMgr.fragmentList = this;
 
-	this->name = malloc(strlen(name) + 1);
+	this->name = OperatorNew(strlen(name) + 1);
 	strcpy(this->name, name);
 
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 6; j++) {
 			for (k = 0; k < 6; k++) {
-				this->data[i][j][k] = malloc(sizeof(uintptr_t));
+				this->data[i][j][k] = OperatorNew(sizeof(uintptr_t));
 				*this->data[i][j][k] = 0;
 			}
 		}
@@ -206,12 +207,12 @@ CFragment_Destroy(CFragment *this)
 	int i, j, k;
 	CFragDedupNode *node;
 
-	free(this->name);
+	OperatorDelete(this->name);
 
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 6; j++) {
 			for (k = 0; k < 6; k++) {
-				free(this->data[i][j][k]);
+				OperatorDelete(this->data[i][j][k]);
 			}
 		}
 	}
@@ -219,8 +220,8 @@ CFragment_Destroy(CFragment *this)
 	while (this->dedupList != NULL) {
 		node = this->dedupList;
 		this->dedupList = node->next;
-		free(node->name);
-		free(node);
+		OperatorDelete(node->name);
+		OperatorDelete(node);
 	}
 }
 
@@ -243,7 +244,7 @@ CFragment_AddResponse(CFragment *frag, const char *key, const char *text, int so
 	while (oldArr[count] != 0)
 		count++;
 
-	newArr = malloc((count + 3) * sizeof(uintptr_t));
+	newArr = OperatorNew((count + 3) * sizeof(uintptr_t));
 
 	count = 0;
 	while (oldArr[count] != 0) {
@@ -257,7 +258,7 @@ CFragment_AddResponse(CFragment *frag, const char *key, const char *text, int so
 	count++;
 	newArr[count] = 0;
 
-	free(oldArr);
+	OperatorDelete(oldArr);
 	frag->data[soph][att][not] = newArr;
 }
 
@@ -288,10 +289,10 @@ CFragment_AddResponseToGrid(CFragment *frag, const char *responseText, int depth
 		dedupNode = dedupNode->next;
 	}
 	if (dedupNode == NULL) {
-		dedupNode = malloc(sizeof(CFragDedupNode));
+		dedupNode = OperatorNew(sizeof(CFragDedupNode));
 		dedupNode->next = frag->dedupList;
 		frag->dedupList = dedupNode;
-		dedupNode->name = malloc(strlen(responseText) + 1);
+		dedupNode->name = OperatorNew(strlen(responseText) + 1);
 		strcpy(dedupNode->name, responseText);
 	}
 
@@ -312,10 +313,10 @@ CFragment_AddResponseToGrid(CFragment *frag, const char *responseText, int depth
 					keyNode = keyNode->next;
 				}
 				if (keyNode == NULL) {
-					keyNode = malloc(sizeof(CFragDedupNode));
+					keyNode = OperatorNew(sizeof(CFragDedupNode));
 					keyNode->next = frag->dedupList;
 					frag->dedupList = keyNode;
-					keyNode->name = malloc(strlen(keyStr) + 1);
+					keyNode->name = OperatorNew(strlen(keyStr) + 1);
 					strcpy(keyNode->name, keyStr);
 				}
 				keyArray[keyCount] = keyNode->name;
@@ -467,7 +468,7 @@ CConvoLinkedNode_ScalarDelete(CConvoLinkedNode *this, int flags)
 {
 	CConvoLinkedNode_Constructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -476,7 +477,7 @@ CConvoLinkedNode_ScalarDelete(CConvoLinkedNode *this, int flags)
  *
  * Clears the node's type field and returns this.
  */
-static __attribute__((unused)) CConvoLinkedNode *
+static CConvoLinkedNode *
 CConvoLinkedNode_BaseConstructor(CConvoLinkedNode *this)
 {
 	this->type = 0;
@@ -505,7 +506,7 @@ CConvoLinkedNode_String_ScalarDelete(CConvoLinkedNode *this, int flags)
 {
 	CConvoLinkedNode_String_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -519,9 +520,9 @@ CDefine_Init(CDefine *this, const char *name, const char *value)
 {
 	this->next = g_ConvoMgr.defineList;
 	g_ConvoMgr.defineList = this;
-	this->name = malloc(strlen(name) + 1);
+	this->name = OperatorNew(strlen(name) + 1);
 	strcpy(this->name, name);
-	this->value = malloc(strlen(value) + 1);
+	this->value = OperatorNew(strlen(value) + 1);
 	strcpy(this->value, value);
 	return this;
 }
@@ -534,8 +535,8 @@ CDefine_Init(CDefine *this, const char *name, const char *value)
 void
 CDefine_Destructor(CDefine *this)
 {
-	free(this->name);
-	free(this->value);
+	OperatorDelete(this->name);
+	OperatorDelete(this->value);
 }
 
 /*
@@ -580,19 +581,15 @@ CConversationManager_Cleanup(CConversationManager *this)
 	while (this->fragmentList != NULL) {
 		frag = this->fragmentList;
 		this->fragmentList = frag->next;
-		if (frag != NULL) {
-			CFragment_Destroy(frag);
-			free(frag);
-		}
+		if (frag != NULL)
+			CMapNode_ScalarDtor(frag, 1);
 	}
 
 	while (this->defineList != NULL) {
 		def = this->defineList;
 		this->defineList = def->next;
-		if (def != NULL) {
-			CDefine_Destructor(def);
-			free(def);
-		}
+		if (def != NULL)
+			CMapIterator_ScalarDtor(def, 1);
 	}
 }
 
@@ -627,7 +624,7 @@ CConversationManager_FindOrCreateFragment(CConversationManager *this, const char
 	if (frag != NULL)
 		return frag;
 
-	mem = malloc(sizeof(CFragment));
+	mem = OperatorNew(sizeof(CFragment));
 	if (mem != NULL)
 		frag = CFragment_Init(mem, name);
 	else
@@ -806,7 +803,7 @@ CConversationManager_ReadFileToBuffer(CConversationManager *this, const char *fi
 		return NULL;
 	}
 	fseek_ServerSide(fp, 0, SEEK_SET);
-	buf = malloc(size + 1);
+	buf = OperatorNew(size + 1);
 	fread_ServerSide(buf, 1, size, fp);
 	fclose_ServerSide(fp);
 	buf[size] = '\0';
@@ -872,12 +869,12 @@ CConversationManager_LoadDefines(CConversationManager *this)
 			break;
 		}
 
-		node = malloc(sizeof(CDefine));
+		node = OperatorNew(sizeof(CDefine));
 		if (node != NULL)
 			CDefine_Init(node, buf, buf2);
 	}
 
-	free(fileData);
+	OperatorDelete(fileData);
 	return err;
 }
 
@@ -936,16 +933,16 @@ CConversationManager_LoadFragments(CConversationManager *this)
 			err = 1;
 			break;
 		}
-		fragNames[fragCount] = malloc(strlen(buf) + 1);
+		fragNames[fragCount] = OperatorNew(strlen(buf) + 1);
 		strcpy(fragNames[fragCount], buf);
 		fragCount++;
 	}
 
-	free(fileData);
+	OperatorDelete(fileData);
 
 	if (err != 0) {
 		for (i = 0; i < fragCount; i++)
-			free(fragNames[i]);
+			OperatorDelete(fragNames[i]);
 		return 1;
 	}
 
@@ -960,7 +957,7 @@ CConversationManager_LoadFragments(CConversationManager *this)
 	}
 
 	for (i = 0; i < fragCount; i++)
-		free(fragNames[i]);
+		OperatorDelete(fragNames[i]);
 
 	return err;
 }
@@ -1081,14 +1078,9 @@ CConversationManager_LoadFragment(CConversationManager *this, const char *fragNa
 
 					{
 						CConvoLinkedNode *node;
-						node = malloc(sizeof(CConvoLinkedNode));
-						if (node != NULL) {
-							node->type = 1;
-							node->next = responseLists[depth];
-							responseLists[depth] = node;
-							node->u.pattern = malloc(strlen(&nameBuf[1]) + 1);
-							strcpy(node->u.pattern, &nameBuf[1]);
-						}
+						node = OperatorNew(sizeof(CConvoLinkedNode));
+						if (node != NULL)
+							CConvoLinkedNode_String_Constructor(node, &nameBuf[1], &responseLists[depth]);
 					}
 				}
 				if (err)
@@ -1123,13 +1115,9 @@ CConversationManager_LoadFragment(CConversationManager *this, const char *fragNa
 						break;
 					}
 
-					node = malloc(sizeof(CConvoLinkedNode));
-					if (node != NULL) {
-						node->type = 0;
-						node->next = responseLists[depth];
-						responseLists[depth] = node;
-						node->u.value = val;
-					}
+					node = OperatorNew(sizeof(CConvoLinkedNode));
+					if (node != NULL)
+						CConvoLinkedNode_Int_Constructor(node, val, &responseLists[depth]);
 				}
 
 				pos = CConversationManager_ReadToken(this, pos, levelBuf, 16);
@@ -1156,13 +1144,9 @@ CConversationManager_LoadFragment(CConversationManager *this, const char *fragNa
 
 					{
 						CConvoLinkedNode *node;
-						node = malloc(sizeof(CConvoLinkedNode));
-						if (node != NULL) {
-							node->type = 0;
-							node->next = responseLists[depth];
-							responseLists[depth] = node;
-							node->u.value = atoi(nameBuf);
-						}
+						node = OperatorNew(sizeof(CConvoLinkedNode));
+						if (node != NULL)
+							CConvoLinkedNode_Int_Constructor(node, atoi(nameBuf), &responseLists[depth]);
 					}
 
 					pos = CConversationManager_ReadToken(this, pos, nameBuf, 128);
@@ -1225,7 +1209,7 @@ CConversationManager_LoadFragment(CConversationManager *this, const char *fragNa
 	for (i = 1; i < 0x40; i++)
 		FreeConvoNodeList(responseLists[i]);
 
-	free(fileData);
+	OperatorDelete(fileData);
 	return err;
 }
 

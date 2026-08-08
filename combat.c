@@ -2271,14 +2271,9 @@ CCombatEventList_AddNode(CCombatEventList *list, CMobile *mob, const char *name)
 	CCombatEventNode *walk;
 	int count;
 
-	node = malloc(sizeof(CCombatEventNode));
-	if (node != NULL) {
-		strcpy(node->name, name);
-		node->mob = mob;
-		node->subHead = NULL;
-		node->next = NULL;
-		node->prev = NULL;
-	}
+	node = OperatorNew(sizeof(CCombatEventNode));
+	if (node != NULL)
+		CCombatEventNode_Constructor(node, mob, name);
 
 	if (list->head == NULL) {
 		list->head = node;
@@ -2321,7 +2316,7 @@ CCombatEventList_RemoveNode(CCombatEventList *list, CMobile *mob)
 				list->head = walk->next;
 			if (walk->next != NULL)
 				walk->next->prev = walk->prev;
-			free(walk);
+			CCombatEventNode_ScalarDelete(walk, 1);
 			return 0;
 		}
 		walk = next;
@@ -2459,7 +2454,7 @@ CCombatEventList_RemoveMob(CCombatEventList *list, CMobile *mob)
  * Initializes a combat event node with the event name and mob owner,
  * clearing the sub-list and linked-list pointers.
  */
-static __attribute__((unused)) CCombatEventNode *
+static CCombatEventNode *
 CCombatEventNode_Constructor(CCombatEventNode *node, CMobile *mob, const char *name)
 {
 	strcpy(node->name, name);
@@ -2522,7 +2517,7 @@ CCombatEventNode_AddSub(CCombatEventNode *node, CMobile *mob)
 	CCombatSubNode *sub;
 	CCombatSubNode *walk;
 
-	sub = malloc(sizeof(CCombatSubNode));
+	sub = OperatorNew(sizeof(CCombatSubNode));
 	if (sub != NULL)
 		sub = CCombatSubNode_Constructor(sub);
 	else
@@ -2598,7 +2593,7 @@ CCombatEventNode_ScalarDelete(CCombatEventNode *node, int flags)
 {
 	CCombatEventNode_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -2618,7 +2613,7 @@ CCombatEventNode_ScalarDelete(CCombatEventNode *node, int flags)
 void
 CDataBuffer_Constructor(CDataBuffer *b)
 {
-	b->data = malloc(0x400);
+	b->data = OperatorNew(0x400);
 	b->len = 0;
 	b->cap = 0x400;
 }
@@ -2631,7 +2626,7 @@ CDataBuffer_Constructor(CDataBuffer *b)
 void
 CDataBuffer_Destructor(CDataBuffer *b)
 {
-	free(b->data);
+	OperatorDelete(b->data);
 }
 
 /*
@@ -2653,9 +2648,9 @@ CDataBuffer_Append(CDataBuffer *b, const void *src, int srcLen)
 			}
 			b->cap <<= 1;
 		}
-		uint8_t *newbuf = malloc(b->cap);
+		uint8_t *newbuf = OperatorNew(b->cap);
 		memcpy(newbuf, b->data, b->len);
-		free(b->data);
+		OperatorDelete(b->data);
 		b->data = newbuf;
 	}
 	memcpy(b->data + b->len, src, srcLen);
@@ -2909,7 +2904,7 @@ ProcessCrimeWitness(CLocation *crimeLoc, CMobile *criminal, CMobile *victim, con
 
 		CEntityMap_RangeQuery(g_NPCMap, &npcList, crimeLoc->x, crimeLoc->y, ct->range);
 
-		Vector_SortByDistPairEntry((uintptr_t *)npcList.begin, (uintptr_t *)npcList.end, *crimeLoc);
+		Vector_SortByDistPair((uintptr_t *)npcList.begin, (uintptr_t *)npcList.end, *crimeLoc);
 
 		for (iter = (uintptr_t *)npcList.begin; iter != (uintptr_t *)npcList.end; iter++) {
 			witness = (CMobile *)*iter;

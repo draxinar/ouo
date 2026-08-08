@@ -17,6 +17,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "resbank.h"
 #include "shopkeeper.h"
 #include "taglist.h"
@@ -265,7 +266,7 @@ CEntity_ScalarDelete(CEntity *this, int flags)
 {
 	CEntity_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 

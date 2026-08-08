@@ -17,6 +17,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "stddeque.h"
 #include "taglist.h"
 #include "time.h"
@@ -634,7 +635,7 @@ CTimeManager_RegisterTimedEvent(ScriptAttachNode *id, const char *expression)
 			if (!TimeManager_MatchTimePattern(unitBuf, i))
 				continue;
 
-			node = (CTimeEventNode *)malloc(sizeof(CTimeEventNode));
+			node = (CTimeEventNode *)OperatorNew(sizeof(CTimeEventNode));
 			node->id = id;
 			node->data = expression;
 
@@ -705,7 +706,7 @@ CTimeManager_UnregisterTimedEvent(ScriptAttachNode *id, const char *expression)
 				if (g_savedEventNext == node)
 					g_savedEventNext = node->next;
 
-				free(node);
+				OperatorDelete(node);
 			}
 		}
 

@@ -14,8 +14,6 @@
 #include "cstring.h"
 #include "region.h"
 
-static CString *CString_DefaultConstructorWrap(CString *str); // 0x0043EBC0
-
 /*
  * 0x0063E160 - g_EmptyCString
  *
@@ -46,7 +44,7 @@ CString_ScalarDelete(CString *s, int flags)
  *
  * Thin wrapper around CString_DefaultConstructor that returns str.
  */
-static __attribute__((unused)) CString *
+CString *
 CString_DefaultConstructorWrap(CString *str)
 {
 	CString_DefaultConstructor(str);
@@ -88,7 +86,7 @@ void
 CString_Destructor(CString *s)
 {
 	if (s->data != NULL) {
-		free(s->data);
+		OperatorDelete(s->data);
 		s->data = NULL;
 	}
 }
@@ -147,7 +145,7 @@ CString_ConstructorFromChar(CString *s, char c)
 	s->refCount = 1;
 	s->capacity = 0;
 	s->capacity = s->refCount + 1;
-	s->data = (char *)malloc(s->capacity);
+	s->data = (char *)OperatorNew(s->capacity);
 	s->data[0] = c;
 	s->data[1] = '\0';
 	s->length = 1;
@@ -188,7 +186,7 @@ CString_AssignInternal(CString *s, const char *str)
 	needed = strlen(str) + 1;
 	if (needed > s->capacity) {
 		if (s->data != NULL)
-			free(s->data);
+			OperatorDelete(s->data);
 		s->capacity = strlen(str) + s->refCount;
 		s->data = (char *)malloc(s->capacity);
 	}
@@ -220,9 +218,9 @@ CString_AssignRange(CString *s, const char *str, int maxCount)
 
 	if (finalLen + 1 > s->capacity) {
 		if (s->data != NULL)
-			free(s->data);
+			OperatorDelete(s->data);
 		s->capacity = finalLen + s->refCount;
-		s->data = (char *)malloc(s->capacity);
+		s->data = (char *)OperatorNew(s->capacity);
 	}
 
 	memcpy(s->data, str, finalLen);
@@ -247,13 +245,13 @@ CString_ConcatCStr(CString *s, const char *str)
 
 	if (s->length + (int)strlen(str) + 1 > s->capacity) {
 		s->capacity = s->length + (int)strlen(str) + s->refCount;
-		newBuf = (char *)malloc(s->capacity);
+		newBuf = (char *)OperatorNew(s->capacity);
 		newBuf[0] = '\0';
 		if (s->data != NULL)
 			strcpy(newBuf, s->data);
 		strcat(newBuf, str);
 		if (s->data != NULL)
-			free(s->data);
+			OperatorDelete(s->data);
 		s->data = newBuf;
 	} else {
 		strcat(s->data, str);
@@ -419,10 +417,10 @@ CString_ConcatChar(CString *s, char c)
 	char *newBuf;
 
 	if (s->length + 2 > s->capacity) {
-		newBuf = (char *)malloc(s->length + 2);
+		newBuf = (char *)OperatorNew(s->length + 2);
 		if (s->data != NULL) {
 			strcpy(newBuf, s->data);
-			free(s->data);
+			OperatorDelete(s->data);
 		}
 		newBuf[s->length] = c;
 		newBuf[s->length + 1] = '\0';

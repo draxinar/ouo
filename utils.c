@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "dat.h"
+#include "region.h"
 
 static int64_t GetRandom64(void); // 0x00467D9F
 
@@ -114,11 +115,11 @@ void
 StringAssign(char **pStr, const char *newStr)
 {
 	if (*pStr != NULL) {
-		free(*pStr);
+		OperatorDelete(*pStr);
 		*pStr = NULL;
 	}
 	if (newStr != NULL) {
-		*pStr = malloc(strlen(newStr) + 1);
+		*pStr = OperatorNew(strlen(newStr) + 1);
 		strcpy(*pStr, newStr);
 	}
 }

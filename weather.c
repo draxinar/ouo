@@ -109,7 +109,7 @@ WeatherNode_NewConstruct(PathNodeList *parent, int x, int y, void *dataPtr)
 {
 	WeatherNode *node;
 
-	node = (WeatherNode *)malloc(sizeof(WeatherNode));
+	node = (WeatherNode *)OperatorNew(sizeof(WeatherNode));
 	if (node != NULL)
 		return WeatherNode_Constructor(node, x, y, dataPtr, parent);
 	return NULL;
@@ -404,7 +404,7 @@ WeatherEffect_LoadPolygons(FILE *fp, int scale, CItem *region, int isText)
 		// Text format path.
 		fscanf(fp, "NumPolies %d\n", &numPolies);
 		for (i = 0; i < numPolies; i++) {
-			allocPtr = malloc(sizeof(PathNodeList));
+			allocPtr = OperatorNew(sizeof(PathNodeList));
 			if (allocPtr != NULL)
 				nodeList = PathNodeList_Constructor(allocPtr);
 			else
@@ -440,7 +440,7 @@ WeatherEffect_LoadPolygons(FILE *fp, int scale, CItem *region, int isText)
 		fread_ServerSide(&numPolies, 4, 1, fp);
 		SwapEndian(&numPolies);
 		for (i = 0; i < numPolies; i++) {
-			allocPtr = malloc(sizeof(PathNodeList));
+			allocPtr = OperatorNew(sizeof(PathNodeList));
 			if (allocPtr != NULL)
 				nodeList = PathNodeList_Constructor(allocPtr);
 			else

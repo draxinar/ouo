@@ -24,6 +24,7 @@
 #include "feature.h"
 #include "main.h"
 #include "multi.h"
+#include "region.h"
 #include "resbank.h"
 #include "skill.h"
 #include "template.h"
@@ -338,7 +339,7 @@ LoadResTypes(void)
 		char nameBuf[128];
 		CResourceType *rt;
 
-		rt = malloc(sizeof(CResourceType));
+		rt = OperatorNew(sizeof(CResourceType));
 		if (rt != NULL)
 			rt = CResourceType_Constructor(rt);
 
@@ -550,7 +551,7 @@ LoadResRegions(void)
 		CResBankRegion *region;
 		int nParsed;
 
-		region = (CResBankRegion *)malloc(sizeof(CResBankRegion));
+		region = (CResBankRegion *)OperatorNew(sizeof(CResBankRegion));
 		if (region == NULL)
 			break;
 		CResBankRegion_Constructor(region);
@@ -756,7 +757,7 @@ SaveAll_ResTypes(void)
  * Thin wrapper that calls CResBankManager::NoOp on g_ResBankManager.
  * Zero callers in the binary; the resbank save path was stubbed out.
  *
- * MODIFIED (FEAT_CLOSED_ECONOMY): forward to CResBankManager_SaveResBank so
+ * MODIFIED (FEAT_CLOSED_ECONOMY): forward to ResBank_SaveToFile so
  * the live bank (drained quantities[]) persists across restarts. The default
  * build keeps the NoOp, preserving binary behavior.
  */
@@ -764,7 +765,7 @@ void
 SaveAll_ResBank(void)
 {
 	if (feat(FEAT_CLOSED_ECONOMY)) {
-		CResBankManager_SaveResBank();
+		ResBank_SaveToFile();
 		return;
 	}
 	CResBankManager_NoOp(&g_ResBankManager);

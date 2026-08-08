@@ -18,6 +18,7 @@
 #include "dat.h"
 #include "defcon.h"
 #include "egg.h"
+#include "region.h"
 #include "resbank.h"
 #include "time.h"
 #include "io.h"
@@ -473,7 +474,7 @@ CEgg_ScalarDelete(CItem *self, int flags)
 {
 	CEgg_Destructor(self);
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 

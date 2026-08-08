@@ -224,7 +224,7 @@ WeatherNodeList_ScalarDelete(PathNodeList *this, int flags)
 	WeatherNodeList_DestroyChildren(this);
 
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -1458,7 +1458,7 @@ RegionManager_AllocGrid(void)
 {
 	CRegionGrid *grid;
 
-	grid = (CRegionGrid *)malloc(sizeof(CRegionGrid));
+	grid = (CRegionGrid *)OperatorNew(sizeof(CRegionGrid));
 	if (grid != NULL)
 		CRegionGrid_Constructor(grid, 0, 0, 0x17FF, 0xFFF, 6);
 	else
@@ -1552,7 +1552,7 @@ CRegionGrid_Constructor(CRegionGrid *this, int xMin, int yMin, int xMax, int yMa
 
 	count = this->width * this->height;
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-	alloc = (char *)malloc((size_t)(count * sizeof(CVector) + sizeof(uintptr_t)));
+	alloc = (char *)OperatorNew((size_t)(count * sizeof(CVector) + sizeof(uintptr_t)));
 	if (alloc != NULL) {
 		*(uint32_t *)alloc = count;
 		for (i = 0; i < count; i++)
@@ -1574,18 +1574,10 @@ CRegionGrid_Constructor(CRegionGrid *this, int xMin, int yMin, int xMax, int yMa
 static void
 CRegionGrid_VectorDtor(CRegionGrid *this)
 {
-	int i, count;
-	char *alloc;
-
 	if (this->buckets == NULL)
 		return;
 
-	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-	alloc = (char *)this->buckets - sizeof(uintptr_t);
-	count = *(uint32_t *)alloc;
-	for (i = count - 1; i >= 0; i--)
-		CVector_Destructor(&this->buckets[i]);
-	free(alloc);
+	CVector_VecDestructor_Region(this->buckets, 3);
 }
 
 /*
@@ -1867,10 +1859,10 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 			int16_t slot = rd_slot;
 
 			if (regions[slot] != NULL)
-				free(regions[slot]);
+				OperatorDelete(regions[slot]);
 
 			CRegion_Client *region;
-			CRegion_Client *raw = (CRegion_Client *)malloc(sizeof(CRegion_Client));
+			CRegion_Client *raw = (CRegion_Client *)OperatorNew(sizeof(CRegion_Client));
 			if (raw != NULL) {
 				memset(raw->name, 0, 0x28);
 				raw->x = 0;
@@ -1955,11 +1947,11 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 
 			// 0x00556DF9
 			if (regions[slot] != NULL)
-				free(regions[slot]);
+				OperatorDelete(regions[slot]);
 
 			// 0x00556E24
 			CRegion_Client *region;
-			CRegion_Client *raw = (CRegion_Client *)malloc(sizeof(CRegion_Client));
+			CRegion_Client *raw = (CRegion_Client *)OperatorNew(sizeof(CRegion_Client));
 			if (raw != NULL) {
 				// CRegion_Constructor_Client (0x005562B4 -> 0x005565B6)
 				memset(raw->name, 0, 0x28);
@@ -2053,11 +2045,11 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 
 			// 0x005570D3
 			if (regions[slot] != NULL)
-				free(regions[slot]);
+				OperatorDelete(regions[slot]);
 
 			// 0x005570FE
 			CRegion_Client *region;
-			CRegion_Client *raw = (CRegion_Client *)malloc(sizeof(CRegion_Client));
+			CRegion_Client *raw = (CRegion_Client *)OperatorNew(sizeof(CRegion_Client));
 			if (raw != NULL) {
 				// CRegion_Constructor_Client (0x005562B4 -> 0x005565B6)
 				memset(raw->name, 0, 0x28);

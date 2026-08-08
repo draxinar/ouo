@@ -19,6 +19,7 @@
 #include "log.h"
 #include "nodepool.h"
 #include "objvar.h"
+#include "region.h"
 #include "taglist.h"
 #include "time.h"
 #include "vg_pool.h"
@@ -125,7 +126,7 @@ CScriptInstance_Clear(ScriptAttachNode *node)
 			}
 		}
 
-		free(node->memberScope);
+		OperatorDelete(node->memberScope);
 		node->memberScope = NULL;
 	}
 
@@ -411,7 +412,7 @@ WomScr_LoadFromLine(uint32_t serial, const char *val)
 			if (*p != '\0')
 				p++;
 
-			newList = (CList *)malloc(sizeof(CList));
+			newList = (CList *)OperatorNew(sizeof(CList));
 			if (newList != NULL)
 				CList_Constructor(newList);
 
@@ -461,7 +462,7 @@ TagListManager_New(void)
 		VG_MAKE_DEFINED(&mgr->head, sizeof(mgr->head));
 		g_tagListMgrFreeList = (CTagListManager *)mgr->head;
 	} else {
-		mgr = (CTagListManager *)malloc(sizeof(CTagListManager));
+		mgr = (CTagListManager *)OperatorNew(sizeof(CTagListManager));
 		VG_POOL_ALLOC(&g_tagListMgrFreeList, mgr, sizeof(CTagListManager));
 	}
 	CTagListManager_Init(mgr);
@@ -983,21 +984,21 @@ TagList_SetTag(CTagListManager *mgr, const char *name, int type, uintptr_t value
 	node->name = (char *)CScriptManager_InternString(&g_ScriptManager, name);
 	switch (type) {
 	case 1: { // WTYPE_STRING
-		CString *newStr = (CString *)malloc(sizeof(CString));
+		CString *newStr = (CString *)OperatorNew(sizeof(CString));
 		if (newStr != NULL)
 			CString_CopyConstructor(newStr, (CString *)(uintptr_t)value);
 		node->value = (uintptr_t)newStr;
 		break;
 	}
 	case 2: { // WTYPE_USTRING
-		CUString *newUStr = (CUString *)malloc(sizeof(CUString));
+		CUString *newUStr = (CUString *)OperatorNew(sizeof(CUString));
 		if (newUStr != NULL)
 			CUString_CopyConstructor(newUStr, (CUString *)(uintptr_t)value);
 		node->value = (uintptr_t)newUStr;
 		break;
 	}
 	case 3: { // WTYPE_LOC
-		CLocation *loc = (CLocation *)malloc(6);
+		CLocation *loc = (CLocation *)OperatorNew(6);
 		if (loc != NULL)
 			CLocation_Init(loc);
 		node->value = (uintptr_t)loc;
@@ -1007,7 +1008,7 @@ TagList_SetTag(CTagListManager *mgr, const char *name, int type, uintptr_t value
 	case 5: { // WTYPE_LIST
 		CList *newList;
 		CListNode *walk;
-		newList = (CList *)malloc(sizeof(CList));
+		newList = (CList *)OperatorNew(sizeof(CList));
 		if (newList != NULL)
 			CList_Constructor(newList);
 		node->value = (uintptr_t)newList;

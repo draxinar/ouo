@@ -30,6 +30,7 @@
 #include "io.h"
 #include "listensocket.h"
 #include "packet_handler.h"
+#include "region.h"
 #include "stl.h"
 #include "time.h"
 #include "twofish.h"
@@ -127,7 +128,7 @@ Socket_Init(void)
 	g_socketCount = 0;
 	USED(g_socketCount);
 
-	void *p = malloc(sizeof(CUserSock));
+	void *p = OperatorNew(sizeof(CUserSock));
 	usock = (CUserSock *)p;
 	if (usock != NULL)
 		usock = CUserSock_Constructor(usock, 0xBEEF, 0x7F000001);
@@ -350,7 +351,7 @@ CSocketBuffer_Delete(CSocketBuffer *this)
 		this->prev->next = this->next;
 	else
 		this->socket->firstSocketBuffer = this->next;
-	free(this->buf);
+	OperatorDelete(this->buf);
 	this->socket->totalSize -= this->size;
 	this->next = GLOBAL_CSocketBuffer;
 	GLOBAL_CSocketBuffer = this;
@@ -384,7 +385,7 @@ Append_To_CSocketBuffer(CSocket *socket, uint8_t *buf, size_t size)
 			VG_CREATE_POOL(&GLOBAL_CSocketBuffer);
 			vgPoolCreated = 1;
 		}
-		pool = malloc(256 * sizeof(CSocketBuffer));
+		pool = OperatorNew(256 * sizeof(CSocketBuffer));
 		for (i = 255; i >= 1; --i) {
 			pool[i].next = GLOBAL_CSocketBuffer;
 			GLOBAL_CSocketBuffer = &pool[i];
@@ -831,7 +832,7 @@ CSocket_Destructor(CSocket *this, uint8_t v)
 {
 	CSocket_Delete(this);
 	if (v & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -846,7 +847,7 @@ CListenSocket_Destructor(CSocket *this, uint8_t v)
 {
 	CListenSocket_Delete(this);
 	if (v & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 

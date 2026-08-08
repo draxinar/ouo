@@ -923,7 +923,7 @@ CShopkeeper_OpenSellWindow(CPlayer *player, CMobile *vendor)
 
 	count = 0;
 
-	sellBuf = (CVendorSellEntry *)malloc(250 * sizeof(CVendorSellEntry));
+	sellBuf = (CVendorSellEntry *)OperatorNew(250 * sizeof(CVendorSellEntry));
 
 	g_VendorSawMatch = 0;
 
@@ -945,7 +945,7 @@ check_count:
 		Vendor_SayTo(player, vendor, "You have nothing I would be interested in.");
 	}
 
-	free(sellBuf);
+	OperatorDelete(sellBuf);
 }
 
 /*
@@ -1449,6 +1449,6 @@ CShopkeeper_ScalarDelete(CNPC *npc, int flags)
 {
 	CShopkeeper_Destructor(npc);
 	if (flags & 1)
-		free(npc);
+		OperatorDelete(npc);
 	return NULL;
 }

@@ -14,6 +14,7 @@
 
 #include "containerhandle.h"
 #include "feistel.h"
+#include "region.h"
 #include "stl.h"
 
 /*
@@ -196,12 +197,12 @@ ContainerHandle_ShutdownAll(void)
 {
 	if (g_HandleMap != NULL) {
 		StdTree_Clear(g_HandleMap);
-		free(g_HandleMap);
+		OperatorDelete(g_HandleMap);
 	}
 
 	if (g_FileManager != NULL) {
 		FileManager_Shutdown(g_FileManager);
-		free(g_FileManager);
+		OperatorDelete(g_FileManager);
 	}
 }
 
@@ -238,7 +239,7 @@ ContainerHandle_Flush(ContainerHandle *this)
 		this->dirty = 0;
 	}
 
-	free(this->pageBuffer);
+	OperatorDelete(this->pageBuffer);
 	this->pageBuffer = NULL;
 	this->pageDataSize = 0;
 	this->pageCurOff = 0;
@@ -280,7 +281,7 @@ ContainerHandle_AllocPage(ContainerHandle *this, int size)
 	if (this->pageBuffer != NULL)
 		ContainerHandle_Flush(this);
 
-	this->pageBuffer = malloc(size);
+	this->pageBuffer = OperatorNew(size);
 	this->pageCurOff = 0;
 
 	if (this->isQFile) {
@@ -341,7 +342,7 @@ ContainerHandle_GrowFile(ContainerHandle *this, int extraBytes)
 		int tailLen = this->pageDataSize - flushLen;
 		int smallBufSize = newBufSize - flushLen;
 
-		newBuf = malloc(smallBufSize);
+		newBuf = OperatorNew(smallBufSize);
 		memcpy(newBuf, this->pageBuffer + flushLen, tailLen);
 		{
 			int savedPDS = this->pageDataSize;
@@ -360,9 +361,9 @@ ContainerHandle_GrowFile(ContainerHandle *this, int extraBytes)
 		return;
 	}
 
-	newBuf = malloc(newBufSize);
+	newBuf = OperatorNew(newBufSize);
 	memcpy(newBuf, this->pageBuffer, this->pageDataSize);
-	free(this->pageBuffer);
+	OperatorDelete(this->pageBuffer);
 
 	this->pageBuffer = newBuf;
 	this->pageDataSize += extraBytes;

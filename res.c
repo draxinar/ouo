@@ -154,8 +154,6 @@ static CResListNode *CResList_Erase_ResManager(CResList *list, CResListNode *nod
 static CResListNode *CResList_AllocTailNodeHintKey(CResList *list); // 0x00464EA0
 static void *CResManager_NextEntryHint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00464CA0
 static CResListNode *CResList_EraseAndFree_Hint(CResList *list, CResListNode *node, int direction); // 0x00465480
-static void CResList_ClearInternal_MagicItemList(CResList *this); // 0x00466CA0
-static void CResList_Destructor_MagicItemList(CResList *this); // 0x00466CE0
 static CResListNode *CResList_Erase_Region(CResList *list, CResListNode *node, void **outData, int direction); // 0x00466ED0
 static CResListNode *CResList_AllocAndAppend(CResList *list); // 0x00473F50
 static CResListNode *CResList_InsertAfterNode(CResList *list, CResListNode *afterNode); // 0x00474140
@@ -219,14 +217,11 @@ static void CResList_ValNodeDestructor_Region(CResListNode *this); // 0x004A80E0
 static void CSearchCtx_FreeKeyVal(CSearchCtx *this); // 0x004A864D
 static void *CResList_EraseAndFree_ByFileVal(CResList *list, uintptr_t valNode, uint32_t direction); // 0x004A8150
 static void *CResManager_FindByInt_Templates(CResManager *rm, CSearchCtx *output, void *keyPtr, int direction); // 0x004C0C40
-static int CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr); // 0x004C0AF0
-static void CResManager_ClearJ_Thunk(CResManager *this); // 0x004C0F50
 static void CResListNode_SetStringIfValid(CResListNode *this, void *node, void *src); // 0x004C1500
 static void CResList_Destructor_TemplatesVal(CResList *this); // 0x004C1620
 static CResListNode *CResList_AllocForwardF(CResList *list, void *srcData); // 0x004C1640
 static void *CResManager_SearchBucket_TemplatesInt(CResManager *rm, CSearchCtx *output, void *searchKey, CSearchCtx *ctx, int direction); // 0x004C1690
 static void CResList_Destructor_NameTableVal(CResList *this); // 0x004C1740
-static void CStringPairList_Destructor(CResList *this); // 0x004C1D10
 static void CResManager_ClearJ(CResManager *rm); // 0x004C1A80
 static CSearchCtx *CResManager_FindOrInsertH(CResManager *rm, CSearchCtx *output, CString *key); // 0x004C1840
 static void *CResManager_SearchBucket_DefinesStr(CResManager *rm, CSearchCtx *output, void *searchKey, CSearchCtx *ctx, int direction); // 0x004C1790
@@ -1230,7 +1225,7 @@ CStringList_ScalarDelete(CStringList *sl, int flags)
 {
 	CStringList_Destroy(sl);
 	if (flags & 1)
-		free(sl);
+		OperatorDelete(sl);
 	return NULL;
 }
 
@@ -1244,7 +1239,7 @@ CResList_ScalarDeleteA(CResList *list, int flags)
 {
 	CResList_DestructorA(list);
 	if (flags & 1)
-		free(list);
+		OperatorDelete(list);
 	return NULL;
 }
 
@@ -1258,7 +1253,7 @@ CStringList_ScalarDeleteEffects(CStringList *sl, int flags)
 {
 	CStringList_DestructorEffects(sl);
 	if (flags & 1)
-		free(sl);
+		OperatorDelete(sl);
 	return NULL;
 }
 
@@ -1554,7 +1549,7 @@ CResList_InsertStrCopy(CResList *list, CString *str, int direction, int orderedF
 {
 	CString *copy;
 
-	copy = (CString *)malloc(sizeof(CString));
+	copy = (CString *)OperatorNew(sizeof(CString));
 	if (copy != NULL) {
 		CString_CopyConstructor(copy, str);
 	}
@@ -1665,12 +1660,12 @@ CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *ke
 	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -1846,12 +1841,12 @@ CResManager_FindOrInsertSecond(CResManager *rm, CSearchCtx *output, CString *key
 	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -1979,12 +1974,12 @@ CResManager_FindOrInsertC(CResManager *rm, CSearchCtx *output, CString *key)
 	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -2111,12 +2106,12 @@ CResManager_FindOrInsertEffects(CResManager *rm, CSearchCtx *output, CString *ke
 	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -2405,7 +2400,7 @@ CStringList_AllocIterNode(CStringList *sl, CResListNode **output, int weight, in
 	int flag;
 
 	flag = 0;
-	entry = (CEffectTableEntry *)malloc(sizeof(CEffectTableEntry));
+	entry = (CEffectTableEntry *)OperatorNew(sizeof(CEffectTableEntry));
 	if (entry != NULL)
 		constructed = CEffectTableEntry_ConstructorWeight(entry, weight);
 	else
@@ -2447,7 +2442,7 @@ CResList_ScalarDeleteI(CResList *list, int flags)
 {
 	CResList_DestructorI(list);
 	if (flags & 1)
-		free(list);
+		OperatorDelete(list);
 	return NULL;
 }
 
@@ -2461,7 +2456,7 @@ CResList_ScalarDeleteS(CResList *list, int flags)
 {
 	CResList_DestructorS(list);
 	if (flags & 1)
-		free(list);
+		OperatorDelete(list);
 	return NULL;
 }
 
@@ -2475,7 +2470,7 @@ CResList_ScalarDeleteC(CResList *list, int flags)
 {
 	CResList_DestructorC(list);
 	if (flags & 1)
-		free(list);
+		OperatorDelete(list);
 	return NULL;
 }
 
@@ -2489,7 +2484,7 @@ CResList_ScalarDeleteT(CResList *list, int flags)
 {
 	CResList_DestructorT(list);
 	if (flags & 1)
-		free(list);
+		OperatorDelete(list);
 	return NULL;
 }
 
@@ -2558,7 +2553,7 @@ CResList_AllocTailNodeA(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeA(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -2671,7 +2666,7 @@ void
 CResListNode_SetString(CResListNode *node, CString *src)
 {
 	if (node->data == NULL) {
-		CString *s = (CString *)malloc(sizeof(CString));
+		CString *s = (CString *)OperatorNew(sizeof(CString));
 		if (s != NULL)
 			CString_CopyConstructor(s, src);
 		node->data = s;
@@ -2693,7 +2688,7 @@ CResList_AllocTailNodeB(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeC(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -2713,7 +2708,7 @@ void
 CResListNode_InsertDataB(CResListNode *node, void *srcData)
 {
 	if (node->data == NULL) {
-		CMagicItemListNode *d = (CMagicItemListNode *)malloc(sizeof(CMagicItemListNode));
+		CMagicItemListNode *d = (CMagicItemListNode *)OperatorNew(sizeof(CMagicItemListNode));
 		if (d != NULL)
 			CMagicItemListNode_CopyConstructor(d, (CMagicItemListNode *)srcData);
 		node->data = d;
@@ -2874,7 +2869,7 @@ CResList_AllocTailNodeI(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeI(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -2966,7 +2961,7 @@ CResList_AllocTailNodeS(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeS(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -3046,7 +3041,7 @@ CResList_AllocTailNodeC(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeD(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -3195,7 +3190,7 @@ CResList_AllocTailNodeE(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeE(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -3339,7 +3334,7 @@ CResList_RecycleNodeA(CResList *list, CResListNode *afterNode)
 
 	next = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -3372,7 +3367,7 @@ CResList_RecycleNodeB(CResList *list)
 	if (list->head != NULL)
 		return CResList_InsertBeforeNode(list, list->head);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -3469,7 +3464,7 @@ CResList_RecycleNodeC(CResList *list, CResListNode *afterNode)
 
 	next = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -3558,7 +3553,7 @@ CResList_RecycleNodeI(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -3647,7 +3642,7 @@ CResList_RecycleNodeS(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -3720,7 +3715,7 @@ CResList_RecycleNodeD(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -3793,7 +3788,7 @@ CResList_RecycleNodeE(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -3897,7 +3892,7 @@ CResListNode_ScalarDeleteStr(CResListNode *node, int flags)
 {
 	CResListNode_DestructorStr(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -3915,7 +3910,7 @@ CResList_GetOrAllocHeadNP(CResList *list)
 	if (list->head != NULL)
 		return CResList_InsertAfterTailNP(list, list->head);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -3939,7 +3934,7 @@ CResList_GetOrAllocTailNP(CResList *list)
 	if (list->tail != NULL)
 		return CResList_InsertBeforeHeadNP(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -3980,7 +3975,7 @@ CResListNode_SetDataNP(CResListNode *node, CNamedProperty *src)
 		return;
 	}
 
-	CNamedProperty *prop = (CNamedProperty *)malloc(sizeof(CNamedProperty));
+	CNamedProperty *prop = (CNamedProperty *)OperatorNew(sizeof(CNamedProperty));
 	if (prop != NULL)
 		CNamedProperty_Constructor(prop, src);
 
@@ -4003,7 +3998,7 @@ CResList_InsertBeforeNode(CResList *list, CResListNode *beforeNode)
 
 	prev = CResList_GetTail((CResList *)beforeNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -4196,7 +4191,7 @@ CResList_GetOrAllocHeadE(CResList *list)
 	if (list->head != NULL)
 		return CResList_InsertAfterTailE(list, list->head);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -4220,7 +4215,7 @@ CResList_GetOrAllocTailE(CResList *list)
 	if (list->tail != NULL)
 		return CResList_InsertBeforeHeadE(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -4273,7 +4268,7 @@ CStringListNode_ScalarDelete(CStringListNode *node, int flags)
 {
 	CStringListNode_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4321,7 +4316,7 @@ CResList_InsertAfterTailNP(CResList *list, CResListNode *headNode)
 
 	tail = CResList_GetTail((CResList *)headNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -4356,7 +4351,7 @@ CResList_InsertBeforeHeadNP(CResList *list, CResListNode *tailNode)
 
 	head = CResList_Begin((CResList *)tailNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -4606,7 +4601,7 @@ CResList_InsertAfterTailE(CResList *list, CResListNode *beforeNode)
 
 	prev = CResList_GetTail((CResList *)beforeNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -4641,7 +4636,7 @@ CResList_InsertBeforeHeadE(CResList *list, CResListNode *afterNode)
 
 	next = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -4711,7 +4706,7 @@ CResListNodeSLN_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeSLN_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4725,7 +4720,7 @@ CResListNodeI_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeI_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4739,7 +4734,7 @@ CResListNodeS_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeS_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4753,7 +4748,7 @@ CResListNodeC_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeC_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4767,7 +4762,7 @@ CResListNodeT_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeT_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4781,7 +4776,7 @@ CResListNodeE_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeE_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -4911,7 +4906,7 @@ CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, int flag)
 	outData = NULL;
 	result = CResList_Erase_Spawn(list, node, &outData, flag);
 	if (outData != NULL)
-		free(outData);
+		OperatorDelete(outData);
 	return result;
 }
 
@@ -4975,7 +4970,7 @@ CResList_AllocNode(CResList *list)
 	}
 
 	// Allocate new node
-	raw = malloc(sizeof(CResListNode));
+	raw = OperatorNew(sizeof(CResListNode));
 	if (raw != NULL)
 		newNode = CResListNode_Constructor_bin((CResListNode *)raw);
 	else
@@ -5039,7 +5034,7 @@ void
 CResListNode_SetDataInt(CResListNode *node, void *srcPtr)
 {
 	if (node->data == NULL) {
-		uintptr_t *newData = (uintptr_t *)malloc(sizeof(uintptr_t));
+		uintptr_t *newData = (uintptr_t *)OperatorNew(sizeof(uintptr_t));
 		if (newData != NULL)
 			*newData = *(uintptr_t *)srcPtr;
 		node->data = newData;
@@ -5067,7 +5062,7 @@ CResList_PushFront_SpawnLocal(CResList *list, CResListNode *afterNode)
 
 	firstNode = CResList_Begin((CResList *)afterNode);
 
-	raw = malloc(sizeof(CResListNode));
+	raw = OperatorNew(sizeof(CResListNode));
 	if (raw != NULL)
 		newNode = CResListNode_Constructor_bin((CResListNode *)raw);
 	else
@@ -5431,7 +5426,7 @@ ScalarDestructor_KeyNode(CResList *this, int flag)
 {
 	CResList_Destructor_HintKey(this);
 	if (flag & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -5445,7 +5440,7 @@ CResListValNode_ScalarDelete_Hint(CResList *this, int flags)
 {
 	CResList_ValNodeDestructor_Hint(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -5497,7 +5492,7 @@ CResList_AllocTailNodeHintVal(CResList *list)
 	if (list->tail != NULL)
 		return CResList_PushFront_ResManager(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -5548,7 +5543,7 @@ CResList_AllocTailNodeHintKey(CResList *list)
 	if (list->tail != NULL)
 		return CResList_PushFront_ResManager2(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -5639,7 +5634,7 @@ CResListValNode_ScalarDelete_HintVar(CResListNode *this, int flags)
 {
 	CResList_ValNodeDestructor_HintVariant(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -5824,7 +5819,7 @@ CResListNode_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNode_FreeData(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -5879,30 +5874,14 @@ CResList_ClearInternal_MagicItemList_rb(CResList *this)
 }
 
 /*
- * 0x00466CA0 - CResList::ClearInternal (MagicItemList variant, 59 bytes)
- *
- * Iterates from head, freeing every node via EraseAndFree_MagicStr.
- */
-static void
-CResList_ClearInternal_MagicItemList(CResList *this)
-{
-	CResListNode *node;
-
-	node = CResList_Begin(this);
-	while (CResList_IsValid(this, node)) {
-		node = (CResListNode *)CResList_EraseAndFree_MagicStr(this, node, 1);
-	}
-}
-
-/*
  * 0x00466CE0 - CResList::~CResList (MagicItemList variant, 19 bytes)
  *
  * Destroys the list by freeing every node via ClearInternal_MagicItemList.
  */
-static __attribute__((unused)) void
+void
 CResList_Destructor_MagicItemList(CResList *this)
 {
-	CResList_ClearInternal_MagicItemList(this);
+	CResList_ClearInternal_MagicItemList_rb(this);
 }
 
 /*
@@ -6006,7 +5985,7 @@ CResList_RemoveAndFree(CResList *list, CResListNode *node, int direction)
 
 	result = CResList_RemoveNode_Bin(list, node, &outData, direction);
 	if (outData != NULL)
-		free(outData);
+		OperatorDelete(outData);
 	return result;
 }
 
@@ -6052,7 +6031,7 @@ CResList_AllocAndAppend(CResList *list)
 		return CResList_InsertAfterNode(list, list->tail);
 	}
 
-	mem = malloc(sizeof(CResListNode));
+	mem = OperatorNew(sizeof(CResListNode));
 	if (mem != NULL)
 		node = CResListNode_Constructor_bin(mem);
 	else
@@ -6248,12 +6227,12 @@ CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 	bucket = ResManager_HashInt(*keyPtr, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		keyList = (CResList *)malloc(sizeof(CResList));
+		keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		valList = (CResList *)malloc(sizeof(CResList));
+		valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -6406,12 +6385,12 @@ CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 	bucket = ResManager_HashInt(*keyPtr, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		keyList = (CResList *)malloc(sizeof(CResList));
+		keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		valList = (CResList *)malloc(sizeof(CResList));
+		valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -6976,7 +6955,7 @@ CResList_BeginIter_MultiA(CResList *list)
 	if (list->tail != NULL)
 		return CResList_PushFront_MultiA(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -6999,7 +6978,7 @@ CResList_EraseAndFree_MultiA(CResList *list, CResListNode *node, int direction)
 
 	result = (CResListNode *)CResList_Erase_MultiC(list, (void *)node, &deletedPtr, direction);
 	if (deletedPtr != NULL)
-		free(deletedPtr);
+		OperatorDelete(deletedPtr);
 	return result;
 }
 
@@ -7029,7 +7008,7 @@ CResList_BeginIter_MultiB(CResList *list)
 	if (list->tail != NULL)
 		return CResList_PushFront_MultiB(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -7190,7 +7169,7 @@ CResList_BeginIter_MultiC(CResList *list)
 	if (list->tail != NULL) {
 		return CResList_PushFront_MultiC(list, list->tail);
 	}
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 	list->tail = node;
@@ -7246,7 +7225,7 @@ CResList_PushFront_MultiA(CResList *list, CResListNode *afterNode)
 
 	oldNext = afterNode->next;
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -7321,7 +7300,7 @@ CResList_PushFront_MultiB(CResList *list, CResListNode *afterNode)
 
 	oldNext = afterNode->next;
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -7376,7 +7355,7 @@ CResList_PushFront_MultiC(CResList *list, CResListNode *afterNode)
 
 	oldNext = afterNode->next;
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -7424,7 +7403,7 @@ static void
 CResListNode_FreeData(CResListNode *node)
 {
 	if (node->data != NULL) {
-		free(node->data);
+		OperatorDelete(node->data);
 		node->data = NULL;
 	}
 }
@@ -8419,7 +8398,7 @@ CResListValNode_ScalarDelete_Region(CResListNode *this, int flags)
 {
 	CResList_ValNodeDestructor_Region(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -8677,12 +8656,12 @@ CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr)
 	bucket = ResManager_HashInt(*(uint32_t *)keyPtr, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -8769,7 +8748,7 @@ CResManager_Clear_NameTable(CResManager *this)
  *
  * Same as variant F but uses CResList_AllocForwardG for the value insert.
  */
-static __attribute__((unused)) int
+int
 CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
 {
 	uint32_t bucket;
@@ -8778,12 +8757,12 @@ CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
 	bucket = ResManager_HashInt(*(uint32_t *)keyPtr, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -8942,7 +8921,7 @@ CResManager_FindByStr_Defines(CResManager *rm, CSearchCtx *output, CString *key,
  *
  * Thin wrapper forwarding to CResManager_ClearJ.
  */
-static __attribute__((unused)) void
+void
 CResManager_ClearJ_Thunk(CResManager *this)
 {
 	CResManager_ClearJ(this);
@@ -9041,7 +9020,7 @@ CResList_ScalarDelete_TemplatesVal(CResList *this, int flags)
 {
 	CResList_Destructor_TemplatesVal(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -9055,7 +9034,7 @@ CResList_ScalarDelete_NameTableVal(CResList *this, int flags)
 {
 	CResList_Destructor_NameTableVal(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -9301,12 +9280,12 @@ CResManager_FindOrInsertH(CResManager *rm, CSearchCtx *output, CString *key)
 	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -9399,7 +9378,7 @@ CResManager_ClearJ(CResManager *rm)
  *
  * Delegates to CResList_RemoveAll.
  */
-static __attribute__((unused)) void
+void
 CStringPairList_Destructor(CResList *this)
 {
 	CResList_RemoveAll(this);
@@ -9493,12 +9472,12 @@ CResManager_FindOrInsertK(CResManager *rm, CSearchCtx *output, CString *key)
 	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -9591,7 +9570,7 @@ CResList_ScalarDelete_TemplatesVar(CResList *this, int flags)
 {
 	CResList_Destructor_TemplatesVariant(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -9648,7 +9627,7 @@ CResList_BeginIterF(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeF(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -9744,7 +9723,7 @@ CResList_BeginIterG(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeG(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -9878,7 +9857,7 @@ CResList_BeginIterJ(CResList *list)
 	if (list->tail != NULL)
 		return CResList_RecycleNodeJ(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -9958,7 +9937,7 @@ CResListValNode_ScalarDelete_NameTbl(CNameEntry *this, int flags)
 {
 	CResList_ValNodeDestructor_NameTable(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -9991,7 +9970,7 @@ CResList_RecycleNodeF(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -10043,7 +10022,7 @@ CResList_RecycleNodeG(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -10095,7 +10074,7 @@ CResList_RecycleNodeJ(CResList *list, CResListNode *afterNode)
 
 	head = CResList_Begin((CResList *)afterNode);
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -10144,7 +10123,7 @@ CResList_AllocTailNode_TemplatesKey(CResList *list)
 	if (list->head != NULL)
 		return CResList_InsertBeforeJ(list, list->head);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -10168,7 +10147,7 @@ CResList_AllocTailNode_LabelsVal(CResList *list)
 	if (list->tail != NULL)
 		return CResList_AllocTailNodeK(list, list->tail);
 
-	node = (CResListNode *)malloc(sizeof(CResListNode));
+	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
 		CResListNode_Constructor_bin(node);
 
@@ -10223,7 +10202,7 @@ CStringPairListNode_ScalarDelete(CStringPairListNode *this, int flags)
 {
 	CStringPairListNode_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -10344,7 +10323,7 @@ CResList_EraseAndFree_K(CResList *list, CResListNode *node, int direction)
 	result = CResList_UnlinkNode_K(list, node, &outData, direction);
 
 	if (outData != NULL)
-		free(outData);
+		OperatorDelete(outData);
 
 	return result;
 }
@@ -10376,7 +10355,7 @@ CResList_InsertBeforeJ(CResList *list, CResListNode *afterNode)
 
 	prev = afterNode->prev;
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -10411,7 +10390,7 @@ CResList_AllocTailNodeK(CResList *list, CResListNode *afterNode)
 
 	next = afterNode->next;
 
-	newNode = (CResListNode *)malloc(sizeof(CResListNode));
+	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (newNode != NULL)
 		CResListNode_Constructor_bin(newNode);
 
@@ -10481,7 +10460,7 @@ CResListNodeF_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeF_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -10495,7 +10474,7 @@ CResListNodeG_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeG_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 
@@ -10509,7 +10488,7 @@ CResListNodeJ2_ScalarDelete(CResListNode *node, int flags)
 {
 	CResListNodeJ2_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 

@@ -114,6 +114,7 @@ void CResManagerS_ScalarDtor(CResManager *this); // 0x0043E0F0
 void CResManagerC_ScalarDtor(CResManager *this); // 0x0043E480
 void CResManagerT_ScalarDtor(CResManager *this); // 0x0043E890
 void CResList_DestructorSLN(CResList *list); // 0x0043F3B0
+void CResManager_ClearJ_Thunk(CResManager *this); // 0x004C0F50
 void CResManager_ClearI(CResManager *rm); // 0x0043DCD0
 CSearchCtx *CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *key); // 0x0043DDB0
 void *CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, const char *key, int direction); // 0x0043DF40
@@ -176,6 +177,7 @@ void CResList_RemoveByValue(CResList *list, uintptr_t value); // 0x0045EC26
 CResListNode *CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, int flag); // 0x0045F290
 CResListNode *CResList_FindByValue(CResList *list, void *keyPtr, CResListNode *startNode, int direction); // 0x0045F330
 CResListNode *CResList_Erase_Spawn(CResList *list, CResListNode *node, void **outData, int direction); // 0x0045F450
+int CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr); // 0x004C0AF0
 void CResManager_InsertInt(CResManager *rm, uint32_t key, void *value); // 0x0045F560
 void CResListNode_SetDataInt(CResListNode *node, void *srcPtr); // 0x0045F560
 uint32_t ResManager_HashInt(uint32_t key, uint32_t bucketCount); // 0x004639C0
@@ -192,6 +194,8 @@ void CResList_ValNodeDestructor_Hint(CResList *this); // 0x00465020
 CResListNode *CResListNode_ScalarDelete(CResListNode *node, int flags); // 0x00465450
 CResListNode *CResList_Next(CResList *list, CResListNode *node); // 0x00466C80
 void CResList_ClearInternal_MagicItemList_rb(CResList *this); // 0x00466CA0
+void CResList_Destructor_MagicItemList(CResList *this); // 0x00466CE0
+void CStringPairList_Destructor(CResList *this); // 0x004C1D10
 CResListNode *CResList_EraseAndFree_MagicStr(CResList *list, CResListNode *node, int direction); // 0x00466DD0
 void *CResList_GetHeadIfNotNull(CResList *this, CResListNode *list); // 0x00466E80
 int SearchCtx_IsEqual(CSearchCtx *a, CSearchCtx *b); // 0x004730A0

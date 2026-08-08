@@ -240,13 +240,13 @@ CEScript_FindOrCreateVar(CEScript *ctx, const char *name, char type)
 
 	// Create new var
 	if (type == '$') {
-		void *newVar = malloc(sizeof(CEScriptStringVar));
+		void *newVar = OperatorNew(sizeof(CEScriptStringVar));
 		if (newVar != NULL)
 			CEScriptStringVar_Constructor((CEScriptStringVar *)newVar, name);
 		ctx->vars[ctx->numVars] = newVar;
 		ctx->numVars++;
 	} else if (type == '%') {
-		void *newVar = malloc(sizeof(CEScriptIntVar));
+		void *newVar = OperatorNew(sizeof(CEScriptIntVar));
 		if (newVar != NULL)
 			CEScriptIntVar_Constructor((CEScriptIntVar *)newVar, name);
 		ctx->vars[ctx->numVars] = newVar;
@@ -292,7 +292,7 @@ CEScriptStringVar_Clone(CEScriptStringVar *self)
 	int *srcValues;
 	int *dstValues;
 	int i;
-	CEScriptStringVar *clone = (CEScriptStringVar *)malloc(sizeof(CEScriptStringVar));
+	CEScriptStringVar *clone = (CEScriptStringVar *)OperatorNew(sizeof(CEScriptStringVar));
 	if (clone == NULL)
 		return NULL;
 	CEScriptStringVar_Constructor(clone, self->base.name);
@@ -312,7 +312,7 @@ CEScriptStringVar_Clone(CEScriptStringVar *self)
 CEScriptIntVar *
 CEScriptIntVar_Clone(CEScriptIntVar *self)
 {
-	CEScriptIntVar *clone = (CEScriptIntVar *)malloc(sizeof(CEScriptIntVar));
+	CEScriptIntVar *clone = (CEScriptIntVar *)OperatorNew(sizeof(CEScriptIntVar));
 	if (clone == NULL)
 		return NULL;
 	CEScriptIntVar_Constructor(clone, self->base.name);
@@ -575,13 +575,13 @@ CEScript_CmdNewObj(CEScript *ctx, char *line)
 	} else {
 		isDynamic = 1;
 		if (strcasecmp(typeBuf, "DYNAMIC") == 0) {
-			void *mem = malloc(sizeof(CItem));
+			void *mem = OperatorNew(sizeof(CItem));
 			if (mem)
 				obj = CItem_Constructor(mem);
 			else
 				obj = NULL;
 		} else if (strcasecmp(typeBuf, "CONTAINER") == 0) {
-			void *mem = malloc(sizeof(CContainer));
+			void *mem = OperatorNew(sizeof(CContainer));
 			if (mem) {
 				CContainer_Constructor((CContainer *)mem);
 				obj = (CItem *)mem;
@@ -590,7 +590,7 @@ CEScript_CmdNewObj(CEScript *ctx, char *line)
 			}
 		} else {
 			// Default: create CItem
-			void *mem = malloc(sizeof(CItem));
+			void *mem = OperatorNew(sizeof(CItem));
 			if (mem)
 				obj = CItem_Constructor(mem);
 			else
@@ -963,7 +963,7 @@ CEScript_CmdEScript(CEScript *ctx, char *line)
 	char scriptName[128];
 	char path[128];
 
-	child = (CEScript *)malloc(sizeof(CEScript));
+	child = (CEScript *)OperatorNew(sizeof(CEScript));
 	if (child == NULL)
 		return;
 	CEScript_Init(child);
@@ -987,7 +987,7 @@ CEScript_CmdEScript(CEScript *ctx, char *line)
 	snprintf(path, sizeof(path), "../.rundir/escripts/%s.esc", scriptName);
 	CEScript_Run(child, path, ctx->player, line);
 
-	free(child);
+	OperatorDelete(child);
 }
 #pragma GCC diagnostic pop
 
@@ -1390,7 +1390,7 @@ CEScriptVar_ScalarDelete(CEScriptVar *self, int flags)
 {
 	CEScriptVar_Destructor(self);
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 
@@ -1420,7 +1420,7 @@ CEScriptStringVar_ScalarDtor(CEScriptStringVar *self, int freeObj)
 {
 	CEScriptStringVar_Destructor(self);
 	if (freeObj & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 
@@ -1462,7 +1462,7 @@ CEScriptIntVar_ScalarDtor(CEScriptIntVar *self, int freeObj)
 {
 	CEScriptIntVar_Destructor(self);
 	if (freeObj & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 

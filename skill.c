@@ -46,7 +46,6 @@ static int CSkillManager_CalcDelay(int8_t skillId, int baseSkill); // 0x004D55D2
 static int CalcStatThreshold(CMobile *mob, int flag, int weight, int advRate, int skillValue, int baseStat); // 0x004D5A2C
 static void CMobile_TryStatGain(CMobile *mob, int8_t skillId, int skillValue, int flag); // 0x004D5A5D
 static int CMobile_GetBaseSkillValue(CMobile *mob, int8_t skillId); // 0x004D60CC
-static int CMobile_PostStatDecay(CMobile *mob, int gained); // 0x004D62FD
 static void Double3_Clear(CSkillDef *def); // 0x004D6400
 static int CSkillDef_GetType(CSkillDef *def); // 0x004D6440
 static const char *CSkillDef_GetScriptName(CSkillDef *def); // 0x004D6460
@@ -948,7 +947,7 @@ CSkillManager_CalcDelay(int8_t skillId, int baseSkill)
 
 	totalUsage = mgr->allSkillSomeTotal + mgr->allSkillUsageCounter;
 	avgCap = (int)(totalUsage / (uint32_t)mgr->numSkills);
-	perSkillUsage = mgr->perSkillUsageCounter[skillId] + mgr->perSkillSomeValue[skillId];
+	perSkillUsage = CSkillManager_GetSkillUsage(mgr, (int8_t)skillId);
 
 	baseDelay = avgCap * 1000 / (perSkillUsage + 1);
 	if (baseDelay < 500)
@@ -1510,49 +1509,6 @@ CMobile_PostSkillGain(CMobile *mob, int gained)
 	return changed;
 }
 /*
- * 0x004D62FD - CMobile::PostStatDecay
- *
- * Stat decay companion to PostSkillGain. Doubles gained if dead.
- * For gains < 1000, probabilistically skips. Otherwise iterates 3 stats,
- * each for (gained / 1000) rounds: roll = GetRandom(90) + 10, and if
- * roll < baseStat, decrements that stat by 1.
- * Returns 1 if any stat was decremented, 0 otherwise.
- */
-static __attribute__((unused)) int
-CMobile_PostStatDecay(CMobile *mob, int gained)
-{
-	int changed;
-	int i;
-	int budget;
-
-	if (VT_IsDead((CItem *)mob))
-		gained *= 2;
-
-	if (gained < 1000) {
-		if (GetRandom(1000) >= gained)
-			return 0;
-	}
-
-	changed = 0;
-
-	for (i = 0; i < 3; i++) {
-		for (budget = 0; budget < gained; budget += 1000) {
-			int roll;
-			int baseStat;
-
-			roll = GetRandom(90) + 10;
-			baseStat = (int)(int16_t)CMobile_GetBaseStat(mob, i);
-			if (roll < baseStat) {
-				((void (*)(void *, int, int16_t))VT_FN((CItem *)mob, VT_ADD_BASE_STAT))(mob, i, (int16_t)-1);
-				changed = 1;
-			}
-		}
-	}
-
-	return changed;
-}
-
-/*
  * 0x004D62FD - CMobile::StatDecayCheck
  *
  * If mob is dead, doubles chance. If chance < 1000, probabilistically
@@ -1643,7 +1599,7 @@ CSkillManager_GetTotalUsage(CSkillManager *mgr)
  * Calls HasSkill (result ignored), returns
  * perSkillUsageCounter[skillId] + perSkillSomeValue[skillId].
  */
-static __attribute__((unused)) int
+static int
 CSkillManager_GetSkillUsage(CSkillManager *mgr, int8_t skillId)
 {
 	CSkillManager_HasSkill(mgr, (int)(int8_t)skillId);

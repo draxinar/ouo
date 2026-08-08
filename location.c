@@ -11,8 +11,6 @@
 
 #include "wombat_exec.h"
 
-static CLocation *CLocation_Constructor(CLocation *this); // 0x00491320
-
 /*
  * 0x00401760 - Location_Distance2D
  *
@@ -510,7 +508,7 @@ CLocation_IsInvalid(CLocation *loc)
  *
  * Default constructor: delegates to CLocation_Init and returns this.
  */
-static __attribute__((unused)) CLocation *
+CLocation *
 CLocation_Constructor(CLocation *this)
 {
 	CLocation_Init(this);

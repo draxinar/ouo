@@ -461,7 +461,7 @@ CResBankDistrib_ProcessEntity(CResBankDistrib *this, CItem *entity)
  * factor/positive/max/min/set directives, computes per-region spawn
  * distributions from area-based sqrt formula.
  *
- * Fixed binary bug: when fileSize == 0, the binary returns without
+ * FIXED: when fileSize == 0, the binary returns without
  * calling fclose_ServerSide, leaking the ContainerHandle. Added
  * fclose_ServerSide call on that path.
  */
@@ -892,7 +892,7 @@ CResBankManager_Init(void)
 	for (i = 0; i < 256; i++)
 		g_ResBankManager.hashTable[i] = NULL;
 
-	g_ResBankManager.noRegion = malloc(sizeof(CResBankRegion));
+	g_ResBankManager.noRegion = OperatorNew(sizeof(CResBankRegion));
 	if (g_ResBankManager.noRegion != NULL)
 		CResBankRegion_Constructor(g_ResBankManager.noRegion);
 
@@ -1225,7 +1225,7 @@ CResBankManager_NoOp(CResBankManager *this)
  * Writes 4 bytes of value at *destPtr and advances both *destPtr
  * and *sizePtr by 4.
  */
-static __attribute__((unused)) void
+static void
 CResBankManager_WriteInt32(CResBankManager *this, char **destPtr, int32_t *sizePtr, int32_t value)
 {
 	USED(this);
@@ -1240,7 +1240,7 @@ CResBankManager_WriteInt32(CResBankManager *this, char **destPtr, int32_t *sizeP
  * Identical body to WriteInt32 (the binary deduplicates at two
  * addresses). Writes 4 bytes and advances the cursors.
  */
-static __attribute__((unused)) void
+static void
 CResBankManager_ReadInt32(CResBankManager *this, char **destPtr, int32_t *sizePtr, int32_t value)
 {
 	USED(this);
@@ -1255,7 +1255,7 @@ CResBankManager_ReadInt32(CResBankManager *this, char **destPtr, int32_t *sizePt
  * Writes 1 byte of value at *destPtr and advances both *destPtr
  * and *sizePtr by 1.
  */
-static __attribute__((unused)) void
+static void
 CResBankManager_WriteByte(CResBankManager *this, char **destPtr, int32_t *sizePtr, uint8_t value)
 {
 	USED(this);
@@ -1267,28 +1267,95 @@ CResBankManager_WriteByte(CResBankManager *this, char **destPtr, int32_t *sizePt
 /*
  * 0x004ADE8C - CResBankManager::SaveResBank
  *
- * Serializes the resbank to ../.rundir/<server>/resbank.mul: magic,
- * g_SpawnEnabled, then per-region records (0x7F marker, bounds,
- * respawn timers, nospawn byte, 102 template quantity/maxSpawn
- * pairs), terminated by 0x00.
- *
- * The binary writes to an in-memory buffer via WriteInt32/WriteByte;
- * we write directly to file.
+ * Serializes the resbank into the caller's buffer: magic, g_SpawnEnabled,
+ * then per-region records (0x7F marker, bounds, respawn timers, nospawn
+ * byte, 102 template quantity/maxSpawn pairs), terminated by 0x00.
+ * *destPtr is advanced past every byte written.
  */
 void
-CResBankManager_SaveResBank(void)
+CResBankManager_SaveResBank(CResBankManager *this, char **destPtr)
 {
-	FILE *f;
-	char path[256];
-	uint32_t magic;
-	uint32_t flags;
+	int32_t size;
+	int32_t val;
 	uint8_t recordType;
 	CResBankRegion *region;
 	int32_t numTemplates;
 	int i;
-	char lowerName[128];
 
-	// Platform adaptation: build file path (binary uses buffer pointer arg).
+	size = 0;
+
+	val = RESBANK_MAGIC;
+	SwapEndian(&val);
+	CResBankManager_WriteInt32(this, destPtr, &size, val);
+
+	val = g_SpawnEnabled;
+	SwapEndian(&val);
+	CResBankManager_WriteInt32(this, destPtr, &size, val);
+
+	for (region = this->first; region != NULL; region = region->next) {
+		recordType = 0x7F;
+		CResBankManager_WriteByte(this, destPtr, &size, recordType);
+
+		val = region->x1;
+		SwapEndian(&val);
+		CResBankManager_ReadInt32(this, destPtr, &size, val);
+		val = region->y1;
+		SwapEndian(&val);
+		CResBankManager_ReadInt32(this, destPtr, &size, val);
+		val = region->x2;
+		SwapEndian(&val);
+		CResBankManager_ReadInt32(this, destPtr, &size, val);
+		val = region->y2;
+		SwapEndian(&val);
+		CResBankManager_ReadInt32(this, destPtr, &size, val);
+
+		val = region->minRespawnTime;
+		SwapEndian(&val);
+		CResBankManager_ReadInt32(this, destPtr, &size, val);
+		val = region->maxRespawnTime;
+		SwapEndian(&val);
+		CResBankManager_ReadInt32(this, destPtr, &size, val);
+
+		recordType = region->nospawn;
+		CResBankManager_WriteByte(this, destPtr, &size, recordType);
+
+		numTemplates = RESBANK_MAX_TEMPLATES;
+		SwapEndian(&numTemplates);
+		CResBankManager_ReadInt32(this, destPtr, &size, numTemplates);
+
+		for (i = 0; i < RESBANK_MAX_TEMPLATES; i++) {
+			val = CResBankRegion_GetQuantity(region, i);
+			SwapEndian(&val);
+			CResBankManager_ReadInt32(this, destPtr, &size, val);
+			val = region->maxSpawns[i];
+			SwapEndian(&val);
+			CResBankManager_ReadInt32(this, destPtr, &size, val);
+		}
+	}
+
+	recordType = 0;
+	CResBankManager_WriteByte(this, destPtr, &size, recordType);
+}
+
+/*
+ * Custom - ResBank_SaveToFile
+ *
+ * Writes the serialized resbank to ../.rundir/<server>/resbank.mul. The
+ * binary's SaveResBank fills a caller-supplied buffer and has no caller of
+ * its own, so the buffer and the file IO live here.
+ */
+void
+ResBank_SaveToFile(void)
+{
+	FILE *f;
+	char path[256];
+	char lowerName[128];
+	char *buf;
+	char *cur;
+	size_t cap;
+	int regions;
+	CResBankRegion *region;
+
 	{
 		int j;
 		for (j = 0; j < (int)sizeof(lowerName) - 1 && g_Config.serverName[j]; j++)
@@ -1297,63 +1364,27 @@ CResBankManager_SaveResBank(void)
 	}
 	snprintf(path, sizeof(path), "../.rundir/%s/resbank.mul", lowerName);
 
-	f = fopen_ServerSide(path, "wb");
-	if (f == NULL)
+	regions = 0;
+	for (region = g_ResBankManager.first; region != NULL; region = region->next)
+		regions++;
+
+	// magic + flags, then per region: marker, 4 bounds, 2 timers, nospawn,
+	// the template count and 102 quantity/maxSpawn pairs, then a terminator.
+	cap = 8 + (size_t)regions * (1 + 6 * 4 + 1 + 4 + RESBANK_MAX_TEMPLATES * 8) + 1;
+	buf = (char *)OperatorNew(cap);
+	if (buf == NULL)
 		return;
 
-	magic = RESBANK_MAGIC;
-	SwapEndian(&magic);
-	fwrite_ServerSide(&magic, 4, 1, f);
+	cur = buf;
+	CResBankManager_SaveResBank(&g_ResBankManager, &cur);
 
-	flags = g_SpawnEnabled;
-	SwapEndian(&flags);
-	fwrite_ServerSide(&flags, 4, 1, f);
-
-	for (region = g_ResBankManager.first; region != NULL; region = region->next) {
-		int32_t val;
-
-		recordType = 0x7F;
-		fwrite_ServerSide(&recordType, 1, 1, f);
-
-		val = region->x1;
-		SwapEndian(&val);
-		fwrite_ServerSide(&val, 4, 1, f);
-		val = region->y1;
-		SwapEndian(&val);
-		fwrite_ServerSide(&val, 4, 1, f);
-		val = region->x2;
-		SwapEndian(&val);
-		fwrite_ServerSide(&val, 4, 1, f);
-		val = region->y2;
-		SwapEndian(&val);
-		fwrite_ServerSide(&val, 4, 1, f);
-
-		val = region->minRespawnTime;
-		SwapEndian(&val);
-		fwrite_ServerSide(&val, 4, 1, f);
-		val = region->maxRespawnTime;
-		SwapEndian(&val);
-		fwrite_ServerSide(&val, 4, 1, f);
-		fwrite_ServerSide(&region->nospawn, 1, 1, f);
-
-		numTemplates = RESBANK_MAX_TEMPLATES;
-		SwapEndian(&numTemplates);
-		fwrite_ServerSide(&numTemplates, 4, 1, f);
-
-		for (i = 0; i < RESBANK_MAX_TEMPLATES; i++) {
-			val = CResBankRegion_GetQuantity(region, i);
-			SwapEndian(&val);
-			fwrite_ServerSide(&val, 4, 1, f);
-			val = region->maxSpawns[i];
-			SwapEndian(&val);
-			fwrite_ServerSide(&val, 4, 1, f);
-		}
+	f = fopen_ServerSide(path, "wb");
+	if (f != NULL) {
+		fwrite_ServerSide(buf, 1, (size_t)(cur - buf), f);
+		fclose_ServerSide(f);
 	}
 
-	recordType = 0;
-	fwrite_ServerSide(&recordType, 1, 1, f);
-
-	fclose_ServerSide(f);
+	OperatorDelete(buf);
 }
 
 /*
@@ -1559,7 +1590,7 @@ CResBankManager_CreateRegion(const char *name, int32_t x1, int32_t y1, int32_t x
 {
 	CResBankRegion *region;
 
-	region = malloc(sizeof(CResBankRegion));
+	region = OperatorNew(sizeof(CResBankRegion));
 	if (region == NULL)
 		return NULL;
 
@@ -1783,7 +1814,7 @@ CResBankRegion_Cleanup(CResBankRegion *region)
 	int i;
 
 	if (region->templateDb != NULL) {
-		free(region->templateDb);
+		OperatorDelete(region->templateDb);
 		region->templateDb = NULL;
 	}
 
@@ -1791,15 +1822,15 @@ CResBankRegion_Cleanup(CResBankRegion *region)
 		for (i = 0; i < region->entryCount; i++) {
 			ResSpawnEntry *entry = &region->spawnEntries[i];
 			if (entry->subRegionIds != NULL) {
-				free(entry->subRegionIds);
+				OperatorDelete(entry->subRegionIds);
 				entry->subRegionIds = NULL;
 			}
 			if (entry->scalingWts != NULL) {
-				free(entry->scalingWts);
+				OperatorDelete(entry->scalingWts);
 				entry->scalingWts = NULL;
 			}
 		}
-		free(region->spawnEntries);
+		OperatorDelete(region->spawnEntries);
 		region->spawnEntries = NULL;
 	}
 
@@ -1811,7 +1842,7 @@ CResBankRegion_Cleanup(CResBankRegion *region)
 
 	for (i = 0; i < RESBANK_MAX_TEMPLATES; i++) {
 		if (region->classEntryIndices[i] != 0) {
-			free((void *)region->classEntryIndices[i]);
+			OperatorDelete((void *)region->classEntryIndices[i]);
 			region->classEntryIndices[i] = 0;
 		}
 		region->classTotalFrequency[i] = 0;
@@ -3159,7 +3190,7 @@ RegisterEggInBlock(CItem *entity)
 	chunkEgg = block->eggHead;
 
 	if (chunkEgg == NULL) {
-		chunkEgg = malloc(sizeof(CItem));
+		chunkEgg = OperatorNew(sizeof(CItem));
 		if (chunkEgg != NULL)
 			CEgg_Constructor(chunkEgg);
 
@@ -3432,7 +3463,7 @@ ProcessStaticTiles(void)
 					eggEntity = g_MapBlocks[blockIdx].eggHead;
 
 					if (eggEntity == NULL) {
-						CItem *newEgg = malloc(sizeof(CItem));
+						CItem *newEgg = OperatorNew(sizeof(CItem));
 						if (newEgg != NULL)
 							CEgg_Constructor(newEgg);
 						g_MapBlocks[blockIdx].eggHead = newEgg;
@@ -3588,7 +3619,7 @@ BuildSpawnEntries(void)
 
 	g_BuildingSpawnEntries = 1;
 
-	savedEggs = (CItem **)malloc(totalBlocks * sizeof(CItem *));
+	savedEggs = (CItem **)OperatorNew(totalBlocks * sizeof(CItem *));
 
 	for (i = 0; i < totalBlocks; i++) {
 		savedEggs[i] = g_MapBlocks[i].eggHead;
@@ -3720,7 +3751,7 @@ BuildSpawnEntries(void)
 		}
 	}
 
-	free(savedEggs);
+	OperatorDelete(savedEggs);
 	g_BuildingSpawnEntries = 0;
 }
 
@@ -3871,11 +3902,11 @@ CClassification_InsertEntry(CResBankRegion *region, int entryIdx, uint16_t templ
 	if (count >= capacity) {
 		region->classCapacity[templateId] += 8;
 
-		newArr = (uint16_t *)malloc(region->classCapacity[templateId] * 2);
+		newArr = (uint16_t *)OperatorNew(region->classCapacity[templateId] * 2);
 
 		if (region->classEntryIndices[templateId] != 0) {
 			memcpy(newArr, (void *)region->classEntryIndices[templateId], (region->classCapacity[templateId] - 8) * 2);
-			free((void *)region->classEntryIndices[templateId]);
+			OperatorDelete((void *)region->classEntryIndices[templateId]);
 		}
 
 		region->classEntryIndices[templateId] = (uintptr_t)newArr;
@@ -3973,15 +4004,15 @@ CResBankRegion_AddSubRegionToEntry(CResBankRegion *region, ResSpawnEntry *entry,
 
 		entry->subRegionCapacity += 0x10;
 
-		newIds = (uint16_t *)malloc(entry->subRegionCapacity * sizeof(uint16_t));
-		newWts = (uint16_t *)malloc(entry->subRegionCapacity * sizeof(uint16_t));
+		newIds = (uint16_t *)OperatorNew(entry->subRegionCapacity * sizeof(uint16_t));
+		newWts = (uint16_t *)OperatorNew(entry->subRegionCapacity * sizeof(uint16_t));
 
 		if (entry->subRegionIds != NULL) {
 			memcpy(newIds, entry->subRegionIds, (entry->subRegionCapacity - 0x10) * sizeof(uint16_t));
-			free(entry->subRegionIds);
+			OperatorDelete(entry->subRegionIds);
 
 			memcpy(newWts, entry->scalingWts, (entry->subRegionCapacity - 0x10) * sizeof(uint16_t));
-			free(entry->scalingWts);
+			OperatorDelete(entry->scalingWts);
 		}
 
 		entry->subRegionIds = newIds;
@@ -4034,11 +4065,11 @@ CResBankRegion_AddSpawnEntry(CResBankRegion *region, uint16_t templateId, uint16
 
 		region->spawnEntryCapacity += 0x40;
 
-		newBuf = (ResSpawnEntry *)malloc(region->spawnEntryCapacity * sizeof(ResSpawnEntry));
+		newBuf = (ResSpawnEntry *)OperatorNew(region->spawnEntryCapacity * sizeof(ResSpawnEntry));
 
 		if (region->spawnEntries != NULL) {
 			memcpy(newBuf, region->spawnEntries, (region->spawnEntryCapacity - 0x40) * sizeof(ResSpawnEntry));
-			free(region->spawnEntries);
+			OperatorDelete(region->spawnEntries);
 		}
 
 		region->spawnEntries = newBuf;
@@ -4075,11 +4106,11 @@ CResBankRegion_AddTemplateDbEntry(CResBankRegion *region, int x1, int y1, int x2
 
 		region->templateDbCapacity += 0x10;
 
-		newBuf = malloc(region->templateDbCapacity * sizeof(SubRegion));
+		newBuf = OperatorNew(region->templateDbCapacity * sizeof(SubRegion));
 
 		if (region->templateDb != NULL) {
 			memcpy(newBuf, region->templateDb, (region->templateDbCapacity - 0x10) * sizeof(SubRegion));
-			free(region->templateDb);
+			OperatorDelete(region->templateDb);
 		}
 
 		region->templateDb = newBuf;
@@ -4212,7 +4243,7 @@ ResolveRegionName(const char *name)
 		return g_RegionNameCount - 1;
 
 	len = strlen(name) + 1;
-	copy = (char *)malloc(len);
+	copy = (char *)OperatorNew(len);
 	g_RegionNames[g_RegionNameCount] = copy;
 	strcpy(copy, name);
 	g_RegionNameCount++;
@@ -4236,11 +4267,11 @@ RegisterTemplateInRegion(uint16_t templateId, int regionIndex)
 
 	if (count >= g_RegionTemplateCapacity[regionIndex]) {
 		g_RegionTemplateCapacity[regionIndex] += 0x10;
-		newBuf = (uint16_t *)malloc(g_RegionTemplateCapacity[regionIndex] * 2);
+		newBuf = (uint16_t *)OperatorNew(g_RegionTemplateCapacity[regionIndex] * 2);
 
 		if (g_RegionTemplateIds[regionIndex] != NULL) {
 			memcpy(newBuf, g_RegionTemplateIds[regionIndex], (g_RegionTemplateCapacity[regionIndex] - 0x10) * 2);
-			free(g_RegionTemplateIds[regionIndex]);
+			OperatorDelete(g_RegionTemplateIds[regionIndex]);
 		}
 		g_RegionTemplateIds[regionIndex] = newBuf;
 	}
@@ -4303,7 +4334,7 @@ ClassifyTemplateBody(int templateId)
 	}
 
 	if (count > 0) {
-		bodyList = (uint8_t *)malloc(0x12);
+		bodyList = (uint8_t *)OperatorNew(0x12);
 		bodyList[0] = (uint8_t)count;
 
 		for (j = 0; j < count; j++) {
@@ -4505,9 +4536,9 @@ RefreshResourceRegions(void)
 
 	for (i = 0; i < 0x800; i++) {
 		if (g_RegionNames[i] != NULL)
-			free(g_RegionNames[i]);
+			OperatorDelete(g_RegionNames[i]);
 		if (g_RegionTemplateIds[i] != NULL)
-			free(g_RegionTemplateIds[i]);
+			OperatorDelete(g_RegionTemplateIds[i]);
 	}
 
 	region = g_ResBankManager.first;
@@ -4529,7 +4560,7 @@ CResBankRegion_ScalarDelete(CResBankRegion *region, int flags)
 {
 	CResBankRegion_Destructor(region);
 	if (flags & 1)
-		free(region);
+		OperatorDelete(region);
 	return NULL;
 }
 

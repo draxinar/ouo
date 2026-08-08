@@ -2166,7 +2166,7 @@ CScriptString_AppendInner(CScriptString *this, CString *dest)
  * Forwards to CScriptString_AppendInner on this->inner, or returns 0 when
  * inner is NULL.
  */
-static __attribute__((unused)) int
+static int
 CScriptString_Append(CScriptString *this, CString *dest)
 {
 	if (this->inner != NULL)
@@ -3534,7 +3534,7 @@ Script_sortList(CList *list, int flags)
 
 		while (1) {
 			node1 = iter.current;
-			iter.current = iter.current->next;
+			StdPtrIter_Next((StdPtrIterFull *)&iter);
 			if (iter.current == NULL)
 				break;
 			node2 = iter.current;
@@ -3545,9 +3545,9 @@ Script_sortList(CList *list, int flags)
 				result = cmpfn(node1, node2);
 
 			if (result > 0) {
-				iter.current = iter.current->prev;
+				StdPtrIter_Prev((StdPtrIterFull *)&iter);
 				CListIterator_Remove(&iter);
-				iter.current = iter.current->next;
+				StdPtrIter_Next((StdPtrIterFull *)&iter);
 				CListIterator_InsertBefore(&iter, node1);
 				swapped = 1;
 			}
@@ -5493,17 +5493,8 @@ Script_attachScript(uint32_t serial, CString *scriptName)
 		CString_DefaultConstructor(&logStr);
 		CString_AssignCStr(&logStr, "Script \"");
 		thread = ThreadList_GetCurrent(&g_activeThreadList);
-		if (thread != NULL) {
-			// Inline fcn.0040CC55 + fcn.0040CC2E: two-level dereference
-			// thread->scriptRef -> scriptClassPtr -> name
-			ScriptAttachNode *node = (ScriptAttachNode *)thread->scriptRef;
-			if (node != NULL) {
-				CScript *script = (CScript *)node->scriptClassPtr;
-				if (script != NULL && script->name != NULL) {
-					CString_AppendCStr(&logStr, script->name);
-				}
-			}
-		}
+		if (thread != NULL)
+			CScriptString_Append((CScriptString *)thread, &logStr);
 		CString_AppendCStr(&logStr, "\" tried to attach script \"");
 		CString_ConcatCString(&logStr, (CString *)scriptName);
 		CString_AppendCStr(&logStr, "\" to nonexistant object ");
@@ -14891,7 +14882,7 @@ Script_updateHint(int hintId, uint32_t serial, int flags, CString *name1, CStrin
 {
 	CHintItem *hint;
 
-	hint = (CHintItem *)malloc(sizeof(CHintItem));
+	hint = (CHintItem *)OperatorNew(sizeof(CHintItem));
 	if (hint != NULL)
 		CHintItem_Constructor(hint);
 
@@ -17709,7 +17700,7 @@ Script_returnResourcesToBank(uint32_t serial, int amount, CString *resName)
 	savedLoading = g_World->isLoading;
 	g_World->isLoading = 1;
 
-	rawMem = malloc(sizeof(CItem));
+	rawMem = OperatorNew(sizeof(CItem));
 	if (rawMem != NULL)
 		tempItem = CItem_Constructor(rawMem);
 	else
@@ -20206,7 +20197,7 @@ CExecThread_ScalarDelete(CExecThread *thread, int flags)
 {
 	CExecThread_Destructor(thread);
 	if (flags & 1)
-		free(thread);
+		OperatorDelete(thread);
 	return NULL;
 }
 
@@ -20649,7 +20640,7 @@ CHintItem_Serialize(CHintItem *self)
 	int offset;
 	int32_t tmpX, tmpY, tmpZ;
 
-	buf = (char *)malloc(CHintItem_GetSerializedSize(self));
+	buf = (char *)OperatorNew(CHintItem_GetSerializedSize(self));
 	offset = 0;
 
 	// hintId (4 bytes)
@@ -20888,7 +20879,7 @@ CHintItem_ScalarDelete(CHintItem *self, int flags)
 {
 	CHintItem_Destructor(self);
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 
@@ -20909,12 +20900,12 @@ CHintManager_CreateBucketPair(CResManager *rm, void *keyPtr, void *valuePtr)
 	bucket = ResManager_HashInt(*(uint32_t *)keyPtr, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		newList = (CResList *)malloc(sizeof(CResList));
+		newList = (CResList *)OperatorNew(sizeof(CResList));
 		if (newList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)newList);
 		rm->keys[bucket] = newList;
 
-		newList = (CResList *)malloc(sizeof(CResList));
+		newList = (CResList *)OperatorNew(sizeof(CResList));
 		if (newList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)newList);
 		rm->vals[bucket] = newList;
@@ -21090,7 +21081,7 @@ DispatchMultiBySerial(uint32_t callerSerial, uint8_t *buf, int totalSize)
 
 	memcpy(&nameLen, buf + 4, 4);
 
-	msgName = (char *)malloc(nameLen);
+	msgName = (char *)OperatorNew(nameLen);
 	memcpy(msgName, buf + 8, nameLen);
 
 	memcpy(&listCount, buf + nameLen + 8, 4);
@@ -21110,7 +21101,7 @@ DispatchMultiBySerial(uint32_t callerSerial, uint8_t *buf, int totalSize)
 		Entity_ExecuteEvent(&entity->resourceEntity.entity, 0x16, callerSerial, msgName, "x", &list);
 	}
 
-	free(msgName);
+	OperatorDelete(msgName);
 	CList_Destructor(&list);
 }
 
@@ -21152,7 +21143,7 @@ SendMultiMessage(uint32_t serial, uint32_t callerSerial, CString *msgName, intpt
 	dataLen = (int)strlen((char *)buf.data) + 1;
 
 	totalSize = nameLen + dataLen + 0xc;
-	flatBuf = (uint8_t *)malloc(totalSize);
+	flatBuf = (uint8_t *)OperatorNew(totalSize);
 
 	memcpy(flatBuf, &serial, 4);
 	memcpy(flatBuf + 4, &nameLen, 4);
@@ -21162,7 +21153,7 @@ SendMultiMessage(uint32_t serial, uint32_t callerSerial, CString *msgName, intpt
 
 	DispatchMultiBySerial(callerSerial, flatBuf, totalSize);
 
-	free(flatBuf);
+	OperatorDelete(flatBuf);
 	CDataBuffer_Destructor(&buf);
 }
 
@@ -21200,7 +21191,7 @@ DispatchMultiByLoc(uint32_t callerSerial, uint8_t *buf, int totalSize)
 
 	memcpy(&nameLen, buf + 4, 4);
 
-	msgName = (char *)malloc(nameLen);
+	msgName = (char *)OperatorNew(nameLen);
 	memcpy(msgName, buf + 8, nameLen);
 
 	memcpy(&listCount, buf + nameLen + 8, 4);
@@ -21246,7 +21237,7 @@ done_collect:
 	CVector_Destructor(&vec);
 
 cleanup:
-	free(msgName);
+	OperatorDelete(msgName);
 	CList_Destructor(&list);
 }
 
@@ -21290,7 +21281,7 @@ DispatchMultiByRange(uint32_t callerSerial, uint8_t *buf, int totalSize)
 
 	memcpy(&nameLen, buf + 4, 4);
 
-	msgName = (char *)malloc(nameLen);
+	msgName = (char *)OperatorNew(nameLen);
 	memcpy(msgName, buf + 8, nameLen);
 
 	memcpy(&listCount, buf + nameLen + 8, 4);
@@ -21336,7 +21327,7 @@ DispatchMultiByRange(uint32_t callerSerial, uint8_t *buf, int totalSize)
 		iter++;
 	}
 
-	free(msgName);
+	OperatorDelete(msgName);
 	CVector_Destructor(&vec);
 	CList_Destructor(&list);
 }
@@ -21377,7 +21368,7 @@ SendMultiMessageToLoc(CLocation *loc, uint32_t callerSerial, CString *msgName, i
 	dataLen = (int)strlen((char *)buf.data) + 1;
 
 	totalSize = nameLen + dataLen + 0xc;
-	flatBuf = (uint8_t *)malloc(totalSize);
+	flatBuf = (uint8_t *)OperatorNew(totalSize);
 
 	memcpy(flatBuf, loc, 2);
 	memcpy(flatBuf + 2, (uint8_t *)loc + 2, 2);
@@ -21388,7 +21379,7 @@ SendMultiMessageToLoc(CLocation *loc, uint32_t callerSerial, CString *msgName, i
 
 	DispatchMultiByLoc(callerSerial, flatBuf, totalSize);
 
-	free(flatBuf);
+	OperatorDelete(flatBuf);
 	CDataBuffer_Destructor(&buf);
 }
 
@@ -21429,7 +21420,7 @@ SendMultiMessageToRange(CLocation *loc, int range, uint32_t callerSerial, CStrin
 	dataLen = (int)strlen((char *)buf.data) + 1;
 
 	totalSize = nameLen + dataLen + 0x10;
-	flatBuf = (uint8_t *)malloc(totalSize);
+	flatBuf = (uint8_t *)OperatorNew(totalSize);
 
 	memcpy(flatBuf, loc, 2);
 	memcpy(flatBuf + 2, (uint8_t *)loc + 2, 2);
@@ -21441,7 +21432,7 @@ SendMultiMessageToRange(CLocation *loc, int range, uint32_t callerSerial, CStrin
 
 	DispatchMultiByRange(callerSerial, flatBuf, totalSize);
 
-	free(flatBuf);
+	OperatorDelete(flatBuf);
 	CDataBuffer_Destructor(&buf);
 }
 

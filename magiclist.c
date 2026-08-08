@@ -122,7 +122,7 @@ CMagicItemList_CopyFrom(CMagicItemList *obj, CMagicItemList *src)
 void
 CMagicItemList_Destructor(CMagicItemList *obj)
 {
-	CResList_ClearInternal_MagicItemList_rb(&obj->list);
+	CResList_Destructor_MagicItemList(&obj->list);
 }
 
 /*

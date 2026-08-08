@@ -1139,7 +1139,7 @@ CContainer_ScalarDelete(CItem *self, int flags)
 {
 	CContainer_Destructor(self);
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 

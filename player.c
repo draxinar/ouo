@@ -46,6 +46,7 @@
 #include "wombat_compile.h"
 #include "world.h"
 
+static CSkillDef *Double3_Init_Wrapper(CSkillDef *this, double maxSkill, double lower, double middle, double higher); // 0x00456F90
 static void CPlayer_BeginSetColors(CPlayer *this); // 0x0044F970
 static void CPlayer_EndSetColors(CPlayer *this); // 0x0044F97B
 static CPlayerList *CPlayerList_Constructor(CPlayerList *this); // 0x0044FA07
@@ -709,7 +710,7 @@ NewPlayer(char *name, uint16_t locX, uint16_t locY, uint8_t locZ, uint8_t genre,
 
 	CLocation_Init(&tmpLoc);
 
-	player = malloc(sizeof(*player));
+	player = OperatorNew(sizeof(*player));
 	if (player == NULL)
 		return NULL;
 
@@ -1121,12 +1122,12 @@ CPlayer_Destructor(CPlayer *this)
 	CPlayer_BeginSetColors(this);
 
 	if (this->friendList != NULL) {
-		free(this->friendList);
+		OperatorDelete(this->friendList);
 		this->friendList = NULL;
 	}
 
 	if (this->friendAllowList != NULL) {
-		free(this->friendAllowList);
+		OperatorDelete(this->friendAllowList);
 		this->friendAllowList = NULL;
 	}
 
@@ -1619,7 +1620,7 @@ CPlayer_OnDeath(CPlayer *this, CItem *attacker, int flag)
 
 	CLocation_Init(&tmpLoc);
 	{
-		CCorpse *mem = (CCorpse *)malloc(sizeof(CCorpse));
+		CCorpse *mem = (CCorpse *)OperatorNew(sizeof(CCorpse));
 		if (mem != NULL) {
 			CCorpse_Constructor(mem);
 			corpse = (CItem *)mem;
@@ -3607,10 +3608,9 @@ CPlayer_ApplyResurrection(CPlayer *this, int flag)
 		// Lazy-init Double3 at 0x00645AD0 with (20.0, 5.0, 15.0, 18.0)
 		if (!(g_murderPenaltyInitFlag & 1)) {
 			g_murderPenaltyInitFlag |= 1;
-			// Double3_Init(&g_murderPenaltyDist, 20.0, 5.0, 15.0, 18.0)
 			// With these params: root1=1.0, advA=1.0, advB=inf, advC=-inf
 			// The binary does not guard against degenerate cases.
-			Double3_Init((CSkillDef *)&g_murderPenaltyDist, 20.0, 5.0, 15.0, 18.0);
+			Double3_Init_Wrapper((CSkillDef *)&g_murderPenaltyDist, 20.0, 5.0, 15.0, 18.0);
 		}
 		penalty += (int)Double3_Eval((CSkillDef *)&g_murderPenaltyDist, (double)murderCount);
 	}
@@ -3968,7 +3968,7 @@ ItemMap_Init(void)
 {
 	CEntityMap *map;
 
-	map = (CEntityMap *)malloc(sizeof(CEntityMap));
+	map = (CEntityMap *)OperatorNew(sizeof(CEntityMap));
 	if (map != NULL) {
 		CEntityMap_Constructor(map, g_mapStartX, g_mapStartY, g_mapStartX + g_mapWidth - 1, g_mapStartY + g_mapHeight - 1, 6);
 	}
@@ -5095,7 +5095,7 @@ CPlayer_ScalarDelete(CPlayer *this, int flags)
 {
 	CPlayer_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -5139,7 +5139,7 @@ CTimeManager_IsDaytime(void)
  *
  * Forwards to Double3_Init and returns this.
  */
-static __attribute__((unused)) CSkillDef *
+static CSkillDef *
 Double3_Init_Wrapper(CSkillDef *this, double maxSkill, double lower, double middle, double higher)
 {
 	Double3_Init(this, maxSkill, lower, middle, higher);
@@ -5219,7 +5219,7 @@ CEntityMap_Constructor(CEntityMap *this, int startX, int startY, int endX, int e
 	totalBlocks = this->gridW * this->gridH;
 
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-	raw = (uint8_t *)malloc(totalBlocks * sizeof(StdPtrList) + sizeof(uintptr_t));
+	raw = (uint8_t *)OperatorNew(totalBlocks * sizeof(StdPtrList) + sizeof(uintptr_t));
 	*(uint32_t *)raw = totalBlocks;
 	this->blocks = (StdPtrList *)(raw + sizeof(uintptr_t));
 
@@ -5649,7 +5649,7 @@ static __attribute__((unused)) void
 StaticInit_LoginScriptList(void)
 {
 	uint8_t initByte = 0;
-	StdPtrList_Init(&g_loginScriptList, &initByte);
+	StdPtrList_InitLogin(&g_loginScriptList, &initByte);
 }
 
 /*
@@ -5676,7 +5676,7 @@ LoadAll_LoginScriptEntries(void)
 		if (StdPtrIter_Eq(&beginIter, &endIter))
 			break;
 		str = *(char **)StdPtrIter_Deref(&beginIter);
-		free(str);
+		OperatorDelete(str);
 		StdPtrList_Erase(&g_loginScriptList, &eraseResult, beginIter);
 	}
 
@@ -5689,7 +5689,7 @@ LoadAll_LoginScriptEntries(void)
 		if (ret != 1)
 			continue;
 		len = strlen(name);
-		str = (char *)malloc(len + 1);
+		str = (char *)OperatorNew(len + 1);
 		strcpy(str, name);
 		StdPtrList_PushBack(&g_loginScriptList, str);
 	}
@@ -5884,7 +5884,7 @@ CPlayerList_HandleAssistanceRecordB(CResList *list, uint8_t *buf, int unused)
 		strncpy(reply.name, ((char *(*)(void *))VT_FN((CItem *)target, VT_GET_NAME))(target), 0x1E);
 
 		saved = CAssistance_SaveRecordB(&reply);
-		free(saved);
+		OperatorDelete(saved);
 		break;
 
 	case 2:
@@ -5979,7 +5979,7 @@ MobileMap_Init(void)
 {
 	CEntityMap *map;
 
-	map = (CEntityMap *)malloc(sizeof(CEntityMap));
+	map = (CEntityMap *)OperatorNew(sizeof(CEntityMap));
 	if (map != NULL) {
 		CEntityMap_Constructor(map, g_mapStartX, g_mapStartY, g_mapStartX + g_mapWidth - 1, g_mapStartY + g_mapHeight - 1, 6);
 	}

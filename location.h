@@ -16,6 +16,7 @@ struct CLocation {
 };
 
 int Location_Distance2D(int16_t x1, int16_t y1, int16_t x2, int16_t y2); // 0x00401760
+CLocation *CLocation_Constructor(CLocation *this); // 0x00491320
 CLocation *CLocation_Constructor3D(CLocation *this, int16_t x, int16_t y, int16_t z); // 0x004017A0
 int Location_DistanceTo2D(CLocation *a, CLocation *b); // 0x004017D0
 int CLocation_Magnitude2D(CLocation *delta); // 0x00401800

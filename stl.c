@@ -32,8 +32,6 @@
 #include "weapon.h"
 
 static StdPtrIterFull *StdPtrIter_Begin(StdPtrIterFull *this, StdPtrNode *sentinel); // 0x00420E50
-static StdPtrIterFull *StdPtrIter_Next(StdPtrIterFull *this); // 0x00420E80
-static StdPtrIterFull *StdPtrIter_Prev(StdPtrIterFull *this); // 0x00420EA0
 static int StdPtrIter_IsValid(StdPtrIterFull *this); // 0x00420F40
 static void StdMap_Destructor(StdMapTree *this); // 0x00421450
 static void *StdTree_Ucopy_19D0(StdAllocator *this, void *first, void *last, void *dest); // 0x004219D0
@@ -109,8 +107,6 @@ static void *CVector_Ucopy_EA90(CVector *this, void *first, void *last, void *de
 static void CVector_UfillN_EAD0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x0042EAD0
 static uintptr_t *CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest); // 0x004301E0
 static void CVector_UcopyN(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value); // 0x00430220
-static void *CMapNode_ScalarDtor(CFragment *this, int flags); // 0x0044D710
-static void *CMapIterator_ScalarDtor(CDefine *this, int flags); // 0x0044D740
 static void SortRaw_Main(uintptr_t *begin, uintptr_t *end, int depth); // 0x00457FC0
 static void SortRaw_InsertionEntry(uintptr_t *begin, uintptr_t *end); // 0x00458040
 static void SortRaw_Quicksort(uintptr_t *begin, uintptr_t *end, int depth); // 0x00458070
@@ -122,7 +118,6 @@ static int SortRaw_SkipN(const char *str, int count); // 0x004582C0
 static int CRT_atoi(char **pStr); // 0x00458854
 static void StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x0045AC30
 static void StdPtrList_DestructorLogin(StdPtrList *list); // 0x0045AAF0
-static void *StdPtrList_InitLogin(StdPtrList *this, const void *init); // 0x0045AAB0
 static void *CFileEntry_ScalarDelete(CFileEntry *self, int flags); // 0x00459290
 static void *CFileEntry_CopyConstructor(CFileEntry *self, CFileEntry *src); // 0x00459220
 static void *FileEntry_Constructor(void *dst, void *src); // 0x004591E0
@@ -139,7 +134,6 @@ static void *StdPtrList_Init_EntityMap(StdPtrList *list, void *typeBytePtr); // 
 static StdPtrNode **StdPtrList_EraseRangeGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00462150
 static void StdPtrList_DoInsertGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x004620A0
 static void StdPtrList_PushBackGrid(StdPtrList *list, void *value); // 0x00462070
-static void Vector_SortByDistPair(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00462390
 static void *CVector_Ucopy_BA0(CVector *this, void *first, void *last, void *dest); // 0x00462BA0
 static void CVector_UfillN_BE0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x00462BE0
 static void *CVector_Ucopy_C20(CVector *this, void *first, void *last, void *dest); // 0x00462C20
@@ -198,7 +192,6 @@ static void SortByDist_UnguardedInsert(uintptr_t *pos, uintptr_t val, CLocation 
 static void SortByDist_Insertion(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth); // 0x0047F750
 static uintptr_t SortByDist_Median3(uintptr_t a, uintptr_t b, uintptr_t c, CLocation *refLoc); // 0x0047F820
 static uintptr_t *SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation *refLoc); // 0x0047F940
-static void *CVector_VecDestructor_Region(CVector *this, int flags); // 0x004A6410
 static void StdPtrList_DestructorWrapper_EntityMgr(void); // 0x00491DF0
 static void StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00484B40
 static void StdPtrList16_DestroyAll(StdPtrList *list); // 0x00484A00
@@ -587,7 +580,7 @@ StdPtrIter_Begin(StdPtrIterFull *this, StdPtrNode *sentinel)
  * Advances iterator to next node by following the next pointer of the
  * current node. Returns this.
  */
-static __attribute__((unused)) StdPtrIterFull *
+StdPtrIterFull *
 StdPtrIter_Next(StdPtrIterFull *this)
 {
 	this->current = this->current->next;
@@ -656,7 +649,7 @@ StdPtrIter_Next(StdPtrIterFull *this)
  * Moves iterator to previous node by following the prev pointer of the
  * current node. Returns this.
  */
-static __attribute__((unused)) StdPtrIterFull *
+StdPtrIterFull *
 StdPtrIter_Prev(StdPtrIterFull *this)
 {
 	this->current = this->current->prev;
@@ -2025,12 +2018,12 @@ Vector_SortByType(void *begin, void *end, uint8_t typeTag)
  * Clamps count to >= 0, then allocates count * 4 bytes via operator new
  * (0x004E84C0). Returns pointer to allocated buffer.
  */
-static __attribute__((unused)) void *
+static void *
 Vector_AllocElements(int count)
 {
 	if (count < 0)
 		count = 0;
-	return malloc((uint32_t)count * sizeof(uintptr_t));
+	return OperatorNew((uint32_t)count * sizeof(uintptr_t));
 }
 
 /*
@@ -2541,7 +2534,7 @@ StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos)
  * StdPtrList_Buynode. Links into doubly-linked list. Calls
  * StdPtrList_DoInsert to copy value. Increments size. Sets result.
  *
- * Binary bug fix: MSVC STL's _Insert takes _Val by const reference
+ * FIXED: MSVC STL's _Insert takes _Val by const reference
  * (const _Ty&), which lowers to a pointer-to-pointer in x86 ABI.
  * DoInsert_4CF610 dereferences its source argument to read the value.
  * The binary's caller (e.g. CScriptInstance_ReturnToPool at 0x00424549)
@@ -3083,7 +3076,7 @@ StdDeque_CopyN(void *alloc, uintptr_t *dest, uint32_t count, uintptr_t *value)
  * Scalar deleting destructor: runs CFragment_Destroy and frees the memory
  * when flags & 1. Returns this.
  */
-static __attribute__((unused)) void *
+void *
 CMapNode_ScalarDtor(CFragment *this, int flags)
 {
 	CFragment_Destroy(this);
@@ -3099,7 +3092,7 @@ CMapNode_ScalarDtor(CFragment *this, int flags)
  * Scalar deleting destructor: runs CDefine_Destructor and frees the memory
  * when flags & 1. Returns this.
  */
-static __attribute__((unused)) void *
+void *
 CMapIterator_ScalarDtor(CDefine *this, int flags)
 {
 	CDefine_Destructor(this);
@@ -3493,7 +3486,7 @@ CFileEntry_Constructor(CFileEntry *self, const char *name, int nameLength, int f
 	self->fileSize = fileSize;
 
 	len = strlen(name);
-	buf = (char *)malloc(len + 1);
+	buf = (char *)OperatorNew(len + 1);
 	self->name = buf;
 	strcpy(buf, name);
 
@@ -3511,7 +3504,7 @@ CFileEntry_Destructor(CFileEntry *self)
 	char *str = self->name;
 
 	if (str != NULL)
-		free(str);
+		OperatorDelete(str);
 }
 
 /*
@@ -3666,7 +3659,7 @@ CFileEntry_CopyConstructor(CFileEntry *self, CFileEntry *src)
 	char *buf;
 
 	len = strlen(src->name);
-	buf = (char *)malloc(len + 1);
+	buf = (char *)OperatorNew(len + 1);
 	self->name = buf;
 	strcpy(buf, src->name);
 
@@ -3689,7 +3682,7 @@ CFileEntry_ScalarDelete(CFileEntry *self, int flags)
 	CFileEntry_Destructor(self);
 
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 
@@ -3700,7 +3693,7 @@ CFileEntry_ScalarDelete(CFileEntry *self, int flags)
  * self-referencing sentinel at this+4, sets this+8 (count) = 0. Template
  * instantiation of std::list constructor for g_loginScriptList.
  */
-static __attribute__((unused)) void *
+void *
 StdPtrList_InitLogin(StdPtrList *this, const void *init)
 {
 	*(uint8_t *)this = *(const uint8_t *)init;
@@ -3875,7 +3868,7 @@ StdPtrList_EraseRangeGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *fir
  * GameCentMon_GetPlayerCount for the depth limit, then delegates to
  * SortByDist_Main_Pair. Called from ProcessCrimeWitness.
  */
-static void __attribute__((unused))
+void
 Vector_SortByDistPair(uintptr_t *begin, uintptr_t *end, CLocation refLoc)
 {
 	int depth = GameCentMon_GetPlayerCount();
@@ -5447,9 +5440,7 @@ static void *
 CVector_Allocate4(CVector *this, uint32_t count)
 {
 	USED(this);
-	if ((int32_t)count < 0)
-		count = 0;
-	return malloc(count * sizeof(uintptr_t));
+	return Vector_AllocElements((int)count);
 }
 
 /*
@@ -6086,11 +6077,11 @@ StdPtrList16_VecDtor(StdPtrList *this, int flags)
 		int i;
 		for (i = count - 1; i >= 0; i--)
 			StdPtrList16_DestroyAll(&arr[i]);
-		free((char *)this - sizeof(uintptr_t));
+		OperatorDelete((char *)this - sizeof(uintptr_t));
 	} else {
 		StdPtrList16_DestroyAll(this);
 		if (flags & 1)
-			free(this);
+			OperatorDelete(this);
 	}
 	return NULL;
 }
@@ -6304,7 +6295,7 @@ StdPtrList_DestructorWrapper_EntityMgr(void)
  * block. If flags & 2 is NOT set: just calls CVector_Destructor on this, and if
  * flags & 1, frees this.
  */
-static __attribute__((unused)) void *
+void *
 CVector_VecDestructor_Region(CVector *this, int flags)
 {
 	if (flags & 2) {
@@ -6314,11 +6305,11 @@ CVector_VecDestructor_Region(CVector *this, int flags)
 		int count = *(uint32_t *)alloc;
 		for (i = count - 1; i >= 0; i--)
 			CVector_Destructor(&this[i]);
-		free(alloc);
+		OperatorDelete(alloc);
 	} else {
 		CVector_Destructor(this);
 		if (flags & 1)
-			free(this);
+			OperatorDelete(this);
 	}
 	return NULL;
 }
@@ -6607,14 +6598,14 @@ StdTree_Clear(StdMapTree *tree)
 	StdTree_EraseRange(tree, head->left, head);
 
 	// Free head node.
-	free(head);
+	OperatorDelete(head);
 	tree->head = NULL;
 	tree->size = 0;
 
 	// Decrement nil sentinel refcount.
 	g_HandleMapNilRef--;
 	if (g_HandleMapNilRef == 0) {
-		free(g_HandleMapNil);
+		OperatorDelete(g_HandleMapNil);
 		g_HandleMapNil = NULL;
 	}
 }
@@ -6919,7 +6910,7 @@ StdTree_RBErase(StdMapTree *tree, StdTreeNode *z)
 			x->color = 1;
 	}
 
-	free(y);
+	OperatorDelete(y);
 	tree->size--;
 }
 
@@ -6965,7 +6956,7 @@ StdTree_EraseSubtree(StdMapTree *tree, StdTreeNode *node)
 	while (node != g_HandleMapNil) {
 		StdTree_EraseSubtree(tree, node->right);
 		StdTreeNode *next = node->left;
-		free(node);
+		OperatorDelete(node);
 		node = next;
 	}
 }
@@ -6985,7 +6976,7 @@ StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t k
 	StdTreeNode *x;
 
 	// Allocate and initialize new node (binary: 0x004E6CF9..0x004E6D3A).
-	node = malloc(sizeof(StdTreeNode));
+	node = OperatorNew(sizeof(StdTreeNode));
 	node->parent = parent;
 	node->color = 0; // red
 	node->left = nil;

@@ -1924,7 +1924,7 @@ OperatorNew_Clamp(int size)
 {
 	if (size < 0)
 		size = 0;
-	return malloc(size);
+	return OperatorNew(size);
 }
 
 /*

@@ -14,6 +14,7 @@
 #include "dat.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "wombat.h"
 
 static void AnimSequence_Destructor(AnimSequence *this); // 0x004CF67B
@@ -272,14 +273,14 @@ AnimSequence_Clear(void)
 	g_AnimSequence.state = 0;
 	while (g_AnimSequence.locList != NULL) {
 		lnext = g_AnimSequence.locList->next;
-		free(g_AnimSequence.locList);
+		OperatorDelete(g_AnimSequence.locList);
 		g_AnimSequence.locList = lnext;
 	}
 	while (g_AnimSequence.cmdList != NULL) {
 		cnext = g_AnimSequence.cmdList->next;
 		if (g_AnimSequence.cmdList->data != NULL)
-			free(g_AnimSequence.cmdList->data);
-		free(g_AnimSequence.cmdList);
+			OperatorDelete(g_AnimSequence.cmdList->data);
+		OperatorDelete(g_AnimSequence.cmdList);
 		g_AnimSequence.cmdList = cnext;
 	}
 }
@@ -298,9 +299,9 @@ AnimSequence_AddLocation(CLocation *loc)
 		if (cur->loc.x == loc->x && cur->loc.y == loc->y && cur->loc.z == loc->z)
 			return; /* already have this location */
 	}
-	node = (SeqLocNode *)malloc(sizeof(SeqLocNode));
+	node = (SeqLocNode *)OperatorNew(sizeof(SeqLocNode));
 	if (node != NULL)
-		CLocation_Init(&node->loc);
+		CLocation_Constructor(&node->loc);
 	CLocation_CopyFrom(&node->loc, loc);
 	node->next = NULL;
 	if (g_AnimSequence.locList == NULL) {
@@ -322,9 +323,9 @@ AnimSequence_AddCommand(uint8_t type, const uint8_t *data, uint32_t dataSize)
 {
 	SeqCmdNode *node, *tail;
 
-	node = (SeqCmdNode *)malloc(sizeof(SeqCmdNode));
+	node = (SeqCmdNode *)OperatorNew(sizeof(SeqCmdNode));
 	node->type = type;
-	node->data = (uint8_t *)malloc(dataSize);
+	node->data = (uint8_t *)OperatorNew(dataSize);
 	memcpy(node->data, data, dataSize);
 	node->next = NULL;
 	if (g_AnimSequence.cmdList == NULL) {

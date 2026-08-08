@@ -22,6 +22,7 @@
 #include "multi.h"
 #include "npc.h"
 #include "player.h"
+#include "region.h"
 #include "signpost.h"
 #include "skill.h"
 #include "item.h"
@@ -1790,7 +1791,7 @@ CDataManager_InitArtBuffer(CWorld *this)
 	this->isLoading = 1;
 
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-	alloc = (char *)malloc(0x4000 * sizeof(CResourceEntity) + sizeof(uintptr_t));
+	alloc = (char *)OperatorNew(0x4000 * sizeof(CResourceEntity) + sizeof(uintptr_t));
 
 	if (alloc != NULL) {
 		*(uint32_t *)alloc = 0x4000;

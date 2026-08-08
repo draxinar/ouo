@@ -1093,6 +1093,7 @@ CTrigger *InitTrigger(CTrigger *trig, int filter, int eventIndex, int flags, con
 void CTrigger_Destructor(CTrigger *trig); // 0x0040846D
 void CScript_Constructor(CScript *script, const char *name); // 0x004084E8
 void CScript_Destructor(CScript *script); // 0x004085D9
+void *CScript_ScalarDelete(CScript *this, int flags); // 0x004B9AB0
 CFunction *CScript_AddFunction(CScript *script, const char *name, const char *sig); // 0x0040887A
 CFunction *CScript_FindFunction(CScript *script, const char *name); // 0x00408936
 int CScript_AddVar(CScript *script, const char *name, int typeId); // 0x00408954

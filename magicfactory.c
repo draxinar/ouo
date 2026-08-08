@@ -19,6 +19,7 @@
 #include "log.h"
 #include "magicfactory.h"
 #include "magiclist.h"
+#include "region.h"
 #include "utils.h"
 #include "wombat_compile.h"
 
@@ -292,7 +293,7 @@ CMagicItemFactory_ProcessItemEffect(CMagicItemFactory *factory, CString *buf, in
 		goto cleanup;
 	}
 
-	def = (CItemEffectDef *)malloc(sizeof(CItemEffectDef));
+	def = (CItemEffectDef *)OperatorNew(sizeof(CItemEffectDef));
 	if (def != NULL)
 		def = CItemEffectDef_Constructor(def);
 
@@ -474,7 +475,7 @@ CMagicItemFactory_ProcessItemList(CMagicItemFactory *factory, CString *buf, int 
 		return 0;
 	}
 
-	newList = (CStringList *)malloc(sizeof(CStringList));
+	newList = (CStringList *)OperatorNew(sizeof(CStringList));
 	if (newList != NULL)
 		CStringList_Init(newList);
 
@@ -573,7 +574,7 @@ CMagicItemFactory_ProcessEffectList(CMagicItemFactory *factory, CString *buf, in
 		return 0;
 	}
 
-	newList = (CResList *)malloc(sizeof(CResList));
+	newList = (CResList *)OperatorNew(sizeof(CResList));
 	if (newList != NULL)
 		CResListNode_Constructor_bin((CResListNode *)newList);
 
@@ -902,7 +903,7 @@ CMagicItemFactory_ProcessEffectTable(CMagicItemFactory *factory, CString *buf, i
 		return 0;
 	}
 
-	listPtr = (CStringList *)malloc(sizeof(CStringList));
+	listPtr = (CStringList *)OperatorNew(sizeof(CStringList));
 	if (listPtr != NULL)
 		CStringList_Init(listPtr);
 
@@ -2191,7 +2192,7 @@ CMagicItemFactory_Create(CMagicItemList *magicList, int minLevel, int maxLevel, 
 	memset(&localKeysA, 0, sizeof(CResList));
 	memset(&localKeysB, 0, sizeof(CResList));
 	CString_DefaultConstructor(&propName);
-	CString_DefaultConstructor(&effectName.str);
+	CString_DefaultConstructorWrap(&effectName.str);
 	done = 0;
 
 	itemId = CMagicItemFactory_ResolveItemId(factory, searchCtx, (void *)&factory->includeRM);
@@ -2326,7 +2327,7 @@ CItemEffectDef_ScalarDelete(CItemEffectDef *def, int flags)
 {
 	CItemEffectDef_Destructor(def);
 	if (flags & 1)
-		free(def);
+		OperatorDelete(def);
 	return NULL;
 }
 
@@ -2454,7 +2455,7 @@ CEffectTableEntry_ScalarDeleteE(CEffectTableEntry *this, int flags)
 {
 	CEffectTableEntry_DestructorB(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -2550,7 +2551,7 @@ CString_ScalarDelete_MF(CString *this, int flags)
 {
 	CString_DestructorWrap(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -2565,7 +2566,7 @@ SmartPtr_CString_ScalarDelete(CSmartPtr *this, int flags)
 {
 	SmartPtr_Destructor_CString(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 

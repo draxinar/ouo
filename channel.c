@@ -16,6 +16,7 @@
 #include "channel.h"
 #include "dat.h"
 #include "main.h"
+#include "region.h"
 #include "vtable.h"
 
 static void CChannel_Delete(CChannel *this); // 0x0043759F
@@ -42,8 +43,8 @@ CChannelMsg_Destructor(CChannelMsg *this)
 
 	v1 = this;
 	if (this->data)
-		free(this->data - 4);
-	free(v1);
+		OperatorDelete(this->data - 4);
+	OperatorDelete(v1);
 }
 
 /*
@@ -136,7 +137,7 @@ CChannel_Recv(CChannel *this)
 					dataBuffer = NULL;
 				else
 					dataBuffer = (char *)malloc(dataSize + 4) + 4;
-				this->currentMsg = (CChannelMsg *)malloc(sizeof(CChannelMsg));
+				this->currentMsg = (CChannelMsg *)OperatorNew_20();
 				CChannelMsg_Init(this->currentMsg, msgId, dataSize, dataBuffer);
 				this->recvOffset = 0;
 				if (!dataSize) {
@@ -358,7 +359,7 @@ CChannel_Destructor(CChannel *this, char freeFlag)
 {
 	CChannel_Delete(this);
 	if (freeFlag & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -383,10 +384,10 @@ CChannelMsg_Init(CChannelMsg *this, int id, int size, char *data)
  *
  * Allocates a 20-byte CChannelMsg.
  */
-static __attribute__((unused)) void *
+static void *
 OperatorNew_20(void)
 {
-	return malloc(sizeof(CChannelMsg));
+	return OperatorNew(sizeof(CChannelMsg));
 }
 
 /*

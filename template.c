@@ -13,6 +13,7 @@
 #include <string.h>
 #include <strings.h>
 
+#include "config.h"
 #include "dat.h"
 
 #include "container.h"
@@ -35,8 +36,7 @@ static void CTemplate_Destructor(NPCTemplate *tmpl); // 0x004C2A10
 static CSearchCtx *CTemplateManager_FindFieldByLabel(CResManager *rm, CSearchCtx *output, CString *label); // 0x004C1B60
 static CResListNode **CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weight, int direction); // 0x004C1220
 static CResListNode **CStringPairList_GetWeightedRandom(CStringPairList *sl, CResListNode **output); // 0x004C10C0
-static void CStringPairList_Destroy(CStringPairList *sl); // 0x004C10A0
-static CTemplateData *CTemplateData_Constructor(CTemplateData *this); // 0x004C05C0
+static NPCTemplate *CTemplateData_Constructor(NPCTemplate *this); // 0x004C05C0
 static int CTemplateManager_ValidateVendorStock(CItem *vendor); // 0x004C01DE
 static int CTemplateManager_ParseDelimitedField(const char *src, char *dst, int maxlen); // 0x004C013E
 static void CTemplateManager_SetupHumanNPC(CItem *npc, CLocation *loc); // 0x004BFC4C
@@ -223,7 +223,10 @@ CTemplateManager_LoadNameTable(void)
 		if (isMultiFile)
 			fclose_ServerSide(currentFile);
 
-		CResManager_InsertInt(&g_NameTableRM, (uint32_t)nameTableIdx, nameEntry);
+		{
+			uint32_t key = (uint32_t)nameTableIdx;
+			CResManager_InsertIntEntryG(&g_NameTableRM, &key, nameEntry);
+		}
 
 advance:
 		nameTableIdx++;
@@ -1117,7 +1120,7 @@ CTemplateManager_ParseColorExpression(char *dataCursor, char *buf1, char *buf2)
 	}
 	CResBankMagicCtx_PostInit(&randCtx);
 
-	CStringPairList_Destroy(&list);
+	CStringPairList_Init(&list);
 	return dataCursor;
 }
 
@@ -1616,7 +1619,7 @@ CTemplateManager_CreateEntity(uint16_t templateId, CLocation *loc, int *amount, 
 		CResManager_FindByIntCtx(&g_TemplatesRM, &tmplCtx, &tmplKey, 1);
 	}
 	if (!CSearchCtx_Find(&tmplCtx)) {
-		CResManager_Destructor(&eqRM);
+		CResManager_ClearJ_Thunk(&eqRM);
 		return NULL;
 	}
 
@@ -1811,7 +1814,7 @@ CTemplateManager_CreateEntity(uint16_t templateId, CLocation *loc, int *amount, 
 
 cleanup:
 	CString_Destructor(&bodyTypeStr);
-	CResManager_Destructor(&eqRM);
+	CResManager_ClearJ_Thunk(&eqRM);
 	return result;
 }
 
@@ -1932,18 +1935,7 @@ CTemplateManager_LoadTemplates(void)
 
 		tmpl = (NPCTemplate *)OperatorNew(sizeof(NPCTemplate));
 		if (tmpl != NULL) {
-			CStringList_Init(&tmpl->regionList);
-			CStringList_Init(&tmpl->regionlimitList);
-			CStringList_Init(&tmpl->friendsList);
-			CString_DefaultConstructor(&tmpl->corpseName);
-			tmpl->numRawFields = 0;
-			tmpl->resourceNodes = NULL;
-			tmpl->frequency = 0;
-			tmpl->creatureHeight = -1;
-			tmpl->alignment = 0;
-			tmpl->fleeval = 0x10;
-			tmpl->type = 0;
-			tmpl->createsnpcsTemplateId = 0;
+			CTemplateData_Constructor(tmpl);
 			tmpl->id = (uint16_t)fileCounter;
 			tmpl->nameTableId = -1;
 			memset(tmpl->name, 0, sizeof(tmpl->name));
@@ -2112,7 +2104,7 @@ CTemplateManager_LoadTemplates(void)
 				while (*p && isspace((unsigned char)*p))
 					p++;
 
-				tmpl->rawFields[numRawFields].data = strdup(p);
+				tmpl->rawFields[numRawFields].data = strdup_ServerSide(p);
 
 				CString_Constructor(&inputStr, tmpl->rawFields[numRawFields].data);
 				resolveResult = CTemplateManager_ResolveDefines(&inputStr, &outputStr);
@@ -2120,7 +2112,7 @@ CTemplateManager_LoadTemplates(void)
 
 				if (resolveResult) {
 					free(tmpl->rawFields[numRawFields].data);
-					tmpl->rawFields[numRawFields].data = strdup(CString_GetBuffer(&outputStr));
+					tmpl->rawFields[numRawFields].data = strdup_ServerSide(CString_GetBuffer(&outputStr));
 				}
 
 				p = tmpl->rawFields[numRawFields].data;
@@ -2231,7 +2223,7 @@ CTemplateManager_Destructor(CTemplateManager *this)
 
 	for (i = 0; i < TEMPLATE_NAME_SLOTS; i++) {
 		if (this->names[i] != NULL)
-			free(this->names[i]);
+			OperatorDelete(this->names[i]);
 	}
 
 	CTemplateManager_Shutdown();
@@ -2610,7 +2602,7 @@ CTemplateManager_ValidateVendorStock(CItem *vendor)
 			return 0;
 	}
 
-	newMem = malloc(sizeof(CItem));
+	newMem = OperatorNew(sizeof(CItem));
 	if (newMem != NULL)
 		goldItem = CItem_Constructor(newMem);
 	else
@@ -2741,26 +2733,32 @@ CTemplateManager_ValidateOwner(uint32_t serial, CItem *mob)
 /*
  * 0x004C05C0 - CTemplateData::CTemplateData
  *
- * Default-constructs CTemplateData, initializing its string lists,
- * CString, and scalar fields.
+ * Default-constructs a template: three empty string lists, an empty
+ * corpse-name CString, and the scalar defaults.
+ *
+ * Takes NPCTemplate rather than CTemplateData, for the same reason
+ * CTemplateManager::LoadTemplates does. CTemplateData mirrors the binary's
+ * raw 0x1060-byte layout and nothing reads a field of it; NPCTemplate is the
+ * struct the rest of the server uses, and it holds resourceNodes as a real
+ * pointer so it widens correctly on 64-bit. The binary's field at 0x1008 has
+ * no NPCTemplate counterpart and nothing reads it, so it is not set here.
  */
-static __attribute__((unused)) CTemplateData *
-CTemplateData_Constructor(CTemplateData *this)
+static NPCTemplate *
+CTemplateData_Constructor(NPCTemplate *this)
 {
-	CStringList_Init(&this->stringList1);
-	CStringList_Init(&this->stringList2);
-	CStringList_Init(&this->stringList3);
+	CStringList_Init(&this->regionList);
+	CStringList_Init(&this->regionlimitList);
+	CStringList_Init(&this->friendsList);
 
-	CString_DefaultConstructor(&this->str);
+	CString_DefaultConstructor(&this->corpseName);
 
-	this->count = 0;
-	this->field1008 = 0;
-	this->resourceNodes = 0;
+	this->numRawFields = 0;
+	this->resourceNodes = NULL;
 	this->frequency = 0;
 	this->creatureHeight = -1;
 	this->alignment = 0;
 	this->fleeval = 0x10;
-	this->npcType = 0;
+	this->type = 0;
 	this->createsnpcsTemplateId = 0;
 
 	return this;
@@ -2797,43 +2795,15 @@ CTemplateManager_ApplyLabel(CString *label, CItem **entity)
 	return 1;
 }
 
-static void CStringPairList_Destroy(CStringPairList *sl);
-
 /*
  * 0x004C10A0 - CStringPairList::~CStringPairList (dtor wrapper)
  *
- * Forwards to CStringPairList_Destroy, which removes all nodes.
+ * Forwards to the destructor, which removes every node.
  */
 void
 CStringPairList_Init(CStringPairList *sl)
 {
-	CStringPairList_Destroy(sl);
-}
-
-/*
- * 0x004C10A0 / 0x004C1D10 - CStringPairList destructor
- *
- * Walks the list freeing each node's pair data (CString dtors in
- * reverse order) and the wrapper node, then zeroes the list head.
- */
-static void
-CStringPairList_Destroy(CStringPairList *sl)
-{
-	CResListNode *n = sl->list.head;
-	while (n) {
-		CResListNode *next = n->next;
-		CStringPairListNode *data = (CStringPairListNode *)n->data;
-		if (data) {
-			CString_Destructor(&data->second);
-			CString_Destructor(&data->first);
-			free(data);
-		}
-		free(n);
-		n = next;
-	}
-	sl->list.head = NULL;
-	sl->list.tail = NULL;
-	sl->list.count = 0;
+	CStringPairList_Destructor((CResList *)sl);
 }
 
 /*
@@ -2908,7 +2878,7 @@ CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weig
 	int flag;
 
 	flag = 0;
-	raw = (CStringPairListNode *)malloc(sizeof(CStringPairListNode));
+	raw = (CStringPairListNode *)OperatorNew(sizeof(CStringPairListNode));
 	if (raw != NULL) {
 		CString_DefaultConstructor(&raw->first);
 		CString_DefaultConstructor(&raw->second);
@@ -2957,12 +2927,12 @@ CTemplateManager_FindFieldByLabel(CResManager *rm, CSearchCtx *output, CString *
 	bucket = ResManager_HashStrA(label, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)malloc(sizeof(CResList));
+		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
 		if (keyList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)keyList);
 		rm->keys[bucket] = keyList;
 
-		CResList *valList = (CResList *)malloc(sizeof(CResList));
+		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
 		if (valList != NULL)
 			CResListNode_Constructor_bin((CResListNode *)valList);
 		rm->vals[bucket] = valList;
@@ -3016,7 +2986,7 @@ CTemplate_ScalarDelete(NPCTemplate *this, int flags)
 {
 	CTemplate_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -3043,7 +3013,7 @@ CTemplate_Destructor(NPCTemplate *tmpl)
 	}
 
 	for (i = 0; i < tmpl->numRawFields; i++) {
-		free(tmpl->rawFields[i].data);
+		OperatorDelete(tmpl->rawFields[i].data);
 	}
 
 	CString_Destructor(&tmpl->corpseName);

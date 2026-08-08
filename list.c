@@ -10,8 +10,11 @@
 #include <stdlib.h>
 #include <strings.h>
 
+#include "region.h"
 #include "wombat.h"
 #include "wombat_compile.h"
+
+CListNode *CListNode_ScalarDtor(CListNode *node, int flags); // 0x00425C90
 
 /*
  * 0x0040CCB0 - CList::~CList (scalar deleting destructor)
@@ -23,7 +26,7 @@ CList_ScalarDelete(CList *list, int flags)
 {
 	CList_Destructor(list);
 	if (flags & 1)
-		free(list);
+		OperatorDelete(list);
 	return NULL;
 }
 
@@ -58,11 +61,11 @@ CListNode_Constructor(CListNode *node, uint32_t typeTag, uintptr_t value)
 	switch (typeTag) {
 	case 1: // STRING
 		if (value != 0) {
-			cs = (CString *)malloc(sizeof(CString));
+			cs = (CString *)OperatorNew(sizeof(CString));
 			if (cs != NULL)
 				CString_CopyConstructor(cs, (CString *)value);
 		} else {
-			cs = (CString *)malloc(sizeof(CString));
+			cs = (CString *)OperatorNew(sizeof(CString));
 			if (cs != NULL)
 				CString_Constructor(cs, "");
 		}
@@ -70,25 +73,25 @@ CListNode_Constructor(CListNode *node, uint32_t typeTag, uintptr_t value)
 		break;
 	case 2: // USTRING
 		if (value != 0) {
-			cus = (CUString *)malloc(sizeof(CUString));
+			cus = (CUString *)OperatorNew(sizeof(CUString));
 			if (cus != NULL)
 				CUString_CopyConstructor(cus, (CUString *)value);
 		} else {
-			cus = (CUString *)malloc(sizeof(CUString));
+			cus = (CUString *)OperatorNew(sizeof(CUString));
 			if (cus != NULL)
 				CUString_Constructor(cus, "");
 		}
 		node->value = (uintptr_t)cus;
 		break;
 	case 3: // LOC
-		loc = (CLocation *)malloc(6);
+		loc = (CLocation *)OperatorNew(6);
 		if (loc != NULL)
 			CLocation_Init(loc);
 		node->value = (uintptr_t)loc;
 		CLocation_CopyFrom(loc, (CLocation *)value);
 		break;
 	case 5: // LIST
-		lst = (CList *)malloc(sizeof(CList));
+		lst = (CList *)OperatorNew(sizeof(CList));
 		if (lst != NULL)
 			CList_Constructor(lst);
 		// Walk source list and deep-copy each node via Append
@@ -125,7 +128,7 @@ CListNode_Destructor(CListNode *node)
 			CUString_ScalarDelete((CUString *)node->value, 1);
 		break;
 	case 3: // LOC
-		free((void *)node->value);
+		OperatorDelete((void *)node->value);
 		break;
 	case 5: // LIST
 		if (node->value != 0)
@@ -203,8 +206,7 @@ CList_Clear(CList *list)
 	while (list->head != NULL) {
 		cur = list->head;
 		list->head = cur->next;
-		CListNode_Destructor(cur);
-		free(cur);
+		CListNode_ScalarDtor(cur, 1);
 	}
 	list->tail = NULL;
 	list->head = NULL;
@@ -221,7 +223,7 @@ CList_Append(CList *list, uint32_t typeTag, uintptr_t value)
 {
 	CListNode *node;
 
-	node = (CListNode *)malloc(sizeof(CListNode));
+	node = (CListNode *)OperatorNew(sizeof(CListNode));
 	if (node == NULL)
 		return;
 
@@ -247,7 +249,7 @@ CList_Prepend(CList *list, uint32_t typeTag, uintptr_t value)
 {
 	CListNode *node;
 
-	node = (CListNode *)malloc(sizeof(CListNode));
+	node = (CListNode *)OperatorNew(sizeof(CListNode));
 	if (node == NULL)
 		return;
 
@@ -284,7 +286,7 @@ CList_InsertAt(CList *list, uint32_t typeTag, uintptr_t value, int index)
 	for (i = 0; i < index; i++)
 		cur = cur->next;
 
-	node = (CListNode *)malloc(sizeof(CListNode));
+	node = (CListNode *)OperatorNew(sizeof(CListNode));
 	if (node == NULL)
 		return;
 
@@ -391,8 +393,7 @@ CList_RemoveAt(CList *list, int index)
 	else
 		list->tail = node->prev;
 
-	CListNode_Destructor(node);
-	free(node);
+	CListNode_ScalarDtor(node, 1);
 	list->count--;
 }
 
@@ -503,7 +504,7 @@ CListNode_ScalarDtor(CListNode *node, int flags)
 {
 	CListNode_Destructor(node);
 	if (flags & 1)
-		free(node);
+		OperatorDelete(node);
 	return NULL;
 }
 

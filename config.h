@@ -69,6 +69,7 @@ CConfig *Config_ConstructorBody(void); // 0x0046759F
 CConfig *CConfig_InitAll(CConfig *this); // 0x00468343
 void CConfig_NoOp_4688C1(const char *msg); // 0x004688C1
 char *GetLine(FILE *f); // 0x004688CE
+char *strdup_ServerSide(const char *src); // 0x00468A1E
 int CConfig_Init(CConfig *this); // 0x00468A5C
 
 #endif /* CONFIG_H_ */

@@ -952,7 +952,7 @@ CNPC_ScalarDelete(CNPC *npc, int flags)
 {
 	CNPC_Destructor(npc);
 	if (flags & 1)
-		free(npc);
+		OperatorDelete(npc);
 	return NULL;
 }
 
@@ -1012,7 +1012,7 @@ CNPCMap_Init(void)
 {
 	CEntityMap *map;
 
-	map = (CEntityMap *)malloc(sizeof(CEntityMap));
+	map = (CEntityMap *)OperatorNew(sizeof(CEntityMap));
 	if (map != NULL) {
 		CEntityMap_Constructor(map, g_mapStartX, g_mapStartY, g_mapStartX + g_mapWidth - 1, g_mapStartY + g_mapHeight - 1, 6);
 	}
@@ -1895,7 +1895,7 @@ NPC_PathWalk(CNPC *npc)
 		((void (*)(void *, CVector *, int))VT_FN((CItem *)npc, VT_NOTIFY_NEARBY))(npc, &vec, 0);
 
 		if (!Path_AtStep(&stepLoc, npcLoc, (int)((CMobile *)npc)->direction)) {
-			free((void *)npc->pathArray);
+			OperatorDelete((void *)npc->pathArray);
 			npc->pathArray = 0;
 			if (pathSpeed != -1)
 				Entity_ExecuteEvent((CEntity *)npc, 0x20, pathSpeed);
@@ -1924,7 +1924,7 @@ NPC_PathWalk(CNPC *npc)
 	}
 
 	if (npc->pathArray != 0) {
-		free((void *)npc->pathArray);
+		OperatorDelete((void *)npc->pathArray);
 		npc->pathArray = 0;
 	}
 	if (pathSpeed != -1)
@@ -2845,6 +2845,11 @@ CNPC_AddFragment(CNPC *npc, CString *name)
  *
  * Removes every entry matching name (case-insensitive) from the
  * convo-fragment list, destroying the list when it empties.
+ *
+ * MODIFIED: the binary's CNPC::AddFragment leaves the sentinel node's value
+ * region uninitialised, and its destructor frees the sentinel with a raw
+ * free. Our AddFragment default-constructs that CString, so it has to be
+ * destroyed here - and in CNPC::~CNPC - before the sentinel is released.
  */
 void
 CNPC_RemoveFragment(CNPC *npc, CString *name)
@@ -2873,8 +2878,7 @@ CNPC_RemoveFragment(CNPC *npc, CString *name)
 
 	if (list->count == 0) {
 		CString_Destructor(&header->str);
-		free(header);
-		free(list);
+		StdPtrList_ScalarDelete_NPC((StdPtrList *)list, 1);
 		npc->convoFragList = NULL;
 	}
 }
@@ -3181,7 +3185,7 @@ CNPC_CheckArmageddon(CNPC *npc, int flag)
 	CList *list;
 	char *result;
 
-	list = (CList *)malloc(sizeof(CList));
+	list = (CList *)OperatorNew(sizeof(CList));
 	if (list != NULL)
 		CList_Constructor(list);
 
@@ -3262,7 +3266,7 @@ CResourceMobile_ScalarDelete(CNPC *npc, int flags)
 {
 	CResourceMobile_Destructor(npc);
 	if (flags & 1)
-		free(npc);
+		OperatorDelete(npc);
 	return NULL;
 }
 
@@ -3272,12 +3276,12 @@ CResourceMobile_ScalarDelete(CNPC *npc, int flags)
  * Scalar deleting destructor for the NPC-variant StdPtrList: runs the
  * destructor and frees the list when flags & 1.
  */
-static __attribute__((unused)) void *
+static void *
 StdPtrList_ScalarDelete_NPC(StdPtrList *this, int flags)
 {
 	StdPtrList_Destructor_NPC(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -3390,7 +3394,7 @@ Path_AdvanceStep(CNPC *npc)
 {
 	npc->pathStepsRemaining--;
 	if ((int32_t)npc->pathStepsRemaining <= 0) {
-		free((void *)npc->pathArray);
+		OperatorDelete((void *)npc->pathArray);
 		npc->pathArray = 0;
 	}
 }
@@ -3466,14 +3470,11 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 		maxSteps = 0x1FF;
 
 	if (npc->pathArray != 0) {
-		free((void *)npc->pathArray);
+		OperatorDelete((void *)npc->pathArray);
 		npc->pathArray = 0;
 	}
 
-	nodes[0].x = mob->resourceEntity.entity.location.x;
-	nodes[0].y = mob->resourceEntity.entity.location.y;
-	nodes[0].z = mob->resourceEntity.entity.location.z;
-	nodes[0].dir = (int16_t)(((CMobile *)mob)->direction & 7);
+	PathNode_InitFromLoc((PathNode *)&nodes[0], &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
 
 	nodes[0].parentIdx = 0;
 	nodes[0].cost = 0;
@@ -3510,10 +3511,7 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 			if (!Path_StepCheck(npc, (PathNode *)&nodes[i], dir, &resultNode))
 				continue;
 
-			nodes[count].x = resultNode.x;
-			nodes[count].y = resultNode.y;
-			nodes[count].z = resultNode.z;
-			nodes[count].dir = resultNode.dir;
+			PathNode_Copy((PathNode *)&nodes[count], &resultNode);
 			nodes[count].parentIdx = i;
 			nodes[count].cost = parentCost + 1;
 			count++;
@@ -3530,20 +3528,17 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 
 found_path:
 	pathSize = parentCost + 2;
-	pathArray = (PathNode *)malloc(pathSize * sizeof(PathNode));
+	pathArray = (PathNode *)OperatorNew(pathSize * sizeof(PathNode));
 
 	npc->pathArray = (uintptr_t)pathArray;
 	npc->pathStepsRemaining = parentCost;
 
 	k = 0;
-	pathArray[k] = resultNode;
+	PathNode_Copy(&pathArray[k], &resultNode);
 	k++;
 
 	while (parentCost >= 0) {
-		pathArray[k].x = nodes[i].x;
-		pathArray[k].y = nodes[i].y;
-		pathArray[k].z = nodes[i].z;
-		pathArray[k].dir = nodes[i].dir;
+		PathNode_Copy(&pathArray[k], (PathNode *)&nodes[i]);
 		k++;
 
 		i = nodes[i].parentIdx;
@@ -3568,7 +3563,7 @@ SearchNode_IterConstructor(StdPtrNode **self)
  *
  * Copies x/y/z from loc and stores dir.
  */
-static __attribute__((unused)) PathNode *
+static PathNode *
 PathNode_InitFromLoc(PathNode *this, CLocation *loc, int16_t dir)
 {
 	this->x = loc->x;
@@ -3583,7 +3578,7 @@ PathNode_InitFromLoc(PathNode *this, CLocation *loc, int16_t dir)
  *
  * Copies the x/y/z/dir fields from src into this.
  */
-static __attribute__((unused)) PathNode *
+static PathNode *
 PathNode_Copy(PathNode *this, PathNode *src)
 {
 	this->x = src->x;
@@ -3999,35 +3994,35 @@ next_node:
 		npc->mobile.stomach = (uint8_t)npc->hungerCapacity;
 
 	if (npc->resTplPtr0 != NULL) {
-		free(npc->resTplPtr0);
+		OperatorDelete(npc->resTplPtr0);
 		npc->resTplPtr0 = NULL;
 	}
 	if (npc->resTplPtr1 != NULL) {
-		free(npc->resTplPtr1);
+		OperatorDelete(npc->resTplPtr1);
 		npc->resTplPtr1 = NULL;
 	}
 	if (npc->resTplPtr2 != NULL) {
-		free(npc->resTplPtr2);
+		OperatorDelete(npc->resTplPtr2);
 		npc->resTplPtr2 = NULL;
 	}
 	if (npc->resTplPtr3 != NULL) {
-		free(npc->resTplPtr3);
+		OperatorDelete(npc->resTplPtr3);
 		npc->resTplPtr3 = NULL;
 	}
 	if (npc->resTplPtr4 != NULL) {
-		free(npc->resTplPtr4);
+		OperatorDelete(npc->resTplPtr4);
 		npc->resTplPtr4 = NULL;
 	}
 	if (npc->resTplPtr5 != NULL) {
-		free(npc->resTplPtr5);
+		OperatorDelete(npc->resTplPtr5);
 		npc->resTplPtr5 = NULL;
 	}
 	if (npc->resTplPtr6 != NULL) {
-		free(npc->resTplPtr6);
+		OperatorDelete(npc->resTplPtr6);
 		npc->resTplPtr6 = NULL;
 	}
 	if (npc->resTplPtr7 != NULL) {
-		free(npc->resTplPtr7);
+		OperatorDelete(npc->resTplPtr7);
 		npc->resTplPtr7 = NULL;
 	}
 
@@ -6290,7 +6285,7 @@ CNPC_HandleCorpseEat(CNPC *npc, CItem *corpse)
 		CList *newList;
 		CList *list;
 
-		newList = (CList *)malloc(sizeof(CList));
+		newList = (CList *)OperatorNew(sizeof(CList));
 		if (newList != NULL)
 			list = CList_Constructor(newList);
 		else

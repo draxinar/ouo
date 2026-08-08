@@ -98,7 +98,7 @@ UpdateRegion(CItem *entity)
 
 	iter = (uintptr_t *)enterList.begin;
 	while (iter != (uintptr_t *)enterList.end) {
-		node = (CBlockTrackingNode *)malloc(sizeof(CBlockTrackingNode));
+		node = (CBlockTrackingNode *)OperatorNew(sizeof(CBlockTrackingNode));
 		node->entity = entity;
 		node->data[0] = *iter;
 		node->data[1] = 0x10;
@@ -109,7 +109,7 @@ UpdateRegion(CItem *entity)
 
 	iter = (uintptr_t *)leaveList.begin;
 	while (iter != (uintptr_t *)leaveList.end) {
-		node = (CBlockTrackingNode *)malloc(sizeof(CBlockTrackingNode));
+		node = (CBlockTrackingNode *)OperatorNew(sizeof(CBlockTrackingNode));
 		node->entity = entity;
 		node->data[0] = *iter;
 		node->data[1] = 0x11;
@@ -147,7 +147,7 @@ Block_RemoveTrackingNode(CItem *entity)
 		if ((*pp)->entity == entity) {
 			node = *pp;
 			*pp = node->next;
-			free(node);
+			OperatorDelete(node);
 		} else {
 			pp = &(*pp)->next;
 		}

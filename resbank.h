@@ -197,27 +197,34 @@ struct TemplateField {
  * NPC template (CTemplate, 0x1060 bytes, ctor 0x004C05C0). Head is a
  * flat field array (count + 512 {type, data} entries). Tail fields at
  * +0x1004..+0x105F carry resolved region/movetype/corpse metadata.
+ *
+ * The offsets below name the field's position in CTemplateData, the binary's
+ * raw 0x1060-byte layout, NOT its offset in this struct - the declaration
+ * order here differs and the two cannot be cast to one another. This struct
+ * splits the binary's opaque data[0x1000] blob into 512 typed rawFields
+ * entries, which is exactly 0x1000 bytes on 32-bit, holds resourceNodes as a
+ * real pointer so it widens on 64-bit, and appends three CUSTOM fields.
  */
 struct NPCTemplate {
 	uint16_t id;
 	char name[32];                  // CUSTOM: display name for packet_handler.c
 	int16_t nameTableId;            // CUSTOM: convenience back-reference
-	uint8_t type;                   // +0x1059 (0=unknown, 1=item, 2=normal, 3=guard, 4=shopkeeper)
-	int32_t frequency;              // +0x100C
+	uint8_t type;                   // CTemplateData 0x1059 (0=unknown, 1=item, 2=normal, 3=guard, 4=shopkeeper)
+	int32_t frequency;              // CTemplateData 0x100C
 #if __SIZEOF_POINTER__ == 8
 	uint32_t _tmpl_pad64;           // 64-bit alignment pad
 #endif
-	CResourceNode *resourceNodes;   // +0x1004
-	CStringList regionList;         // +0x1010
-	CStringList regionlimitList;    // +0x1020
-	CStringList friendsList;        // +0x1030
-	int32_t creatureHeight;         // +0x1040 (movetype field, default -1)
-	int32_t alignment;              // +0x1044 (0=neutral, 1=good, 2=evil, 3=chaotic)
-	CString corpseName;             // +0x1048
-	uint8_t fleeval;                // +0x1058 (default 0x10)
-	uint32_t createsnpcsTemplateId; // +0x105C
-	TemplateField rawFields[MAX_TEMPLATE_FIELDS];
-	int numRawFields;
+	CResourceNode *resourceNodes;   // CTemplateData 0x1004 (uint32 there; a real pointer here)
+	CStringList regionList;         // CTemplateData 0x1010
+	CStringList regionlimitList;    // CTemplateData 0x1020
+	CStringList friendsList;        // CTemplateData 0x1030
+	int32_t creatureHeight;         // CTemplateData 0x1040 (movetype field, default -1)
+	int32_t alignment;              // CTemplateData 0x1044 (0=neutral, 1=good, 2=evil, 3=chaotic)
+	CString corpseName;             // CTemplateData 0x1048
+	uint8_t fleeval;                // CTemplateData 0x1058 (default 0x10)
+	uint32_t createsnpcsTemplateId; // CTemplateData 0x105C
+	TemplateField rawFields[MAX_TEMPLATE_FIELDS]; // CTemplateData 0x0004, its data[0x1000] blob
+	int numRawFields;               // CTemplateData 0x0000, its count
 };
 
 #define MAX_TEMPLATES 1024
@@ -260,7 +267,8 @@ void CResBankManager_PrintSpawnStatistics(void); // 0x004AD38C
 void CResBankManager_ClearAllRegions(void); // 0x004AD55E
 void CResBankManager_LoadResBank(void); // 0x004AD8EC
 void CResBankManager_NoOp(CResBankManager *this); // 0x004ADDD0
-void CResBankManager_SaveResBank(void); // 0x004ADE8C
+void CResBankManager_SaveResBank(CResBankManager *this, char **destPtr); // 0x004ADE8C
+void ResBank_SaveToFile(void);
 int CResBankRegion_SpawnAttempt(CResBankRegion *region, int spawnFilter); // 0x004AE153
 void CResBankManager_SpawnTick(int arg1, int spawnFilter); // 0x004AE1D5
 void CResBankManager_RespawnTimerCheck(void); // 0x004AE2B0

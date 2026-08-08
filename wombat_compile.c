@@ -336,7 +336,7 @@ StoreIdResult(ResultNode **chain, const char *tokenBuf)
 
 	n = AppendResultNode(chain);
 	n->type = 7;
-	cs = (CString *)malloc(sizeof(CString));
+	cs = (CString *)OperatorNew(sizeof(CString));
 	if (cs != NULL) {
 		CString_Constructor(cs, buf);
 		Parser_TrackCString(cs);
@@ -385,7 +385,7 @@ StoreMemberResult(ResultNode **chain, const char *tokenBuf)
 
 	n = AppendResultNode(chain);
 	n->type = 8;
-	cus = (CUString *)malloc(sizeof(CUString));
+	cus = (CUString *)OperatorNew(sizeof(CUString));
 	if (cus != NULL) {
 		CUString_Constructor(cus, wbuf);
 		Parser_TrackCUString(cus);
@@ -460,7 +460,7 @@ StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, Resul
 		if (matchCount == 0)
 			return 0;
 
-		tmpNode = (uintptr_t *)malloc(3 * sizeof(uintptr_t));
+		tmpNode = (uintptr_t *)OperatorNew(3 * sizeof(uintptr_t));
 		Parser_TrackHandlerTriplet(tmpNode);
 		tmpNode[0] = argChain->value;
 		tmpNode[1] = (uintptr_t)*tailPtr;
@@ -633,7 +633,7 @@ check_endwhile_continue:
 
 		if (walkNode == NULL) {
 			// Allocate new sentinel node
-			walkNode = (uintptr_t *)malloc(3 * sizeof(uintptr_t));
+			walkNode = (uintptr_t *)OperatorNew(3 * sizeof(uintptr_t));
 			Parser_TrackHandlerTriplet(walkNode);
 			walkNode[2] = savedNode;
 			walkNode[0] = 0xFFFFFD66;
@@ -720,7 +720,7 @@ StoreGotoResult(ResultNode **chain, const char *label)
 	ResultNode *n = AppendResultNode(chain);
 
 	n->type = 9;
-	n->value = (uintptr_t)malloc(strlen(label) + 1);
+	n->value = (uintptr_t)OperatorNew(strlen(label) + 1);
 	strcpy((char *)n->value, label);
 	n->extra = 0;
 }
@@ -801,7 +801,7 @@ ResolveGotoLabels(ResultNode *head)
 	// Cleanup: free all collected label name strings
 	for (j = 0; j < count; j++) {
 		p = values[j];
-		free(p);
+		OperatorDelete(p);
 	}
 
 	// Return 1 if all resolved (i reached count), 0 otherwise
@@ -1606,7 +1606,7 @@ ParseMember(const char *stream, int isForwardDecl)
  * copies its function list, named scope, and 71 trigger-handler
  * slots into the current script, and stores it as the parent.
  *
- * Binary bug fix: the original dereferences the parent pointer
+ * FIXED: the original dereferences the parent pointer
  * without checking whether CScriptManager_FindOrLoad returned NULL,
  * crashing in CFuncList_Copy when the parent script is missing or
  * fails to parse. Bail out of the inherits clause when that happens.
@@ -3312,7 +3312,7 @@ GetInlineInt(const char *tokenBuf)
  * No-op constructor invoked by the pool allocator's batch
  * initialiser; the binary leaves the node uninitialised.
  */
-static __attribute__((unused)) void
+static void
 ResultNode_Constructor(ResultNode *node)
 {
 	USED(node);
@@ -3406,7 +3406,7 @@ NodePool_Pop(NodePool *pool)
 		pool->flag = 1;
 
 		// Binary: OperatorNew(batchSize * 0x10 + 4)
-		block = (char *)malloc(batchSize * sizeof(ResultNode) + sizeof(uintptr_t));
+		block = (char *)OperatorNew(batchSize * sizeof(ResultNode) + sizeof(uintptr_t));
 		if (block == NULL)
 			return NULL;
 
@@ -3433,7 +3433,7 @@ NodePool_Pop(NodePool *pool)
 		VG_POOL_ALLOC(pool, node, sizeof(ResultNode));
 	}
 
-	// 0x0042B301: per-node init, no-op for ResultNode
+	ResultNode_Constructor(node);
 
 	return node;
 }
@@ -3773,6 +3773,14 @@ BroadcastEventToNearby(CLocation *loc, int range, int eventType, ...)
  * implicit per event type - scripts don't declare them - and
  * matches what the Wombat compiler bakes into each trigger's
  * scope. See the case bodies for the per-event layouts.
+ *
+ * FIXED: two bugs in the trigger dispatch path. The binary does not call
+ * AddParam for filter-only arguments, so the remaining parameters no longer
+ * line up with the trigger's scope entries; every va_arg is stored here with
+ * an `_`-prefixed name and the filter-only ones are stripped after the filter
+ * switch. The binary also never frees the CList that AddParam allocates for
+ * message-event (0x16) format-string arguments; LIST params are released
+ * after the execution loop.
  */
 static int
 ExtractEventParams(int eventType, va_list ap, EventParam *params)
@@ -4925,7 +4933,7 @@ ExecuteTrigger(ScriptAttachNode *scriptNode, CTrigger *trigger, EventParamBlock 
 	trigScope = trigger->scope;
 	entries = (CNamedScopeEntry *)trigScope->namedScope.entries;
 
-	thread = (CExecThread *)malloc(sizeof(CExecThread));
+	thread = (CExecThread *)OperatorNew(sizeof(CExecThread));
 	if (thread != NULL)
 		CExecThread_Constructor(thread, trigScope, scriptNode);
 
@@ -4945,7 +4953,7 @@ ExecuteTrigger(ScriptAttachNode *scriptNode, CTrigger *trigger, EventParamBlock 
 		int typeId = entries[i].typeId;
 		switch (typeId) {
 		case WTYPE_STRING: {
-			CString *str = (CString *)malloc(sizeof(CString));
+			CString *str = (CString *)OperatorNew(sizeof(CString));
 			if (str != NULL)
 				CString_CopyConstructor(str, &g_EmptyCString);
 			strObj = str;
@@ -4953,7 +4961,7 @@ ExecuteTrigger(ScriptAttachNode *scriptNode, CTrigger *trigger, EventParamBlock 
 			break;
 		}
 		case WTYPE_USTRING: {
-			CUString *ustr = (CUString *)malloc(sizeof(CUString));
+			CUString *ustr = (CUString *)OperatorNew(sizeof(CUString));
 			if (ustr != NULL)
 				CUString_CopyConstructor(ustr, &g_EmptyCUString);
 			ustrObj = ustr;
@@ -4961,7 +4969,7 @@ ExecuteTrigger(ScriptAttachNode *scriptNode, CTrigger *trigger, EventParamBlock 
 			break;
 		}
 		case WTYPE_LIST: {
-			CList *list = (CList *)malloc(sizeof(CList));
+			CList *list = (CList *)OperatorNew(sizeof(CList));
 			if (list != NULL)
 				CList_Constructor(list);
 			listObj = list;
@@ -5092,7 +5100,7 @@ EventParamBlock_AddParam(EventParamBlock *pb, int type, uintptr_t value)
 	}
 	case WTYPE_STRING: {
 		// Heap-allocate CString via copy ctor from const char*
-		CString *str = (CString *)malloc(sizeof(CString));
+		CString *str = (CString *)OperatorNew(sizeof(CString));
 		if (str != NULL)
 			CString_Constructor(str, (const char *)value);
 		CVector_PushBack(&pb->stringVec, (uintptr_t)str);
@@ -5102,7 +5110,7 @@ EventParamBlock_AddParam(EventParamBlock *pb, int type, uintptr_t value)
 	}
 	case WTYPE_USTRING: {
 		// Heap-allocate CUString via copy ctor
-		CUString *ustr = (CUString *)malloc(sizeof(CUString));
+		CUString *ustr = (CUString *)OperatorNew(sizeof(CUString));
 		if (ustr != NULL)
 			CUString_CopyConstructor(ustr, (CUString *)value);
 		CVector_PushBack(&pb->ustringVec, (uintptr_t)ustr);

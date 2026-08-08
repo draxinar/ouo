@@ -13,6 +13,7 @@
 #include "dat.h"
 #include "mobile.h"
 #include "multi.h"
+#include "region.h"
 #include "vtable.h"
 #include "world.h"
 
@@ -88,13 +89,17 @@ CSerialList_Destructor(CSerialList *list)
 /*
  * 0x004429FA - CSerialList::InsertBefore
  *
- * Refreshes a combat-list entry's TTL by setting flags back to 0x78.
+ * Refreshes a combat-list entry's TTL by setting flags back to 0x78, then
+ * splices the entry in front of begin. The splice range is [node, node),
+ * which is empty, so it does nothing; the binary issues the call anyway.
  */
 static void
 CSerialList_InsertBefore(CSerialList *list, CSerialNode *node)
 {
-	USED(list);
-	node->flags = 0x78;
+	StdPtrNode *beginIter;
+
+	CSerialValue_SetFlags((CSerialValue *)StdPtrIter_Deref((StdPtrNode **)&node), 0x78);
+	StdSerialList_Splice((StdPtrList *)list, *StdPtrList_Begin((StdPtrList *)list, &beginIter), (StdPtrList *)list, (StdPtrNode *)node, (StdPtrNode *)node);
 }
 
 /*
@@ -106,15 +111,18 @@ CSerialList_InsertBefore(CSerialList *list, CSerialNode *node)
 void
 CSerialList_AddFromSet(CSerialList *list, uint32_t serial)
 {
-	CSerialNode *sentinel, *node;
+	CSearchCtx key;
+	StdPtrNode *beginIter, *endIter, *tmpIter;
+	StdPtrNode *begin, *end;
+	StdPtrNode *result;
 
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = node->next) {
-		if (node->serial == serial) {
-			CSerialList_InsertBefore(list, node);
-			return;
-		}
-	}
+	CMultiRotateRect_SetRotation((CMultiRotateRect *)&key, serial);
+	end = *StdPtrList_End((StdPtrList *)list, &endIter);
+	begin = *StdPtrList_Begin((StdPtrList *)list, &beginIter);
+	StdSerialList_Find(&result, begin, end, &key);
+
+	if (StdPtrIter_Neq(&result, StdPtrList_End((StdPtrList *)list, &tmpIter)) & 0xFF)
+		CSerialList_InsertBefore(list, (CSerialNode *)result);
 }
 
 /*
@@ -127,31 +135,24 @@ CSerialList_AddFromSet(CSerialList *list, uint32_t serial)
 int
 CSerialList_Add(CSerialList *list, uint32_t serial)
 {
-	CSerialNode *sentinel, *node;
+	CSearchCtx key;
+	StdPtrNode *beginIter, *endIter, *tmpIter;
+	StdPtrNode *begin, *end;
+	StdPtrNode *result;
+	CSerialValue val;
 
-	// Find existing entry - if found, refresh TTL and return 0.
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = node->next) {
-		if (node->serial == serial) {
-			CSerialList_InsertBefore(list, node);
-			return 0;
-		}
+	CMultiRotateRect_SetRotation((CMultiRotateRect *)&key, serial);
+	end = *StdPtrList_End((StdPtrList *)list, &endIter);
+	begin = *StdPtrList_Begin((StdPtrList *)list, &beginIter);
+	StdSerialList_Find(&result, begin, end, &key);
+
+	if (StdPtrIter_Neq(&result, StdPtrList_End((StdPtrList *)list, &tmpIter)) & 0xFF) {
+		CSerialList_InsertBefore(list, (CSerialNode *)result);
+		return 0;
 	}
 
-	node = malloc(sizeof(CSerialNode));
-	if (node == NULL)
-		return 0;
-	node->serial = serial;
-	node->flags = 0x78;
-	node->_pad0E = 0;
-
-	// Insert before sentinel (push_back)
-	sentinel = list->data;
-	node->next = sentinel;
-	node->prev = sentinel->prev;
-	sentinel->prev->next = node;
-	sentinel->prev = node;
-	list->count++;
+	CSerialValue_Init(&val, serial, 0x78);
+	StdSerialList_PushBack((StdPtrList *)list, &val);
 	return 1;
 }
 
@@ -163,39 +164,33 @@ CSerialList_Add(CSerialList *list, uint32_t serial)
 int
 CSerialList_Contains(CSerialList *list, uint32_t serial)
 {
-	CSerialNode *sentinel, *node;
+	CSearchCtx key;
+	StdPtrNode *beginIter, *endIter, *tmpIter;
+	StdPtrNode *begin, *end;
+	StdPtrNode *found, *it, *endIt;
 
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = node->next) {
-		if (node->serial == serial)
-			return 1;
-	}
-	return 0;
+	CMultiRotateRect_SetRotation((CMultiRotateRect *)&key, serial);
+	end = *StdPtrList_End((StdPtrList *)list, &endIter);
+	begin = *StdPtrList_Begin((StdPtrList *)list, &beginIter);
+	StdPtrIter_CopyConstructor(&it, StdSerialList_Find(&found, begin, end, &key));
+	StdPtrIter_CopyConstructor(&endIt, StdPtrList_End((StdPtrList *)list, &tmpIter));
+
+	return (StdPtrIter_Neq(&it, &endIt) & 0xFF) ? 1 : 0;
 }
 
 /*
  * 0x00442C06 - remove a serial from the list
  *
- * Unlinks and frees the node carrying serial. Returns 0 when the
- * serial is not found.
+ * Builds a key value and erases every entry matching it. The binary sets
+ * no return value, so this is void; no caller reads one.
  */
-int
+void
 CSerialList_Remove(CSerialList *list, uint32_t serial)
 {
-	CSerialNode *sentinel, *node, *next;
+	CSerialValue val;
 
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = next) {
-		next = node->next;
-		if (node->serial == serial) {
-			node->prev->next = node->next;
-			node->next->prev = node->prev;
-			free(node);
-			list->count--;
-			return 1;
-		}
-	}
-	return 0;
+	CSerialValue_Init(&val, serial, 0);
+	StdSerialList_RemoveMatching((StdPtrList *)list, &val);
 }
 
 /*
@@ -389,7 +384,7 @@ next:
  *
  * Stores serial and flags into the value pair.
  */
-static __attribute__((unused)) CSerialValue *
+static CSerialValue *
 CSerialValue_Init(CSerialValue *self, uint32_t serial, int16_t flags)
 {
 	self->serial = serial;
@@ -480,7 +475,7 @@ CSerialValue_CopyConstructor(CSerialValue *this, CSerialValue *src)
  *
  * Inserts value just before the sentinel.
  */
-static __attribute__((unused)) void
+static void
 StdSerialList_PushBack(StdPtrList *list, void *value)
 {
 	StdPtrNode *endIter;
@@ -540,7 +535,7 @@ StdSerialList_Splice(StdPtrList *this, StdPtrNode *pos, StdPtrList *srcList, Std
  *
  * Erases every list element whose serial matches *value.
  */
-static __attribute__((unused)) void
+static void
 StdSerialList_RemoveMatching(StdPtrList *list, void *value)
 {
 	StdPtrNode *endIter;
@@ -771,7 +766,7 @@ StdSerialList_SetIter(void *list, void *node)
  * Stores into *result the first iterator in [begin, end) whose value matches
  * ctx (via StdSerialValue_Equal), or end when there is no match.
  */
-static __attribute__((unused)) StdPtrNode **
+static StdPtrNode **
 StdSerialList_Find(StdPtrNode **result, StdPtrNode *begin, StdPtrNode *end, CSearchCtx *ctx)
 {
 	while (StdPtrIter_Neq(&begin, &end) & 0xFF) {
@@ -867,7 +862,7 @@ StdSerialValue_ScalarDelete(CSerialValue *self, int flags)
 	// No-op: value type has trivial destructor.
 
 	if (flags & 1)
-		free(self);
+		OperatorDelete(self);
 	return NULL;
 }
 

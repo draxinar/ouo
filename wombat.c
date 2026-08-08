@@ -33,7 +33,6 @@
 
 static void CFuncList_Constructor(CFuncList *list); // 0x00407B30
 static void StaticInit_ScriptManager(void); // 0x004678D2
-static void *CScript_ScalarDelete(CScript *this, int flags); // 0x004B9AB0
 
 CScriptStringDB g_ScriptStringDB;
 
@@ -2067,12 +2066,12 @@ StaticInit_ScriptManager(void)
  * Thiscall on CScript. Calls CScript_Destructor, then if flags & 1,
  * frees the CScript. Returns this.
  */
-static __attribute__((unused)) void *
+void *
 CScript_ScalarDelete(CScript *this, int flags)
 {
 	CScript_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -2115,9 +2114,9 @@ CStringMatcher_Init(CStringMatcher *sm, int numBuffers, int bufSize)
 	sm->numBuffers = numBuffers;
 	sm->bufLimit = bufSize;
 	sm->counter = 0;
-	sm->bufArray = (char **)malloc(numBuffers * sizeof(char *));
+	sm->bufArray = (char **)OperatorNew(numBuffers * sizeof(char *));
 	for (i = 0; i < sm->numBuffers; i++)
-		sm->bufArray[i] = (char *)malloc(sm->bufLimit);
+		sm->bufArray[i] = (char *)OperatorNew(sm->bufLimit);
 }
 
 /*
@@ -2131,8 +2130,8 @@ CStringMatcher_Destroy(CStringMatcher *sm)
 	int i;
 
 	for (i = 0; i < sm->numBuffers; i++)
-		free(sm->bufArray[i]);
-	free(sm->bufArray);
+		OperatorDelete(sm->bufArray[i]);
+	OperatorDelete(sm->bufArray);
 }
 
 /*

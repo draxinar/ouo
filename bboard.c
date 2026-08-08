@@ -21,6 +21,7 @@
 #include "packet_handler.h"
 #include "packet_utils.h"
 #include "player.h"
+#include "region.h"
 #include "taglist.h"
 #include "time.h"
 #include "vtable.h"
@@ -429,7 +430,7 @@ CBulletinBoard_PostMessage(CBulletinBoard *bb, CPlayer *player, CItem *replyTo, 
 
 	CLocation_Set(&loc, 0, 0, 0);
 
-	post = (CItem *)malloc(sizeof(CItem));
+	post = (CItem *)OperatorNew(sizeof(CItem));
 	if (post != NULL)
 		post = CItem_Constructor(post);
 	else
@@ -585,6 +586,6 @@ CBulletinBoard_ScalarDelete(CBulletinBoard *bb, int flags)
 {
 	CBulletinBoard_Destructor(bb);
 	if (flags & 1)
-		free(bb);
+		OperatorDelete(bb);
 	return NULL;
 }

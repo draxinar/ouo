@@ -63,7 +63,6 @@ static void *CMultiSlave_ScalarDtor(CMultiSlave *ms, int flags); // 0x00478560
 static void *CMultiDef_SetExtents(CMultiDef *def, CLocation *minLoc, CLocation *maxLoc); // 0x00478590
 static void *CMultiDef_SetMinExtent(CMultiDef *def, CLocation *loc); // 0x004785F0
 static void CLocation_Add(CLocation *dst, CLocation *src); // 0x004786C0
-static CMultiRotateRect *CMultiRotateRect_SetRotation(CMultiRotateRect *rect, uintptr_t value); // 0x00478750
 static void *CDeque16_FindByHash(CVector *this, void *element); // 0x00478AB0
 static void *CDeque1C_FindByHash(CVector *this, void *element); // 0x00478BE0
 static void *CMultiComponentPool_Alloc(void); // 0x00478C50
@@ -196,7 +195,7 @@ CResList_RemoveKeyNode_Multi(CResList *list, CResListNode *node, int direction)
 
 	result = CResList_Erase_MultiC(list, node, &data, direction);
 	if (data != NULL)
-		free(data);
+		OperatorDelete(data);
 	return result;
 }
 
@@ -1263,7 +1262,7 @@ CMultiManager_SaveToMul(CResManager *this)
 		numComponents = CVector_GetCount1C(&def->components);
 
 		dataSize = numComponents * 12;
-		dataBuf = (uint8_t *)malloc(dataSize);
+		dataBuf = (uint8_t *)OperatorNew(dataSize);
 
 		i = 0;
 
@@ -1315,7 +1314,7 @@ CMultiManager_SaveToMul(CResManager *this)
 		// Write actual multi data
 		CIndexedFileManager_WriteBlock(&indexedFile, (int)multiId, dataBuf, dataSize, extra);
 
-		free(dataBuf);
+		OperatorDelete(dataBuf);
 		count++;
 
 		keyPtr += sizeof(uintptr_t);
@@ -1393,7 +1392,7 @@ CMultiManager_LoadMultiData(CResManager *this, int unused)
 		uintptr_t key;
 		CMultiComponentDef *comp;
 
-		def = (CMultiDef *)malloc(sizeof(CMultiDef));
+		def = (CMultiDef *)OperatorNew(sizeof(CMultiDef));
 		if (def != NULL)
 			CMultiDef_Constructor(def);
 
@@ -3122,7 +3121,7 @@ CMultiManager_GetComponentsNetwork(CResManager *this, int typeId, int *outSize)
 
 	entrySize = 0x0C;
 	totalSize = count * entrySize;
-	buf = (uint8_t *)malloc(totalSize);
+	buf = (uint8_t *)OperatorNew(totalSize);
 
 	i = 0;
 	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
@@ -3178,7 +3177,7 @@ CMulti_SendMultiInfo(CResManager *this, uint32_t serial)
 		PacketManager_MakePacket_REVISION(buf, serial, &flag, -1);
 	} else {
 		PacketManager_MakePacket_REVISION(buf, serial, (char *)result, count);
-		free(result);
+		OperatorDelete(result);
 	}
 	MapFileManager_WriteBlock(g_PoolBaseField_C4 + serial, buf, GetPacketOffset(buf) & 0xFFFF);
 }
@@ -3330,16 +3329,13 @@ TriggerEdit_MultiUpdate(CItem *ent, CLocation *loc)
  * 0x00478560 - CMultiSlave::`scalar deleting destructor'
  *
  * Runs ~CMultiSlave and, if flags&1, deallocates the object.
- *
- * MODIFIED: frees through free() where the binary calls operator delete,
- * the project's convention for the OMITTED CRT deallocator.
  */
 static void *
 CMultiSlave_ScalarDtor(CMultiSlave *ms, int flags)
 {
 	CMultiSlave_Destructor(ms);
 	if (flags & 1)
-		free(ms);
+		OperatorDelete(ms);
 	return NULL;
 }
 
@@ -3366,7 +3362,7 @@ CMultiDef_ScalarDelete(CMultiDef *this, int flags)
 {
 	CMultiDef_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -3446,7 +3442,7 @@ CMultiRotateRect_Init(CMultiRotateRect *this, CLocation *loc1, CLocation *loc2, 
  *
  * Generic single-word setter shared with CSerialList helpers.
  */
-static CMultiRotateRect *
+CMultiRotateRect *
 CMultiRotateRect_SetRotation(CMultiRotateRect *rect, uintptr_t value)
 {
 	*(uintptr_t *)rect = value;
@@ -3518,7 +3514,7 @@ CMultiComponentPool_Alloc(void)
 
 	g_multiComponentPool.allocated = 1;
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
-	block = (char *)malloc(g_multiComponentPool.blockSize * sizeof(CMultiComponent) + sizeof(uintptr_t));
+	block = (char *)OperatorNew(g_multiComponentPool.blockSize * sizeof(CMultiComponent) + sizeof(uintptr_t));
 	if (block != NULL) {
 		*(uint32_t *)block = g_multiComponentPool.blockSize;
 		nodes = (CMultiComponent *)(block + sizeof(uintptr_t));
@@ -3682,7 +3678,7 @@ static void RelocateItem_Single(CLocationPair *this, CItem *item);
  * frees the single object.
  *
  * MODIFIED: the MSVC __vec_Destructor helper is inlined as a manual reverse
- * loop; OperatorDelete is replaced with free().
+ * loop.
  */
 static void *
 CMultiComponent_ScalarDtor(CMultiComponent *mc, int flags)
@@ -3694,11 +3690,11 @@ CMultiComponent_ScalarDtor(CMultiComponent *mc, int flags)
 		for (i = (int)count - 1; i >= 0; i--) {
 			CMultiComponent_Destructor_base((CMultiComponent *)((uint8_t *)mc + i * sizeof(CMultiComponent)));
 		}
-		free((char *)mc - sizeof(uintptr_t));
+		OperatorDelete((char *)mc - sizeof(uintptr_t));
 	} else {
 		CMultiComponent_Destructor_base(mc);
 		if (flags & 1)
-			free(mc);
+			OperatorDelete(mc);
 	}
 	return NULL;
 }
@@ -4456,7 +4452,7 @@ Allocate16_Inner(int count)
 {
 	if (count < 0)
 		count = 0;
-	return malloc(count * sizeof(CString));
+	return OperatorNew(count * sizeof(CString));
 }
 
 /*
@@ -4469,7 +4465,7 @@ Allocate1C(int count)
 {
 	if (count < 0)
 		count = 0;
-	return malloc((uint32_t)count * sizeof(CMultiComponentDef));
+	return OperatorNew((uint32_t)count * sizeof(CMultiComponentDef));
 }
 
 /*
@@ -4635,7 +4631,7 @@ Allocate6_Inner(int count)
 {
 	if (count < 0)
 		count = 0;
-	return malloc(count * sizeof(CLocation));
+	return OperatorNew(count * sizeof(CLocation));
 }
 
 /*
@@ -4663,7 +4659,7 @@ CResList_ScalarDelete_MultiA(CResList *this, int flags)
 {
 	CResList_Destructor_MultiA(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -4677,7 +4673,7 @@ CResList_ScalarDelete_MultiB(CResList *this, int flags)
 {
 	CResList_Destructor_MultiB(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -4691,7 +4687,7 @@ CResList_ScalarDelete_MultiVal(CResList *this, int flags)
 {
 	CResList_Destructor_MultiVal(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -4744,7 +4740,7 @@ CMultiComponent_ScalarDelete(CMultiComponentDef *this, int flags)
 {
 	CMultiComponent_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -4758,7 +4754,7 @@ SmartPtr_CVector_ScalarDelete(CSmartPtr *this, int flags)
 {
 	SmartPtr_Destructor_CVector(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -4884,7 +4880,7 @@ SmartPtr_CMultiDef_ScalarDelete(CSmartPtr *this, int flags)
 {
 	SmartPtr_Destructor_CMultiDef(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 
@@ -4898,7 +4894,7 @@ CVector_ScalarDelete(CVector *this, int flags)
 {
 	CVector_Destructor(this);
 	if (flags & 1)
-		free(this);
+		OperatorDelete(this);
 	return NULL;
 }
 

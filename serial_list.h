@@ -53,7 +53,7 @@ void CSerialList_Destructor(CSerialList *list); // 0x004429E7
 void CSerialList_AddFromSet(CSerialList *list, uint32_t serial); // 0x00442A3D
 int CSerialList_Add(CSerialList *list, uint32_t serial); // 0x00442AAF
 int CSerialList_Contains(CSerialList *list, uint32_t serial); // 0x00442B82
-int CSerialList_Remove(CSerialList *list, uint32_t serial); // 0x00442C06
+void CSerialList_Remove(CSerialList *list, uint32_t serial); // 0x00442C06
 void CSerialList_PruneExpired(CSerialList *list); // 0x00442C64
 void CSerialList_FindFirstValidTarget(StdPtrList *list, StdPtrNode **outIter); // 0x00442CDD
 void CSerialList_FindFirstValidMobile(StdPtrList *list, StdPtrNode **outIter); // 0x00442DB0

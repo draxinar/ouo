@@ -24,6 +24,7 @@ CString_GetLength(CString *s)
 
 extern CString g_EmptyCString; // 0x0063E160
 
+CString *CString_DefaultConstructorWrap(CString *str); // 0x0043EBC0
 CString *CString_ScalarDelete(CString *s, int flags); // 0x0040CC80
 void CString_DestructorWrap(CString *str); // 0x0043EBE0
 void CString_DefaultConstructor(CString *s); // 0x004D2F80

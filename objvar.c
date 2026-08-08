@@ -14,6 +14,7 @@
 #include "combat.h"
 #include "dynamic.h"
 #include "list.h"
+#include "region.h"
 #include "ustring.h"
 #include "world.h"
 
@@ -415,7 +416,7 @@ List_DeserializeFromBuf(const char *text, CList *list, int count)
 				text++;
 			if (*text != '\0')
 				text++;
-			sublist = (CList *)malloc(sizeof(CList));
+			sublist = (CList *)OperatorNew(sizeof(CList));
 			if (sublist != NULL)
 				CList_Constructor(sublist);
 			text = List_DeserializeFromBuf(text, sublist, intval);
@@ -496,7 +497,7 @@ ObjVar_LoadFromLine(uint32_t serial, const char *val)
 		if (*elemStart)
 			elemStart++;
 
-		list = (CList *)malloc(sizeof(CList));
+		list = (CList *)OperatorNew(sizeof(CList));
 		if (list != NULL)
 			CList_Constructor(list);
 		List_DeserializeFromBuf(elemStart, list, count);

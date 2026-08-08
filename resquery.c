@@ -143,19 +143,19 @@ static void
 ResQuery_SessionCleanup(ResQuerySession *session)
 {
 	if (session->regionNames != NULL) {
-		free(session->regionNames);
+		OperatorDelete(session->regionNames);
 		session->regionNames = NULL;
 	}
 	if (session->templateNames != NULL) {
-		free(session->templateNames);
+		OperatorDelete(session->templateNames);
 		session->templateNames = NULL;
 	}
 	if (session->field103D8 != NULL) {
-		free(session->field103D8);
+		OperatorDelete(session->field103D8);
 		session->field103D8 = NULL;
 	}
 	if (session->templateChainCountCache != NULL) {
-		free(session->templateChainCountCache);
+		OperatorDelete(session->templateChainCountCache);
 		session->templateChainCountCache = NULL;
 	}
 }
@@ -175,10 +175,10 @@ ResQuery_SelectRegion(ResQuerySession *session, int hashIndex)
 
 	// First selection: allocate buffers.
 	if (session->regionIndex == -1) {
-		session->regionNames = (int32_t *)malloc(g_ResQueryTypeCount * sizeof(int32_t));
-		session->templateNames = (int32_t *)malloc(g_ResQueryTypeCount * sizeof(int32_t));
-		session->field103D8 = (int32_t *)malloc(g_ResQueryTypeCount * sizeof(int32_t));
-		session->templateChainCountCache = (int32_t *)malloc(0x4000);
+		session->regionNames = (int32_t *)OperatorNew(g_ResQueryTypeCount * sizeof(int32_t));
+		session->templateNames = (int32_t *)OperatorNew(g_ResQueryTypeCount * sizeof(int32_t));
+		session->field103D8 = (int32_t *)OperatorNew(g_ResQueryTypeCount * sizeof(int32_t));
+		session->templateChainCountCache = (int32_t *)OperatorNew(0x4000);
 		memset(session->templateChainCountCache, 0, 0x4000);
 	}
 
@@ -836,7 +836,7 @@ HandlePacket_SendResources(CPlayer *this, uint8_t *buf)
 
 		SaveResources();
 	} else if ((mode & 0xFF) == 1) {
-		region = malloc(sizeof(CResBankRegion));
+		region = OperatorNew(sizeof(CResBankRegion));
 		if (region != NULL)
 			CResBankRegion_Constructor(region);
 
@@ -973,5 +973,5 @@ ResQuery_SessionDestruct(ResQuerySession *session, int freeMemory)
 {
 	ResQuery_SessionCleanup(session);
 	if (freeMemory & 1)
-		free(session);
+		OperatorDelete(session);
 }

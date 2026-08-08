@@ -24,6 +24,7 @@
 #include "packet_handler.h"
 #include "packet_manager.h"
 #include "player.h"
+#include "region.h"
 #include "resbank.h"
 #include "taglist.h"
 #include "timer.h"
@@ -848,11 +849,11 @@ CResourceEntity_ScalarDelete(CResourceEntity *self, int flags)
 			cur = (CResourceEntity *)((char *)cur - sizeof(CResourceEntity));
 			CResourceEntity_Destructor(cur);
 		}
-		free((char *)self - sizeof(uintptr_t));
+		OperatorDelete((char *)self - sizeof(uintptr_t));
 	} else {
 		CResourceEntity_Destructor(self);
 		if (flags & 1)
-			free(self);
+			OperatorDelete(self);
 	}
 	return NULL;
 }
@@ -913,7 +914,7 @@ ResourceNode_AllocFromPool(void)
 	}
 
 	if (g_ResNodeFreeList == NULL) {
-		CResourceNode *batch = malloc(0x1000 * sizeof(CResourceNode));
+		CResourceNode *batch = OperatorNew(0x1000 * sizeof(CResourceNode));
 		if (batch != NULL) {
 			for (i = 0; i < 0x1000; i++) {
 				batch[i].next = g_ResNodeFreeList;

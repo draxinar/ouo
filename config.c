@@ -17,10 +17,9 @@
 #include "containerhandle.h"
 #include "io.h"
 #include "main.h"
+#include "region.h"
 #include "time.h"
 #include "wombat_exec.h"
-
-static char *strdup_ServerSide(const char *src); // 0x00468A1E
 
 CConfig g_Config;
 int g_DebugGM = 0;
@@ -194,14 +193,14 @@ Location_ZRangesOverlap(CLocation *a, int aHeight, CLocation *b, int bHeight)
  *
  * Duplicates src into a freshly malloc'd buffer.
  */
-static __attribute__((unused)) char *
+char *
 strdup_ServerSide(const char *src)
 {
 	size_t len;
 	char *buf;
 
 	len = strlen(src) + 1;
-	buf = (char *)malloc(len);
+	buf = (char *)OperatorNew(len);
 	strcpy(buf, src);
 	return buf;
 }
@@ -358,29 +357,29 @@ CConfig_Init(CConfig *this)
 	} while (line);
 	fclose_ServerSide(f);
 	sprintf(buf, "../.rundir/%s/map0.mul", conf->serverName);
-	GLOBAL_file_map0_mul = strdup(buf);
+	GLOBAL_file_map0_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/staidx0.mul", conf->serverName);
-	GLOBAL_file_staidx0_mul = strdup(buf);
+	GLOBAL_file_staidx0_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/staidx0.bkp", conf->serverName);
-	GLOBAL_file_staidx0_bkp = strdup(buf);
+	GLOBAL_file_staidx0_bkp = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/statics0.mul", conf->serverName);
-	GLOBAL_file_statics0_mul = strdup(buf);
+	GLOBAL_file_statics0_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/statics0.bkp", conf->serverName);
-	GLOBAL_file_statics0_bkp = strdup(buf);
+	GLOBAL_file_statics0_bkp = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/dynidx0.mul", conf->serverName);
-	GLOBAL_file_dynidx0_mul = strdup(buf);
+	GLOBAL_file_dynidx0_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/dynidx0.bkp", conf->serverName);
-	GLOBAL_file_dynidx0_bkp = strdup(buf);
+	GLOBAL_file_dynidx0_bkp = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/dynamic0.mul", conf->serverName);
-	GLOBAL_file_dynamic0_mul = strdup(buf);
+	GLOBAL_file_dynamic0_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/dynamic0.bkp", conf->serverName);
-	GLOBAL_file_dynamic0_bkp = strdup(buf);
+	GLOBAL_file_dynamic0_bkp = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/tempidx.mul", conf->serverName);
-	GLOBAL_file_tempidx_mul = strdup(buf);
+	GLOBAL_file_tempidx_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/temp.mul", conf->serverName);
-	GLOBAL_file_temp_mul = strdup(buf);
+	GLOBAL_file_temp_mul = strdup_ServerSide(buf);
 	sprintf(buf, "../.rundir/%s/regions.txt", conf->serverName);
-	GLOBAL_file_regions_txt = strdup(buf);
+	GLOBAL_file_regions_txt = strdup_ServerSide(buf);
 	InitPoolSizes();
 	return 0;
 }

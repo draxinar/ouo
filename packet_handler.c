@@ -311,7 +311,7 @@ NamedResource_LoadAll(void)
 	i = 0;
 	while (g_NamedResources[i].name != NULL) {
 		if (g_NamedResources[i].data != NULL) {
-			free(g_NamedResources[i].data);
+			OperatorDelete(g_NamedResources[i].data);
 			g_NamedResources[i].data = NULL;
 		}
 
@@ -321,7 +321,7 @@ NamedResource_LoadAll(void)
 			size = ftell_ServerSide(f);
 			if (size != 0) {
 				fseek_ServerSide(f, 0, 0);
-				g_NamedResources[i].data = malloc(size + 1);
+				g_NamedResources[i].data = OperatorNew(size + 1);
 				pos = 0;
 				while (!feof_ServerSide(f)) {
 					ch = fgetc_ServerSide(f);
@@ -524,7 +524,7 @@ CloseTrade(CTradeSession *session, int deleteFlag)
 {
 	CTradeSession_ReturnItems(session);
 	if (deleteFlag & 1)
-		free(session);
+		OperatorDelete(session);
 	return NULL;
 }
 
@@ -2749,7 +2749,7 @@ Speech_BroadcastDead(CPlayer *speaker, uint8_t speechType, char *text, uint16_t 
 	char *garbled;
 
 	len = (int)strlen(text);
-	garbled = (char *)malloc((size_t)(len + 1));
+	garbled = (char *)OperatorNew((size_t)(len + 1));
 	for (i = 0; i < len; i++) {
 		if (text[i] == ' ')
 			garbled[i] = ' ';
@@ -2790,7 +2790,7 @@ Speech_BroadcastDead(CPlayer *speaker, uint8_t speechType, char *text, uint16_t 
 		}
 	}
 
-	free(garbled);
+	OperatorDelete(garbled);
 	CVector_Destructor(&nearby);
 }
 
@@ -4779,7 +4779,7 @@ HandlePacket_AddResource(CPlayer *this, uint8_t *buf)
 
 	if (serial == 99999) {
 		isNew = 1;
-		rt = malloc(sizeof(CResourceType));
+		rt = OperatorNew(sizeof(CResourceType));
 		if (rt != NULL)
 			rt = CResourceType_Constructor(rt);
 	} else {
@@ -5662,7 +5662,7 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 		for (i = 0; i < (numLines & 0xFF); i++) {
 			GetByte(buf, &off, &tempByte);
 			GetString(buf, &off, &tempStr, tempByte & 0xFF);
-			lines[i] = (uintptr_t)malloc((tempByte & 0xFF) + 1);
+			lines[i] = (uintptr_t)OperatorNew((tempByte & 0xFF) + 1);
 			strncpy((char *)lines[i], tempStr, tempByte & 0xFF);
 			((char *)lines[i])[tempByte & 0xFF] = '\0';
 		}
@@ -5683,7 +5683,7 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 		}
 
 		for (i = 0; i < (numLines & 0xFF); i++) {
-			free((void *)lines[i]);
+			OperatorDelete((void *)lines[i]);
 		}
 		break;
 	}
@@ -6830,9 +6830,7 @@ advance:
 			while (*pp != NULL) {
 				if (*pp == target) {
 					*pp = target->nextLoaded;
-					// Scalar deleting destructor (0x004B9AB0)
-					CScript_Destructor(target);
-					OperatorDelete(target);
+					CScript_ScalarDelete(target, 1);
 					break;
 				}
 				pp = &((*pp)->nextLoaded);
@@ -7968,7 +7966,7 @@ Script_createPlaceHolder(uint32_t serial)
 	CLocation_SetLoc(&savedLoc, &entity->resourceEntity.entity.location);
 
 	// Allocate new CItem: operator new(0x50) + CItem_Constructor
-	mem = malloc(sizeof(CItem));
+	mem = OperatorNew(sizeof(CItem));
 	if (mem != NULL)
 		newItem = CItem_Constructor(mem);
 	else
