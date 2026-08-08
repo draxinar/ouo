@@ -44,7 +44,7 @@ struct CChannel {
 	CChannelMsg *msgTail;           // 0x2C
 	CChannelMsg *currentMsg;        // 0x30
 	int curr;                       // 0x34
-	union {
+	__extension__ union {
 		uint32_t recvOffset;    // 0x38 - buf[0..3] as uint32 recv counter
 		char buf[0x8004];
 	};

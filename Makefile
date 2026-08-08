@@ -37,6 +37,7 @@ OFILES=\
 	blockmanager.o\
 	blowfish.o\
 	book.o\
+	channel.o\
 	chat.o\
 	combat.o\
 	config.o\

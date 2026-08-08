@@ -16,6 +16,7 @@
 #include "channel.h"
 #include "dat.h"
 #include "main.h"
+#include "vtable.h"
 
 static void CChannel_Delete(CChannel *this); // 0x0043759F
 static CChannelMsg *CChannel_WaitForMessage(CChannel *this, int msgId, int arg2); // 0x0043799B
@@ -266,7 +267,7 @@ CChannel_FlushMessages(CChannel *this)
 			this->msgTail = NULL;
 		this->totalQueuedBytes -= node->dataSize;
 		g_channelTotalBytes += node->dataSize;
-		((void (*)(CChannel *, CChannelMsg *))((void **)this->socket.vtable)[CH_VT_PROCESS_MSG])(this, node);
+		((void (*)(CChannel *, CChannelMsg *))((vfunc_t *)this->socket.vtable)[CH_VT_PROCESS_MSG])(this, node);
 		CChannelMsg_Destructor(node);
 	}
 }
@@ -303,7 +304,7 @@ CChannel_Flush(CChannel *this)
 		if (g_shutdown)
 			return;
 		nextNode = cur->next;
-		if (((int (*)(CChannel *, CChannelMsg *))((void **)this->socket.vtable)[CH_VT_FILTER_MSG])(this, cur)) {
+		if (((int (*)(CChannel *, CChannelMsg *))((vfunc_t *)this->socket.vtable)[CH_VT_FILTER_MSG])(this, cur)) {
 			if (prev != NULL)
 				prev->next = nextNode;
 			else
@@ -312,7 +313,7 @@ CChannel_Flush(CChannel *this)
 				this->msgTail = prev;
 			this->totalQueuedBytes -= cur->dataSize;
 			g_channelTotalBytes += cur->dataSize;
-			((void (*)(CChannel *, CChannelMsg *))((void **)this->socket.vtable)[CH_VT_PROCESS_MSG])(this, cur);
+			((void (*)(CChannel *, CChannelMsg *))((vfunc_t *)this->socket.vtable)[CH_VT_PROCESS_MSG])(this, cur);
 			CChannelMsg_Destructor(cur);
 		} else {
 			prev = cur;
