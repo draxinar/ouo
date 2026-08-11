@@ -519,7 +519,7 @@ CResBankDistrib_LoadBankDefs(CResBankDistrib *this)
 	}
 
 	fseek_ServerSide(fp, 0, SEEK_SET);
-	buf = malloc(fileSize + 1);
+	buf = OperatorNew(fileSize + 1);
 	fread_ServerSide(buf, 1, fileSize, fp);
 	fclose_ServerSide(fp);
 	buf[fileSize] = '\0';
@@ -704,7 +704,7 @@ CResBankDistrib_LoadBankDefs(CResBankDistrib *this)
 		}
 	}
 
-	free(buf);
+	OperatorDelete(buf);
 	buf = NULL;
 	region = g_ResBankManager.first;
 	while (region != NULL) {

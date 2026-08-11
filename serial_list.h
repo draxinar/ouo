@@ -55,6 +55,7 @@ int CSerialList_Add(CSerialList *list, uint32_t serial); // 0x00442AAF
 int CSerialList_Contains(CSerialList *list, uint32_t serial); // 0x00442B82
 void CSerialList_Remove(CSerialList *list, uint32_t serial); // 0x00442C06
 void CSerialList_PruneExpired(CSerialList *list); // 0x00442C64
+void StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00446FF0
 void CSerialList_FindFirstValidTarget(StdPtrList *list, StdPtrNode **outIter); // 0x00442CDD
 void CSerialList_FindFirstValidMobile(StdPtrList *list, StdPtrNode **outIter); // 0x00442DB0
 void CSerialList_FindNearestMobile(StdPtrList *list, StdPtrNode **outIter, CLocation *loc); // 0x00442E71
@@ -70,6 +71,5 @@ void StdSerialIter_CountRange(StdPtrNode *beginIter, StdPtrNode *endIter, int *c
 void StdSerialList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00446CB0
 void CSerialList_Init(CSerialList *list);
 void CSerialList_InsertBack(CSerialList *list, uint32_t serial, int16_t flags);
-void CSerialList_Clear(CSerialList *list);
 
 #endif /* SERIAL_LIST_H_ */

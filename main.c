@@ -24,6 +24,7 @@
 #include "egg.h"
 #include "entitymanager.h"
 #include "feature.h"
+#include "help_queue.h"
 #include "item.h"
 #include "listensocket.h"
 #include "load.h"
@@ -502,6 +503,7 @@ Server_Init(void)
 	CLightManager_Constructor();
 	CRotationTable_Constructor(&g_RotationTable);
 	RegionManager_Constructor();
+	StaticInit_HelpQueue();
 
 	// CUSTOM: populate light tables (BSS-zeroed in binary, never written).
 	LightTables_Init();

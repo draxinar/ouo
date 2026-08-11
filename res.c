@@ -216,7 +216,6 @@ static void *CResManager_FindNextBucket_ByFile(CResManager *rm, CSearchCtx *out,
 static void CResList_ValNodeDestructor_Region(CResListNode *this); // 0x004A80E0
 static void CSearchCtx_FreeKeyVal(CSearchCtx *this); // 0x004A864D
 static void *CResList_EraseAndFree_ByFileVal(CResList *list, uintptr_t valNode, uint32_t direction); // 0x004A8150
-static void *CResManager_FindByInt_Templates(CResManager *rm, CSearchCtx *output, void *keyPtr, int direction); // 0x004C0C40
 static void CResListNode_SetStringIfValid(CResListNode *this, void *node, void *src); // 0x004C1500
 static void CResList_Destructor_TemplatesVal(CResList *this); // 0x004C1620
 static CResListNode *CResList_AllocForwardF(CResList *list, void *srcData); // 0x004C1640
@@ -6459,7 +6458,7 @@ CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 
 	// Erase key node via CResList_RemoveKeyNode (0x00464E30)
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_RemoveKeyNode_Multi(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
+	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
 
 	// Erase val node via CResList_Erase_MultiVal (0x0047BD80)
 	bucket = CSearchCtx_GetBucket(current);
@@ -8787,7 +8786,7 @@ CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
  * Seeds a CSearchCtx for key *keyPtr and delegates to
  * CResManager_SearchBucket_TemplatesInt. Empty bucket returns an empty ctx.
  */
-static __attribute__((unused)) void *
+void *
 CResManager_FindByInt_Templates(CResManager *rm, CSearchCtx *output, void *keyPtr, int direction)
 {
 	CSearchCtx ctx;
@@ -10632,32 +10631,6 @@ CResList_PrependNode(CResList *list, void *data)
 		list->head = node;
 	}
 	list->count++;
-}
-
-/*
- * Helper - CResManager_FindInt
- *
- * Hashes key, walks the bucket's key/val chains in lockstep, and returns
- * the value for the first matching int key.
- */
-void *
-CResManager_FindInt(CResManager *rm, uint32_t key)
-{
-	uint32_t bucket = ResManager_HashInt(key, 0x41);
-	CResListNode *kn, *vn;
-
-	if (rm->keys[bucket] == NULL)
-		return NULL;
-
-	kn = rm->keys[bucket]->head;
-	vn = rm->vals[bucket]->head;
-	while (kn != NULL) {
-		if (*(uint32_t *)kn->data == key)
-			return vn->data;
-		kn = kn->next;
-		vn = vn->next;
-	}
-	return NULL;
 }
 
 /*

@@ -832,12 +832,24 @@ CMobile_DisengageAttackers(CMobile *this)
 void
 CMobile_StopCombat(CMobile *this)
 {
-	CSerialList_Clear(&this->combatTargetList);
+	{
+		// The binary clears the list by erasing [begin, end).
+		StdPtrList *l = (StdPtrList *)&this->combatTargetList;
+		StdPtrNode *beginTemp, *endTemp, *eraseResult;
+
+		StdSerialList_EraseRange(l, &eraseResult, *StdPtrList_Begin(l, &beginTemp), *StdPtrList_End(l, &endTemp));
+	}
 
 	if (VT_IsNPC((CItem *)this) && this->combatTargetList.count == 0)
 		CMobile_ClearMobileFlag(this, MobileFlag_WarMode);
 
-	CSerialList_Clear(&this->attackerList);
+	{
+		// The binary clears the list by erasing [begin, end).
+		StdPtrList *l = (StdPtrList *)&this->attackerList;
+		StdPtrNode *beginTemp, *endTemp, *eraseResult;
+
+		StdSerialList_EraseRange(l, &eraseResult, *StdPtrList_Begin(l, &beginTemp), *StdPtrList_End(l, &endTemp));
+	}
 }
 
 /*
@@ -848,7 +860,13 @@ CMobile_StopCombat(CMobile *this)
 void
 CMobile_ClearCombatTargets(CMobile *this)
 {
-	CSerialList_Clear(&this->combatTargetList);
+	{
+		// The binary clears the list by erasing [begin, end).
+		StdPtrList *l = (StdPtrList *)&this->combatTargetList;
+		StdPtrNode *beginTemp, *endTemp, *eraseResult;
+
+		StdSerialList_EraseRange(l, &eraseResult, *StdPtrList_Begin(l, &beginTemp), *StdPtrList_End(l, &endTemp));
+	}
 
 	if (VT_IsNPC((CItem *)this) && this->combatTargetList.count == 0)
 		CMobile_ClearMobileFlag(this, MobileFlag_WarMode);
@@ -5147,8 +5165,7 @@ DecaySkill(CMobile *mob, int8_t skillId, int delta)
 
 	totalTimePenalty = 0;
 	for (i = 0; i < numCandidates; i++) {
-		uintptr_t *base = (uintptr_t *)candidates.begin;
-		uint32_t timeDiff = g_GameTick - mob->skillTimers[(int)base[i]];
+		uint32_t timeDiff = g_GameTick - mob->skillTimers[(int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i)];
 		totalTimePenalty += timeDiff / 60;
 	}
 
@@ -5157,14 +5174,13 @@ DecaySkill(CMobile *mob, int8_t skillId, int delta)
 		target = GetRandomRange64(0, totalTimePenalty);
 
 	for (i = 0; i < numCandidates - 1; i++) {
-		uintptr_t *base = (uintptr_t *)candidates.begin;
-		uint32_t timeDiff = g_GameTick - mob->skillTimers[(int)base[i]];
+		uint32_t timeDiff = g_GameTick - mob->skillTimers[(int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i)];
 		target -= timeDiff / 60;
 		if (target <= 0)
 			break;
 	}
 
-	chosenSkillId = (int)((uintptr_t *)candidates.begin)[i];
+	chosenSkillId = (int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i);
 
 	CMobile_GetBaseSkill(mob, (int8_t)chosenSkillId);
 	CMobile_AddToSkill(mob, (int8_t)chosenSkillId, -delta);

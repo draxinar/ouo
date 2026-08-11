@@ -31,7 +31,6 @@ static void *StdSerialList_Begin(StdPtrList *list, StdPtrNode **outIter); // 0x0
 static void *StdSerialList_End2(StdPtrList *list, StdPtrNode **outIter); // 0x00446ED0
 static void StdSerialList_Insert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00446EF0
 static void StdSerialList_InsertRange(StdPtrList *list, StdPtrNode *pos, StdPtrNode *first, StdPtrNode *last); // 0x00446FA0
-static void StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00446FF0
 static StdPtrNode *StdSerialList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint); // 0x00447040
 static void StdSerialList_SpliceOrInsert(StdPtrList *this, StdPtrNode *pos, StdPtrList *srcList, StdPtrNode *first, StdPtrNode *last); // 0x004470B0
 static void StdSerialList_DestroyWrapper(void *list, void *element); // 0x00447210
@@ -196,22 +195,27 @@ CSerialList_Remove(CSerialList *list, uint32_t serial)
 /*
  * 0x00442C64 - CSerialList::PruneExpired
  *
- * Decrements the TTL of every entry; entries that hit zero are
- * unlinked and freed. Drives combat-list aging.
+ * Decrements the TTL of every entry; entries that hit zero are erased.
+ * The iterator advances past the entry before the erase, so the walk
+ * survives the node being destroyed. Drives combat-list aging.
  */
 void
 CSerialList_PruneExpired(CSerialList *list)
 {
-	CSerialNode *sentinel, *node, *next;
+	StdPtrList *l = (StdPtrList *)list;
+	StdPtrNode *iter, *endTemp, *postIncTemp, *eraseResult;
 
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = next) {
-		next = node->next;
-		if (!CSerialNode_DecrementTTL(node)) {
-			node->prev->next = node->next;
-			node->next->prev = node->prev;
-			free(node);
-			list->count--;
+	StdPtrList_Begin(l, &iter);
+	for (;;) {
+		if (!(StdPtrIter_Neq(&iter, StdPtrList_End(l, &endTemp)) & 0xFF))
+			break;
+		// The binary derefs first and hands DecrementTTL the value at
+		// node+8; our CSerialNode merges node and value, so the TTL sits
+		// at +0x0C from the node itself and the node is what we pass.
+		if (CSerialNode_DecrementTTL((CSerialNode *)iter)) {
+			StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		} else {
+			StdSerialList_Erase(l, &eraseResult, *StdPtrIter_PostInc(&iter, &postIncTemp, 0));
 		}
 	}
 }
@@ -647,7 +651,7 @@ StdSerialList_InsertRange(StdPtrList *list, StdPtrNode *pos, StdPtrNode *first, 
  * Erases every element in [first, last). Stores the resulting iterator into
  * *result.
  */
-static void
+void
 StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
 	StdPtrNode *postIncResult;
@@ -939,25 +943,4 @@ CSerialList_InsertBack(CSerialList *list, uint32_t serial, int16_t flags)
 	sentinel->prev->next = node;
 	sentinel->prev = node;
 	list->count++;
-}
-
-/*
- * Helper - CSerialList_Clear
- *
- * Frees every node and re-points the sentinel at itself, leaving
- * the list empty.
- */
-void
-CSerialList_Clear(CSerialList *list)
-{
-	CSerialNode *sentinel, *node, *next;
-
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = next) {
-		next = node->next;
-		free(node);
-	}
-	sentinel->next = sentinel;
-	sentinel->prev = sentinel;
-	list->count = 0;
 }

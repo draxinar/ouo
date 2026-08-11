@@ -2,7 +2,7 @@
  * wombat_stl.c - MSVC C++ runtime closure pulled in by the SDB loader.
  *
  * The wombat scripting subsystem indexes script strings through
- * CScriptStringDB / CSdbStr. An orphaned helper, CScriptStringDB_BuildIndex,
+ * CScriptStringDB / CSdbStr. An orphaned helper, CScriptStringDB_Dump,
  * uses a std::ifstream to parse sdb.txt - and that single std::ifstream
  * drags in the entire MSVC STL templated graph the binary instantiated
  * to support it:
@@ -38,20 +38,21 @@
 
 static void CSdbStrVector_Destructor(CScriptStringDB *this); // 0x00401057
 static void CSdbStrVector_Init(CScriptStringDB *this); // 0x0040106A
-static void *Tree_Isnil_Guard(StdTreeNode *this); // 0x00401400
-static unsigned char Tree_Isnil(StdTreeNode *this); // 0x00401430
-static void Stream_DestructorHelper(CBasicFstream *this); // 0x00401490
+static void *OStream_OperatorVoidPtr(CIosBase *this); // 0x00401400
+static unsigned char CBasicIos_Fail(CIosBase *this); // 0x00401430
+static void *StdEndl(void *os); // 0x00401470
+static void OFStream_Destructor(CBasicFstream *this); // 0x00401490
 static char *String_CStr(CSdbStr *this); // 0x00401510
-static void CallFnPtrWithThis(uintptr_t *this, void (*fn)(void *)); // 0x00401540
-static void *IStream_Putback(CBasicFstream *this, char ch); // 0x00401560
-static void *IStream_Ipfx(CBasicFstream *this); // 0x004016A0
+static void *OStream_InsertManip(void *this, OStreamManip fn); // 0x00401540
+static void *OStream_Put(CBasicFstream *this, char ch); // 0x00401560
+static void *OStream_Flush(CBasicFstream *this); // 0x004016A0
 static void BasicIos_Init(CIosBase *this); // 0x00401710
 static void CSdbStrVector_DestroyDealloc(CScriptStringDB *this); // 0x00401960
 static void CSdbStrVector_Clear(CScriptStringDB *this); // 0x00401A50
-static void *CSdbStr_VectorCtor(CBasicFstream *this, void *filename, int openMode, int constructBase); // 0x00401A80
+static void *OFStream_Constructor(CBasicFstream *this, void *filename, int openMode, int constructBase); // 0x00401A80
 static void Stream_SubDestructor(CIosBase *this); // 0x00401B60
 static void Stream_SetVbptr(CStdioFileBuf *this); // 0x00401BD0
-static void Stream_CloseFile(CBasicFstream *this); // 0x00401BF0
+static void OFStream_Close(CBasicFstream *this); // 0x00401BF0
 static void CSdbStr_VectorDtor(CStdioFileBuf *this); // 0x00401C20
 static void CStdioFile_ScalarDelete(CLocaleFacet *this); // 0x00401CC0
 static void *Locale_Facet_Decref(CLocaleFacet *this); // 0x00401D10
@@ -66,7 +67,7 @@ static void *String_ScalarDestructor2(CSdbStr *this, int flags); // 0x00402A20
 static void *String_AppendN(CSdbStr *this, uint32_t count, char ch); // 0x00402A50
 static void *CharTraits_Assign(uintptr_t dest, uint32_t count, void *src); // 0x00402AD0
 static void String_AssignCStr(CSdbStr *this, void *src); // 0x00402AF0
-static uint32_t Strlen_Wrapper(void *str); // 0x00402B20
+static uint32_t Strlen_Wrapper(const void *str); // 0x00402B20
 static void *CString_Erase(CSdbStr *this, unsigned int offset, unsigned int count); // 0x00402B40
 static void *Memmove_Wrapper(void *dest, void *src, uint32_t count); // 0x00402BF0
 static char *String_Begin(CSdbStr *this); // 0x00402C10
@@ -108,9 +109,9 @@ static void CString_Reserve(CSdbStr *this, unsigned int requestedCapacity); // 0
 static void *Locale_Facet_InitCompile(CStreamBuf *this, void *src); // 0x00404110
 static void *Allocator_Allocate(StdAllocator *this, uint32_t count); // 0x004042B0
 static uint32_t String_MaxSize(CSdbStr *this); // 0x004042D0
-static uint32_t Tree_SetSize(CStlTreeFull *this, uint32_t newSize); // 0x00404630
+static uint32_t CIosBase_SetWidth(CIosBase *this, uint32_t newWidth); // 0x00404630
 static void ScalarDestructor_Flags0(CSdbStr *obj); // 0x00404790
-static void *locale_Getfacet(void *facets, int throwOnMissing, void *handle); // 0x004047A0
+static void *locale_Getfacet(void *loc, int unused, int allowConstruct); // 0x004047A0
 static void *CStdioFile_Constructor(CStdioFileBuf *this, int arg); // 0x004048C0
 static void *CStdioFile_ConstructorArg(CStdioFileBuf *this, void *arg); // 0x004048E0
 static void CStdioFile_DestructorBody(CStdioFileBuf *this); // 0x004048F0
@@ -121,7 +122,7 @@ static void *OperatorNew_Clamp(int size); // 0x00404A80
 static void *Allocator_Constructor16(void *dest, void *src); // 0x00404AA0
 static void *String_CopyConstructor(CSdbStr *this, void *src); // 0x00404AE0
 static void *String_Stl_Replace(CSdbStr *this, void *src, uint32_t offset, uint32_t count); // 0x00404B20
-static void VDispatch_1C(uintptr_t *this, uint32_t a1, uint32_t a2); // 0x00404CC0
+static uint32_t CStreamBuf_sputn(CStreamBuf *this, const char *ptr, uint32_t count); // 0x00404CC0
 static void *Locale_ConstructorCategory(CLocaleCategory *this, void *arg); // 0x00404CE0
 static void *CLocaleCategory_ConstructorBody(CLocaleCategory *this, void *arg); // 0x00404D70
 static CLocaleFacet *Locale_Facet_Constructor(CLocaleFacet *this, void *arg); // 0x00404DA0
@@ -129,10 +130,11 @@ static void *CLocaleCategory_ScalarDtor(CLocaleCategory *this, int flags); // 0x
 static void CLocaleCategory_DestructorBody(CLocaleCategory *this); // 0x00404E60
 static void CLocaleCategory_VtableDtor(CLocaleCategory *this); // 0x00404F10
 static int Locale_Facet_GetCat(void); // 0x00404F30
-static void Locale_Facet_RegisterAtexit(void); // 0x00404F40
+static CLocaleFacet *Locale_Facet_RegisterAtexit(CLocaleFacet *facet); // 0x00404F40
 static void String_Copy(CSdbStr *this, void *src); // 0x00404FB0
 static void CopySystemTime(CLocaleCategory *this, void *dest); // 0x00404FD0
 static void *GetSystemTime8(uintptr_t *this, void *result); // 0x00405000
+static void Locale_FacetAtexitDtor(void) __attribute__((unused)); // 0x00405030
 static void StaticInitGuard_1(void); // 0x004050C0
 static void StaticInitGuard_2(void); // 0x004050F0
 static int32_t g_StdioStreamDefault; /* 0x009A3C00 - MSVC CRT default stream position */
@@ -157,6 +159,8 @@ static uintptr_t g_vt_LocaleFacet[] = { 0 };          /* 0x005F77FC - std::local
 static uintptr_t g_vt_CStdioFile[] = { 0 };           /* 0x005F78FC */
 static uintptr_t g_vt_LocaleCategory[] = { 0 };       /* 0x005F794C */
 static uint32_t g_locale_facet_id;                  /* 0x009A3BFC */
+static CLocaleFacet *g_LocaleFacetCache;            /* 0x0063D820 */
+static CLocaleFacet *g_LocaleFacetSlot;             /* 0x0063D824 */
 
 /*
  * 0x00401000 - CScriptStringDB::CScriptStringDB
@@ -198,41 +202,71 @@ CSdbStrVector_Init(CScriptStringDB *this)
 }
 
 /*
- * 0x004011D7 - CScriptStringDB::BuildIndex
+ * 0x004011D7 - CScriptStringDB::Dump
  *
- * ORPHANED: zero callers in binary. The original constructed a local
- * std::set<CSdbStr>, populated it from the DB, then destructed the set
- * without ever using it - pure dead code. The MSVC red-black-tree internals
- * are not replicated in this codebase, so the body is empty.
+ * Writes every string in the database to filename, one per line, through
+ * an ofstream opened with mode 0x12 (out|trunc). Returns 0 on success and
+ * 1 when the file could not be opened. A developer aid for inspecting the
+ * loaded sdb.txt contents.
+ *
+ * ORPHANED: zero callers in binary.
  */
-void
-CScriptStringDB_BuildIndex(CScriptStringDB *db, void *arg)
+int
+CScriptStringDB_Dump(CScriptStringDB *db, void *filename)
 {
-	USED(db);
-	USED(arg);
+	CBasicFstream fs;
+	CIosBase *ios;
+	uint32_t i;
+	int result;
+
+	OFStream_Constructor(&fs, filename, 0x12, 1);
+
+	// MSVC guards the virtual-base adjustment with a null check on the
+	// object, which can never fire for this stack local.
+	{
+		uintptr_t *vt = (uintptr_t *)fs.vtable;
+		ios = (CIosBase *)((char *)&fs + vt[FSTREAM_VBT_VBASE]);
+	}
+
+	if (OStream_OperatorVoidPtr(ios) == NULL) {
+		result = 1;
+		OFStream_Destructor(&fs);
+		return result;
+	}
+
+	for (i = 0; i < CVector_GetCount16((CVector *)db); i++) {
+		void *os = OStream_InsertCStr(&fs, CScriptStringDB_Get(db, (int)i));
+		OStream_InsertManip(os, StdEndl);
+	}
+
+	OFStream_Close(&fs);
+	result = 0;
+	OFStream_Destructor(&fs);
+	return result;
 }
 
 /*
- * 0x00401400 - std::_Tree::_Isnil check with null-self guard
+ * 0x00401400 - std::basic_ios::operator void *
  *
- * Returns this when Tree_Isnil reports non-nil, else NULL.
+ * Returns NULL when the stream has failed, otherwise the stream itself,
+ * which is what makes "if (fs)" work.
  */
-static __attribute__((unused)) void *
-Tree_Isnil_Guard(StdTreeNode *this)
+static void *
+OStream_OperatorVoidPtr(CIosBase *this)
 {
-	unsigned char r = Tree_Isnil(this);
+	unsigned char r = CBasicIos_Fail(this);
 	if (r)
 		return NULL;
 	return this;
 }
 
 /*
- * 0x00401430 - std::_Tree node _Isnil check
+ * 0x00401430 - std::basic_ios::fail
  *
- * Returns 1 when the node's color byte has bits 1 or 2 set.
+ * Returns 1 when either badbit or failbit is set in the stream state.
  */
 static unsigned char
-Tree_Isnil(StdTreeNode *this)
+CBasicIos_Fail(CIosBase *this)
 {
 	int val = CSearchCtx_GetBucket((CSearchCtx *)this);
 	int masked = val & 6;
@@ -240,12 +274,26 @@ Tree_Isnil(StdTreeNode *this)
 }
 
 /*
- * 0x00401490 - Stream destructor helper
+ * 0x00401470 - std::endl
  *
- * Destroys the stream sub-object then re-initializes the basic_ios base.
+ * Writes a newline and flushes the stream. Passed by address as a
+ * manipulator to OStream_InsertManip.
  */
-static __attribute__((unused)) void
-Stream_DestructorHelper(CBasicFstream *this)
+static void *
+StdEndl(void *os)
+{
+	OStream_Put((CBasicFstream *)os, '\n');
+	OStream_Flush((CBasicFstream *)os);
+	return os;
+}
+
+/*
+ * 0x00401490 - std::ofstream::~ofstream
+ *
+ * Destroys the filebuf sub-object then re-initializes the basic_ios base.
+ */
+static void
+OFStream_Destructor(CBasicFstream *this)
 {
 	Stream_SubDestructor(&this->ios);
 	BasicIos_Init(&this->ios);
@@ -291,25 +339,25 @@ String_CStr(CSdbStr *this)
 }
 
 /*
- * 0x00401540 - Call function pointer with this
+ * 0x00401540 - std::ostream::operator<<(std::ostream &(*)(std::ostream &))
  *
- * Invokes the supplied function pointer with this as its argument.
+ * Applies a manipulator by invoking it with the stream.
  */
-static __attribute__((unused)) void
-CallFnPtrWithThis(uintptr_t *this, void (*fn)(void *))
+static void *
+OStream_InsertManip(void *this, OStreamManip fn)
 {
-	fn(this);
+	return fn(this);
 }
 
 /*
- * 0x00401560 - std::istream::putback
+ * 0x00401560 - std::ostream::put
  *
  * Constructs a sentry, checks the good-bit, then writes ch through the
  * underlying streambuf via sputc. Sets badbit when the sentry fails or
  * sputc returns EOF. Returns this.
  */
 static __attribute__((unused)) void *
-IStream_Putback(CBasicFstream *this, char ch)
+OStream_Put(CBasicFstream *this, char ch)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	uint32_t state = 0;
@@ -343,20 +391,20 @@ IStream_Putback(CBasicFstream *this, char ch)
 }
 
 /*
- * 0x004016A0 - std::istream::_Ipfx (input prefix)
+ * 0x004016A0 - std::ostream::flush
  *
  * Flushes the tied stream when the ios sub-object is non-nil; sets badbit
  * if pubsync reports an error.
  */
 static void *
-IStream_Ipfx(CBasicFstream *this)
+OStream_Flush(CBasicFstream *this)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	uintptr_t *vt = (uintptr_t *)p[0];
 	CIosBase *ios = (CIosBase *)((char *)this + vt[FSTREAM_VBT_VBASE]);
 	int state = 0;
 
-	if (!Tree_Isnil((StdTreeNode *)ios)) {
+	if (!CBasicIos_Fail(ios)) {
 		int result = CStreamBuf_pubsync((CStreamBuf *)ios->streambuf);
 		if (result == -1)
 			state |= 4;
@@ -454,7 +502,7 @@ CSdbStrVector_Clear(CScriptStringDB *this)
  * Sets failbit on the ios when the open fails.
  */
 static __attribute__((unused)) void *
-CSdbStr_VectorCtor(CBasicFstream *this, void *filename, int openMode, int constructBase)
+OFStream_Constructor(CBasicFstream *this, void *filename, int openMode, int constructBase)
 {
 	CBasicFstream *fs = this;
 
@@ -521,7 +569,7 @@ Stream_SetVbptr(CStdioFileBuf *this)
  * reports an error.
  */
 static __attribute__((unused)) void
-Stream_CloseFile(CBasicFstream *this)
+OFStream_Close(CBasicFstream *this)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	void *result = CStdioFile_Close(&this->filebuf);
@@ -786,7 +834,7 @@ String_AssignCStr(CSdbStr *this, void *src)
  * Returns strlen of the input string.
  */
 static uint32_t
-Strlen_Wrapper(void *str)
+Strlen_Wrapper(const void *str)
 {
 	return strlen((const char *)str);
 }
@@ -1390,7 +1438,7 @@ String_Freeze(CSdbStr *this)
  * 0x004038C0 - Stream good-bit check (via iterator state)
  *
  * Returns the stream's open state. When the stream is open and the event
- * ring has pending entries, runs IStream_Ipfx to advance past them first.
+ * ring has pending entries, runs OStream_Flush to advance past them first.
  */
 static unsigned char
 Stream_GoodCheck(CBasicFstream *this)
@@ -1403,7 +1451,7 @@ Stream_GoodCheck(CBasicFstream *this)
 		uint32_t count = EventRingBuffer_Count();
 		if (count != 0) {
 			uint32_t count2 = EventRingBuffer_Count();
-			IStream_Ipfx((void *)(uintptr_t)count2);
+			OStream_Flush((void *)(uintptr_t)count2);
 		}
 	}
 	sub = (char *)this + ((uintptr_t *)p[0])[FSTREAM_VBT_VBASE];
@@ -1425,7 +1473,7 @@ Stream_OpenCheck(CIosBase *this)
 /*
  * 0x00403950 - Iterator check and advance
  *
- * Advances the iterator's stream via IStream_Ipfx when the val-node has
+ * Advances the iterator's stream via OStream_Flush when the val-node has
  * bit 2 set.
  */
 static void
@@ -1436,7 +1484,7 @@ Iterator_CheckAdvance(CBasicFstream *this)
 	void *sub = (char *)this + vt[FSTREAM_VBT_VBASE];
 	int val = CSearchCtx_GetValNode(sub);
 	if (val & 2)
-		IStream_Ipfx(this);
+		OStream_Flush(this);
 }
 
 /*
@@ -1526,7 +1574,7 @@ Stream_PostOpenLocaleSetup(CStdioFileBuf *this)
 
 	// The 0 and 1 here are residual from InitCompile's pre-push sequence
 	// (push 1, push 0); only `handle` is the explicit argument.
-	fb->facet = locale_Getfacet(handle, 0, (void *)(uintptr_t)1);
+	fb->facet = locale_Getfacet(handle, 0, 1);
 
 	CStdioFile_ScalarDelete((CLocaleFacet *)local_var);
 
@@ -1751,31 +1799,90 @@ Allocator_CopyConstruct16(StdAllocator *this, void *dest, void *src)
 }
 
 /*
- * 0x004043A0 - ScriptStringDB_Insert
+ * 0x004043A0 - std::operator<<(std::ostream &, const char *)
  *
- * ORPHANED: only caller is CScriptStringDB_BuildIndex, which itself has zero
- * callers. The original walks an MSVC std::set's red-black tree to insert
- * a string; the STL internals are not replicated, so the body is empty.
+ * Writes a NUL-terminated string, padded out to the stream's field width
+ * with the fill character. Padding goes before the string unless the
+ * adjustfield is left, in which case it follows. Any streambuf write that
+ * returns EOF, or a short sputn, sets badbit. The field width is reset to
+ * zero once the insertion completes, and the accumulated state is applied
+ * through setstate before returning the stream.
+ *
+ * ORPHANED: the only caller is CScriptStringDB_Dump, itself uncalled.
  */
 void *
-ScriptStringDB_Insert(void *setObj, const char *str)
+OStream_InsertCStr(CBasicFstream *os, const char *str)
 {
-	USED(setObj);
-	USED(str);
-	return NULL;
+	uintptr_t *p = (uintptr_t *)os;
+	uint32_t state = 0;
+	uint32_t pad;
+	char sentry[16];
+	CStreamBuf *rdbuf;
+	uint32_t len = (uint32_t)Strlen_Wrapper(str);
+
+	// The binary re-derives the virtual base at every accessor call site;
+	// the vbtable never changes during the call, so derive it once.
+	uintptr_t *vt = (uintptr_t *)p[0];
+	CIosBase *ios = (CIosBase *)((char *)os + vt[FSTREAM_VBT_VBASE]);
+
+	if ((int)CIosBase_Width(ios) > 0 && CIosBase_Width(ios) > len)
+		pad = CIosBase_Width(ios) - len;
+	else
+		pad = 0;
+
+	Iterator_Constructor(sentry, os);
+
+	// Binary calls thiscall byte-getter at 0x004e0270 (sentry good check)
+	if (CWeaponDef_GetId((CWeaponDef *)sentry) == 0) {
+		state |= IOS_BADBIT;
+	} else {
+		rdbuf = (CStreamBuf *)ios->streambuf;
+
+		if ((ios->flags & IOS_ADJUSTFIELD) != IOS_LEFT) {
+			for (; pad > 0; pad--) {
+				int result = CStreamBuf_sputc(rdbuf, CBasicIos_Fill(ios));
+				int eof = StdNilRef();
+				if (CmpPtrValueEqual(&eof, &result)) {
+					state |= IOS_BADBIT;
+					break;
+				}
+			}
+		}
+
+		if (state == 0) {
+			if (CStreamBuf_sputn(rdbuf, str, len) != len)
+				state |= IOS_BADBIT;
+		}
+
+		if (state == 0) {
+			for (; pad > 0; pad--) {
+				int result = CStreamBuf_sputc(rdbuf, CBasicIos_Fill(ios));
+				int eof = StdNilRef();
+				if (CmpPtrValueEqual(&eof, &result)) {
+					state |= IOS_BADBIT;
+					break;
+				}
+			}
+		}
+
+		CIosBase_SetWidth(ios, 0);
+	}
+
+	IosBase_SetState(ios, state, 0);
+	Iterator_Destructor(sentry);
+	return os;
 }
 
 /*
- * 0x00404630 - std::_Tree::_Size setter (swap)
+ * 0x00404630 - std::ios_base::width (setter)
  *
- * Replaces the tree's size with newSize and returns the previous value.
+ * Installs newWidth as the field width and returns the previous value.
  */
-static __attribute__((unused)) uint32_t
-Tree_SetSize(CStlTreeFull *this, uint32_t newSize)
+static uint32_t
+CIosBase_SetWidth(CIosBase *this, uint32_t newWidth)
 {
-	CStlTreeFull *tree = this;
-	uint32_t old = tree->size;
-	tree->size = newSize;
+	uint32_t old = this->width;
+	this->width = newWidth;
 	return old;
 }
 
@@ -1793,16 +1900,45 @@ ScalarDestructor_Flags0(CSdbStr *obj)
 /*
  * 0x004047A0 - locale::_Getfacet
  *
- * MSVC CRT locale facet lookup. The Linux build does not replicate the CRT
- * locale table, so the body returns NULL.
+ * Looks the facet up in the locale's table and, on a miss, materializes a
+ * fresh CLocaleCategory once and caches it for every later call. The second
+ * argument is pushed by the caller but never read by the binary.
+ *
+ * When allowConstruct is clear, or the locale reports itself invalid, the
+ * binary throws through _CxxThrowException (0x004E8640); that path is CRT
+ * and is not replicated, so it returns NULL instead.
  */
 static void *
-locale_Getfacet(void *facets, int throwOnMissing, void *handle)
+locale_Getfacet(void *loc, int unused, int allowConstruct)
 {
-	USED(facets);
-	USED(throwOnMissing);
-	USED(handle);
-	return NULL;
+	void *facet;
+
+	// Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical
+	// section enter/leave); we don't replicate the lock.
+	uint32_t facetId = Locale_Id_GetOrAlloc((uint32_t *)&g_locale_facet_id);
+
+	// Binary calls fcn.005c0c40 (locale::_Getfacet) here; we don't
+	// replicate MSVC's locale facet table, so the lookup yields NULL.
+	facet = NULL;
+	USED(loc);
+	USED(unused);
+	USED(facetId);
+
+	if (facet == NULL) {
+		// Binary also consults fcn.005c0cb0 (locale validity) before
+		// deciding to construct; absent the CRT table it reads valid.
+		if (!allowConstruct)
+			return NULL;
+
+		if (g_LocaleFacetCache == NULL) {
+			void *mem = OperatorNew(sizeof(CLocaleCategory));
+			void *built = mem ? Locale_ConstructorCategory((CLocaleCategory *)mem, NULL) : NULL;
+			g_LocaleFacetCache = Locale_Facet_RegisterAtexit((CLocaleFacet *)built);
+		}
+		facet = g_LocaleFacetCache;
+	}
+
+	return facet;
 }
 
 /*
@@ -2037,16 +2173,17 @@ String_CopyAssignDispatch(CSdbStr *this, void *src)
 }
 
 /*
- * 0x00404CC0 - Virtual dispatch via vtable[7] (offset 0x1C)
+ * 0x00404CC0 - std::basic_streambuf::sputn
  *
- * Forwards two args to vtable[7].
+ * Writes count characters through the virtual xsputn and returns the
+ * number actually consumed.
  */
-static __attribute__((unused)) void
-VDispatch_1C(uintptr_t *this, uint32_t a1, uint32_t a2)
+static uint32_t
+CStreamBuf_sputn(CStreamBuf *this, const char *ptr, uint32_t count)
 {
-	typedef void (*VTFn)(uintptr_t *, uint32_t, uint32_t);
-	uintptr_t *vt = (uintptr_t *)this[0];
-	((VTFn)vt[7])(this, a1, a2);
+	typedef uint32_t (*VTFn)(CStreamBuf *, const char *, uint32_t);
+	void **vt = this->vtable;
+	return ((VTFn)(uintptr_t)vt[SB_VT_XSPUTN])(this, ptr, count);
 }
 
 /*
@@ -2178,13 +2315,17 @@ Locale_Facet_GetCat(void)
  * decrefs and destroys the cached facet at process exit. Called by
  * locale_Getfacet (0x004047A0) the first time a facet is materialized.
  *
- * MODIFIED: binary wraps the body in a CCriticalSection enter/leave pair;
- * Linux is single-threaded and we do not replicate the MSVC locale facet
- * cache, so this is a no-op.
+ * Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical section
+ * enter/leave); we don't replicate the lock. The atexit registration goes
+ * through the CRT thunk at 0x004E8720, which is not replicated either -
+ * Locale_FacetAtexitDtor is instead left for the caller to run.
  */
-static __attribute__((unused)) void
-Locale_Facet_RegisterAtexit(void)
+static CLocaleFacet *
+Locale_Facet_RegisterAtexit(CLocaleFacet *facet)
 {
+	g_LocaleFacetSlot = facet;
+	Locale_Facet_Incref(g_LocaleFacetSlot);
+	return facet;
 }
 
 /*
@@ -2232,6 +2373,30 @@ GetSystemTime8(uintptr_t *this, void *result)
 	r[0] = (uint32_t)t;
 	r[1] = (uint32_t)(t >> 32);
 	return result;
+}
+
+/*
+ * 0x00405030 - Locale facet atexit destructor
+ *
+ * Registered by Locale_Facet_RegisterAtexit. Drops the cached facet's
+ * refcount and, when that was the last reference, destroys it through the
+ * scalar deleting destructor with the free flag set, then clears the slot.
+ */
+static __attribute__((unused)) void
+Locale_FacetAtexitDtor(void)
+{
+	typedef void *(*ScalarDtor)(CLocaleFacet *, int);
+
+	// Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical
+	// section enter/leave); we don't replicate the lock.
+	CLocaleFacet *dead = (CLocaleFacet *)Locale_Facet_Decref(g_LocaleFacetSlot);
+
+	if (dead != NULL) {
+		uintptr_t *vt = (uintptr_t *)dead->vtable;
+		((ScalarDtor)(uintptr_t)vt[LOCALE_VT_SCALAR_DTOR])(dead, 1);
+	}
+
+	g_LocaleFacetSlot = NULL;
 }
 
 /*

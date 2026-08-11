@@ -244,6 +244,7 @@ void *CStringList_DirectionAdvanceIter(CResList *list, CResListNode **outNode, C
 int CResManager_HasByInt(CResManager *rm, uint32_t key); // 0x004BFB81
 void CResManager_Destructor_Templates(CResManager *this); // 0x004C06E0
 void CResManager_FindByIntCtx(CResManager *rm, CSearchCtx *output, uint32_t *keyPtr, int direction); // 0x004C0930
+void *CResManager_FindByInt_Templates(CResManager *rm, CSearchCtx *output, void *keyPtr, int direction); // 0x004C0C40
 void CResManager_Destructor_NameTable(CResManager *this); // 0x004C09F0
 void CResManager_Clear_NameTable(CResManager *this); // 0x004C0A10
 void CResManager_Destructor_Defines(CResManager *this); // 0x004C0D20
@@ -280,7 +281,6 @@ int CResManager_InsertStrEntry_Defines(CResManager *rm, CString *key, void *valu
 void *CResManager_FindByStr_Defines(CResManager *rm, CSearchCtx *output, CString *key, int direction); // 0x004C0E90
 void *CResManager_Constructor_Templates(CResManager *rm); // 0x004C06B0
 int CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr); // 0x004C07E0
-void *CResManager_FindInt(CResManager *rm, uint32_t key);
 uintptr_t CSearchCtx_GetKeyNode(CSearchCtx *ctx);
 
 #endif /* RES_H_ */

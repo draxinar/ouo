@@ -35,11 +35,10 @@
 #include "world.h"
 
 __extension__ typedef struct LOSContext LOSContext;
-__extension__ typedef struct SurfaceList SurfaceList;
 
 static CTerrainManager *CTerrainManager_Constructor(CTerrainManager *this); // 0x00469AAB
 static void CTerrainManager_ConstructorVTable(void); // 0x00469AC2
-static void Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *mob, int zOffset); // 0x00469AF4
+static void Terrain_BuildSurfaceList(CVector *list, CLocation loc, int moveType, CItem *mob, int zOffset); // 0x00469AF4
 static int CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin, int zMax, int height, int moveType, CItem *mob); // 0x0046B276
 static SurfaceInfo *SurfaceInfo_Constructor(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B920
 static void SurfaceInfo_Set(SurfaceInfo *this, uint32_t flags, int16_t z, int16_t height, CItem *item); // 0x0046B950
@@ -52,20 +51,9 @@ static int LOS_BlockCheck(LOSContext *ctx, CLocation *loc, CItem *entity); // 0x
 static int LOS_HeightCheck(LOSContext *ctx, CLocation *loc, CItem *entity); // 0x0046C010
 static int Terrain_IsContainerFilter(CItem *entity); // 0x0046C740
 static void Terrain_LoadStaticsBlock(int extra, int blockIdx, uint8_t *data, int dataLen); // 0x004C4364
-static int SurfaceInfo_CompareZ(const void *a, const void *b);
-static void SurfaceList_Init(SurfaceList *list);
-static void SurfaceList_Add(SurfaceList *list, uint32_t flags, int16_t z, int16_t height, CItem *item);
 static int LOS_GetFlags(CItem *ent);
 
 LandTileData *g_LandTileData;
-
-// SurfaceList helper type (fixed-size array for surface info entries).
-#define SURFACE_LIST_MAX 128
-
-__extension__ typedef struct SurfaceList {
-	SurfaceInfo entries[SURFACE_LIST_MAX];
-	int count;
-} SurfaceList;
 
 // LOSContext type (used by LOS raycast functions).
 __extension__ typedef struct LOSContext {
@@ -449,7 +437,7 @@ CTerrainManager_IsNotWaterTile(CTerrainManager *this, int tileId)
  * instead of locking up the AI tick.
  */
 static void
-Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *mob, int zOffset)
+Terrain_BuildSurfaceList(CVector *list, CLocation loc, int moveType, CItem *mob, int zOffset)
 {
 	int blockIdx;
 	uint16_t tileID;
@@ -461,9 +449,8 @@ Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *
 	int guard;
 	// Binary has a dead local init that is never read; preserved.
 	int dead_init = 0;
+	SurfaceInfo entry;
 	USED(dead_init);
-
-	SurfaceList_Init(list);
 
 	blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, &loc, 0);
 
@@ -476,7 +463,8 @@ Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *
 	if (surfFlags != 0) {
 		minLandZ = Terrain_GetMinLandZ(x, y);
 		avgLandZ = Terrain_GetAvgLandZ(x, y);
-		SurfaceList_Add(list, surfFlags, (int16_t)(minLandZ + zOffset), (int16_t)(avgLandZ - minLandZ), NULL);
+		SurfaceInfo_Constructor(&entry, surfFlags, (int16_t)(minLandZ + zOffset), (int16_t)(avgLandZ - minLandZ), NULL);
+		CVector_PushBackSI(list, &entry);
 	}
 
 	// Dynamic items
@@ -498,7 +486,8 @@ Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *
 				surfFlags = ((int (*)(void *, int))VT_FN(item, VT_GET_SURFACE_FLAGS))(item, moveType);
 			if (surfFlags != 0) {
 				int height = ((int (*)(void *))VT_FN(item, VT_GET_HEIGHT))(item);
-				SurfaceList_Add(list, surfFlags, item->resourceEntity.entity.location.z, (int16_t)height, item);
+				SurfaceInfo_Constructor(&entry, surfFlags, item->resourceEntity.entity.location.z, (int16_t)height, item);
+				CVector_PushBackSI(list, &entry);
 			}
 		}
 		item = item->spatialNext;
@@ -527,7 +516,8 @@ Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *
 
 			if (surfFlags != 0) {
 				int height = ((int (*)(void *))VT_FN(item, VT_GET_HEIGHT))(item);
-				SurfaceList_Add(list, surfFlags, item->resourceEntity.entity.location.z, (int16_t)height, item);
+				SurfaceInfo_Constructor(&entry, surfFlags, item->resourceEntity.entity.location.z, (int16_t)height, item);
+				CVector_PushBackSI(list, &entry);
 			}
 		}
 		item = (CItem *)item->resourceEntity.nextInContainer;
@@ -544,22 +534,23 @@ Terrain_BuildSurfaceList(SurfaceList *list, CLocation loc, int moveType, CItem *
 int
 CTerrainManager_CheckMoveBlocked(CLocation loc, int height, int moveType, CItem *mob, int useInterpolatedZ)
 {
-	SurfaceList list;
-	int i;
+	CVector list;
+	char typeTag = 0; // binary passes an uninitialised stack byte; never read
+	SurfaceInfo *s;
 	int result;
 	int z = (int)(int16_t)loc.z;
 
 	result = 1;
 
+	CVector_Constructor(&list, &typeTag);
 	Terrain_BuildSurfaceList(&list, loc, moveType, mob, useInterpolatedZ);
 
-	for (i = 0; i < list.count; i++) {
-		SurfaceInfo *s = &list.entries[i];
-
+	for (s = (SurfaceInfo *)list.begin; s != (SurfaceInfo *)list.end; s++) {
 		if (s->flags & TF_IMPASSABLE) {
 			if (z + height > s->z) {
 				int topZ = SurfaceInfo_GetTopZ(s);
 				if (topZ > z) {
+					CVector_DestructorSI(&list);
 					return 0;
 				}
 			}
@@ -573,6 +564,7 @@ CTerrainManager_CheckMoveBlocked(CLocation loc, int height, int moveType, CItem 
 		}
 	}
 
+	CVector_DestructorSI(&list);
 	return result;
 }
 
@@ -583,36 +575,42 @@ CTerrainManager_CheckMoveBlocked(CLocation loc, int height, int moveType, CItem 
  * entry (land) sets the baseline; remaining entries adjust minZ for
  * impassable items below z and both minZ/maxZ for bridges at z.
  *
- * FIXED: Binary assumes entries[0] is always the land tile, but when
- * the land tile is void (GetLandTileFlags returns 0) the land entry
- * is skipped and entries[0] becomes the first item surface. The binary
- * then calls Terrain_GetAvgLandZ on the wrong entry, returning the
- * raw terrain Z instead of the item surface Z. This breaks movement
+ * FIXED: Binary assumes the first entry is always the land tile, but
+ * when the land tile is void (GetLandTileFlags returns 0) the land
+ * entry is skipped and the first entry becomes an item surface. The
+ * binary then calls Terrain_GetAvgLandZ on the wrong entry, returning
+ * the raw terrain Z instead of the item surface Z. This breaks movement
  * in underground rooms like the Wind entrance marble room where void
  * land tiles sit above walkable static floor tiles. Fix: check
- * entries[0].item == NULL before applying land Z.
+ * the first entry's item == NULL before applying land Z.
+ *
+ * FIXED: the binary reads begin()->flags at 0x00469EF6 without first
+ * comparing begin() against end(). A void land tile with no items at
+ * the location leaves the vector empty, where begin() is NULL, so the
+ * read faults. Fix: the begin != end guard around the first entry.
  */
 void
 CTerrainManager_GetMinMaxZ(int *outMinZ, int *outMaxZ, CLocation loc, int direction, int moveType, CItem *mob, int useInterpolatedZ)
 {
-	SurfaceList list;
-	int i;
+	CVector list;
+	char typeTag = 0; // binary passes an uninitialised stack byte; never read
+	SurfaceInfo *s;
 	int topZ, landZ;
 	int x = (int)(int16_t)loc.x;
 	int y = (int)(int16_t)loc.y;
 	int z = (int)(int16_t)loc.z;
 
+	CVector_Constructor(&list, &typeTag);
 	Terrain_BuildSurfaceList(&list, loc, moveType, mob, 0);
 
 	*outMinZ = -128;
 	*outMaxZ = z;
 
 	// First entry: land surface baseline (only if actually land).
-	if (list.count > 0) {
-		SurfaceInfo *first = &list.entries[0];
-
-		if (first->item == NULL && (first->flags & TF_SURFACE)) {
-			topZ = SurfaceInfo_GetTopZ(first);
+	s = (SurfaceInfo *)list.begin;
+	if (s != (SurfaceInfo *)list.end) {
+		if (s->item == NULL && (s->flags & TF_SURFACE)) {
+			topZ = SurfaceInfo_GetTopZ(s);
 			if (topZ <= z) {
 				if (useInterpolatedZ)
 					landZ = Terrain_GetInterpolatedZ(x, y, direction);
@@ -624,11 +622,10 @@ CTerrainManager_GetMinMaxZ(int *outMinZ, int *outMaxZ, CLocation loc, int direct
 					*outMaxZ = landZ;
 			}
 		}
+		s++;
 	}
 
-	for (i = 1; i < list.count; i++) {
-		SurfaceInfo *s = &list.entries[i];
-
+	for (; s != (SurfaceInfo *)list.end; s++) {
 		topZ = SurfaceInfo_GetTopZ(s);
 
 		// Impassable below current z raises the minZ floor.
@@ -646,6 +643,8 @@ CTerrainManager_GetMinMaxZ(int *outMinZ, int *outMaxZ, CLocation loc, int direct
 				*outMinZ = s->z;
 		}
 	}
+
+	CVector_DestructorSI(&list);
 }
 
 /*
@@ -755,8 +754,10 @@ CTerrainManager_CanWalk(CLocation loc, int minZ, int maxZ, int height, int moveT
 	int x = (int)(int16_t)loc.x;
 	int y = (int)(int16_t)loc.y;
 	int z = (int)(int16_t)loc.z;
-	SurfaceList list;
-	int i, j;
+	CVector list;
+	char typeTag = 0; // binary passes an uninitialised stack byte; never read
+	SurfaceInfo sentinel;
+	SurfaceInfo *entry;
 	int bestZ, bestDist;
 	int currentZ, maxTopZ;
 	int entryZ, surfTopZ, zDiff;
@@ -764,12 +765,14 @@ CTerrainManager_CanWalk(CLocation loc, int minZ, int maxZ, int height, int moveT
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)x, (int16_t)y))
 		return -128;
 
+	CVector_Constructor(&list, &typeTag);
 	Terrain_BuildSurfaceList(&list, loc, moveType, mob, useInterpolatedZ);
 
-	qsort(list.entries, list.count, sizeof(SurfaceInfo), SurfaceInfo_CompareZ);
+	SortSurface_Entry((SurfaceInfo *)list.begin, (SurfaceInfo *)list.end, typeTag);
 
 	// Ceiling sentinel: impassable barrier at z=128, height=128
-	SurfaceList_Add(&list, 0x40, 128, 128, NULL);
+	SurfaceInfo_Constructor(&sentinel, 0x40, 128, 128, NULL);
+	CVector_PushBackSI(&list, &sentinel);
 
 	if (z < minZ)
 		z = minZ;
@@ -779,8 +782,7 @@ CTerrainManager_CanWalk(CLocation loc, int minZ, int maxZ, int height, int moveT
 	currentZ = minZ;
 	maxTopZ = -128;
 
-	for (i = 0; i < list.count; i++) {
-		SurfaceInfo *entry = &list.entries[i];
+	for (entry = (SurfaceInfo *)list.begin; entry != (SurfaceInfo *)list.end; entry++) {
 		int topZ;
 
 		if (!(entry->flags & 0x40)) {
@@ -789,10 +791,15 @@ CTerrainManager_CanWalk(CLocation loc, int minZ, int maxZ, int height, int moveT
 
 		entryZ = entry->z;
 		if (entryZ - currentZ >= height) {
-			// Search backward from entry[i-1] for walkable surfaces.
-			for (j = i - 1; j >= 0; j--) {
-				SurfaceInfo *s = &list.entries[j];
+			// Search backward from entry[-1] for walkable surfaces.
+			SurfaceInfo *rev = entry;
+			SurfaceInfo *revTmp;
+
+			while (rev != (SurfaceInfo *)list.begin) {
+				SurfaceInfo *s = SurfaceInfoRevIter_Deref(&rev);
 				int canWalk;
+
+				SurfaceInfoRevIter_PostDec(&rev, &revTmp);
 
 				if (!(s->flags & 0x600))
 					continue;
@@ -843,6 +850,7 @@ CTerrainManager_CanWalk(CLocation loc, int minZ, int maxZ, int height, int moveT
 			maxTopZ = topZ;
 	}
 
+	CVector_DestructorSI(&list);
 	return bestZ;
 }
 
@@ -1264,11 +1272,21 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 		src.z = (int16_t)zLow;
 		dst.z = (int16_t)zLow;
 
-		if (LOS_CheckAtLocation(&src, zHigh, losFlags))
-			return 0;
+		{
+			// The binary marshals the pair through an LOSContext
+			// and reads both fields straight back into the call.
+			LOSContext ctx;
+
+			LOSContext_Constructor(&ctx, zHigh, losFlags);
+			if (LOS_CheckAtLocation(&src, ctx.zValue, ctx.flags))
+				return 0;
+		}
 
 		if (steps > 0) {
-			if (LOS_CheckAtLocation(&dst, zHigh, losFlags))
+			LOSContext ctx;
+
+			LOSContext_Constructor(&ctx, zHigh, losFlags);
+			if (LOS_CheckAtLocation(&dst, ctx.zValue, ctx.flags))
 				return 0;
 		}
 
@@ -1354,8 +1372,13 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 			if (curZ < zHigh)
 				curZ += 1;
 
-			if (LOS_CheckAtLocation(&prevLoc, curZ, losFlags))
-				blocked = 0;
+			{
+				LOSContext ctx;
+
+				LOSContext_Constructor(&ctx, curZ, losFlags);
+				if (LOS_CheckAtLocation(&prevLoc, ctx.zValue, ctx.flags))
+					blocked = 0;
+			}
 
 store_result:
 			ray_alive[j] = blocked;
@@ -2223,51 +2246,3 @@ int g_IgnoreMobiles;
 // 0x006982F8 - 1 when terrain data (map0.mul) has been loaded, 0 otherwise.
 // Checked by SetTerrainTile to reject modifications before loading completes.
 int g_TerrainDataLoaded;
-
-/*
- * Helper - SurfaceInfo_CompareZ
- *
- * qsort comparator matching the binary's std::sort predicate at
- * 0x0046C430: ascending z, then ascending height as tiebreaker.
- */
-static int
-SurfaceInfo_CompareZ(const void *a, const void *b)
-{
-	const SurfaceInfo *sa = (const SurfaceInfo *)a;
-	const SurfaceInfo *sb = (const SurfaceInfo *)b;
-	if (sa->z != sb->z)
-		return (sa->z < sb->z) ? -1 : 1;
-	if (sa->height != sb->height)
-		return (sa->height < sb->height) ? -1 : 1;
-	return 0;
-}
-
-/*
- * Custom - SurfaceList_Init
- *
- * Empties the surface list. The binary holds surfaces in a
- * CVector<SurfaceInfo> and constructs it; this is the fixed-array stand-in.
- */
-static void
-SurfaceList_Init(SurfaceList *list)
-{
-	list->count = 0;
-}
-
-/*
- * Custom - SurfaceList_Add
- *
- * Appends a surface. The binary calls CVector::push_back (0x0046BA80) onto a
- * vector that grows without limit; this array holds SURFACE_LIST_MAX and
- * drops anything past it, which is logic the binary does not have.
- */
-static void
-SurfaceList_Add(SurfaceList *list, uint32_t flags, int16_t z, int16_t height, CItem *item)
-{
-	SurfaceInfo *s;
-
-	if (list->count >= SURFACE_LIST_MAX)
-		return;
-	s = &list->entries[list->count++];
-	SurfaceInfo_Constructor(s, flags, z, height, item);
-}

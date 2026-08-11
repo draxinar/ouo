@@ -57,17 +57,17 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 			int typeId = entries[i].typeId;
 			int offset = entries[i].offset;
 			if (typeId == WTYPE_STRING) {
-				CString *cs = (CString *)malloc(sizeof(CString));
+				CString *cs = (CString *)OperatorNew(sizeof(CString));
 				if (cs != NULL)
 					CString_Constructor(cs, "");
 				*(void **)((char *)inst->memberScope + offset) = cs;
 			} else if (typeId == WTYPE_USTRING) {
-				CUString *cus = (CUString *)malloc(sizeof(CUString));
+				CUString *cus = (CUString *)OperatorNew(sizeof(CUString));
 				if (cus != NULL)
 					CUString_Constructor(cus, NULL);
 				*(void **)((char *)inst->memberScope + offset) = cus;
 			} else if (typeId == WTYPE_LIST) {
-				CList *lst = (CList *)malloc(sizeof(CList));
+				CList *lst = (CList *)OperatorNew(sizeof(CList));
 				if (lst != NULL)
 					CList_Constructor(lst);
 				*(void **)((char *)inst->memberScope + offset) = lst;

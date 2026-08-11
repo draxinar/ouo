@@ -271,7 +271,6 @@ extern CResManager g_MultiManagerSlaves; // 0x006472B8 (CMultiManager+0x218)
 
 void *Allocate16_Inner(int count); // 0x0047B1A0
 void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740
-CResListNode *CResList_RemoveKeyNode_Multi(CResList *list, CResListNode *node, int direction); // 0x00464E30
 void MultiComponentPool_Init(void); // 0x0047423A
 CMultiComponent *MultiComponent_AllocInit3(uint32_t serial, CItem *ownerItem, CLocation *loc); // 0x004743A2
 CMultiComponent *MultiComponent_AllocInit2(uint32_t serial, CItem *ownerItem); // 0x004743CE

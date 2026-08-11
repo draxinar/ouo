@@ -224,7 +224,11 @@ CTemplateManager_LoadNameTable(void)
 			fclose_ServerSide(currentFile);
 
 		{
-			uint32_t key = (uint32_t)nameTableIdx;
+			// 64-bit: CResListNode_SetDataInt reads a pointer-sized
+			// value from this local, so it must be pointer-sized.
+			// Every comparison against it comes back through
+			// *(uint32_t *), so only the low word is ever read.
+			uintptr_t key = (uintptr_t)nameTableIdx;
 			CResManager_InsertIntEntryG(&g_NameTableRM, &key, nameEntry);
 		}
 
@@ -240,7 +244,9 @@ advance:
  * 0x004B9FE3 - CTemplateManager::setRealNameFromTemplate
  *
  * Assigns the mob a random name from the name table entry matching
- * the template's name table ID and the mob's sex.
+ * the template's name table ID and the mob's sex. The entry is looked
+ * up through a CSearchCtx, whose found flag is checked before the
+ * value is read - unlike CResManager::GetTemplateByID, which does not.
  */
 void
 CTemplateManager_SetRealNameFromTemplate(CItem *entity, char *dataCursor)
@@ -284,10 +290,19 @@ CTemplateManager_SetRealNameFromTemplate(CItem *entity, char *dataCursor)
 		return;
 	}
 
-	entry = (CNameEntry *)CResManager_FindInt(&g_NameTableRM, (uint32_t)nameTableIdx);
-	if (entry == NULL) {
-		CMobile_SetName(mob, "error");
-		return;
+	{
+		CSearchCtx ctx, found;
+		uint32_t key = (uint32_t)nameTableIdx;
+
+		CSearchCtx_Constructor(&ctx);
+		CSearchCtx_Add(&found, (CSearchCtx *)CResManager_FindByInt_Templates(&g_NameTableRM, &ctx, &key, 1));
+		if (!CSearchCtx_Find(&found)) {
+			CMobile_SetName(mob, "error");
+			return;
+		}
+		// The binary re-derives the entry from the context at every
+		// access below; the context does not change, so it is read once.
+		entry = (CNameEntry *)CResManager_GetResultCtx(&g_NameTableRM, &found);
 	}
 
 	genderList = &entry->lists[genderIdx];
@@ -2371,12 +2386,28 @@ CTemplateManager_CreateFromTemplate(uint16_t templateId, CLocation *loc, int res
 /*
  * 0x004BFBAA - CResManager::GetTemplateByID
  *
- * Looks up a template by numeric ID in the templates CResManager.
+ * Looks up a template by numeric ID in the templates CResManager,
+ * seeding a CSearchCtx through CResManager::FindByInt and reading the
+ * value out of it.
+ *
+ * FIXED: the binary hands the context straight to
+ * CResManager::GetResultCtx, which reads the value node without
+ * checking that the key was found. A miss leaves both the key and value
+ * nodes NULL - CResList_IsValid is a null test, which is what ends the
+ * walk - so GetResultCtx dereferences NULL for any id the templates
+ * table does not hold. Fix: return NULL when the context reports the
+ * key was not found.
  */
 NPCTemplate *
 CResManager_GetTemplateByID(uint16_t id)
 {
-	return (NPCTemplate *)CResManager_FindInt(&g_TemplatesRM, (uint32_t)id);
+	CSearchCtx ctx;
+	uint32_t key = id;
+
+	CResManager_FindByIntCtx(&g_TemplatesRM, &ctx, &key, 1);
+	if (!CSearchCtx_Find(&ctx))
+		return NULL;
+	return (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &ctx);
 }
 
 /*

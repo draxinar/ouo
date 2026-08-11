@@ -154,11 +154,10 @@ static void SortByDist_Insertion_Pair2(uintptr_t *begin, uintptr_t *end, CLocati
 static uintptr_t SortByDist_Median3_Pair2(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc); // 0x00463730
 static uintptr_t *SortByDist_Partition_Pair2(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc); // 0x00463850
 static void *CRT_PrintlInit(uint32_t *this); // 0x0046CCA0
-static void CVector_UfillN_CC60(CVector *this, uint32_t *dest, uint32_t count, uint32_t *src); // 0x0046CC60
-static uint32_t *CVector_Ucopy_CC20(CVector *this, uint32_t *first, uint32_t *last, uint32_t *dest); // 0x0046CC20
-static void CVector_Insert_CA00(CVector *this, uint32_t *pos, uint32_t count, uint32_t *value); // 0x0046CA00
-static void *CVector_Insert_C990(CVector *this, uint32_t *pos, uint32_t *value); // 0x0046C990
-static void CVector_PushBack_C960(CVector *this, uint32_t *value); // 0x0046C960
+static void CVector_UfillN_CC60(CVector *this, uintptr_t *dest, uint32_t count, uintptr_t *src); // 0x0046CC60
+static uintptr_t *CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *dest); // 0x0046CC20
+static void CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x0046CA00
+static void *CVector_Insert_C990(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x0046C990
 static void SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C700
 static void SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C6D0
 static SurfaceInfo *SortSurface_Partition(SurfaceInfo *begin, SurfaceInfo *end, SurfaceInfo *pivot, char typeTag); // 0x0046C650
@@ -167,14 +166,13 @@ static void SortSurface_Insertion(SurfaceInfo *begin, SurfaceInfo *end, char typ
 static void SortSurface_Quicksort(SurfaceInfo *begin, SurfaceInfo *end, char typeTag, int depth); // 0x0046C260
 static void SortSurface_InsertionEntry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag); // 0x0046C230
 static void SortSurface_Main(SurfaceInfo *begin, SurfaceInfo *end, char typeTag, int depth); // 0x0046C170
-static void SortSurface_Entry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag); // 0x0046BEA0
 static void CVector_UfillNSI(CVector *this, SurfaceInfo *dest, uint32_t count, SurfaceInfo *src); // 0x0046BE40
 static SurfaceInfo *CVector_UcopySI(CVector *this, SurfaceInfo *first, SurfaceInfo *last, SurfaceInfo *dest); // 0x0046BE00
 static uint32_t CVector_GetCountC(CVector *list); // 0x0046BDC0
 static void CVector_InsertSI(CVector *this, SurfaceInfo *pos, uint32_t count, SurfaceInfo *value); // 0x0046BB80
-static void *CVector_InsertAtSI(CVector *this, uint32_t index, SurfaceInfo *value); // 0x0046BB00
-static void CVector_PushBackSI(CVector *this, SurfaceInfo *value); // 0x0046BA80
-static void CVector_DestructorSI(CVector *this); // 0x0046BA10
+static void *CVector_Insert_FF30(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x0042FF30
+static void CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x0042FF80
+static void *CVector_InsertAtSI(CVector *this, uintptr_t index, SurfaceInfo *value); // 0x0046BB00
 static void *CVector_Allocate4(CVector *this, uint32_t count); // 0x0047A350
 static void *Destroy1C_Range2(CVector *this, int count, int unused_arg); // 0x00479B50
 static CVector *CVector_AssignOp4(CVector *this, CVector *src); // 0x004791F0
@@ -198,8 +196,6 @@ static void StdPtrList16_DestroyAll(StdPtrList *list); // 0x00484A00
 static void *StdPtrList_Constructor_NPC(StdPtrList *this, const void *init); // 0x004849C0
 static void StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004848D0
 static void StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00484820
-static void StdPtrList16_InsertEnd(StdPtrList *list, void *value); // 0x00484680
-static void *StdPtrList16_Constructor(StdPtrList *this, const void *init); // 0x004845E0
 static void UninitFillN_CRegionPtr(void **first, uint32_t count, void **value); // 0x004A6830
 static void **UninitCopy_CRegionPtr(void **first, void **last, void **dest); // 0x004A67F0
 static void *CVector_Ucopy_F490(CVector *this, void *first, void *last, void *dest); // 0x004CF490
@@ -419,14 +415,14 @@ CVector_Allocate16(CVector *this, uint32_t count)
 }
 
 /*
- * 0x00404610 - std::_Tree::_Size accessor
+ * 0x00404610 - std::ios_base::width
  *
- * Returns the _Size field of the tree subobject.
+ * Returns the current field width.
  */
-int
-StdTree_GetSize(StdMapTree *tree)
+uint32_t
+CIosBase_Width(CIosBase *this)
 {
-	return (int)tree->size;
+	return this->width;
 }
 
 /*
@@ -500,15 +496,14 @@ Destroy_RangeBwd16(void *first, void *last, void *dest)
 }
 
 /*
- * 0x00404CA0 - std::_Tree::_Multi accessor
+ * 0x00404CA0 - std::basic_ios::fill
  *
- * Returns the _Multi flag, indicating whether duplicate keys are
- * allowed.
+ * Returns the character used to pad a field out to its width.
  */
 char
-StdTree_GetMulti(StdMapTree *tree)
+CBasicIos_Fill(CIosBase *this)
 {
-	return (char)tree->multi;
+	return this->fill;
 }
 
 /*
@@ -525,19 +520,22 @@ StdPtrIter_Constructor(StdPtrNode **iter)
 }
 
 /*
- * 0x00406A00 - std::fill (uint32_t forward fill, 36 bytes)
+ * 0x00406A00 - std::fill (forward fill, 36 bytes)
  *
- * Fills [first, last) with the dword value pointed to by value_ptr,
- * stepping by 4 bytes.
+ * Fills [first, last) with the element pointed to by value.
+ *
+ * 64-bit: the binary steps 4 bytes because its elements are 32-bit
+ * pointers. The only vector reaching here holds pointers, so the step
+ * is the pointer width.
  */
 void
 vector_Fill(void *first, void *last, void *value)
 {
-	uint32_t *p = first;
-	uint32_t *e = last;
+	uintptr_t *p = first;
+	uintptr_t *e = last;
 
 	while (p != e) {
-		*p = *(uint32_t *)value;
+		*p = *(uintptr_t *)value;
 		p++;
 	}
 }
@@ -2015,8 +2013,10 @@ Vector_SortByType(void *begin, void *end, uint8_t typeTag)
 /*
  * 0x00423960 - CVector element allocator
  *
- * Clamps count to >= 0, then allocates count * 4 bytes via operator new
- * (0x004E84C0). Returns pointer to allocated buffer.
+ * Clamps count to >= 0, then allocates count elements via operator new
+ * (0x004E84C0). Returns pointer to allocated buffer. The binary's element
+ * is a 32-bit pointer; these vectors hold pointers, so the element is the
+ * pointer width.
  */
 static void *
 Vector_AllocElements(int count)
@@ -2970,24 +2970,94 @@ CVector_UfillN_EAD0(CVector *this, void *dest, uint32_t count, void *valuePtr)
 void
 CVector_PushBack(CVector *list, uintptr_t value)
 {
-	uintptr_t *end = (uintptr_t *)list->end;
-	uintptr_t *cap = (uintptr_t *)list->capacity;
+	// The binary reads end() through the folded accessor at 0x00403280,
+	// which our C types as StdList_GetSize returning int - lossy for a
+	// pointer on 64-bit, so the field is read directly.
+	CVector_Insert_FF30(list, (uintptr_t *)list->end, &value);
+}
 
-	if (end < cap) {
-		*end = value;
-		list->end = end + 1;
+/*
+ * 0x0042FF30 - CVector::insert (single element)
+ *
+ * Records the insert position as an index, inserts one element there, and
+ * returns the position again from the possibly-reallocated buffer.
+ *
+ * 64-bit: the binary computes the index with >> 2 because its elements are
+ * 32-bit; the step here is the pointer width.
+ */
+static void *
+CVector_Insert_FF30(CVector *this, uintptr_t *pos, uintptr_t *value)
+{
+	uintptr_t bucket;
+	int offset;
+
+	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
+	offset = (int)(((uintptr_t)pos - bucket) / sizeof(uintptr_t));
+	CVector_Insert_FF80(this, pos, 1, value);
+	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
+	return (void *)(bucket + (uintptr_t)offset * sizeof(uintptr_t));
+}
+
+/*
+ * 0x0042FF80 - CVector::_Insert_n
+ *
+ * Inserts count copies of value before pos. When the spare capacity is too
+ * small it allocates curCount + max(count, curCount) elements, copies the
+ * head, fills the new elements, copies the tail, then destroys and frees the
+ * old buffer. Otherwise it shifts in place.
+ */
+static void
+CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value)
+{
+	uint32_t curCapacity;
+	uint32_t totalCapacity;
+	uintptr_t *newBuf;
+	uintptr_t *newEnd;
+
+	curCapacity = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->end) / sizeof(uintptr_t));
+
+	if (curCapacity < count) {
+		uint32_t curCount = CVector_GetCount(this);
+		uint32_t growTo;
+
+		if (count < curCount)
+			growTo = curCount;
+		else
+			growTo = count;
+
+		totalCapacity = curCount + growTo;
+
+		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity);
+
+		newEnd = (uintptr_t *)CVector_Ucopy((StdAllocator *)this, this->begin, pos, newBuf);
+
+		CVector_UcopyN((StdAllocator *)this, newEnd, count, value);
+
+		CVector_Ucopy((StdAllocator *)this, pos, this->end, newEnd + count);
+
+		CVector_Destroy4_Range(this, this->begin, this->end);
+		{
+			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
+			StdDeque_DeallocSI(this, this->begin, oldCount);
+		}
+
+		this->capacity = (void *)(newBuf + totalCapacity);
+		this->end = (void *)(newBuf + CVector_GetCount(this) + count);
+		this->begin = newBuf;
 	} else {
-		uintptr_t *begin = (uintptr_t *)list->begin;
-		uint32_t count = end - begin;
-		uint32_t newcap = count == 0 ? 1 : count * 2;
-		uintptr_t *newbuf = realloc(begin, newcap * sizeof(uintptr_t));
+		uint32_t afterCount = (uint32_t)(((uintptr_t)this->end - (uintptr_t)pos) / sizeof(uintptr_t));
 
-		if (newbuf == NULL)
-			return;
-		newbuf[count] = value;
-		list->begin = newbuf;
-		list->end = newbuf + count + 1;
-		list->capacity = newbuf + newcap;
+		if (afterCount < count) {
+			CVector_Ucopy((StdAllocator *)this, pos, this->end, pos + count);
+			CVector_UcopyN((StdAllocator *)this, (uintptr_t *)this->end, count - afterCount, value);
+			vector_Fill(pos, this->end, value);
+			this->end = (void *)((uintptr_t *)this->end + count);
+		} else if (count > 0) {
+			CVector_Ucopy((StdAllocator *)this, (uintptr_t *)this->end - count, this->end, this->end);
+			vector_CopyBackward(pos, (uintptr_t *)this->end - count, this->end);
+			vector_Fill(pos, pos + count, value);
+			this->end = (void *)((uintptr_t *)this->end + count);
+		}
 	}
 }
 
@@ -4372,7 +4442,7 @@ StdPtrList_Destructor_HelpQueue(StdPtrList *this)
  * begin) / 12 and deallocates via StdDeque_Dealloc (which is just free).
  * Zeroes begin/end/capacity.
  */
-static __attribute__((unused)) void
+void
 CVector_DestructorSI(CVector *this)
 {
 	int count;
@@ -4392,11 +4462,11 @@ CVector_DestructorSI(CVector *this)
  *
  * Calls StdList_GetSize (returns end offset) then CVector_InsertAt.
  */
-static __attribute__((unused)) void
+void
 CVector_PushBackSI(CVector *this, SurfaceInfo *value)
 {
 	uintptr_t count = (uintptr_t)((CVector *)this)->end;
-	CVector_InsertAtSI(this, (uint32_t)count, value);
+	CVector_InsertAtSI(this, count, value);
 }
 
 /*
@@ -4404,9 +4474,13 @@ CVector_PushBackSI(CVector *this, SurfaceInfo *value)
  *
  * Computes offset from CSearchCtx_GetBucket, calls _Insert with count=1,
  * then recomputes offset from bucket base.
+ *
+ * 64-bit: index is really the insertion position pointer, which the
+ * binary passes through a DWORD parameter. It must be pointer-sized
+ * here or the high half of the address is lost.
  */
 static void *
-CVector_InsertAtSI(CVector *this, uint32_t index, SurfaceInfo *value)
+CVector_InsertAtSI(CVector *this, uintptr_t index, SurfaceInfo *value)
 {
 	uintptr_t bucket;
 	int offset;
@@ -4553,7 +4627,7 @@ CVector_UfillNSI(CVector *this, SurfaceInfo *dest, uint32_t count, SurfaceInfo *
  *
  * Computes depth from GameCentMon_GetPlayerCount, then calls sort main.
  */
-static __attribute__((unused)) void
+void
 SortSurface_Entry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag)
 {
 	int depth = GameCentMon_GetPlayerCount();
@@ -4874,11 +4948,11 @@ CCriticalSection_Lock(uint32_t *this)
  *
  * Calls StdList_GetSize (returns end offset) then CVector_Insert_C990.
  */
-static __attribute__((unused)) void
-CVector_PushBack_C960(CVector *this, uint32_t *value)
+void
+CVector_PushBack_C960(CVector *this, uintptr_t *value)
 {
 	void *endPtr = ((CVector *)this)->end;
-	CVector_Insert_C990(this, (uint32_t *)endPtr, value);
+	CVector_Insert_C990(this, (uintptr_t *)endPtr, value);
 }
 
 /*
@@ -4888,16 +4962,16 @@ CVector_PushBack_C960(CVector *this, uint32_t *value)
  * then recomputes offset from bucket base.
  */
 static void *
-CVector_Insert_C990(CVector *this, uint32_t *pos, uint32_t *value)
+CVector_Insert_C990(CVector *this, uintptr_t *pos, uintptr_t *value)
 {
 	uintptr_t bucket;
 	int offset;
 
 	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
-	offset = ((uintptr_t)pos - bucket) >> 2;
+	offset = (int)(((uintptr_t)pos - bucket) / sizeof(uintptr_t));
 	CVector_Insert_CA00(this, pos, 1, value);
 	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
-	return (void *)(bucket + offset * 4);
+	return (void *)(bucket + (uintptr_t)offset * sizeof(uintptr_t));
 }
 
 /*
@@ -4906,14 +4980,14 @@ CVector_Insert_C990(CVector *this, uint32_t *pos, uint32_t *value)
  * Complex insert with reallocation logic matching MSVC CVector::_Insert.
  */
 static void
-CVector_Insert_CA00(CVector *this, uint32_t *pos, uint32_t count, uint32_t *value)
+CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value)
 {
 	uint32_t curCapacity;
 	uint32_t totalCapacity;
-	uint32_t *newBuf;
-	uint32_t *newEnd;
+	uintptr_t *newBuf;
+	uintptr_t *newEnd;
 
-	curCapacity = ((uintptr_t)this->capacity - (uintptr_t)this->end) >> 2;
+	curCapacity = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->end) / sizeof(uintptr_t));
 
 	if (curCapacity < count) {
 		// Reallocation path
@@ -4928,22 +5002,22 @@ CVector_Insert_CA00(CVector *this, uint32_t *pos, uint32_t count, uint32_t *valu
 		totalCapacity = curCount + growTo;
 
 		// CVector_Allocate4 (0x0047A350)
-		newBuf = (uint32_t *)CVector_Allocate4_Terrain(this, totalCapacity, 0);
+		newBuf = (uintptr_t *)CVector_Allocate4_Terrain(this, totalCapacity, 0);
 
 		// Copy elements before pos
-		newEnd = CVector_Ucopy_CC20(this, (uint32_t *)this->begin, pos, newBuf);
+		newEnd = CVector_Ucopy_CC20(this, (uintptr_t *)this->begin, pos, newBuf);
 
 		// Fill new elements
 		CVector_UfillN_CC60(this, newEnd, count, value);
 
 		// Copy elements after pos
-		CVector_Ucopy_CC20(this, pos, (uint32_t *)this->end, newEnd + count);
+		CVector_Ucopy_CC20(this, pos, (uintptr_t *)this->end, newEnd + count);
 
 		// CVector_Destroy4_Range (0x00422740) - no-op for POD
 		Destroy4_Range_Terrain(this, this->begin, this->end);
 		// StdDeque_Dealloc (0x0046C9E0)
 		{
-			uint32_t oldCount = ((uintptr_t)this->capacity - (uintptr_t)this->begin) >> 2;
+			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
 			StdDeque_DeallocSI(this, this->begin, oldCount);
 		}
 
@@ -4953,28 +5027,28 @@ CVector_Insert_CA00(CVector *this, uint32_t *pos, uint32_t count, uint32_t *valu
 		this->begin = newBuf;
 	} else {
 		// In-place insert
-		uint32_t afterCount = ((uintptr_t)this->end - (uintptr_t)pos) >> 2;
+		uint32_t afterCount = (uint32_t)(((uintptr_t)this->end - (uintptr_t)pos) / sizeof(uintptr_t));
 
 		if (afterCount < count) {
 			// Copy existing tail past new elements
-			CVector_Ucopy_CC20(this, pos, (uint32_t *)this->end, pos + count);
+			CVector_Ucopy_CC20(this, pos, (uintptr_t *)this->end, pos + count);
 
 			// Fill gap with value
-			CVector_UfillN_CC60(this, (uint32_t *)this->end, count - afterCount, value);
+			CVector_UfillN_CC60(this, (uintptr_t *)this->end, count - afterCount, value);
 
 			// Fill existing range with value
 			vector_Fill(pos, this->end, value);
 
-			this->end = (void *)((uint32_t *)this->end + count);
+			this->end = (void *)((uintptr_t *)this->end + count);
 		} else if (count > 0) {
 			// Copy backward to make room
-			CVector_Ucopy_CC20(this, (uint32_t *)this->end - count, (uint32_t *)this->end, (uint32_t *)this->end);
+			CVector_Ucopy_CC20(this, (uintptr_t *)this->end - count, (uintptr_t *)this->end, (uintptr_t *)this->end);
 
-			vector_CopyBackward(pos, (uint32_t *)this->end - count, (uint32_t *)this->end);
+			vector_CopyBackward(pos, (uintptr_t *)this->end - count, (uintptr_t *)this->end);
 
 			vector_Fill(pos, pos + count, value);
 
-			this->end = (void *)((uint32_t *)this->end + count);
+			this->end = (void *)((uintptr_t *)this->end + count);
 		}
 	}
 }
@@ -4985,8 +5059,8 @@ CVector_Insert_CA00(CVector *this, uint32_t *pos, uint32_t count, uint32_t *valu
  * Copies 4-byte elements from [first, last) to dest via construct callback
  * (0x00424FC0) per element. Returns pointer past last written element.
  */
-static uint32_t *
-CVector_Ucopy_CC20(CVector *this, uint32_t *first, uint32_t *last, uint32_t *dest)
+static uintptr_t *
+CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *dest)
 {
 	USED(this);
 	while (first != last) {
@@ -5004,7 +5078,7 @@ CVector_Ucopy_CC20(CVector *this, uint32_t *first, uint32_t *last, uint32_t *des
  * per element with the value pointed to by src.
  */
 static void
-CVector_UfillN_CC60(CVector *this, uint32_t *dest, uint32_t count, uint32_t *src)
+CVector_UfillN_CC60(CVector *this, uintptr_t *dest, uint32_t count, uintptr_t *src)
 {
 	USED(this);
 	while (count > 0) {
@@ -5284,7 +5358,7 @@ CVector_PushBack6(CVector *this, void *element)
 }
 
 /*
- * 0x00479180 - CVector::CopyConstruct (4-byte elements)
+ * 0x00479180 - CVector::CopyConstruct (pointer elements)
  *
  * Copies the type byte, allocates a buffer sized to src's count, copies
  * the elements in, and sets end = capacity.
@@ -5294,7 +5368,7 @@ CVector_CopyConstruct4(CVector *this, CVector *src)
 {
 	this->type = src->type;
 	this->begin = CVector_Allocate4(this, CVector_GetCount(src));
-	this->end = Uninit_Copy4_Fwd2(this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
+	this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 	this->capacity = this->end;
 	return this;
 }
@@ -5318,22 +5392,22 @@ CVector_AssignOp4(CVector *this, CVector *src)
 	dstCount = CVector_GetCount(this);
 
 	if (srcCount <= dstCount) {
-		memcpy(this->begin, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), srcCount * 4);
-		mid = (char *)this->begin + srcCount * 4;
+		vector_Copy((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
+		mid = (char *)this->begin + srcCount * sizeof(uintptr_t);
 		CVector_Destroy4_Range(this, mid, this->end);
-		this->end = (char *)this->begin + srcCount * 4;
+		this->end = (char *)this->begin + srcCount * sizeof(uintptr_t);
 	} else {
 		dstCap = CVector_GetCapacity(this);
 		if (srcCount <= dstCap) {
-			void *splitPt = (char *)CSearchCtx_GetBucket((CSearchCtx *)src) + dstCount * 4;
-			memcpy(this->begin, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), dstCount * 4);
-			Uninit_Copy4_Fwd2(this, splitPt, src->end, this->end);
-			this->end = (char *)this->begin + srcCount * 4;
+			void *splitPt = (char *)CSearchCtx_GetBucket((CSearchCtx *)src) + dstCount * sizeof(uintptr_t);
+			vector_Copy((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), splitPt, this->begin);
+			StdTree_Ucopy_19D0((StdAllocator *)this, splitPt, src->end, this->end);
+			this->end = (char *)this->begin + srcCount * sizeof(uintptr_t);
 		} else {
 			CVector_Destroy4_Range(this, this->begin, this->end);
-			CVector_ClearFreeRaw(this->begin, ((char *)this->capacity - (char *)this->begin) >> 2);
+			CVector_ClearFreeRaw(this->begin, (uint32_t)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(uintptr_t)));
 			this->begin = CVector_Allocate4(this, srcCount);
-			this->end = Uninit_Copy4_Fwd2(this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
+			this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 			this->capacity = this->end;
 		}
 	}
@@ -5351,7 +5425,7 @@ CVector_GetCapacity(CVector *list)
 {
 	if (list->begin == NULL)
 		return 0;
-	return ((uint32_t *)list->capacity - (uint32_t *)list->begin);
+	return ((uintptr_t *)list->capacity - (uintptr_t *)list->begin);
 }
 
 /*
@@ -5751,10 +5825,10 @@ SortMultiDist_Partition(void *first, void *last, uintptr_t pivot, CLocation cmpL
  * and BroadcastToRangeWithLOS.
  */
 void
-Vector_SortByDist(void *begin, void *end, CLocation *refLoc)
+Vector_SortByDist(void *begin, void *end, CLocation refLoc)
 {
 	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Main((uintptr_t *)begin, (uintptr_t *)end, refLoc, depth);
+	SortByDist_Main((uintptr_t *)begin, (uintptr_t *)end, &refLoc, depth);
 }
 
 /*
@@ -5973,7 +6047,7 @@ SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocatio
  * Copies the allocator byte from init, allocates a sentinel via Buynode,
  * and initializes an empty 16-byte element std::list.
  */
-static __attribute__((unused)) void *
+void *
 StdPtrList16_Constructor(StdPtrList *this, const void *init)
 {
 	*(uint8_t *)this = *(const uint8_t *)init;
@@ -6006,7 +6080,7 @@ StdPtrList_Destructor_NPC(StdPtrList *list)
  *
  * Gets the End() iterator and inserts value before it.
  */
-static __attribute__((unused)) void
+void
 StdPtrList16_InsertEnd(StdPtrList *list, void *value)
 {
 	StdPtrNode *endNode;
@@ -6089,33 +6163,28 @@ StdPtrList16_VecDtor(StdPtrList *this, int flags)
 /*
  * 0x00484820 - std::list<16-byte>::_Insert
  *
- * Allocates a new node, links it before pos, copy-constructs the 16-byte
- * value into it, bumps the count, and stores the iterator into *result.
- *
- * MODIFIED: the value is memcpy'd into the node where the binary
- * copy-constructs it.
+ * Buys a node linked between pos and its predecessor, splices it in,
+ * copy-constructs the 16-byte value into it, bumps the count, and stores
+ * the iterator into *result.
  */
 static void
 StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value)
 {
+	StdPtrNode *node;
 	StdPtrNode *newNode;
-	StdPtrNode *nextVal, *prevVal;
 
-	newNode = (StdPtrNode *)StdPtrList_Charalloc(list, 2 * sizeof(void *) + sizeof(CSdbStr));
-	nextVal = (pos != NULL) ? pos : newNode;
-	newNode->next = nextVal;
-	prevVal = (pos->prev != NULL) ? pos->prev : newNode;
-	newNode->prev = prevVal;
+	// The binary takes the iterator by value and dereferences it here;
+	// pos is already the node that iterator points at.
+	node = pos;
+	newNode = StdFileList_Buynode(list, node, *StdPtrNode_GetPrev(node));
+	*StdPtrNode_GetPrev(node) = newNode;
+	node = *StdPtrNode_GetPrev(node);
+	StdPtrNode_GetNext(*StdPtrNode_GetPrev(node))->next = node;
 
-	pos->prev = newNode;
-
-	newNode = pos->prev;
-	newNode->prev->next = newNode;
-
-	memcpy(&newNode->value, value, sizeof(CSdbStr));
+	CopyFrom16((CVector *)list, StdPtrNode_GetValue(node), value);
 
 	list->size++;
-	*result = newNode;
+	CIterCtx_Set(result, node);
 }
 
 /*

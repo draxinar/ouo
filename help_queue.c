@@ -78,7 +78,6 @@ static void CHelpEntry_Destructor(CHelpEntry *self); // 0x0044F920
 static int CAssistance_GetSerializedSizeB(CSkillUseCtx *this); // 0x0045FBA0
 static void CAssistance_QueueDestructorWrapper(CAssistance *this); // 0x00469530
 static int CAssistanceQueue_GetSerializedSize(CAssistance *this); // 0x0049DD90
-static void CHelpQueue_RemoveNode(CHelpQueue *q, CHelpRequestNode *target);
 static void GM_ParseSetArgs(const char *arg, int *type, int *skillId, int *value, int *hasValue, char *strArg, size_t strArgSize);
 static void GM_ApplySet(CItem *target, int type, int skillId, int value, int hasValue, const char *strArg, char *outMsg, int outMsgSize);
 static void GM_TargetSet(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z);
@@ -867,11 +866,11 @@ CHelpQueue g_HelpQueue;
  *
  * Empties the help list and zeros the counselor count.
  */
-static __attribute__((unused)) CHelpQueue *
+static CHelpQueue *
 CHelpQueue_ClearInit(CHelpQueue *this)
 {
 	void *dummy;
-	StdHelpList_Init((StdPtrList *)this, &dummy);
+	StdHelpList_Init(&this->list, &dummy);
 	this->counselorCount = 0;
 	return this;
 }
@@ -1011,21 +1010,23 @@ CHelpQueue_MakeCounselorGhost(CHelpQueue *this, CPlayer *player, int counType)
  * 0x0044E1FE - CHelpQueue::FindBySerial
  *
  * Returns the queue entry with the given serial, or NULL if none.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
-CHelpRequestNode *
-CHelpQueue_FindBySerial(CHelpQueue *q, uint32_t serial)
+StdPtrNode **
+CHelpQueue_FindBySerial(CHelpQueue *q, StdPtrNode **result, uint32_t serial)
 {
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
 
-	for (node = q->head; node != NULL; node = node->next) {
-		if (node->serial == serial)
-			return node;
+	StdPtrIter_BaseConstructor(&iter);
+	iter = *StdPtrList_Begin(&q->list, &beginTemp);
+	for (;;) {
+		if (!(StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF))
+			break;
+		if (((CHelpEntry *)StdPtrIter_Deref(&iter))->serial == serial)
+			break;
+		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
-	return NULL;
+	*result = iter;
+	return result;
 }
 
 /*
@@ -1035,11 +1036,13 @@ CHelpQueue_FindBySerial(CHelpQueue *q, uint32_t serial)
  * for the same serial is already queued.
  */
 int
-CHelpQueue_Add(CHelpQueue *q, uint32_t serial, const char *name, uint8_t level, const char *message)
+CHelpQueue_Add(CHelpQueue *q, uint32_t serial, CString *name, uint8_t level, CString *message)
 {
-	if (CHelpQueue_FindBySerial(q, serial) != NULL)
+	StdPtrNode *findResult, *endTemp;
+
+	if (StdPtrIter_Neq(CHelpQueue_FindBySerial(q, &findResult, serial), StdPtrList_End(&q->list, &endTemp)) & 0xFF)
 		return 0;
-	CHelpQueue_AddEntry(q, serial, 'n', (char)level, name, message);
+	CHelpQueue_AddEntry(q, serial, 'n', name, (char)level, message);
 	return 1;
 }
 
@@ -1048,34 +1051,19 @@ CHelpQueue_Add(CHelpQueue *q, uint32_t serial, const char *name, uint8_t level, 
  *
  * Appends a CHelpRequestEntry with the given fields. Returns 0 if
  * a request for the same serial is already queued.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
-CHelpQueue_AddEntry(CHelpQueue *q, uint32_t serial, char level, char origLevel, const char *name, const char *message)
+CHelpQueue_AddEntry(CHelpQueue *q, uint32_t serial, char level, CString *name, char origLevel, CString *message)
 {
-	CHelpRequestNode *node;
-	CHelpRequestNode **tail;
+	StdPtrNode *findResult, *endTemp;
+	CHelpEntry entry;
 
-	if (CHelpQueue_FindBySerial(q, serial) != NULL)
+	if (StdPtrIter_Neq(CHelpQueue_FindBySerial(q, &findResult, serial), StdPtrList_End(&q->list, &endTemp)) & 0xFF)
 		return 0;
 
-	node = (CHelpRequestNode *)malloc(sizeof(CHelpRequestNode));
-	if (node == NULL)
-		return 0;
-	node->serial = serial;
-	node->level = level;
-	node->origLevel = origLevel;
-	CString_Constructor(&node->callerName, name);
-	CString_Constructor(&node->message, message);
-	node->next = NULL;
-
-	for (tail = &q->head; *tail != NULL; tail = &(*tail)->next)
-		;
-	*tail = node;
-	q->count++;
+	CHelpEntry_Constructor(&entry, serial, (uint8_t)level, (uint8_t)origLevel, name, message);
+	StdHelpList_PushBack(&q->list, &entry);
+	CHelpEntry_Destructor(&entry);
 	return 1;
 }
 
@@ -1085,7 +1073,7 @@ CHelpQueue_AddEntry(CHelpQueue *q, uint32_t serial, char level, char origLevel, 
  * No-op in the binary.
  */
 void
-CHelpQueue_AddWithLevel(CHelpQueue *q, uint32_t serial, const char *name, uint8_t level, const char *message)
+CHelpQueue_AddWithLevel(CHelpQueue *q, uint32_t serial, CString *name, uint8_t level, CString *message)
 {
 	USED(q);
 	USED(serial);
@@ -1098,18 +1086,13 @@ CHelpQueue_AddWithLevel(CHelpQueue *q, uint32_t serial, const char *name, uint8_
  * 0x0044E389 - CHelpQueue::UpdateLevel
  *
  * Delegates to SetLevel when the queued serial is found.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_UpdateLevel(CHelpQueue *q, uint32_t serial, char level)
 {
-	CHelpRequestNode *node;
+	StdPtrNode *findResult, *endTemp;
 
-	node = CHelpQueue_FindBySerial(q, serial);
-	if (node == NULL)
+	if (StdPtrIter_Eq(CHelpQueue_FindBySerial(q, &findResult, serial), StdPtrList_End(&q->list, &endTemp)) & 0xFF)
 		return 0;
 	return CHelpQueue_SetLevel(q, serial, level);
 }
@@ -1119,23 +1102,19 @@ CHelpQueue_UpdateLevel(CHelpQueue *q, uint32_t serial, char level)
  *
  * Updates the level byte for an entry, or removes the entry when
  * level == 'd'. Returns 0 if no match.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_SetLevel(CHelpQueue *q, uint32_t serial, char level)
 {
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *endTemp, *eraseTemp;
 
-	node = CHelpQueue_FindBySerial(q, serial);
-	if (node == NULL)
+	CHelpQueue_FindBySerial(q, &iter, serial);
+	if (StdPtrIter_Eq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF)
 		return 0;
 	if (level == 'd') {
-		CHelpQueue_RemoveNode(q, node);
+		StdHelpList_Erase(&q->list, &eraseTemp, iter);
 	} else {
-		node->level = level;
+		((CHelpEntry *)StdPtrIter_Deref(&iter))->type = (uint8_t)level;
 	}
 	return 1;
 }
@@ -1169,21 +1148,23 @@ CHelpQueue_GotoEntity(CHelpQueue *q, uint32_t gmSerial, uint32_t victimSerial)
  * 0x0044E4A2 - CHelpQueue::FindNextPending
  *
  * Returns the first entry with level == 'n' (new/pending), or NULL.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
-CHelpRequestNode *
-CHelpQueue_FindNextPending(CHelpQueue *q)
+StdPtrNode **
+CHelpQueue_FindNextPending(CHelpQueue *q, StdPtrNode **result)
 {
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
 
-	for (node = q->head; node != NULL; node = node->next) {
-		if (node->level == 'n')
-			return node;
+	StdPtrIter_BaseConstructor(&iter);
+	iter = *StdPtrList_Begin(&q->list, &beginTemp);
+	for (;;) {
+		if (!(StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF))
+			break;
+		if (((CHelpEntry *)StdPtrIter_Deref(&iter))->type == 'n')
+			break;
+		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
-	return NULL;
+	*result = iter;
+	return result;
 }
 
 /*
@@ -1237,7 +1218,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			CString_AppendCStr(&callerStr, cmd + 7);
 			pname = ((const char *(*)(void *))VT_FN((CItem *)player, VT_GET_NAME))(player);
 			CString_Constructor(&nameStr, pname);
-			CHelpQueue_AddWithLevel(q, CMobile_GetSerial(&player->mobile), CString_GetBuffer(&nameStr), 0, CString_GetBuffer(&callerStr));
+			CHelpQueue_AddWithLevel(q, CMobile_GetSerial(&player->mobile), &nameStr, 0, &callerStr);
 			CString_Destructor(&nameStr);
 			CPlayer_SystemMessage(player, "GM help request entered.");
 			CString_Destructor(&callerStr);
@@ -3151,36 +3132,36 @@ CHelpQueue_OnLogout(CHelpQueue *q, CPlayer *player)
  *
  * Sends queue contents to the GM. maxEntries bounds output (4 for
  * .q, -1 to show all for .aq).
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_ShowQueue(CHelpQueue *q, CPlayer *player, int maxEntries)
 {
 	CString line;
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
+	CHelpEntry *entry;
 	int i;
 
 	CString_DefaultConstructor(&line);
-	CString_ConcatUInt(&line, (unsigned int)q->count);
+	CString_ConcatUInt(&line, q->list.size);
 	CString_AppendCStr(&line, " help request(s) in queue");
 	CPlayer_SystemMessage(player, CString_GetBuffer(&line));
 
 	i = 0;
-	for (node = q->head; node != NULL; node = node->next) {
+	StdPtrIter_BaseConstructor(&iter);
+	iter = *StdPtrList_Begin(&q->list, &beginTemp);
+	for (; StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF; StdPtrIter_PostInc(&iter, &postIncTemp, 0)) {
 		if (maxEntries != -1 && i >= maxEntries)
 			break;
 
+		entry = (CHelpEntry *)StdPtrIter_Deref(&iter);
 		CString_AssignCStr(&line, "");
-		CString_ConcatUInt(&line, node->serial);
+		CString_ConcatUInt(&line, entry->serial);
 		CString_AppendCStr(&line, " ");
-		CString_ConcatChar(&line, node->level);
+		CString_ConcatChar(&line, (char)entry->type);
 		CString_AppendCStr(&line, " \"");
-		CString_ConcatCString(&line, &node->callerName);
+		CString_ConcatCString(&line, &entry->name);
 		CString_AppendCStr(&line, "\" ");
-		CString_ConcatCString(&line, &node->message);
+		CString_ConcatCString(&line, &entry->message);
 		CPlayer_SystemMessage(player, CString_GetBuffer(&line));
 
 		i++;
@@ -3195,16 +3176,12 @@ CHelpQueue_ShowQueue(CHelpQueue *q, CPlayer *player, int maxEntries)
  *
  * Teleports the GM to their current victim from the counVictim tag.
  * Returns 0 when no victim is set or the queued entry is stale.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_GotoCur(CHelpQueue *q, CPlayer *player)
 {
 	uint32_t victimSerial;
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *endTemp;
 
 	victimSerial = 0;
 	if (!GetCountVictimTag((CItem *)player, &victimSerial)) {
@@ -3212,11 +3189,11 @@ CHelpQueue_GotoCur(CHelpQueue *q, CPlayer *player)
 		return 0;
 	}
 
-	node = CHelpQueue_FindBySerial(q, victimSerial);
-	if (node != NULL) {
+	CHelpQueue_FindBySerial(q, &iter, victimSerial);
+	if (StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF) {
 		CPlayer_SystemMessage(player, "Going to current player");
 		CHelpQueue_Who(q, player);
-		CHelpQueue_GotoEntity(q, CMobile_GetSerial(&player->mobile), node->serial);
+		CHelpQueue_GotoEntity(q, CMobile_GetSerial(&player->mobile), ((CHelpEntry *)StdPtrIter_Deref(&iter))->serial);
 	} else {
 		CPlayer_SystemMessage(player, "Current help request invalid");
 		return 0;
@@ -3229,16 +3206,13 @@ CHelpQueue_GotoCur(CHelpQueue *q, CPlayer *player)
  *
  * Closes the GM's current request as 'd' (done) and assigns the
  * next 'n' (new) entry as 'h' (handling), then teleports the GM.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_Next(CHelpQueue *q, CPlayer *player)
 {
 	uint32_t victimSerial;
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *endTemp;
+	CHelpEntry *entry;
 
 	victimSerial = 0;
 	if (GetCountVictimTag((CItem *)player, &victimSerial)) {
@@ -3247,20 +3221,21 @@ CHelpQueue_Next(CHelpQueue *q, CPlayer *player)
 		CPlayer_SystemMessage(player, "Removed previous player from queue");
 	}
 
-	node = CHelpQueue_FindNextPending(q);
-	if (node == NULL) {
+	CHelpQueue_FindNextPending(q, &iter);
+	if (!(StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF)) {
 		CPlayer_SystemMessage(player, "There are no pending queue entries");
 		return 0;
 	}
 
-	node->level = 'h';
-	CHelpQueue_UpdateLevel(q, node->serial, 'h');
+	entry = (CHelpEntry *)StdPtrIter_Deref(&iter);
+	entry->type = 'h';
+	CHelpQueue_UpdateLevel(q, entry->serial, 'h');
 
-	SetCountVictim((CItem *)player, node->serial);
+	SetCountVictim((CItem *)player, entry->serial);
 	CPlayer_SystemMessage(player, "Going to next player");
 	CHelpQueue_Who(q, player);
 
-	CHelpQueue_GotoEntity(q, CMobile_GetSerial(&player->mobile), node->serial);
+	CHelpQueue_GotoEntity(q, CMobile_GetSerial(&player->mobile), entry->serial);
 	return 1;
 }
 
@@ -3270,32 +3245,30 @@ CHelpQueue_Next(CHelpQueue *q, CPlayer *player)
  * Forwards a queued request to a named GM, prepending "Transfered: "
  * to the message. AddWithLevel is a no-op in the binary, so this
  * effectively just formats the banner.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_TransferEntry(CHelpQueue *q, CPlayer *player, CString *gmName, uint32_t victimSerial)
 {
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *endTemp;
+	CHelpEntry *entry;
 	CString transferMsg;
 
 	USED(player);
 
-	node = CHelpQueue_FindBySerial(q, victimSerial);
-	if (node == NULL)
+	CHelpQueue_FindBySerial(q, &iter, victimSerial);
+	if (!(StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF))
 		return 0;
 
+	entry = (CHelpEntry *)StdPtrIter_Deref(&iter);
 	if (CString_IsEmpty(gmName)) {
 		CString_Constructor(&transferMsg, "Transfered: ");
-		CString_ConcatCString(&transferMsg, &node->message);
-		CHelpQueue_AddWithLevel(q, node->serial, CString_GetBuffer(&node->callerName), node->origLevel, CString_GetBuffer(&transferMsg));
+		CString_ConcatCString(&transferMsg, &entry->message);
+		CHelpQueue_AddWithLevel(q, entry->serial, &entry->name, entry->priority, &transferMsg);
 		CString_Destructor(&transferMsg);
 	} else {
 		CString_Constructor(&transferMsg, "Transfered: ");
 		CString_ConcatCString(&transferMsg, gmName);
-		CHelpQueue_AddWithLevel(q, node->serial, CString_GetBuffer(&node->callerName), node->origLevel, CString_GetBuffer(&transferMsg));
+		CHelpQueue_AddWithLevel(q, entry->serial, &entry->name, entry->priority, &transferMsg);
 		CString_Destructor(&transferMsg);
 	}
 	return 1;
@@ -3335,16 +3308,12 @@ CHelpQueue_GmTransfer(CHelpQueue *q, CPlayer *player, const char *gmName)
  *
  * .goto <number>: relinquishes any current victim, then teleports
  * to the queue entry at the given index.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_GotoBySerial(CHelpQueue *q, CPlayer *player, int queueIndex)
 {
 	uint32_t victimSerial;
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
 	int i;
 
 	victimSerial = 0;
@@ -3355,18 +3324,20 @@ CHelpQueue_GotoBySerial(CHelpQueue *q, CPlayer *player, int queueIndex)
 	}
 
 	i = 0;
-	for (node = q->head; node != NULL; node = node->next) {
+	StdPtrIter_BaseConstructor(&iter);
+	iter = *StdPtrList_Begin(&q->list, &beginTemp);
+	for (; StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF; StdPtrIter_PostInc(&iter, &postIncTemp, 0)) {
 		if (i >= queueIndex)
 			break;
 		i++;
 	}
 
-	if (node == NULL) {
+	if (!(StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF)) {
 		CPlayer_SystemMessage(player, "That queue entry does not exist");
 		return 0;
 	}
 
-	CHelpQueue_GotoEntity(q, CMobile_GetSerial(&player->mobile), node->serial);
+	CHelpQueue_GotoEntity(q, CMobile_GetSerial(&player->mobile), ((CHelpEntry *)StdPtrIter_Deref(&iter))->serial);
 	return 1;
 }
 
@@ -3470,16 +3441,13 @@ CHelpQueue_Clear(CHelpQueue *q, CPlayer *player)
  *
  * .who command: shows the current victim's queue entry, or clears
  * the stale victim tag if the entry is gone.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 int
 CHelpQueue_Who(CHelpQueue *q, CPlayer *player)
 {
 	uint32_t victimSerial;
-	CHelpRequestNode *node;
+	StdPtrNode *iter, *endTemp;
+	CHelpEntry *entry;
 	CString line;
 
 	victimSerial = 0;
@@ -3488,17 +3456,18 @@ CHelpQueue_Who(CHelpQueue *q, CPlayer *player)
 		return 0;
 	}
 
-	node = CHelpQueue_FindBySerial(q, victimSerial);
-	if (node != NULL) {
+	CHelpQueue_FindBySerial(q, &iter, victimSerial);
+	if (StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF) {
+		entry = (CHelpEntry *)StdPtrIter_Deref(&iter);
 		CString_DefaultConstructor(&line);
 		CString_AssignCStr(&line, "Current: ");
-		CString_ConcatUInt(&line, node->serial);
+		CString_ConcatUInt(&line, entry->serial);
 		CString_AppendCStr(&line, " ");
-		CString_ConcatChar(&line, node->level);
+		CString_ConcatChar(&line, (char)entry->type);
 		CString_AppendCStr(&line, " \"");
-		CString_ConcatCString(&line, &node->callerName);
+		CString_ConcatCString(&line, &entry->name);
 		CString_AppendCStr(&line, "\" ");
-		CString_ConcatCString(&line, &node->message);
+		CString_ConcatCString(&line, &entry->message);
 		CPlayer_SystemMessage(player, CString_GetBuffer(&line));
 		CString_Destructor(&line);
 		return 1;
@@ -3524,7 +3493,7 @@ CHelpQueue_AddNewPlayer(CHelpQueue *this, CItem *player)
 	CString_Constructor(&message, "(New player)");
 	CString_Constructor(&name, ((char *(*)(void *))VT_FN(player, VT_GET_NAME))(player));
 
-	result = CHelpQueue_Add(this, CMobile_GetSerial((CMobile *)player), CString_GetBuffer(&name), 0, CString_GetBuffer(&message));
+	result = CHelpQueue_Add(this, CMobile_GetSerial((CMobile *)player), &name, 0, &message);
 
 	CString_Destructor(&name);
 	CString_Destructor(&message);
@@ -3561,10 +3530,6 @@ CHelpQueue_DecrCounselors(CHelpQueue *this, CPlayer *player)
  *
  * std::list constructor template for CHelpEntry. Installs a
  * self-referencing sentinel node and zeros the count.
- *
- * MODIFIED: the queue is a singly-linked CHelpRequestNode chain where the
- * binary holds a std::list<CHelpEntry>, so this walks the chain instead of
- * driving begin/end iterators.
  */
 static void *
 StdHelpList_Init(StdPtrList *list, void *src)
@@ -3580,7 +3545,7 @@ StdHelpList_Init(StdPtrList *list, void *src)
  *
  * std::list::push_back template for CHelpEntry.
  */
-static __attribute__((unused)) void
+static void
 StdHelpList_PushBack(StdPtrList *list, void *value)
 {
 	StdPtrNode *endIter;
@@ -3757,7 +3722,7 @@ CHelpEntry_CopyConstructor(CHelpEntry *self, CHelpEntry *src)
  *
  * Constructs a CHelpEntry from explicit fields.
  */
-static __attribute__((unused)) CHelpEntry *
+static CHelpEntry *
 CHelpEntry_Constructor(CHelpEntry *self, uint32_t serial, uint8_t type, uint8_t priority, CString *name, CString *message)
 {
 	self->serial = serial;
@@ -4104,6 +4069,18 @@ CAssistance_LoadRecordC(CAssistanceNode *this, uint8_t *buf, int unused)
 
 	USED(offset);
 	return n->typeFlag;
+}
+
+/*
+ * 0x00467C9C - Static init for g_HelpQueue
+ *
+ * Runs from the MSVC xc-table before WinMain, constructing the help
+ * queue's std::list sentinel and zeroing the counselor tally.
+ */
+void
+StaticInit_HelpQueue(void)
+{
+	CHelpQueue_ClearInit(&g_HelpQueue);
 }
 
 /*
@@ -5582,29 +5559,6 @@ GM_CreateRuneBag(CPlayer *player, CItem *container)
 	snprintf(msg, sizeof(msg), "Created rune bag (%d runes)", count);
 	CPlayer_SystemMessage(player, msg);
 }
-/*
- * Helper - CHelpQueue_RemoveNode
- *
- * Removes and frees the given node; decrements count. Stands in for
- * std::list::erase (binary 0x0044F530).
- */
-static void
-CHelpQueue_RemoveNode(CHelpQueue *q, CHelpRequestNode *target)
-{
-	CHelpRequestNode **pp;
-
-	for (pp = &q->head; *pp != NULL; pp = &(*pp)->next) {
-		if (*pp == target) {
-			*pp = target->next;
-			CString_Destructor(&target->callerName);
-			CString_Destructor(&target->message);
-			free(target);
-			q->count--;
-			return;
-		}
-	}
-}
-
 /*
  * Custom - TC_CommandDispatch
  *

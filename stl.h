@@ -23,20 +23,36 @@ struct CLocaleFacet {
 };
 
 /*
- * MSVC std::ios_base subset used by the decompiled stream code (44 bytes).
+ * MSVC std::basic_ios<char> (52 bytes), including its std::ios_base base.
  * state carries the goodbit/badbit/failbit/eofbit mask.
  */
 __extension__ typedef struct CIosBase CIosBase;
 struct CIosBase {
 	void **vtable;          // +0x00
 	uint32_t state;         // +0x04
-	uint32_t iosFields[6];  // +0x08 (except, fmtfl, prec, wide, ...)
+	uint32_t except;        // +0x08
+	uint32_t flags;         // +0x0C (fmtflags)
+	uint32_t precision;     // +0x10
+	uint32_t width;         // +0x14
+	uint32_t iosFields[2];  // +0x18
 #if __SIZEOF_POINTER__ == 8
 	uint32_t _pad64;        // 64-bit alignment pad
 #endif
 	CLocaleFacet locale;    // +0x20
-	void *streambuf;        // +0x28
+	void *streambuf;        // +0x28 (_Strbuf)
+	void *tiestream;        // +0x2C (_Tiestr)
+	char fill;              // +0x30 (_Fillch)
 };
+
+// A std::ostream manipulator: takes and returns the stream.
+typedef void *(*OStreamManip)(void *);
+
+// std::ios_base::fmtflags bits used by the stream inserters.
+#define IOS_ADJUSTFIELD 0x1C0
+#define IOS_LEFT        0x040
+
+// std::ios_base::iostate bits.
+#define IOS_BADBIT 0x4
 
 // CBasicFstream vbtable slot indices (vbtable at 0x005EE040).
 #define FSTREAM_VBT_SELF  0  // +0x00: offset to self
@@ -46,8 +62,8 @@ struct CIosBase {
 #define LOCALE_VT_SCALAR_DTOR 0  // +0x00: scalar deleting destructor
 
 /*
- * MSVC std::basic_fstream<char> (132 bytes). Combines a filebuf
- * sub-object with the virtual ios_base sub-object.
+ * MSVC std::basic_fstream<char> (140 bytes). Combines a filebuf
+ * sub-object with the virtual basic_ios sub-object.
  */
 __extension__ typedef struct CBasicFstream CBasicFstream;
 struct CBasicFstream {
@@ -222,12 +238,12 @@ void CVector16_Insert(CVector *this, void *pos, uint32_t count, void *val); // 0
 uintptr_t StdKfn_Identity(uintptr_t unused, uintptr_t key); // 0x00403DA0
 void *Construct_Range16(CVector *this, void *dest, void *end, void *src); // 0x00404210
 void *CVector_Allocate16(CVector *this, uint32_t count); // 0x00404290
-int StdTree_GetSize(StdMapTree *tree); // 0x00404610
+uint32_t CIosBase_Width(CIosBase *this); // 0x00404610
 void *Construct_RangeCopy16(void *first, void *last, void *dest); // 0x004046E0
 uint8_t StdGetByte(uint32_t val); // 0x00404720
 void Destroy_RangeFwd16(void *first, void *last, void *value); // 0x00404730
 void *Destroy_RangeBwd16(void *first, void *last, void *dest); // 0x00404760
-char StdTree_GetMulti(StdMapTree *tree); // 0x00404CA0
+char CBasicIos_Fill(CIosBase *this); // 0x00404CA0
 StdPtrNode **StdPtrIter_Constructor(StdPtrNode **iter); // 0x004066F0
 void vector_Fill(void *first, void *last, void *value); // 0x00406A00
 void StdPtrList_Destructor(StdPtrList *this); // 0x00420D30
@@ -258,6 +274,7 @@ void StdPtrList_PushBack(StdPtrList *list, void *value); // 0x00426CD0
 void StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00426D00
 int StdPtrIter_Eq(StdPtrNode **a, StdPtrNode **b); // 0x00426E00
 void CVector_PushBack(CVector *list, uintptr_t value); // 0x0042FF00
+void CVector_PushBack_C960(CVector *this, uintptr_t *value); // 0x0046C960
 uint32_t CVector_GetCount(CVector *list); // 0x004301A0
 StdPtrNode **StdPtrIter_PostInc(StdPtrNode **iter, StdPtrNode **outIter, int dummy); // 0x0044D770
 StdPtrNode **StdPtrNode_GetPrev(StdPtrNode *node); // 0x0044F710
@@ -285,7 +302,10 @@ void *CMapNode_ScalarDtor(CFragment *this, int flags); // 0x0044D710
 void *CMapIterator_ScalarDtor(CDefine *this, int flags); // 0x0044D740
 void vector_SwapWrapper(uintptr_t *a, uintptr_t *b); // 0x00463990
 void StdPtrList_Destructor_HelpQueue(StdPtrList *this); // 0x00469550
+void CVector_DestructorSI(CVector *this); // 0x0046BA10
+void CVector_PushBackSI(CVector *this, SurfaceInfo *value); // 0x0046BA80
 void CVector_DestroyRangeSI(CVector *this, SurfaceInfo *first, SurfaceInfo *last); // 0x0046BB50
+void SortSurface_Entry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag); // 0x0046BEA0
 void SortSurface_UnguardedInsert(SurfaceInfo *pos, SurfaceInfo *value, char typeTag); // 0x0046C3D0
 int SortSurface_Compare(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C430
 int CVector_IsEmpty(CVector *vec); // 0x00472FD0
@@ -311,13 +331,16 @@ void *Vector_Find(void *begin, void *end, uintptr_t *value); // 0x0047ACC0
 int StdAllocator_Equal(void); // 0x0047B150
 void SortInt_Dispatch(void *first, void *last, uint8_t cmpVal, int unused); // 0x0047BEA0
 void SortDist_Dispatch(void *first, void *last, CLocation cmpLoc); // 0x0047BF30
-void Vector_SortByDist(void *begin, void *end, CLocation *refLoc); // 0x0047F2B0
+void Vector_SortByDist(void *begin, void *end, CLocation refLoc); // 0x0047F2B0
 void *PacketGetDynamicSize(uint8_t *buf); // 0x0047F350
 int PacketIsEDEDEDED(uint8_t *buf); // 0x0047F3A0
+void *StdPtrList16_Constructor(StdPtrList *this, const void *init); // 0x004845E0
 void StdPtrList_Destructor_NPC(StdPtrList *list); // 0x00484620
+void StdPtrList16_InsertEnd(StdPtrList *list, void *value); // 0x00484680
 void StdPtrList_Erase16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x004846B0
 int StdPtrIter_Neq(StdPtrNode **a, StdPtrNode **b); // 0x00484770
 void *StdPtrList16_VecDtor(StdPtrList *this, int flags); // 0x004847A0
+void CopyFrom16(CVector *this, void *dst, void *src); // 0x00479890
 StdPtrNode *StdFileList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint); // 0x00484920
 StdPtrNode *StdPtrList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint); // 0x00484B90
 StdPtrNode **StdPtrList_FindString(StdPtrNode **result, StdPtrNode **begin, StdPtrNode **end, CString *searchStr); // 0x00484C00

@@ -72,7 +72,6 @@ static void *CMultiComponent_ScalarDtor(CMultiComponent *mc, int flags); // 0x00
 static void *CDeque16_Insert1(CVector *this, void *pos, void *element); // 0x00479400
 static void *CDeque1C_Insert1(CVector *this, void *pos, void *element); // 0x004794C0
 static void CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element); // 0x00479660
-static void CopyFrom16(CVector *this, void *src, void *dst); // 0x00479890
 static void CDeque1C_Insert(CVector *this, void *pos, uint32_t count, void *element); // 0x004798D0
 static void *CVector_Uninit_Copy1C_Fwd2(CVector *this, void *first, void *last, void *dest); // 0x00479B10
 static void CopyFrom1C(CVector *this, void *src, void *dst); // 0x00479B70
@@ -87,7 +86,7 @@ static void Uninit_FillN_6(CVector *this, void *ptr, uint32_t count, void *sourc
 static void CLocation_CopySingle(CVector *this, CLocation *dest, CLocation *source); // 0x0047A4D0
 static void HideItemsInVector_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy); // 0x0047ACF0
 static void VT_HIDE_Single(StdAllocator *this, CItem *item); // 0x0047AD20
-static void *RelocateItems_Raw(void *output, uintptr_t *first, uintptr_t *last, CLocation newLoc); // 0x0047AD40
+static void *RelocateItems_Raw(void *output, uintptr_t *first, uintptr_t *last, CLocationPair extents); // 0x0047AD40
 static void RelocateItem_Single(CLocationPair *this, CItem *item); // 0x0047AD80
 static void RestoreItems_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy); // 0x0047ADE0
 static void RestoreItem_Single(StdAllocator *this, CItem *item); // 0x0047AE10
@@ -104,7 +103,7 @@ static void *SetDirectionsFromVector(void *output, uintptr_t *first, uintptr_t *
 static void ComputeAndSetDirection(uintptr_t *this, CItem *entity); // 0x0047B0F0
 static void FillCopy16_Fwd(void *first, void *last, void *element); // 0x0047B200
 static void *CopyBackward16(void *first, void *last, void *dest); // 0x0047B230
-static void CopyFrom16_Inner(void *src, void *dst); // 0x0047B260
+static void CopyFrom16_Inner(void *dst, void *src); // 0x0047B260
 static void Destroy16_Inner(void *element); // 0x0047B2A0
 static void FillCopy1C_Fwd(void *first, void *last, void *element); // 0x0047B2B0
 static void *CopyBackward1C(void *first, void *last, void *dest); // 0x0047B2E0
@@ -125,7 +124,6 @@ static void InsertionSort_Dist(void *first, void *last, CLocation cmpLoc); // 0x
 static CMultiDef *CMultiManager_FindType(CResManager *rm, int typeId);
 static void HideItemsInVector(CVector *list);
 static void RestoreItemsInVector(CVector *list);
-static void RelocateItemsInVector(CVector *list, CLocation *oldLoc, CLocation *newLoc);
 static int CMultiSlave_MapSwitchMove_Wrap(CMultiSlave *slave, CLocation *loc);
 
 // 0x005EF190 - CMultiComponent vtable (4 function pointers)
@@ -179,24 +177,6 @@ CVector_Destroy4_Range(CVector *this, void *first, void *last)
 		CVector_Destroy6_Single(this, ptr);
 		ptr += 4;
 	}
-}
-
-/*
- * 0x00464E30 - CResList::RemoveKeyNode
- *
- * Unlinks a node from the multi component list, frees the extracted data
- * when non-NULL, and returns the next/prev node along the iteration.
- */
-CResListNode *
-CResList_RemoveKeyNode_Multi(CResList *list, CResListNode *node, int direction)
-{
-	void *data = NULL;
-	CResListNode *result;
-
-	result = CResList_Erase_MultiC(list, node, &data, direction);
-	if (data != NULL)
-		OperatorDelete(data);
-	return result;
 }
 
 /*
@@ -908,7 +888,15 @@ CMultiSlave_Move(CMultiSlave *slave, CLocation *loc)
 	((void (*)(void *, void *))VT_FN(ownerItem, VT_DROP_AT_FEET))(ownerItem, loc);
 
 	// 0x00474E1B-0x00474E4B: relocate carried items
-	RelocateItemsInVector(&itemList, &savedLoc, loc);
+	{
+		// The binary builds a 12-byte {oldLoc, newLoc} pair on the
+		// stack through CMultiDef::SetExtents and passes it by value.
+		CLocationPair extents;
+		void *relocOut;
+
+		CMultiDef_SetExtents((CMultiDef *)&extents, &savedLoc, loc);
+		RelocateItems_Raw(&relocOut, (uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, extents);
+	}
 
 	CVector_Destructor(&itemList);
 
@@ -993,7 +981,15 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 	((void (*)(void *, void *))VT_FN(ownerItem, VT_DROP_AT_FEET))(ownerItem, loc);
 
 	// Relocate carried items to new positions
-	RelocateItemsInVector(&itemList, &savedLoc, loc);
+	{
+		// The binary builds a 12-byte {oldLoc, newLoc} pair on the
+		// stack through CMultiDef::SetExtents and passes it by value.
+		CLocationPair extents;
+		void *relocOut;
+
+		CMultiDef_SetExtents((CMultiDef *)&extents, &savedLoc, loc);
+		RelocateItems_Raw(&relocOut, (uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, extents);
+	}
 
 	CVector_Destructor(&itemList);
 	return 1;
@@ -1712,7 +1708,14 @@ CMultiManager_DefineFromArea(CResManager *this, uint32_t typeId, int x1, int y1,
 	origin.y = (int16_t)(((int)(int16_t)collectMin.y + (int)(int16_t)collectMax.y) / 2);
 	origin.z = (int16_t)minZ;
 
-	CollectEntities_SortDist(entities.begin, entities.end, origin);
+	{
+		// The binary copies the origin into an 8-byte stack temporary
+		// through CMultiDef::SetMinExtent and passes that by value.
+		CLocation sortOrigin;
+
+		CMultiDef_SetMinExtent((CMultiDef *)&sortOrigin, &origin);
+		CollectEntities_SortDist(entities.begin, entities.end, sortOrigin);
+	}
 	item = (CItem *)*(uintptr_t *)entities.begin;
 	CLocation_SetLoc(&origin, &item->resourceEntity.entity.location);
 
@@ -3811,13 +3814,14 @@ CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element)
 /*
  * 0x00479890 - CopyFrom16
  *
- * Copies a single 16-byte element (CString) via CopyFrom16_Inner.
+ * Copies a single 16-byte element (CString) into dst via
+ * CopyFrom16_Inner. The allocator receiver is unused.
  */
-static void
-CopyFrom16(CVector *this, void *src, void *dst)
+void
+CopyFrom16(CVector *this, void *dst, void *src)
 {
 	USED(this);
-	CopyFrom16_Inner(src, dst);
+	CopyFrom16_Inner(dst, src);
 }
 
 /*
@@ -4018,16 +4022,17 @@ Uninit_FillN_1C(CVector *this, void *ptr, uint32_t count, void *source)
 }
 
 /*
- * 0x0047A2D0 - std::_Uninit_copy for 4-byte elements (forward)
+ * 0x0047A2D0 - std::_Uninit_copy for pointer elements (forward)
  *
- * Copies 4-byte elements from [first, last) to dest; returns end.
+ * Copies elements from [first, last) to dest; returns end. The binary's
+ * element is a 32-bit pointer, so the step is the pointer width.
  */
 static __attribute__((unused)) void *
 Uninit_Copy4_Fwd(CVector *this, void *first, void *last, void *dest)
 {
-	uint32_t *src = (uint32_t *)first;
-	uint32_t *end = (uint32_t *)last;
-	uint32_t *dst = (uint32_t *)dest;
+	uintptr_t *src = (uintptr_t *)first;
+	uintptr_t *end = (uintptr_t *)last;
+	uintptr_t *dst = (uintptr_t *)dest;
 	USED(this);
 	while (src != end) {
 		*dst = *src;
@@ -4058,14 +4063,14 @@ Uninit_FillN_4(CVector *this, void *ptr, uint32_t count, void *source)
 /*
  * 0x0047A370 - std::_Uninit_copy for 4-byte elements (forward, variant 2)
  *
- * Second instantiation of Uninit_Copy4_Fwd; same body.
+ * Second instantiation of Uninit_Copy4_Fwd; same body, same element width.
  */
 void *
 Uninit_Copy4_Fwd2(CVector *this, void *first, void *last, void *dest)
 {
-	uint32_t *src = (uint32_t *)first;
-	uint32_t *end = (uint32_t *)last;
-	uint32_t *dst = (uint32_t *)dest;
+	uintptr_t *src = (uintptr_t *)first;
+	uintptr_t *end = (uintptr_t *)last;
+	uintptr_t *dst = (uintptr_t *)dest;
 	USED(this);
 	while (src != end) {
 		*dst = *src;
@@ -4174,14 +4179,14 @@ VT_HIDE_Single(StdAllocator *this, CItem *item)
  *
  * Relocates every CItem in [first, last) relative to newLoc.
  */
-static __attribute__((unused)) void *
-RelocateItems_Raw(void *output, uintptr_t *first, uintptr_t *last, CLocation newLoc)
+static void *
+RelocateItems_Raw(void *output, uintptr_t *first, uintptr_t *last, CLocationPair extents)
 {
 	while (first != last) {
-		RelocateItem_Single((CLocationPair *)&newLoc, (CItem *)*first);
+		RelocateItem_Single(&extents, (CItem *)*first);
 		first++;
 	}
-	CLocationPair_CopyAssign((CLocationPair *)output, (CLocationPair *)&newLoc);
+	CLocationPair_CopyAssign((CLocationPair *)output, &extents);
 	return output;
 }
 
@@ -4509,11 +4514,11 @@ CopyBackward16(void *first, void *last, void *dest)
  * Placement copy-construct of one CString from src into dst.
  */
 static void
-CopyFrom16_Inner(void *src, void *dst)
+CopyFrom16_Inner(void *dst, void *src)
 {
-	void *ptr = (void *)StdKfn_Identity(sizeof(CString), (uintptr_t)src);
+	void *ptr = (void *)StdKfn_Identity(sizeof(CString), (uintptr_t)dst);
 	if (ptr != NULL)
-		CString_CopyConstructor((CString *)ptr, (CString *)dst);
+		CString_CopyConstructor((CString *)ptr, (CString *)src);
 }
 
 /*
@@ -5314,33 +5319,6 @@ RestoreItemsInVector(CVector *list)
 		CItem *item = (CItem *)*p;
 		CLocation *loc = &item->resourceEntity.entity.location;
 		((void (*)(void *, void *))VT_FN(item, VT_DROP_AT_FEET))(item, loc);
-	}
-}
-
-/*
- * Helper - RelocateItemsInVector
- *
- * Shifts every item's drop location by (newLoc - oldLoc) with world
- * wrapping, preserving relative offsets when a multi moves.
- */
-static void
-RelocateItemsInVector(CVector *list, CLocation *oldLoc, CLocation *newLoc)
-{
-	uintptr_t *p;
-
-	for (p = (uintptr_t *)list->begin; p != (uintptr_t *)list->end; p++) {
-		CItem *item = (CItem *)*p;
-		CLocation localLoc;
-		CLocation delta;
-
-		CLocation_CopyFrom(&localLoc, &item->resourceEntity.entity.location);
-
-		CLocation_ComputeDelta(&localLoc, &delta, oldLoc);
-		CLocation_CopyFrom(&localLoc, &delta);
-
-		CLocation_Add(&localLoc, newLoc);
-
-		((void (*)(void *, void *))VT_FN(item, VT_DROP_AT_FEET))(item, &localLoc);
 	}
 }
 

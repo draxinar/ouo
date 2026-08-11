@@ -1055,7 +1055,7 @@ extern int g_NumHints;
 extern int g_HintCapacity;
 
 int CScriptStringDB_Load(CScriptStringDB *db, const char *path); // 0x0040107D
-void CScriptStringDB_BuildIndex(CScriptStringDB *db, void *arg); // 0x004011D7
+int CScriptStringDB_Dump(CScriptStringDB *db, void *filename); // 0x004011D7
 const char *CScriptStringDB_Get(CScriptStringDB *db, int index); // 0x00401381
 void *String_CopyAssign(CSdbStr *this, void *dest, void *src); // 0x004014C0
 void String_Tidy(CSdbStr *this); // 0x004014F0
@@ -1071,7 +1071,7 @@ uint32_t EventRingBuffer_Count(void); // 0x00403980
 void Destroy_Single16(StdAllocator *this, void *elem); // 0x00403CA0
 void ConstructN_16(StdAllocator *this, void *dest, uint32_t count, void *value); // 0x00404250
 void Allocator_CopyConstruct16(StdAllocator *this, void *dest, void *src); // 0x00404380
-void *ScriptStringDB_Insert(void *setObj, const char *str); // 0x004043A0
+void *OStream_InsertCStr(CBasicFstream *os, const char *str); // 0x004043A0
 void String_CopyAssignDispatch(CSdbStr *this, void *src); // 0x00404C80
 void locale_facet_Init(void *facet); // 0x00404E00
 void CFuncList_Destructor(CFuncList *list); // 0x00407B51

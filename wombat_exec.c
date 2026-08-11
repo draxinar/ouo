@@ -18883,11 +18883,11 @@ Script_addHelpRequestToQueue(uint32_t serial, int hasLevel, uint8_t level, CStri
 		return;
 	if (hasLevel) {
 		CString_Constructor(&nameStr, (const char *)VT_GetName(player));
-		CHelpQueue_AddWithLevel(&g_HelpQueue, CMobile_GetSerial((CMobile *)player), CString_GetBuffer(&nameStr), level, (const char *)message);
+		CHelpQueue_AddWithLevel(&g_HelpQueue, CMobile_GetSerial((CMobile *)player), &nameStr, level, message);
 		CString_Destructor(&nameStr);
 	} else {
 		CString_Constructor(&nameStr, (const char *)VT_GetName(player));
-		CHelpQueue_Add(&g_HelpQueue, CMobile_GetSerial((CMobile *)player), CString_GetBuffer(&nameStr), level, (const char *)message);
+		CHelpQueue_Add(&g_HelpQueue, CMobile_GetSerial((CMobile *)player), &nameStr, level, message);
 		CString_Destructor(&nameStr);
 	}
 }

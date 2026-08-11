@@ -957,7 +957,7 @@ ScriptCreation_FlushDeferred(void)
 
 		if ((i & 0xFF) == 0xFF) {
 			oldBlock = (ScriptCreationBlock *)((uintptr_t *)vec.begin)[idx];
-			free(oldBlock);
+			OperatorDelete(oldBlock);
 			idx--;
 			node = (ScriptCreationBlock *)((uintptr_t *)vec.begin)[idx];
 		}
@@ -965,7 +965,7 @@ ScriptCreation_FlushDeferred(void)
 
 	if (idx >= 0) {
 		oldBlock = (ScriptCreationBlock *)((uintptr_t *)vec.begin)[idx];
-		free(oldBlock);
+		OperatorDelete(oldBlock);
 	}
 
 	g_scriptCreationListHead = NULL;
@@ -4099,7 +4099,7 @@ ExtractEventParams(int eventType, va_list ap, EventParam *params)
 		params[n].ival2 = 0;
 		params[n].sval = msgName;
 		n++;
-		argsList = (CList *)malloc(sizeof(CList));
+		argsList = (CList *)OperatorNew(sizeof(CList));
 		if (argsList != NULL)
 			CList_Constructor(argsList);
 		fmt = va_arg(ap, const char *);

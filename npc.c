@@ -1355,9 +1355,9 @@ CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, CLocation *loc)
  * removes from world grid, clears scripts/tags, clears g_currentNPC,
  * handles respawn (returns resource count to spawn owner entity or
  * calls Spawn_ScheduleRespawn - a binary no-op at 0x004853BD),
- * removes from NPC hash and level list, frees convoFragList
- * (CString dtor per node, matching binary scalar deleting dtor 0x00484380),
- * frees resource template pointers, chains to CMobile_Destructor.
+ * removes from NPC hash and level list, releases convoFragList through
+ * the list's scalar deleting destructor (0x00484380), frees resource
+ * template pointers, chains to CMobile_Destructor.
  *
  * CUSTOM (FEAT_CLOSED_ECONOMY, FEAT_PERNPC_RESPAWN): death returns the
  * NPC's type 3 resource nodes to its region's spawned count and enqueues
@@ -1369,8 +1369,6 @@ CResourceMobile_Destructor(CNPC *npc)
 	CMobile *mob = &npc->mobile;
 	CItem *item = &mob->container.item;
 	CItem *parent;
-	CFragmentList *fragList;
-	CFragListNode *fragNode, *nextFragNode, *fragHeader;
 	CResourceNode *node;
 	CItem *spawnOwner;
 
@@ -1458,18 +1456,8 @@ CResourceMobile_Destructor(CNPC *npc)
 	}
 
 	if (npc->convoFragList != NULL) {
-		fragList = npc->convoFragList;
-		fragHeader = fragList->header;
-		fragNode = fragHeader->next;
-		while (fragNode != fragHeader) {
-			nextFragNode = fragNode->next;
-			CString_Destructor(&fragNode->str);
-			free(fragNode);
-			fragNode = nextFragNode;
-		}
-		CString_Destructor(&fragHeader->str);
-		free(fragHeader);
-		free(fragList);
+		StdPtrList_ScalarDelete_NPC((StdPtrList *)npc->convoFragList, 1);
+		npc->convoFragList = NULL;
 	}
 
 	if (npc->pathArray != 0)
@@ -2805,39 +2793,26 @@ CNPC_WalkToLocation(CItem *mob, int range, CLocation *loc, int flag)
 /*
  * 0x00483B19 - CNPC::AddFragment
  *
- * Appends name to the NPC's convo-fragment list, lazily creating the
- * sentinel-headed circular list on first use.
+ * Appends name to the NPC's convo-fragment list, allocating the
+ * std::list on first use. StdPtrList16_InsertEnd copy-constructs the
+ * string into the new node; the sentinel's own value is left
+ * unconstructed, which is what lets the destructor free it raw.
  */
 void
 CNPC_AddFragment(CNPC *npc, CString *name)
 {
-	CFragmentList *list;
-	CFragListNode *header, *newNode, *prev;
+	void *mem;
+	void *init;
 
 	if (npc->convoFragList == NULL) {
-		list = malloc(sizeof(CFragmentList));
-		header = malloc(sizeof(CFragListNode));
-		header->next = header;
-		header->prev = header;
-		CString_DefaultConstructor(&header->str);
-		list->flag = 0;
-		list->header = header;
-		list->count = 0;
-		npc->convoFragList = list;
+		mem = OperatorNew(sizeof(CFragmentList));
+		if (mem != NULL)
+			npc->convoFragList = (CFragmentList *)StdPtrList16_Constructor((StdPtrList *)mem, &init);
+		else
+			npc->convoFragList = NULL;
 	}
 
-	list = npc->convoFragList;
-	header = list->header;
-
-	newNode = malloc(sizeof(CFragListNode));
-	CString_CopyConstructor(&newNode->str, name);
-
-	prev = header->prev;
-	newNode->next = header;
-	newNode->prev = prev;
-	prev->next = newNode;
-	header->prev = newNode;
-	list->count++;
+	StdPtrList16_InsertEnd((StdPtrList *)npc->convoFragList, name);
 }
 
 /*
@@ -2854,31 +2829,26 @@ CNPC_AddFragment(CNPC *npc, CString *name)
 void
 CNPC_RemoveFragment(CNPC *npc, CString *name)
 {
-	CFragmentList *list;
-	CFragListNode *iter, *next, *header;
+	StdPtrList *list;
+	StdPtrNode *iter, *first, *last, *findTemp, *endTemp, *eraseTemp;
 
-	list = npc->convoFragList;
-	if (list == NULL)
+	if (npc->convoFragList == NULL)
 		return;
 
-	header = list->header;
+	list = (StdPtrList *)npc->convoFragList;
+	StdPtrIter_BaseConstructor(&iter);
 
-	iter = header->next;
-	while (iter != header) {
-		next = iter->next;
-		if (CString_EqualCString2(&iter->str, name)) {
-			iter->prev->next = iter->next;
-			iter->next->prev = iter->prev;
-			CString_Destructor(&iter->str);
-			free(iter);
-			list->count--;
-		}
-		iter = next;
-	}
+	do {
+		last = *StdPtrList_End(list, &endTemp);
+		first = *StdPtrList_Begin(list, &findTemp);
+		iter = *StdPtrList_FindString(&findTemp, &first, &last, name);
 
-	if (list->count == 0) {
-		CString_Destructor(&header->str);
-		StdPtrList_ScalarDelete_NPC((StdPtrList *)list, 1);
+		if (StdPtrIter_Neq(&iter, StdPtrList_End(list, &endTemp)) & 0xFF)
+			StdPtrList_Erase16(list, &eraseTemp, iter);
+	} while (StdPtrIter_Neq(&iter, StdPtrList_End(list, &endTemp)) & 0xFF);
+
+	if (StdList_GetSize(list) == 0) {
+		StdPtrList_ScalarDelete_NPC(list, 1);
 		npc->convoFragList = NULL;
 	}
 }

@@ -136,7 +136,7 @@ CChannel_Recv(CChannel *this)
 				if (dataSize <= 0)
 					dataBuffer = NULL;
 				else
-					dataBuffer = (char *)malloc(dataSize + 4) + 4;
+					dataBuffer = (char *)OperatorNew(dataSize + 4) + 4;
 				this->currentMsg = (CChannelMsg *)OperatorNew_20();
 				CChannelMsg_Init(this->currentMsg, msgId, dataSize, dataBuffer);
 				this->recvOffset = 0;

@@ -176,7 +176,7 @@ CString_AssignInternal(CString *s, const char *str)
 	if (str == NULL) {
 		if (s->data == NULL) {
 			s->capacity = (s->refCount > 0) ? s->refCount : 1;
-			s->data = (char *)malloc(s->capacity);
+			s->data = (char *)OperatorNew((uint32_t)s->capacity);
 		}
 		if (s->data != NULL)
 			s->data[0] = '\0';
@@ -188,7 +188,7 @@ CString_AssignInternal(CString *s, const char *str)
 		if (s->data != NULL)
 			OperatorDelete(s->data);
 		s->capacity = strlen(str) + s->refCount;
-		s->data = (char *)malloc(s->capacity);
+		s->data = (char *)OperatorNew((uint32_t)s->capacity);
 	}
 	memmove(s->data, str, needed);
 	s->length = strlen(s->data);

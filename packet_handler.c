@@ -1413,7 +1413,14 @@ BroadcastToNearby(uint8_t *buf, CLocation *loc, int maxRecipients)
 	CVector_Constructor(&list, typeFlag);
 	CEntityMap_RangeQuery(g_ItemMap, &list, loc->x, loc->y, 12);
 
-	Vector_SortByDist((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)&list), list.end, loc);
+	{
+		// The binary copy-constructs the location into an 8-byte
+		// stack temporary and passes that by value.
+		CLocation sortLoc;
+
+		CLocation_CopyConstruct(&sortLoc, loc);
+		Vector_SortByDist((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)&list), list.end, sortLoc);
+	}
 
 	count = CVector_GetCount(&list);
 	if (count < maxRecipients)
@@ -1465,7 +1472,14 @@ BroadcastToRangeWithLOS(uint8_t *buf, CLocation *loc, int maxCount, int range)
 		iter++;
 	}
 
-	Vector_SortByDist((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)&filtered), filtered.end, loc);
+	{
+		// The binary copy-constructs the location into an 8-byte
+		// stack temporary and passes that by value.
+		CLocation sortLoc;
+
+		CLocation_CopyConstruct(&sortLoc, loc);
+		Vector_SortByDist((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)&filtered), filtered.end, sortLoc);
+	}
 
 	count = CVector_GetCount(&filtered);
 	if (count < maxCount)

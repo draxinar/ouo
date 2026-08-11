@@ -18,6 +18,7 @@
 #include "stddeque.h"
 #include "terrain.h"
 #include "wombat.h"
+#include "wombat_exec.h"
 
 /*
  * Deque arena-page header (0x10 bytes on 32-bit) tracking both the raw and
@@ -104,9 +105,9 @@ ArenaAllocator_Alloc(uint32_t size, void **outPtr)
 	count = CVector_GetCount(&g_arenaPageVec);
 
 	if (count != 0) {
-		page = (CDequeBlock *)((uintptr_t *)g_arenaPageVec.begin)[count - 1];
+		page = (CDequeBlock *)*(uintptr_t *)CVector_At(&g_arenaPageVec, (int)count - 1);
 		if (CDequeBlock_GetRemaining(page) >= size)
-			goto alloc_from_page;
+			goto reuse_page;
 	}
 
 	pageSize = 0x8000;
@@ -119,7 +120,16 @@ ArenaAllocator_Alloc(uint32_t size, void **outPtr)
 	else
 		page = NULL;
 
-	CVector_PushBack(&g_arenaPageVec, (uintptr_t)page);
+	{
+		uintptr_t value = (uintptr_t)page;
+		CVector_PushBack_C960(&g_arenaPageVec, &value);
+	}
+	goto alloc_from_page;
+
+reuse_page:
+	// The binary re-reads the page here rather than keeping the value it
+	// tested above.
+	page = (CDequeBlock *)*(uintptr_t *)CVector_At(&g_arenaPageVec, (int)count - 1);
 
 alloc_from_page:
 	result = CDequeBlock_AllocFrom(page, size);
@@ -194,7 +204,9 @@ StdDeque_Dealloc(StdDeque_TimeEvent *self, void *ptr, uint32_t count)
 /*
  * 0x0046C9E0 - StdDeque_Dealloc (SurfaceInfo allocator variant)
  *
- * Allocator deallocate - ignores self and count, frees ptr.
+ * Allocator deallocate - ignores self and count, frees ptr. Same binary
+ * function as StdDeque_Dealloc above; the pair exists only so each
+ * caller can pass its own allocator type, and neither reads it.
  */
 void
 StdDeque_DeallocSI(CVector *self, void *ptr, int count)
