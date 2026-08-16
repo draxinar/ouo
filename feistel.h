@@ -24,6 +24,15 @@
 
 #include <stdint.h>
 
+extern const uint32_t g_Perm0[16]; // 0x005F02A0
+extern const uint32_t g_Perm1[16]; // 0x005F02E0
+extern const uint32_t g_Perm2[16]; // 0x005F0320
+extern const uint32_t g_Perm3[16]; // 0x005F0360
+extern const uint32_t g_Perm4[16]; // 0x005F03A0
+extern const uint32_t g_Perm5[16]; // 0x005F03E0
+extern const uint32_t g_Perm6[16]; // 0x005F0420
+extern const uint32_t g_Perm7[16]; // 0x005F0460
+
 extern uint32_t g_SBox0[256]; // 0x00700640
 extern uint32_t g_SBox1[256]; // 0x00700A40
 extern uint32_t g_SBox2[256]; // 0x00700E40
@@ -31,6 +40,5 @@ extern uint32_t g_SBox3[256]; // 0x00701240
 
 void Feistel_Encrypt(uint32_t *data, int blockCount); // 0x004E4DB0
 void Feistel_Decrypt(uint32_t *data, int blockCount); // 0x004E4EC5
-void Feistel_InitSBoxes(void);
 
 #endif

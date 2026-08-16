@@ -1126,11 +1126,6 @@ void WombatArrays_StaticInit(void); // 0x0040EFB9
 void CStringMatcher_Init(CStringMatcher *sm, int numBuffers, int bufSize); // 0x004D78AE
 void CStringMatcher_Destroy(CStringMatcher *sm); // 0x004D792C
 int CStringMatcher_Match(CStringMatcher *sm, const char *text, const char *pattern); // 0x004D79B3
-void CSdbStr_Init(CSdbStr *s, const char *src);
-const char *CSdbStr_c_str(CSdbStr *s);
-void CSdbStr_Destructor(CSdbStr *s);
-void CScriptStringDB_PushBack(CScriptStringDB *db, CSdbStr *elem);
-void CScriptStringDB_Free(CScriptStringDB *db);
 void FreeResultChain(ResultNode *chain);
 
 /*

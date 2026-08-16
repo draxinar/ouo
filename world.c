@@ -1984,28 +1984,6 @@ CWorld_InsertEntity(CWorld *world, CItem *entity)
 }
 
 /*
- * Helper - CWorld_RemoveEntity
- *
- * Remove entity from hash table by serial.
- * Binary does this inline with doubly-linked O(1) unlink via
- * hashNext (0x2C) and hashPrev (0x30).
- */
-void
-CWorld_RemoveEntity(CWorld *world, CItem *entity)
-{
-	uint16_t bucket;
-
-	if (entity->hashNext != NULL)
-		entity->hashNext->hashPrev = entity->hashPrev;
-	if (entity->hashPrev != NULL) {
-		entity->hashPrev->hashNext = entity->hashNext;
-	} else {
-		bucket = entity->serial & 0xFFFF;
-		world->hashTable[bucket] = entity->hashNext;
-	}
-}
-
-/*
  * Helper - CWorld_GetItemTileFlags
  *
  * Binary reads g_ItemTileData[bodyType].flags inline. This helper adds
@@ -2017,39 +1995,6 @@ CWorld_GetItemTileFlags(uint16_t bodyType)
 	if (g_ItemTileData == NULL || bodyType >= TILEDATA_MAX_ITEMS)
 		return 0;
 	return g_ItemTileData[bodyType].flags;
-}
-
-/*
- * Helper - CWorld_GetItemName
- *
- * Returns item name from tiledata array. Binary reads
- * g_ItemTileData[bodyType].name inline.
- */
-char *
-CWorld_GetItemName(uint16_t bodyType)
-{
-	if (g_ItemTileData == NULL || bodyType >= TILEDATA_MAX_ITEMS)
-		return "";
-	if (g_ItemTileData[bodyType].name[0] == '\0')
-		return "";
-	return g_ItemTileData[bodyType].name;
-}
-
-/*
- * Helper - CWorld_DeleteEntity
- *
- * Wrapper around vtable[0x90] Delete dispatch.
- * Binary uses vtable[0x90] dispatch directly.
- */
-void
-CWorld_DeleteEntity(CWorld *world, CItem *entity)
-{
-	USED(world);
-
-	if (entity == NULL)
-		return;
-
-	((void (*)(void *))VT_FN(entity, VT_DELETE))(entity);
 }
 
 /*

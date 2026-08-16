@@ -178,7 +178,6 @@ CResListNode *CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, in
 CResListNode *CResList_FindByValue(CResList *list, void *keyPtr, CResListNode *startNode, int direction); // 0x0045F330
 CResListNode *CResList_Erase_Spawn(CResList *list, CResListNode *node, void **outData, int direction); // 0x0045F450
 int CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr); // 0x004C0AF0
-void CResManager_InsertInt(CResManager *rm, uint32_t key, void *value); // 0x0045F560
 void CResListNode_SetDataInt(CResListNode *node, void *srcPtr); // 0x0045F560
 uint32_t ResManager_HashInt(uint32_t key, uint32_t bucketCount); // 0x004639C0
 uint32_t ResManager_HashStr(const char *str, uint32_t bucketCount); // 0x004639D4
@@ -276,7 +275,6 @@ CResListNode *CResList_ReplaceData_G(CResList *list, CResListNode *node, int dir
 void *CStringPairListNode_ScalarDelete(CStringPairListNode *this, int flags); // 0x004C3150
 int CResList_IsValid(CResList *list, CResListNode *node); // 0x004C33E0
 void *CResListNode_SwapData(CResListNode *node, void *newData); // 0x004C3900
-void CResList_PrependNode(CResList *list, void *data);
 int CResManager_InsertStrEntry_Defines(CResManager *rm, CString *key, void *value); // 0x004C0E20
 void *CResManager_FindByStr_Defines(CResManager *rm, CSearchCtx *output, CString *key, int direction); // 0x004C0E90
 void *CResManager_Constructor_Templates(CResManager *rm); // 0x004C06B0

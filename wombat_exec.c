@@ -101,7 +101,6 @@ static int hasObjType_search(CItem *container, int type); // 0x004199EE
 static CItem *containsObj_search(CItem *item, CItem *target); // 0x00419C51
 static CItem *containsObjType_search(CItem *item, int type); // 0x00419CC6
 static void GetObjectsOfType_Recursive(CList *list, CItem *container, int typeId); // 0x0041A0DF
-static void SendZMoveToPlayers(CItem *entity, CVector *list, int flag); // 0x0041CC82
 static int CArray_IsValid(WombatArray *arr); // 0x00420D50
 static void CheckGoldLimit(CMobile *mob); // 0x0042F8FA
 static int BM_CaseInsensitiveSearch(const char *pattern, const char *text); // 0x00432EA0
@@ -144,7 +143,6 @@ static int check_IsInContainer(CItem *ent);
 static const char *VT_GetName(CItem *ent);
 static int check_GetMurderCount(CItem *ent);
 static CItem *VT_FindItemByName(CItem *mob, CString *name, uint32_t containerSerial);
-static int check_IsMobile(CItem *ent);
 static int check_IsPlayer(CItem *ent);
 static int check_IsContainer(CItem *ent);
 static int check_IsNPC(CItem *ent);
@@ -6396,7 +6394,7 @@ Script_checkMobile(uint32_t serial, int (*checker)(CItem *), const char *name)
 // pointer to the virtual method can be passed to Script_checkEntity /
 // Script_checkMobile.
 
-static int
+int
 check_IsMobile(CItem *ent)
 {
 	return VT_IsMobile(ent);
@@ -15176,7 +15174,7 @@ Script_getBookPages(uint32_t serial)
 	ent = FindEntityValidated(serial, "getBookPages");
 	if (ent == NULL)
 		return 0;
-	return GetBookPages(ent) & 0xFFFF;
+	return CItem_GetBookPages(ent) & 0xFFFF;
 }
 
 /*
@@ -16655,7 +16653,7 @@ Script_sendPlayerZmoveStuff(uint32_t serial)
 	CVector_Constructor(&list, &typeFlag);
 
 	GetNearbyPlayers(&list, &loc2, 18);
-	SendZMoveToPlayers(player, &list, 1);
+	((void (*)(CItem *, CVector *, int))VT_FN(player, VT_NOTIFY_NEARBY))(player, &list, 1);
 
 	CVector_Destructor(&list);
 }
@@ -21896,18 +21894,4 @@ EventParamBlock_BuildFromEventParams(EventParamBlock *pb, EventParam *params, in
 		} else
 			EventParamBlock_AddParam(pb, typeId, params[i].ival);
 	}
-}
-
-/*
- * Helper - SendZMoveToPlayers
- *
- * Not a real function entry in the binary: 0x0041CC82 is an int3 padding
- * byte and the code continues at 0x0041CC83 as part of
- * Script_sendPlayerZmoveStuff. Extracted as a helper, it calls
- * vtable[0x130] (SendUpdateToList) on entity with the player list and flag.
- */
-static void
-SendZMoveToPlayers(CItem *entity, CVector *list, int flag)
-{
-	((void (*)(void *, CVector *, int))VT_FN(entity, VT_NOTIFY_NEARBY))(entity, list, flag);
 }

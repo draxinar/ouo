@@ -1093,8 +1093,10 @@ CPlayer_Destructor(CPlayer *this)
 
 	CEntity_SetType(ent, ETYPE_PLAYER);
 
+	// The binary devirtualizes this inside the destructor: the vtable
+	// pointer was just set to CPlayer's, so it calls CPlayer::Hide directly.
 	if (!ent->removedFromWorld) {
-		((void (*)(void *))VT_FN(&this->mobile.container.item, VT_HIDE))(&this->mobile.container.item);
+		CPlayer_HideVT(&this->mobile.container.item);
 	}
 
 	CItem_ClearScriptsAndTags(&this->mobile.container.item);

@@ -96,7 +96,6 @@ void Dynamic_ClearPendingAndFireEvents(void); // 0x004C9170
 void SaveDynamic0_WriteCommit(void);
 void CDataBuffer_WriteField(CDataBuffer *b, const char *key, const char *value);
 void CDataBuffer_WriteInt(CDataBuffer *b, const char *key, int value);
-void Dynamic_AddDeferredLoadedSerial(uint32_t serial);
 void Dynamic_LoadEntity(CItem *entity, const char *name, int type, uintptr_t value); // 0x004C8EEB
 
 #endif /* DYNAMIC_H_ */

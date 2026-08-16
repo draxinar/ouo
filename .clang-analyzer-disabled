@@ -1,5 +1,6 @@
 deadcode.DeadStores
 core.NullDereference
+core.NullPointerArithm
 unix.Malloc
 unix.MallocSizeof
 core.NonNullParamChecker

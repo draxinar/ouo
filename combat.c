@@ -158,7 +158,7 @@ Mobile_IsFacingEntity(CMobile *mob1, CMobile *mob2)
 	loc1 = &mob1->container.item.resourceEntity.entity.location;
 	loc2 = &mob2->container.item.resourceEntity.entity.location;
 
-	if (loc1->x == loc2->x && loc1->y == loc2->y)
+	if (CLocation_IsEqualXY(loc1, loc2))
 		return 1;
 
 	dirToTarget = CalcDirection(loc1, loc2);

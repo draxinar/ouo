@@ -125,10 +125,7 @@ CItem *World_ValidateContainerEntity(CItem *expected, uint32_t serial); // 0x004
 CItem *World_ValidateSpatialEntity(CItem *expected, uint32_t serial); // 0x00492285
 CItem *World_ValidateBookEntity(CItem *expected, uint32_t serial); // 0x004922C5
 void CWorld_InsertEntity(CWorld *world, CItem *entity);
-void CWorld_RemoveEntity(CWorld *world, CItem *entity);
 uint32_t CWorld_GetItemTileFlags(uint16_t bodyType);
-char *CWorld_GetItemName(uint16_t bodyType);
-void CWorld_DeleteEntity(CWorld *world, CItem *entity);
 void World_ShutdownEntities(void); // CUSTOM
 
 #endif /* WORLD_H_ */

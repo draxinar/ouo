@@ -855,7 +855,7 @@ GM_TargetRemove(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint
 	}
 	char msg[80];
 	snprintf(msg, sizeof(msg), "Removed 0x%08X", serial);
-	CWorld_DeleteEntity(g_World, target);
+	((void (*)(void *))VT_FN(target, VT_DELETE))(target);
 	CPlayer_SystemMessage(player, msg);
 }
 
@@ -4328,7 +4328,7 @@ GM_TargetMRemove(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uin
 	} else {
 		char msg[80];
 		snprintf(msg, sizeof(msg), "Removed 0x%08X", serial);
-		CWorld_DeleteEntity(g_World, target);
+		((void (*)(void *))VT_FN(target, VT_DELETE))(target);
 		CPlayer_SystemMessage(player, msg);
 	}
 
@@ -4361,7 +4361,7 @@ GM_TargetInfo(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16
 	char msg[200];
 
 	// Line 1: serial, body type, tiledata name
-	const char *tileName = CWorld_GetItemName(bodyType);
+	const char *tileName = (g_ItemTileData != NULL && bodyType < TILEDATA_MAX_ITEMS) ? g_ItemTileData[bodyType].name : "";
 	snprintf(msg, sizeof(msg), "Serial=0x%08X Body=0x%04X (%s)", target->serial, bodyType, (tileName && tileName[0]) ? tileName : "?");
 	CPlayer_SystemMessage(player, msg);
 

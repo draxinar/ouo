@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
 
 #include "dat.h"
 
@@ -50,7 +49,14 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 
 	if (scriptClass->namedScope.count > 0) {
 		int totalSize = scriptClass->namedScope.totalSize;
-		inst->memberScope = calloc(1, totalSize);
+		inst->memberScope = OperatorNew((uint32_t)totalSize);
+		// The binary zeroes the block explicitly through memset
+		// (0x004E8120) rather than relying on the allocator, and the
+		// zeroing is load-bearing: a script member the loop below does
+		// not construct - anything that is not a string, ustring or
+		// list - is read as whatever the block held.
+		if (inst->memberScope != NULL)
+			memset(inst->memberScope, 0, (size_t)totalSize);
 
 		entries = (CNamedScopeEntry *)scriptClass->namedScope.entries;
 		for (i = 0; i < scriptClass->namedScope.count; i++) {
@@ -289,7 +295,7 @@ WomScr_LoadFromLine(uint32_t serial, const char *val)
 	while (iter < end) {
 		ScriptAttachNode *sn = (ScriptAttachNode *)*iter;
 		CScript *sc = (CScript *)sn->scriptClassPtr;
-		if (sc != NULL && sc->name != NULL && strcasecmp(sc->name, scriptName) == 0) {
+		if (sc != NULL && sc->name != NULL && strcmp(sc->name, scriptName) == 0) {
 			foundScript = sn;
 			break;
 		}
@@ -314,7 +320,7 @@ WomScr_LoadFromLine(uint32_t serial, const char *val)
 
 		typeIdx = -1;
 		for (int i = 0; i < 7; i++) {
-			if (strncasecmp(typeName, g_womTypeNames[i], 3) == 0) {
+			if (strncmp(typeName, g_womTypeNames[i], 3) == 0) {
 				typeIdx = i;
 				break;
 			}
@@ -439,31 +445,46 @@ WomScr_LoadFromLine(uint32_t serial, const char *val)
 }
 
 /*
- * 0x004CDA50 - TagListManager_New (MODIFIED)
+ * 0x004CDA50 - TagListManager_New
  *
- * Allocates a CTagListManager, popping from the free list if non-empty
- * or mallocing a new one. The binary uses a block allocator
- * (0x1000 entries of 8 bytes each); we use malloc + free list instead.
+ * Pops a CTagListManager off the free list, allocating a fresh block of
+ * 0x1000 entries when the list is empty and linking all but the first
+ * onto it. The block's count header and its per-entry constructor pass
+ * (a no-op at 0x004CE0A4, run through the CRT's vector-new helper) are
+ * the binary's; only the entry stride differs, since CTagListManager is
+ * eight bytes on the 32-bit binary and sixteen here.
  */
 CTagListManager *
 TagListManager_New(void)
 {
 	static int poolCreated;
 	CTagListManager *mgr;
+	char *block;
+	CTagListManager *entries;
+	int i;
 
 	if (!poolCreated) {
 		VG_CREATE_POOL(&g_tagListMgrFreeList);
 		poolCreated = 1;
 	}
 
-	if (g_tagListMgrFreeList != NULL) {
+	if (g_tagListMgrFreeList == NULL) {
+		// Custom: 64-bit - sizeof(uintptr_t) header for alignment
+		block = (char *)OperatorNew(0x1000 * sizeof(CTagListManager) + sizeof(uintptr_t));
+		*(uint32_t *)block = 0x1000;
+		entries = (CTagListManager *)(block + sizeof(uintptr_t));
+
+		for (i = 0xFFF; i > 0; i--) {
+			entries[i].head = (TagNode *)g_tagListMgrFreeList;
+			g_tagListMgrFreeList = &entries[i];
+		}
+		mgr = &entries[0];
+		VG_POOL_ALLOC(&g_tagListMgrFreeList, mgr, sizeof(CTagListManager));
+	} else {
 		mgr = g_tagListMgrFreeList;
 		VG_POOL_ALLOC(&g_tagListMgrFreeList, mgr, sizeof(CTagListManager));
 		VG_MAKE_DEFINED(&mgr->head, sizeof(mgr->head));
 		g_tagListMgrFreeList = (CTagListManager *)mgr->head;
-	} else {
-		mgr = (CTagListManager *)OperatorNew(sizeof(CTagListManager));
-		VG_POOL_ALLOC(&g_tagListMgrFreeList, mgr, sizeof(CTagListManager));
 	}
 	CTagListManager_Init(mgr);
 	return mgr;
@@ -735,7 +756,7 @@ ObjVarData_CollectEntries(CTagListManager *mgr, CVector *list, int type)
 /*
  * 0x004CE32F - TagList::FindByName
  *
- * Returns the tag node whose name matches (case-insensitive), or NULL.
+ * Returns the tag node whose name matches, or NULL.
  */
 TagNode *
 TagList_FindByName(CTagListManager *mgr, const char *name)
@@ -745,7 +766,7 @@ TagList_FindByName(CTagListManager *mgr, const char *name)
 	CTagListManager_Lock(mgr);
 	node = mgr->head;
 	while (node != NULL) {
-		if (strcasecmp(node->name, name) == 0)
+		if (strcmp(node->name, name) == 0)
 			return node;
 		node = node->next;
 	}
@@ -756,7 +777,7 @@ TagList_FindByName(CTagListManager *mgr, const char *name)
  * 0x004CE380 - TagList::FindByPrefix
  *
  * Returns the first tag node whose name begins with the given 5-char
- * prefix (case-insensitive) and has length >= 7, or NULL.
+ * prefix and has length >= 7, or NULL.
  */
 TagNode *
 TagList_FindByPrefix(CTagListManager *mgr, const char *prefix)
@@ -766,7 +787,7 @@ TagList_FindByPrefix(CTagListManager *mgr, const char *prefix)
 	CTagListManager_Lock(mgr);
 	node = mgr->head;
 	while (node != NULL) {
-		if (strncasecmp(node->name, prefix, 5) == 0) {
+		if (strncmp(node->name, prefix, 5) == 0) {
 			if (strlen(node->name) >= 7)
 				return node;
 		}
@@ -779,7 +800,7 @@ TagList_FindByPrefix(CTagListManager *mgr, const char *prefix)
  * 0x004CE3E7 - TagList::HasLinkedName
  *
  * Returns 1 if any STRING tag whose name starts with "link" has a
- * value equal to name+6 (case-insensitive), 0 otherwise.
+ * value equal to name+6, 0 otherwise.
  */
 int
 TagList_HasLinkedName(CTagListManager *mgr, const char *name)
@@ -790,8 +811,8 @@ TagList_HasLinkedName(CTagListManager *mgr, const char *name)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 1) {
-			if (strncasecmp("link", node->name, 4) == 0) {
-				if (strcasecmp(name + 6, CString_GetData((CString *)(uintptr_t)node->value)) == 0)
+			if (strncmp("link", node->name, 4) == 0) {
+				if (strcmp(name + 6, CString_GetData((CString *)(uintptr_t)node->value)) == 0)
 					return 1;
 			}
 		}
@@ -829,8 +850,8 @@ CTagListManager_RemoveScriptNode(CTagListManager *mgr, ScriptAttachNode *target)
 /*
  * 0x004CE4D1 - CTagListManager::RemoveScript
  *
- * Unlinks the script node whose class name matches (case-insensitive)
- * and returns it to the pool. Returns 0 if both lists are empty after
+ * Unlinks the script node whose class name matches and returns it to
+ * the pool. Returns 0 if both lists are empty after
  * removal, 1 otherwise (including when no match is found).
  */
 int
@@ -844,7 +865,7 @@ CTagListManager_RemoveScript(CTagListManager *mgr, const char *scriptName)
 	pp = &mgr->scriptList;
 	while (*pp != NULL) {
 		nodeName = *(char **)(*pp)->scriptClassPtr;
-		if (strcasecmp(nodeName, scriptName) == 0) {
+		if (strcmp(nodeName, scriptName) == 0) {
 			node = *pp;
 			*pp = node->next;
 			CScriptInstance_ReturnToPool(node);
@@ -860,8 +881,8 @@ CTagListManager_RemoveScript(CTagListManager *mgr, const char *scriptName)
 /*
  * 0x004CE556 - TagList::RemoveByName
  *
- * Unlinks the tag node whose name matches (case-insensitive) and
- * returns it to the pool. Returns 0 if both lists are empty after
+ * Unlinks the tag node whose name matches and returns it to the
+ * pool. Returns 0 if both lists are empty after
  * removal, 1 otherwise.
  */
 int
@@ -873,7 +894,7 @@ TagList_RemoveByName(CTagListManager *mgr, const char *name)
 	CTagListManager_Lock(mgr);
 	pp = &mgr->head;
 	while (*pp != NULL) {
-		if (strcasecmp((*pp)->name, name) == 0) {
+		if (strcmp((*pp)->name, name) == 0) {
 			node = *pp;
 			*pp = node->next;
 			TagNode_ReturnToPool(node);
@@ -890,7 +911,7 @@ TagList_RemoveByName(CTagListManager *mgr, const char *name)
  * 0x004CE5DD - CTagListManager::HasScriptByName
  *
  * Returns 1 if any attached script's class name matches the given
- * name as a prefix (strlen(name) chars, case-insensitive). Skips
+ * name as a prefix (strlen(name) chars). Skips
  * nodes with NULL or 0xABCD (freed-marker) class name pointers.
  */
 int
@@ -908,7 +929,7 @@ CTagListManager_HasScriptByName(CTagListManager *mgr, const char *name)
 			scriptName = *(char **)node->scriptClassPtr;
 			if (scriptName != NULL) {
 				if ((uintptr_t)scriptName != 0xABCD) {
-					if (strncasecmp(scriptName, name, nameLen) == 0)
+					if (strncmp(scriptName, name, nameLen) == 0)
 						return 1;
 				}
 			}
@@ -958,6 +979,10 @@ CTagListManager_PrependScript(CTagListManager *mgr, ScriptAttachNode *node)
  * old value; otherwise allocates a new node at the head. The value is
  * stored by type (STRING/USTRING/LOC/LIST are deep-copied to heap;
  * INT/OBJ are stored inline). Returns the node.
+ *
+ * The binary inlines the body of tagnode_destroy_value (0x004269C0)
+ * here rather than calling it, and the inline copy omits that
+ * function's trailing 0xABCD stamp - the value is reassigned below.
  */
 TagNode *
 TagList_SetTag(CTagListManager *mgr, const char *name, int type, uintptr_t value)
@@ -967,13 +992,31 @@ TagList_SetTag(CTagListManager *mgr, const char *name, int type, uintptr_t value
 	CTagListManager_Lock(mgr);
 	node = mgr->head;
 	while (node != NULL) {
-		if (strcasecmp(node->name, name) == 0)
+		if (strcmp(node->name, name) == 0)
 			break;
 		node = node->next;
 	}
 
 	if (node != NULL) {
-		tagnode_destroy_value(node);
+		switch (node->type) {
+		case 1: // WTYPE_STRING
+			if ((void *)(uintptr_t)node->value != NULL)
+				CString_ScalarDelete((CString *)(uintptr_t)node->value, 1);
+			break;
+		case 2: // WTYPE_USTRING
+			if ((void *)(uintptr_t)node->value != NULL)
+				CUString_ScalarDelete((CUString *)(uintptr_t)node->value, 1);
+			break;
+		case 3: // WTYPE_LOC
+			OperatorDelete((void *)(uintptr_t)node->value);
+			break;
+		case 5: // WTYPE_LIST
+			if ((void *)(uintptr_t)node->value != NULL)
+				CList_ScalarDelete((CList *)(uintptr_t)node->value, 1);
+			break;
+		default:
+			break;
+		}
 	} else {
 		node = TagNodePool_AllocA();
 		node->next = mgr->head;
@@ -1043,7 +1086,7 @@ TagList_HasTag(CTagListManager *mgr, const char *name, int type)
 	CTagListManager_Lock(mgr);
 	node = mgr->head;
 	while (node != NULL) {
-		if (strcasecmp(node->name, name) == 0) {
+		if (strcmp(node->name, name) == 0) {
 			if (node->type == (uint32_t)type || type == 7)
 				return 1;
 		}
@@ -1066,7 +1109,7 @@ TagList_GetTagInt(CTagListManager *mgr, const char *name, int *outVal)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 0) {
-			if (strcasecmp(node->name, name) == 0) {
+			if (strcmp(node->name, name) == 0) {
 				*outVal = (int)node->value;
 				return;
 			}
@@ -1089,7 +1132,7 @@ TagList_GetTagObj(CTagListManager *mgr, const char *name, uint32_t *outVal)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 4) {
-			if (strcasecmp(node->name, name) == 0) {
+			if (strcmp(node->name, name) == 0) {
 				*outVal = node->value;
 				return;
 			}
@@ -1113,7 +1156,7 @@ TagList_GetTagLoc(CTagListManager *mgr, const char *name, CLocation *outLoc)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 3) {
-			if (strcasecmp(node->name, name) == 0) {
+			if (strcmp(node->name, name) == 0) {
 				loc = (CLocation *)(uintptr_t)node->value;
 				CLocation_SetLoc(outLoc, loc);
 				return;
@@ -1137,7 +1180,7 @@ TagList_GetTagString(CTagListManager *mgr, const char *name)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 1) {
-			if (strcasecmp(node->name, name) == 0)
+			if (strcmp(node->name, name) == 0)
 				return (CString *)(uintptr_t)node->value;
 		}
 		node = node->next;
@@ -1159,7 +1202,7 @@ TagList_GetTagUString(CTagListManager *mgr, const char *name)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 2) {
-			if (strcasecmp(node->name, name) == 0)
+			if (strcmp(node->name, name) == 0)
 				return (char *)node->value;
 		}
 		node = node->next;
@@ -1181,7 +1224,7 @@ CTagListManager_GetListEntry(CTagListManager *mgr, const char *name)
 	node = mgr->head;
 	while (node != NULL) {
 		if (node->type == 5) {
-			if (strcasecmp(node->name, name) == 0)
+			if (strcmp(node->name, name) == 0)
 				return (CList *)(uintptr_t)node->value;
 		}
 		node = node->next;

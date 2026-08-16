@@ -386,7 +386,8 @@ CIndexedFileManager_ReadBlock(CIndexedFileManager *this, int blockIdx, uint8_t *
 		return;
 	}
 
-	*outData = calloc(1, length + 1);
+	*outData = (uint8_t *)OperatorNew(length + 1);
+	(*outData)[length] = '\0';
 	*outLen = length;
 
 	fseek_ServerSide(this->dataFile, offset, SEEK_SET);
@@ -1541,15 +1542,17 @@ Dynamic_LoadEntity(CItem *entity, const char *name, int type, uintptr_t value)
  * Parses "serial flags" and appends a CSerialValue to list. The
  * entity argument is unused in the binary.
  */
-static __attribute__((unused)) void
+static void
 Dynamic_ParseDeferredSerial(CItem *entity, CSerialList *list, const char *str)
 {
 	uint32_t serial = 0;
 	int flags = 0;
+	CSerialValue val;
 
 	USED(entity);
 	sscanf(str, "%u %d", &serial, &flags);
-	CSerialList_InsertBack(list, serial, (int16_t)flags);
+	CSerialValue_Init(&val, serial, (int16_t)flags);
+	StdSerialList_PushBack((StdPtrList *)list, &val);
 }
 
 /*
@@ -1726,69 +1729,69 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 
 			switch (typeChar) {
 			case 'b': {
-				CBulletinBoard *bb = calloc(1, sizeof(CBulletinBoard));
+				CBulletinBoard *bb = (CBulletinBoard *)OperatorNew(sizeof(CBulletinBoard));
 				if (bb != NULL)
 					CBulletinBoard_Constructor(bb);
 				obj = (CItem *)bb;
 				break;
 			}
 			case 'c':
-				obj = calloc(1, sizeof(CContainer));
+				obj = (CItem *)OperatorNew(sizeof(CContainer));
 				if (obj != NULL)
 					CContainer_Constructor((CContainer *)obj);
 				break;
 			case 'e':
-				obj = CEgg_Constructor(calloc(1, sizeof(CItem)));
+				obj = CEgg_Constructor(OperatorNew(sizeof(CItem)));
 				break;
 			case 'g': {
-				CNPC *npc = calloc(1, sizeof(CNPC));
+				CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 				if (npc != NULL)
 					CGuard_Constructor(npc);
 				obj = (CItem *)npc;
 				break;
 			}
 			case 'm': {
-				CMobile *mob = calloc(1, sizeof(CMobile));
+				CMobile *mob = (CMobile *)OperatorNew(sizeof(CMobile));
 				if (mob != NULL)
 					CMobile_Constructor(mob);
 				obj = (CItem *)mob;
 				break;
 			}
 			case 'n': {
-				CNPC *npc = calloc(1, sizeof(CNPC));
+				CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 				if (npc != NULL)
 					CResourceMobile_Init(&npc->mobile);
 				obj = (CItem *)npc;
 				break;
 			}
 			case 'p': {
-				CPlayer *player = calloc(1, sizeof(CPlayer));
+				CPlayer *player = (CPlayer *)OperatorNew(sizeof(CPlayer));
 				if (player != NULL)
 					CPlayer_Constructor(player);
 				obj = (CItem *)player;
 				break;
 			}
 			case 's': {
-				CNPC *npc = calloc(1, sizeof(CNPC));
+				CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 				if (npc != NULL)
 					CShopkeeper_ConstructorNoArgs(npc);
 				obj = (CItem *)npc;
 				break;
 			}
 			case 'w':
-				obj = calloc(1, sizeof(CContainer));
+				obj = (CItem *)OperatorNew(sizeof(CContainer));
 				if (obj != NULL)
 					CWeapon_ConstructorFromItem(obj);
 				break;
 			case 'x': {
-				CCorpse *corpse = calloc(1, sizeof(CCorpse));
+				CCorpse *corpse = (CCorpse *)OperatorNew(sizeof(CCorpse));
 				if (corpse != NULL)
 					CCorpse_Constructor(corpse);
 				obj = (CItem *)corpse;
 				break;
 			}
 			case 'z': {
-				CSignpost *sp = calloc(1, sizeof(CSignpost));
+				CSignpost *sp = (CSignpost *)OperatorNew(sizeof(CSignpost));
 				if (sp != NULL)
 					CSignpost_Constructor(sp);
 				obj = (CItem *)sp;
@@ -1810,7 +1813,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 		}
 
 		if (obj == NULL)
-			obj = CItem_Constructor(calloc(1, sizeof(CItem)));
+			obj = CItem_Constructor(OperatorNew(sizeof(CItem)));
 
 		CItem_SetLockdown(obj, 1);
 
@@ -2517,40 +2520,48 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 			} else if (strcmp(keybuf, "frnd") == 0) {
 				if (VT_IsPlayer(obj)) {
 					CPlayer *player = (CPlayer *)obj;
-					uint32_t serial = (uint32_t)atoi(val);
-					uint32_t newCount = player->friendCount + 1;
-					uint32_t *newList = realloc(player->friendList, newCount * sizeof(uint32_t));
-					if (newList != NULL) {
-						newList[newCount - 1] = serial;
+					if (player->friendCount != 0) {
+						uint32_t *newList;
+						player->friendCount++;
+						newList = (uint32_t *)OperatorNew(player->friendCount * sizeof(uint32_t));
+						memcpy(newList, player->friendList, (player->friendCount - 1) * sizeof(uint32_t));
+						if (player->friendList != NULL)
+							OperatorDelete(player->friendList);
 						player->friendList = newList;
-						player->friendCount = newCount;
+						player->friendList[player->friendCount - 1] = (uint32_t)atoi(val);
+					} else {
+						player->friendCount = 1;
+						player->friendList = (uint32_t *)OperatorNew(sizeof(uint32_t));
+						player->friendList[0] = (uint32_t)atoi(val);
 					}
 				}
 			} else if (strcmp(keybuf, "frndallw") == 0) {
 				if (VT_IsPlayer(obj)) {
 					CPlayer *player = (CPlayer *)obj;
-					uint32_t serial = (uint32_t)atoi(val);
-					uint32_t newCount = player->friendAllowCount + 1;
-					uint32_t *newList = realloc(player->friendAllowList, newCount * sizeof(uint32_t));
-					if (newList != NULL) {
-						newList[newCount - 1] = serial;
+					if (player->friendAllowCount != 0) {
+						uint32_t *newList;
+						player->friendAllowCount++;
+						newList = (uint32_t *)OperatorNew(player->friendAllowCount * sizeof(uint32_t));
+						memcpy(newList, player->friendAllowList, (player->friendAllowCount - 1) * sizeof(uint32_t));
+						if (player->friendAllowList != NULL)
+							OperatorDelete(player->friendAllowList);
 						player->friendAllowList = newList;
-						player->friendAllowCount = newCount;
+						player->friendAllowList[player->friendAllowCount - 1] = (uint32_t)atoi(val);
+					} else {
+						player->friendAllowCount = 1;
+						player->friendAllowList = (uint32_t *)OperatorNew(sizeof(uint32_t));
+						player->friendAllowList[0] = (uint32_t)atoi(val);
 					}
 				}
-			} else if (strcmp(keybuf, "attacking") == 0 || strcmp(keybuf, "attackedby") == 0) {
+			} else if (strcmp(keybuf, "attacking") == 0) {
 				if (VT_IsMobile(obj)) {
 					CMobile *mob = (CMobile *)obj;
-					int isAttacking = (strcmp(keybuf, "attacking") == 0);
-					uint32_t targetSerial = 0;
-					int flags = 0;
-					sscanf(val, "%u %d", &targetSerial, &flags);
-					if (targetSerial != 0) {
-						if (isAttacking)
-							CSerialList_InsertBack(&mob->combatTargetList, targetSerial, (int16_t)flags);
-						else
-							CSerialList_InsertBack(&mob->attackerList, targetSerial, (int16_t)flags);
-					}
+					Dynamic_ParseDeferredSerial(obj, &mob->combatTargetList, val);
+				}
+			} else if (strcmp(keybuf, "attackedby") == 0) {
+				if (VT_IsMobile(obj)) {
+					CMobile *mob = (CMobile *)obj;
+					Dynamic_ParseDeferredSerial(obj, &mob->attackerList, val);
 				}
 			} else if (strcmp(keybuf, "fa") == 0) {
 				if (VT_IsMobile(obj)) {
@@ -2751,7 +2762,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 		if (obj != NULL && CItem_HasScripts(obj)) {
 			if (recursiveParent == NULL && recursiveLoc == NULL) {
 				if (g_pendingLoad) {
-					Dynamic_AddDeferredLoadedSerial(CMobile_GetSerial((CMobile *)obj));
+					CVector_PushBack(&g_deferredLoadedSerials, CMobile_GetSerial((CMobile *)obj));
 				} else {
 					uint32_t ser = CMobile_GetSerial((CMobile *)obj);
 					CVector_PushBack(&loadedSerials, ser);
@@ -2924,17 +2935,6 @@ SaveDynamic0_WriteCommit(void)
 	}
 
 	CIndexedFileManager_Destructor(&indexedFile);
-}
-
-/*
- * Helper - Dynamic_AddDeferredLoadedSerial
- *
- * Append to the deferred-loaded serial vector at 0x006E7690.
- */
-void
-Dynamic_AddDeferredLoadedSerial(uint32_t serial)
-{
-	CVector_PushBack(&g_deferredLoadedSerials, serial);
 }
 
 /*

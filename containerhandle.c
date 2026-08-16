@@ -30,12 +30,10 @@ StdMapTree *g_HandleMap;                // 0x00701648
 /*
  * 0x004E4FDA - InitContainerHandle
  *
- * Wraps a file pointer in a paged cache: picks up the file size,
- * validates the 4-byte logical-size trailer, and registers the handle
- * in the global map.
- *
- * MODIFIED: the four-byte logical-size trailer is validated, where the
- * binary trusts it unconditionally.
+ * Wraps a file pointer in a paged cache: picks up the file size and the
+ * 4-byte logical-size trailer, and registers the handle in the global
+ * map. Only reached for files inside uodemo.dat - standalone mode opens
+ * the bare file in fopen_ServerSide and never builds a handle.
  */
 ContainerHandle *
 InitContainerHandle(ContainerHandle *this, void *fp, int writable, int isQFile)
@@ -68,20 +66,11 @@ InitContainerHandle(ContainerHandle *this, void *fp, int writable, int isQFile)
 	}
 	this->logicalSize = fileSize;
 
-	// MODIFIED: the binary always trusts the trailer unconditionally
-	// because all files live in a packed container that guarantees
-	// trailers. In standalone mode, original data files have no
-	// trailer - their last 4 bytes are real data that can be
-	// misinterpreted (e.g. statics0.mul yields 11777, truncating
-	// a 22MB file to 11KB). We validate by checking that the trailer
-	// value, when 4-byte aligned plus 4 bytes for the trailer itself,
-	// equals the file size - matching ContainerHandle_UpdateSize's
-	// write layout.
 	bytesRead = ContainerHandle_AllocPage(this, 0x1000);
 	if (bytesRead != 0) {
 		int lastPageOff = fileSize - pageAligned;
 		int trailer = *(int *)(this->pageBuffer + lastPageOff - 4);
-		if (trailer > 0 && ((trailer + 3) & ~3) + 4 == fileSize) {
+		if (trailer > 0) {
 			this->logicalSize = trailer;
 			this->logicalEnd = trailer;
 		}
@@ -156,8 +145,19 @@ ContainerHandle_InitMap(void)
 {
 	StdMapTree *tree;
 	StdTreeNode *head;
+	int idx;
+	int hi, lo;
 
-	Feistel_InitSBoxes();
+	// 0x004E51C4: build the four 256-entry S-boxes from the eight
+	// 16-entry permutation tables, each pre-shifted to its byte lane.
+	for (idx = 0; idx < 256; idx++) {
+		hi = idx >> 4;
+		lo = idx & 0xF;
+		g_SBox3[idx] = (g_Perm0[hi] << 4 | g_Perm1[lo]) << 24;
+		g_SBox2[idx] = (g_Perm2[hi] << 4 | g_Perm3[lo]) << 16;
+		g_SBox1[idx] = (g_Perm4[hi] << 4 | g_Perm5[lo]) << 8;
+		g_SBox0[idx] = (g_Perm6[hi] << 4 | g_Perm7[lo]);
+	}
 
 	if (g_HandleMapNil == NULL) {
 		g_HandleMapNil = malloc(sizeof(StdTreeNode));

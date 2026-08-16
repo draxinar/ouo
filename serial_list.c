@@ -18,12 +18,10 @@
 #include "world.h"
 
 static void CSerialList_InsertBefore(CSerialList *list, CSerialNode *node); // 0x004429FA
-static CSerialValue *CSerialValue_Init(CSerialValue *self, uint32_t serial, int16_t flags); // 0x00446A20
 static void CSerialValue_SetFlags(CSerialValue *self, int16_t flags); // 0x00446A50
 static void *StdSerialList_InitCopy(StdPtrList *list, StdPtrList *src); // 0x00446AB0
 static void *StdSerialList_Assign(StdPtrList *list, StdPtrList *src); // 0x00446B80
 static CSerialValue *CSerialValue_CopyConstructor(CSerialValue *this, CSerialValue *src); // 0x00446C50
-static void StdSerialList_PushBack(StdPtrList *list, void *value); // 0x00446C80
 static void StdSerialList_Splice(StdPtrList *this, StdPtrNode *pos, StdPtrList *srcList, StdPtrNode *first, StdPtrNode *last); // 0x00446D70
 static void StdSerialList_RemoveMatching(StdPtrList *list, void *value); // 0x00446DF0
 static int CSerialValue_EqualBySerial(CSerialValue *this, CSerialValue *other); // 0x00446E70
@@ -56,13 +54,20 @@ CSerialNode_DecrementTTL(CSerialNode *node)
 /*
  * 0x00442993 - CSerialList::CSerialList
  *
- * Thiscall constructor. Calls _Init (0x00446A70) to allocate sentinel
- * and zero count.
+ * Thiscall constructor. Calls _Init to allocate the sentinel and zero
+ * the count.
+ *
+ * MODIFIED: the binary hands _Init the address of a four-byte stack slot
+ * it never writes, and _Init copies that slot's first byte into the
+ * list's allocator field. The slot is zeroed here so the build stays free
+ * of -Wuninitialized; nothing reads the field back.
  */
 void
 CSerialList_Constructor(CSerialList *list)
 {
-	CSerialList_Init(list);
+	uint32_t allocByte = 0;
+
+	CSerialList_Init(list, &allocByte);
 }
 
 /*
@@ -388,7 +393,7 @@ next:
  *
  * Stores serial and flags into the value pair.
  */
-static CSerialValue *
+CSerialValue *
 CSerialValue_Init(CSerialValue *self, uint32_t serial, int16_t flags)
 {
 	self->serial = serial;
@@ -405,6 +410,21 @@ static __attribute__((unused)) void
 CSerialValue_SetFlags(CSerialValue *self, int16_t flags)
 {
 	self->flags = flags;
+}
+
+/*
+ * 0x00446A70 - std::list<CSerialValue>::_Init
+ *
+ * Copies the allocator byte out of alloc, buys the self-referencing
+ * sentinel node and clears the count.
+ */
+CSerialList *
+CSerialList_Init(CSerialList *list, void *alloc)
+{
+	list->type = *(uint8_t *)alloc;
+	list->data = (CSerialNode *)StdSerialList_Buynode((StdPtrList *)list, NULL, NULL);
+	list->count = 0;
+	return list;
 }
 
 /*
@@ -479,7 +499,7 @@ CSerialValue_CopyConstructor(CSerialValue *this, CSerialValue *src)
  *
  * Inserts value just before the sentinel.
  */
-static void
+void
 StdSerialList_PushBack(StdPtrList *list, void *value)
 {
 	StdPtrNode *endIter;
@@ -899,48 +919,4 @@ StdSerialIter_CountRange(StdPtrNode *beginIter, StdPtrNode *endIter, int *countO
 		*countOut = *countOut + 1;
 		StdPtrIter_Inc(&beginIter);
 	}
-}
-
-/*
- * Helper - CSerialList_Init
- *
- * Initialises an empty serial list by allocating a self-referencing
- * sentinel node and clearing the count.
- */
-void
-CSerialList_Init(CSerialList *list)
-{
-	CSerialNode *sentinel;
-
-	sentinel = malloc(sizeof(CSerialNode));
-	sentinel->next = sentinel;
-	sentinel->prev = sentinel;
-	list->data = sentinel;
-	list->count = 0;
-}
-
-/*
- * Helper - CSerialList_InsertBack
- *
- * Appends a (serial, flags) entry to the end of the list, with no
- * duplicate check.
- */
-void
-CSerialList_InsertBack(CSerialList *list, uint32_t serial, int16_t flags)
-{
-	CSerialNode *sentinel, *node;
-
-	node = malloc(sizeof(CSerialNode));
-	if (node == NULL)
-		return;
-	node->serial = serial;
-	node->flags = flags;
-	node->_pad0E = 0;
-
-	sentinel = list->data;
-	node->next = sentinel;
-	node->prev = sentinel->prev;
-	sentinel->prev->next = node;
-	sentinel->prev = node;
-	list->count++;
 }

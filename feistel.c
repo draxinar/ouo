@@ -205,7 +205,7 @@ static uint8_t g_DecryptSchedule[68] = {
  * g_SBox[i*16+perm[j]] = j for each table.
  */
 // 0x005F02A0 - S-box permutation table 0
-static const uint32_t g_Perm0[16] = {
+const uint32_t g_Perm0[16] = {
 	1,
 	15,
 	13,
@@ -225,7 +225,7 @@ static const uint32_t g_Perm0[16] = {
 };
 
 // 0x005F02E0 - S-box permutation table 1
-static const uint32_t g_Perm1[16] = {
+const uint32_t g_Perm1[16] = {
 	13,
 	11,
 	4,
@@ -245,7 +245,7 @@ static const uint32_t g_Perm1[16] = {
 };
 
 // 0x005F0320 - S-box permutation table 2
-static const uint32_t g_Perm2[16] = {
+const uint32_t g_Perm2[16] = {
 	4,
 	11,
 	10,
@@ -265,7 +265,7 @@ static const uint32_t g_Perm2[16] = {
 };
 
 // 0x005F0360 - S-box permutation table 3
-static const uint32_t g_Perm3[16] = {
+const uint32_t g_Perm3[16] = {
 	6,
 	12,
 	7,
@@ -285,7 +285,7 @@ static const uint32_t g_Perm3[16] = {
 };
 
 // 0x005F03A0 - S-box permutation table 4
-static const uint32_t g_Perm4[16] = {
+const uint32_t g_Perm4[16] = {
 	7,
 	13,
 	10,
@@ -305,7 +305,7 @@ static const uint32_t g_Perm4[16] = {
 };
 
 // 0x005F03E0 - S-box permutation table 5
-static const uint32_t g_Perm5[16] = {
+const uint32_t g_Perm5[16] = {
 	5,
 	8,
 	1,
@@ -325,7 +325,7 @@ static const uint32_t g_Perm5[16] = {
 };
 
 // 0x005F0420 - S-box permutation table 6
-static const uint32_t g_Perm6[16] = {
+const uint32_t g_Perm6[16] = {
 	14,
 	11,
 	4,
@@ -345,7 +345,7 @@ static const uint32_t g_Perm6[16] = {
 };
 
 // 0x005F0460 - S-box permutation table 7
-static const uint32_t g_Perm7[16] = {
+const uint32_t g_Perm7[16] = {
 	4,
 	10,
 	9,
@@ -577,27 +577,4 @@ Feistel_F_Decrypt(const uint32_t input[2], uint32_t output[2])
 
 	output[0] = word1;
 	output[1] = word0;
-}
-
-/*
- * Helper - Feistel_InitSBoxes
- *
- * Builds the four 256-entry S-boxes from the eight 16-entry permutation
- * tables, pre-shifted to their byte lane. Extracted from the binary's
- * Init_UODEMODAT loop at 0x004E51C4..0x004E523E.
- */
-void
-Feistel_InitSBoxes(void)
-{
-	int idx;
-	int hi, lo;
-
-	for (idx = 0; idx < 256; idx++) {
-		hi = idx >> 4;
-		lo = idx & 0xF;
-		g_SBox3[idx] = (g_Perm0[hi] << 4 | g_Perm1[lo]) << 24;
-		g_SBox2[idx] = (g_Perm2[hi] << 4 | g_Perm3[lo]) << 16;
-		g_SBox1[idx] = (g_Perm4[hi] << 4 | g_Perm5[lo]) << 8;
-		g_SBox0[idx] = (g_Perm6[hi] << 4 | g_Perm7[lo]);
-	}
 }

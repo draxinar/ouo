@@ -1088,7 +1088,7 @@ CNPCManager_CreateMobileAt(int16_t x, int16_t y)
 	CLocation_Init(&loc);
 	CLocation_Set(&loc, x, y, 0);
 
-	npc = calloc(1, sizeof(CNPC));
+	npc = (CNPC *)OperatorNew(sizeof(CNPC));
 	if (npc != NULL)
 		CResourceMobile_Constructor(&npc->mobile, 1, &loc);
 
@@ -1407,7 +1407,7 @@ CResourceMobile_Destructor(CNPC *npc)
 				Spawn_ScheduleRespawn(&npc->homeLoc, npc->homeInfo1, npc->homeInfo2);
 			}
 		}
-		npc->behaviorFlags &= ~0x800;
+		CNPC_ClrBehavior_VT(npc, 0x800);
 	}
 
 	NPC_RemoveFromHash(npc);
@@ -2575,7 +2575,14 @@ CNPC_SetSerial(CItem *self, uint32_t newSerial)
 	uint32_t bucket;
 	CNPC *npc = (CNPC *)self;
 
-	CWorld_RemoveEntity(g_World, self);
+	if (self->hashNext != NULL)
+		self->hashNext->hashPrev = self->hashPrev;
+	if (self->hashPrev != NULL) {
+		self->hashPrev->hashNext = self->hashNext;
+	} else {
+		bucket = self->serial & 0xFFFF;
+		g_World->hashTable[bucket] = self->hashNext;
+	}
 
 	if (npc->npcHashNext != NULL)
 		npc->npcHashNext->npcHashPrev = npc->npcHashPrev;

@@ -817,6 +817,8 @@ int Script_getCanCarry(uint32_t serial);
 int Script_getSkillTotal(uint32_t serial);
 void Script_intRet(int value);
 
+int check_IsMobile(CItem *ent); // 0x00424370
+
 void Wombat_ShutdownArrays(void); // CUSTOM
 
 extern const BuiltinHandlerEntry g_BuiltInFuncs[];

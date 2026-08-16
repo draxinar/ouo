@@ -53,7 +53,6 @@ static TimerNode *AllocTimerNode(void); // 0x004360B7
 static int CanSerializeTimer(int eventType); // 0x00436130
 static void CEntity_AddTimer(CItem *entity, int countdown, int eventType, int timerType, intptr_t extraData); // 0x0043632E
 static int CItem_ProcessEntityTimers(CItem *entity); // 0x004364E7
-static void RemoveEntityNode(TimerEntityNode *node);
 
 // Binary globals
 static TimerNode *g_timerFreeList;        /* 0x0063F81C */
@@ -504,7 +503,15 @@ PruneEntityList(CVector *outList)
 		if (entity != NULL && entity->timerHead != NULL) {
 			CVector_PushBack(outList, cur->serial);
 		} else {
-			RemoveEntityNode(cur);
+			if (cur->next != NULL)
+				cur->next->prev = cur->prev;
+			else
+				g_entityListTail = cur->prev;
+			if (cur->prev != NULL)
+				cur->prev->next = cur->next;
+			else
+				g_entityListHead = cur->next;
+			OperatorDelete(cur);
 		}
 	}
 }
@@ -876,26 +883,6 @@ CTimerManager_EnsureTracked(CItem *entity)
 	if (IsSerialInEntityList(entity->serial))
 		return;
 	AddSerialToEntityList(entity->serial);
-}
-
-/*
- * Helper - RemoveEntityNode
- *
- * Unlinks and frees an entity tracking node. The binary inlines this
- * inside PruneEntityList (0x00435FB4).
- */
-static void
-RemoveEntityNode(TimerEntityNode *node)
-{
-	if (node->next != NULL)
-		node->next->prev = node->prev;
-	else
-		g_entityListTail = node->prev;
-	if (node->prev != NULL)
-		node->prev->next = node->next;
-	else
-		g_entityListHead = node->next;
-	free(node);
 }
 
 /*

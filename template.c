@@ -1415,17 +1415,17 @@ CTemplateManager_CreateMobOrItem(CItem **out, const char *subtypeBuf, uint16_t b
 	*out = NULL;
 
 	if (strcasecmp(subtypeBuf, "normal") == 0) {
-		CNPC *npc = calloc(1, sizeof(CNPC));
+		CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 		if (npc != NULL)
 			CResourceMobile_Constructor(&npc->mobile, bodyType, loc);
 		*out = (CItem *)npc;
 	} else if (strcasecmp(subtypeBuf, "guard") == 0) {
-		CNPC *npc = calloc(1, sizeof(CNPC));
+		CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 		if (npc != NULL)
 			CNPC_Constructor(npc, bodyType, loc);
 		*out = (CItem *)npc;
 	} else if (strcasecmp(subtypeBuf, "shopkeeper") == 0) {
-		CNPC *npc = calloc(1, sizeof(CNPC));
+		CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 		if (npc != NULL) {
 			CShopkeeper_Constructor(npc, bodyType, loc);
 			*out = (CItem *)npc;

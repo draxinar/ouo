@@ -1893,8 +1893,15 @@ CEntity_CheckSurfaceOf_VT(CItem *self, CItem *entity)
  * 0x00486706 - CreateStaticEntity
  *
  * Pool allocator for static entities: pops g_StaticFreeList and refills
- * it with a fresh 0x1000-entry block when empty. Returns an entity with
- * its prev/next links cleared.
+ * it with a fresh 0x1000-entry block when empty.
+ *
+ * The block is not zeroed - the binary allocates through operator new and
+ * runs the vector-constructor iterator at 0x004E9090, neither of which
+ * zeroes. StaticEntity_Constructor builds the CEntity sub-object and
+ * stamps the vtable; the refill loop links elements 1..0xFFF into the
+ * free list. Everything else, including firstChild and the returned
+ * element's own next link, is left for the caller to set, which is what
+ * the static loader does before anything walks the chain.
  */
 CItem *
 CreateStaticEntity(void)
@@ -1915,7 +1922,7 @@ CreateStaticEntity(void)
 		VG_MAKE_DEFINED(entity, sizeof(CResourceEntity));
 		g_StaticFreeList = entity->resourceEntity.nextInContainer;
 	} else {
-		pool = calloc(0x1000, sizeof(CResourceEntity));
+		pool = OperatorNew(0x1000 * sizeof(CResourceEntity));
 		if (pool == NULL)
 			return NULL;
 
@@ -4959,7 +4966,7 @@ Convo_NotifyNearbyNPCs(uint32_t speakerSerial, CLocation *loc, const char *text,
 		CBlock *block = CBlockManager_GetBlock(&g_SpatialGrid, blockBuf[i]);
 		CItem *item = block->itemHead;
 		while (item != NULL) {
-			if (item->tagList != NULL && CTagListManager_HasScripts(item->tagList)) {
+			if (CItem_HasScripts(item)) {
 				dist = CLocation_ChebyshevDistance(&item->resourceEntity.entity.location, loc);
 				if (count <= 250) {
 					scriptItems[count] = item;
@@ -5891,23 +5898,6 @@ CItem_GetBookPages(CItem *item)
 	else
 		val = (int)g_ItemTileData[CEntity_GetBodyType(item) & 0xFFFF].miscData;
 	return (uint16_t)val;
-}
-
-/*
- * 0x00490D1C - GetBookPages (inner helper)
- *
- * Inlined variant that reads the entity's tagList directly.
- */
-int
-GetBookPages(CItem *ent)
-{
-	int pages = 0;
-
-	if (ent->tagList != NULL && TagList_HasTag(ent->tagList, "bookPages", 7))
-		TagList_GetTagInt(ent->tagList, "bookPages", &pages);
-	else
-		pages = (int)g_ItemTileData[ent->resourceEntity.entity.bodyType].miscData;
-	return (uint16_t)pages;
 }
 
 /*

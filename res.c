@@ -5514,7 +5514,7 @@ CResList_RemoveKeyNode(CResList *list, uintptr_t keyNode, uint32_t direction)
 
 	result = CResList_Erase_ResManager2(list, (CResListNode *)keyNode, &outData, direction);
 	if (outData != NULL)
-		free(outData);
+		OperatorDelete(outData);
 	return result;
 }
 
@@ -10583,54 +10583,6 @@ CResListNode_SwapData(CResListNode *node, void *newData)
 	void *old = node->data;
 	node->data = newData;
 	return old;
-}
-
-/*
- * Helper - CResManager_InsertInt
- *
- * Hash key, ensure bucket CLists exist (heap-alloc on first use),
- * malloc 4-byte key block, prepend to key chain, prepend value to val chain.
- * Note: 0x0045F560 is CResListNode::SetDataInt, not this function.
- */
-void
-CResManager_InsertInt(CResManager *rm, uint32_t key, void *value)
-{
-	uint32_t bucket = ResManager_HashInt(key, 0x41);
-	uint32_t *keyCopy;
-
-	if (rm->keys[bucket] == NULL) {
-		rm->keys[bucket] = (CResList *)calloc(1, sizeof(CResList));
-		rm->vals[bucket] = (CResList *)calloc(1, sizeof(CResList));
-	}
-
-	keyCopy = (uint32_t *)malloc(sizeof(uint32_t));
-	*keyCopy = key;
-	CResList_PrependNode(rm->keys[bucket], keyCopy);
-	CResList_PrependNode(rm->vals[bucket], value);
-	rm->count++;
-}
-
-/*
- * Helper - CResList_PrependNode
- *
- * Prepends a new node with data to the front of a CResList.
- */
-void
-CResList_PrependNode(CResList *list, void *data)
-{
-	CResListNode *node = (CResListNode *)malloc(sizeof(CResListNode));
-	node->next = NULL;
-	node->prev = NULL;
-	node->data = data;
-	if (list->head == NULL) {
-		list->head = node;
-		list->tail = node;
-	} else {
-		node->next = list->head;
-		list->head->prev = node;
-		list->head = node;
-	}
-	list->count++;
 }
 
 /*

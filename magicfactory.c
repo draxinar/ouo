@@ -1387,8 +1387,6 @@ CMagicItemFactory_ReadFileContents(CMagicItemFactory *factory, CString *output, 
  * Reads filename (refusing circular includes via itemList) and feeds
  * its contents to ExecuteScript.
  *
- * MODIFIED: uses a linear CResList scan instead of the binary's sorted
- * CResList search.
  */
 static int
 CMagicItemFactory_ReadAndExecuteFile(CMagicItemFactory *factory, CString *filename)

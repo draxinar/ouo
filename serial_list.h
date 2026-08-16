@@ -68,8 +68,9 @@ void *StdSerialValue_CopyConstructor(CSerialValue *self, CSerialValue *src); // 
 void *StdSerialValue_ScalarDelete(CSerialValue *self, int flags); // 0x00447390
 void *StdSerialValue_ValInit(void *dst); // 0x004473C0
 void StdSerialIter_CountRange(StdPtrNode *beginIter, StdPtrNode *endIter, int *countOut); // 0x004473E0
+CSerialValue *CSerialValue_Init(CSerialValue *self, uint32_t serial, int16_t flags); // 0x00446A20
+void StdSerialList_PushBack(StdPtrList *list, void *value); // 0x00446C80
 void StdSerialList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00446CB0
-void CSerialList_Init(CSerialList *list);
-void CSerialList_InsertBack(CSerialList *list, uint32_t serial, int16_t flags);
+CSerialList *CSerialList_Init(CSerialList *list, void *alloc); // 0x00446A70
 
 #endif /* SERIAL_LIST_H_ */

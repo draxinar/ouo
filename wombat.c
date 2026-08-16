@@ -231,9 +231,11 @@ AnimSequence g_AnimSequence; /* 0x00698840 */
  * CSdbStr entry. Returns 1 when the file cannot be opened, 0 on
  * success.
  *
- * FIXED: the binary reads line[-1] when the line is empty. Harmless on
- * the Windows stack, but it is undefined behaviour and ASAN catches it.
- * Guarded with a length check before each trailing-byte test.
+ * FIXED: the binary reads line[-1] when the line is empty, and builds
+ * each temporary from an allocator byte it reads out of a stack slot it
+ * never writes. Both are harmless on the Windows stack and both are
+ * undefined behaviour: the trailing-byte tests are guarded with a length
+ * check, and the allocator slot is zeroed. Nothing reads that byte back.
  */
 int
 CScriptStringDB_Load(CScriptStringDB *db, const char *path)
@@ -242,12 +244,14 @@ CScriptStringDB_Load(CScriptStringDB *db, const char *path)
 	char line[1024];
 	int len;
 	CSdbStr temp;
+	uint32_t allocByte;
 
 	f = fopen_ServerSide((char *)path, "r");
 	if (f == NULL)
 		return 1;
 
-	CScriptStringDB_Free(db);
+	CSdbStrVector_Init(db);
+	allocByte = 0;
 
 	while (!feof_ServerSide(f)) {
 		fgets_ServerSide(line, 0x400, f);
@@ -260,9 +264,9 @@ CScriptStringDB_Load(CScriptStringDB *db, const char *path)
 		if (len > 0 && line[len - 1] == '\r')
 			line[len - 1] = '\0';
 
-		CSdbStr_Init(&temp, line);
-		CScriptStringDB_PushBack(db, &temp);
-		CSdbStr_Destructor(&temp);
+		String_CopyAssign(&temp, line, &allocByte);
+		CSdbStrVector_Insert(db, &temp);
+		String_Tidy(&temp);
 	}
 
 	fclose_ServerSide(f);
@@ -307,7 +311,7 @@ CScriptStringDB_Append(CScriptStringDB *db, const char *str)
 const char *
 CScriptStringDB_Get(CScriptStringDB *db, int index)
 {
-	return CSdbStr_c_str((CSdbStr *)CSdbStrVector_At(db, (uint32_t)index));
+	return String_CStr((CSdbStr *)CSdbStrVector_At(db, (uint32_t)index));
 }
 
 /*
@@ -2324,99 +2328,3 @@ const OperatorEntry g_OperatorTable[OPERATOR_COUNT] = {
 	/* [17] */ { .tokenType = SM_LPAREN, .name = "oprnull", .oprId = 18 },
 	/* [18] */ { .tokenType = SM_LBRACKET, .name = "oprlist", .oprId = 0 },
 };
-
-/*
- * Helper - CSdbStr_Init
- *
- * Construct CSdbStr from C string. Matches binary 0x004014C0 semantics:
- * allocates data buffer, copies string, sets length/capacity.
- * Binary uses C++ string ctor with ref-counted data; we use malloc.
- */
-void
-CSdbStr_Init(CSdbStr *s, const char *src)
-{
-	int len = strlen(src);
-	int cap = len < 15 ? 15 : len; // binary's C++ string uses SSO (16-byte inline buf)
-	s->allocField = 0;
-	s->data = (char *)calloc(cap + 1, 1);
-	memcpy(s->data, src, len + 1);
-	s->length = len;
-	s->capacity = cap;
-}
-
-/*
- * Helper - CSdbStr_c_str
- *
- * Return C string pointer. Matches binary 0x00401510:
- * if data == NULL, return ""; else return data.
- */
-const char *
-CSdbStr_c_str(CSdbStr *s)
-{
-	if (s->data == NULL)
-		return "";
-	return s->data;
-}
-
-/*
- * Helper - CSdbStr_Destructor
- *
- * Destroy string. Matches binary 0x004014F0 -> 0x00402C70:
- * free data, zero fields.
- */
-void
-CSdbStr_Destructor(CSdbStr *s)
-{
-	free(s->data);
-	s->data = NULL;
-	s->length = 0;
-	s->capacity = 0;
-}
-
-/*
- * Helper - CScriptStringDB_PushBack
- *
- * Append a CSdbStr element to the vector. Matches binary 0x00401A20
- * which calls insert-at-end (0x004032A0 -> 0x00403A70). Deep-copies the
- * element's string data so the caller can safely destroy its temp.
- * Growth strategy: double capacity when full.
- */
-void
-CScriptStringDB_PushBack(CScriptStringDB *db, CSdbStr *elem)
-{
-	if (db->last == db->end) {
-		int oldCount = db->last - db->first;
-		int oldCap = db->end - db->first;
-		int newCap = oldCap == 0 ? 16 : oldCap * 2;
-		CSdbStr *newArr = (CSdbStr *)realloc(db->first, newCap * sizeof(CSdbStr));
-		memset(newArr + oldCap, 0, (newCap - oldCap) * sizeof(CSdbStr));
-		db->first = newArr;
-		db->last = newArr + oldCount;
-		db->end = newArr + newCap;
-	}
-	// Deep copy: allocate own data buffer
-	CSdbStr_Init(db->last, elem->data);
-	db->last++;
-}
-
-/*
- * Helper - CScriptStringDB_Free
- *
- * Destroy all CSdbStr elements in the vector and free the array.
- * Matches binary 0x00401A50 (vector::clear via erase range)
- * followed by deallocation.
- */
-void
-CScriptStringDB_Free(CScriptStringDB *db)
-{
-	CSdbStr *p;
-
-	if (db->first != NULL) {
-		for (p = db->first; p != db->last; p++)
-			CSdbStr_Destructor(p);
-		free(db->first);
-	}
-	db->first = NULL;
-	db->last = NULL;
-	db->end = NULL;
-}

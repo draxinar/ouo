@@ -34,6 +34,8 @@
 #include "stddeque.h"
 #include "wombat_compile.h"
 #include "feature.h"
+#include "terrain.h"
+#include "wombat_exec.h"
 
 static void CMultiComponent_Constructor(CMultiComponentDef *def); // 0x0047424E
 static CMultiComponentDef *CMultiComponent_CopyConstructor(CMultiComponentDef *def, CMultiComponentDef *src); // 0x0047428A
@@ -121,7 +123,6 @@ static void SmartPtr_Destructor_CVector(CSmartPtr *self); // 0x0047C730
 static void SmartPtr_Destructor_CMultiDef(CSmartPtr *self); // 0x0047CF00
 static void InsertionSort_Int(void *first, void *last, int cmpVal, int unused); // 0x0047D0A0
 static void InsertionSort_Dist(void *first, void *last, CLocation cmpLoc); // 0x0047D280
-static CMultiDef *CMultiManager_FindType(CResManager *rm, int typeId);
 static void HideItemsInVector(CVector *list);
 static void RestoreItemsInVector(CVector *list);
 static int CMultiSlave_MapSwitchMove_Wrap(CMultiSlave *slave, CLocation *loc);
@@ -187,10 +188,7 @@ CVector_Destroy4_Range(CVector *this, void *first, void *last)
 void
 MultiComponentPool_Init(void)
 {
-	g_multiComponentPool.freeHead = NULL;
-	g_multiComponentPool.blockSize = 0x1000;
-	g_multiComponentPool.allocated = 0;
-	VG_CREATE_POOL(&g_multiComponentPool);
+	NodePool_Init((NodePool *)&g_multiComponentPool, 0x1000);
 }
 
 /*
@@ -2696,9 +2694,6 @@ CMultiManager_CanExistAt(CResManager *this, int typeId, CLocation *loc, int move
  * FIXED: the binary queries the spatial grid at loc itself instead of
  * loc + component offset, missing every component past the origin.
  * We query each component's actual world position.
- *
- * MODIFIED: the spatial query is inlined as a direct g_SpatialGrid
- * block walk with a VT_IsMobile filter.
  */
 int
 CMultiManager_AreMobilesInArea(CResManager *this, int typeId, CLocation *loc)
@@ -2708,16 +2703,18 @@ CMultiManager_AreMobilesInArea(CResManager *this, int typeId, CLocation *loc)
 	CMultiComponentDef *compBase;
 	int componentCount;
 	CLocation compLoc;
+	CSearchCtx searchArea;
+	CVector found;
+	char vecType = 0;
+	uint32_t key;
 	int i;
-	int blockIdx;
-	CItem *cur;
-	CLocation *eloc;
-	int count;
 
-	// 0x0047793f-0x0047794c: map lookup
-	def = CMultiManager_FindType(this, typeId);
-	if (def == NULL)
+	key = (uint32_t)typeId;
+	CResManager_FindByKey_A(this, &searchArea, &key, 1);
+	if (!CSearchCtx_Find(&searchArea))
 		return 0;
+
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &searchArea);
 
 	compBase = (CMultiComponentDef *)def->components.begin;
 	componentCount = (int)(((char *)def->components.end - (char *)def->components.begin) / (ptrdiff_t)sizeof(CMultiComponentDef));
@@ -2730,21 +2727,14 @@ CMultiManager_AreMobilesInArea(CResManager *this, int typeId, CLocation *loc)
 		CLocation_CopyFrom(&compLoc, loc);
 		CLocation_Add(&compLoc, &comp->offset);
 
-		// Inlined spatial query at compLoc with z [-128, +128] and IsMobile filter.
-		count = 0;
-		blockIdx = CBlockManager_GetBlockIndex(&g_SpatialGrid, (int)compLoc.x, (int)compLoc.y, 0);
-		if (blockIdx >= 0) {
-			cur = g_SpatialGrid.cells[blockIdx].itemHead;
-			while (cur != NULL) {
-				eloc = &cur->resourceEntity.entity.location;
-				if ((int)compLoc.x == (int)eloc->x && (int)compLoc.y == (int)eloc->y && (int)eloc->z >= -128 && (int)eloc->z <= 128 && VT_IsMobile(cur))
-					count++;
-				cur = cur->spatialNext;
-			}
-		}
-
-		if (count > 0)
+		CVector_Constructor(&found, &vecType);
+		// FIXED: the binary passes loc->x and loc->y here, not compLoc's.
+		CTerrainManager_FindEntitiesAtXYZ((int16_t)compLoc.x, (int16_t)compLoc.y, -0x80, 0x80, &found, check_IsMobile);
+		if (CVector_GetCount(&found) > 0) {
+			CVector_Destructor(&found);
 			return 1;
+		}
+		CVector_Destructor(&found);
 	}
 
 	return 0;
@@ -5239,35 +5229,6 @@ CVector_ClearFreeRaw(void *ptr, int count)
 {
 	USED(count);
 	free(ptr);
-}
-
-/*
- * Helper - CMultiManager_FindType
- *
- * Looks up a CMultiDef in the CResManager hash table by typeId.
- */
-static CMultiDef *
-CMultiManager_FindType(CResManager *rm, int typeId)
-{
-	uint32_t key = (uint32_t)typeId;
-	uint32_t bucket = ResManager_HashInt(key, 0x41);
-	CResList *keyList, *valList;
-	CResListNode *keyNode, *valNode;
-
-	keyList = rm->keys[bucket];
-	valList = rm->vals[bucket];
-	if (keyList == NULL)
-		return NULL;
-
-	keyNode = keyList->head;
-	valNode = valList->head;
-	while (keyNode != NULL) {
-		if (*(uint32_t *)keyNode->data == key)
-			return (CMultiDef *)valNode->data;
-		keyNode = keyNode->next;
-		valNode = valNode->next;
-	}
-	return NULL;
 }
 
 /*

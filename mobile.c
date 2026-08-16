@@ -30,6 +30,7 @@
 #include "player.h"
 #include "random.h"
 #include "region.h"
+#include "resource_entity.h"
 #include "skill.h"
 #include "taglist.h"
 #include "template.h"
@@ -1778,9 +1779,9 @@ CMobile_EmoteCString(CItem *ent, char *text, int hue, int type, int font)
 void
 CMobile_SayToEntity_VT(CMobile *self, CItem *target, uint32_t serial, char *text)
 {
-	// Binary calls fcn.0048d68a directly, which is the same function
-	// as vtable[0x64] SayHuedCString. We use vtable dispatch.
-	((void (*)(void *, CItem *, uint32_t, char *, uint16_t))VT_FN((CItem *)self, VT_SAY_HUED_CSTRING))(self, target, serial, text, self->speechHue);
+	// The binary calls CItem::SayHuedCString (0x0048D68A) directly rather
+	// than through vtable[0x64]; no class overrides that slot.
+	CItem_SayHuedCString_VT((CItem *)self, target, serial, text, self->speechHue);
 }
 
 /*
@@ -2426,7 +2427,7 @@ CMobile_IsRideable(CMobile *this)
 	for (node = this->container.item.resourceEntity.firstChild; node != NULL; node = node->next) {
 		if (node->id == 0)
 			continue;
-		CResourceType *rt = CResourceTypeManager_GetId(node->id);
+		CResourceType *rt = CResourceNode_GetResourceDef(node);
 		if (strcasecmp("RIDABLE", CResourceType_GetFoodName(rt)) == 0)
 			return 1;
 	}

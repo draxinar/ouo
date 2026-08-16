@@ -37,12 +37,10 @@
 #include "weapon.h"
 
 static void CSdbStrVector_Destructor(CScriptStringDB *this); // 0x00401057
-static void CSdbStrVector_Init(CScriptStringDB *this); // 0x0040106A
 static void *OStream_OperatorVoidPtr(CIosBase *this); // 0x00401400
 static unsigned char CBasicIos_Fail(CIosBase *this); // 0x00401430
 static void *StdEndl(void *os); // 0x00401470
 static void OFStream_Destructor(CBasicFstream *this); // 0x00401490
-static char *String_CStr(CSdbStr *this); // 0x00401510
 static void *OStream_InsertManip(void *this, OStreamManip fn); // 0x00401540
 static void *OStream_Put(CBasicFstream *this, char ch); // 0x00401560
 static void *OStream_Flush(CBasicFstream *this); // 0x004016A0
@@ -195,7 +193,7 @@ CSdbStrVector_Destructor(CScriptStringDB *this)
  *
  * Delegates to the vector clear/init routine.
  */
-static __attribute__((unused)) void
+void
 CSdbStrVector_Init(CScriptStringDB *this)
 {
 	CSdbStrVector_Clear(this);
@@ -330,7 +328,7 @@ String_Tidy(CSdbStr *this)
  *
  * Returns the string's data pointer, or the static empty string when NULL.
  */
-static char *
+char *
 String_CStr(CSdbStr *this)
 {
 	if (this->data == NULL)
@@ -472,13 +470,18 @@ CSdbStrVector_At(CScriptStringDB *this, uint32_t index)
 /*
  * 0x00401A20 - std::vector<CSdbStr>::insert
  *
- * Reads the current size and forwards to CSdbStrVector_InsertN to append value.
+ * Reads the current end pointer and forwards to CSdbStrVector_InsertN to
+ * append value.
+ *
+ * 64-bit: the binary passes end through a dword, which round-trips on a
+ * 32-bit pointer; here the position is carried at native width, since
+ * truncating it hands the insert a garbage destination.
  */
 void *
 CSdbStrVector_Insert(CScriptStringDB *this, CSdbStr *value)
 {
-	uintptr_t count = (uintptr_t)((CVector *)this)->end;
-	return (void *)CSdbStrVector_InsertN(this, (uint32_t)count, value);
+	uintptr_t position = (uintptr_t)((CVector *)this)->end;
+	return (void *)CSdbStrVector_InsertN(this, position, value);
 }
 
 /*
@@ -2100,6 +2103,12 @@ String_CopyConstructor(CSdbStr *this, void *src)
  * offset. Handles self-assignment via CString_Erase, takes a refcounted
  * fast-path when src has an exclusive buffer, and otherwise falls back to
  * grow + copy + Eos.
+ *
+ * 64-bit: the binary reads src's capacity through CSearchCtx::GetValNode,
+ * which MSVC folded onto basic_string::capacity - CSdbStr::capacity and
+ * CSearchCtx::valNode both sit at +0x0C when pointers are 4 bytes wide.
+ * At 8 they part to +0x14 and +0x18, so the folded call reads past the
+ * end of the CSdbStr; this reads the field directly.
  */
 static void *
 String_Stl_Replace(CSdbStr *this, void *src, uint32_t offset, uint32_t count)
@@ -2143,7 +2152,7 @@ String_Stl_Replace(CSdbStr *this, void *src, uint32_t offset, uint32_t count)
 
 	cs->data = String_CStr(src);
 	cs->length = srcCs->length;
-	cs->capacity = CSearchCtx_GetValNode((CSearchCtx *)src);
+	cs->capacity = srcCs->capacity;
 
 	{
 		char *refPtr = CString_Refcnt(cs->data);

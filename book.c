@@ -704,62 +704,45 @@ GetBookPageCount(CItem *item)
  * 0x004354FA - GetBookPageText
  *
  * Returns a pointer to a static array of line pointers for pageNum, or
- * NULL if the page is absent.
+ * NULL if the page is absent. A node that is not a STRING leaves the slot
+ * empty and stalls the walk, which is what the binary does.
  *
- * MODIFIED: the binary stores pages as a WombatList tag; we store them
- * as a newline-separated string and split on demand.
+ * FIXED: the binary writes one array slot per list element with no bound
+ * and reports that count to its caller, and HandlePacket_BOOKPAGE accepts
+ * up to 127 lines for a page, so a client could drive both the fill and
+ * every caller's walk past the end of the eight-entry array. Both are
+ * clamped to it.
  */
-// Custom - line pointers into g_BookPageBuf for the current page
+// 0x0063E708 - line pointers for the page most recently read
 static char *g_BookPageLines[BOOK_MAX_LINES_PER_PAGE];
-// Custom - scratch buffer holding the split page text
-static char g_BookPageBuf[4096];
 
 static char **
 GetBookPageText(CItem *item, int pageNum, int *outLineCount)
 {
-	const char *pageStr;
 	char pageName[20];
-	int lineCount;
-	const char *p;
+	CList *pageList;
+	CListNode *node;
 	int i;
 
 	CItem_IsWritableBook(item);
-	if (pageNum < 1 || pageNum > GetBookPageCount(item)) {
-		*outLineCount = 0;
-		return NULL;
-	}
-	sprintf(pageName, "bookPage%02d", pageNum);
-	if (!(item->tagList != NULL && TagList_HasTag(item->tagList, pageName, 7))) {
-		*outLineCount = 0;
-		return NULL;
-	}
-	{
-		CString *pageTag = (item->tagList != NULL) ? TagList_GetTagString(item->tagList, pageName) : NULL;
-		pageStr = (pageTag != NULL) ? CString_GetData(pageTag) : NULL;
-	}
-	if (pageStr == NULL || *pageStr == '\0') {
-		*outLineCount = 0;
-		return NULL;
-	}
-	strncpy(g_BookPageBuf, pageStr, sizeof(g_BookPageBuf) - 1);
-	g_BookPageBuf[sizeof(g_BookPageBuf) - 1] = '\0';
-	lineCount = 0;
-	p = g_BookPageBuf;
-	for (i = 0; i < BOOK_MAX_LINES_PER_PAGE; i++)
-		g_BookPageLines[i] = "";
-	p = g_BookPageBuf;
-	for (i = 0; i < BOOK_MAX_LINES_PER_PAGE && *p != '\0'; i++) {
-		g_BookPageLines[i] = (char *)p;
-		while (*p != '\0' && *p != '\n')
-			p++;
-		if (*p == '\n') {
-			*(char *)p = '\0';
-			p++;
+	if (pageNum > 0 && pageNum <= GetBookPageCount(item)) {
+		sprintf(pageName, "bookPage%02d", pageNum);
+		pageList = CResourceEntity_GetTagEntity(item, pageName);
+		if (pageList != NULL) {
+			node = pageList->head;
+			*outLineCount = pageList->count < BOOK_MAX_LINES_PER_PAGE ? pageList->count : BOOK_MAX_LINES_PER_PAGE;
+			for (i = 0; i < *outLineCount; i++) {
+				g_BookPageLines[i] = "";
+				if (node != NULL && node->typeTag == WTYPE_STRING) {
+					g_BookPageLines[i] = CString_GetData((CString *)(uintptr_t)node->value);
+					node = node->next;
+				}
+			}
+			return g_BookPageLines;
 		}
-		lineCount++;
 	}
-	*outLineCount = lineCount;
-	return g_BookPageLines;
+	*outLineCount = 0;
+	return NULL;
 }
 
 /*
@@ -801,45 +784,33 @@ SetBookAuthor(CItem *item, const char *author, int authorId)
 /*
  * 0x004356EE - SetBookPage
  *
- * Stores the lines for pageNum.
- *
- * MODIFIED: the binary stores pages as a WombatList tag; we store them as
- * a newline-separated string.
+ * Stores the lines for pageNum as a LIST objvar holding one CString per
+ * line, reusing a single stack temporary that CList::Append deep-copies.
  */
 void
 SetBookPage(CItem *item, int pageNum, int lineCount, char **lines)
 {
 	char pageName[20];
-	char pageBuf[4096];
-	int pos;
+	CList *pageList;
+	CString tmp;
 	int i;
 
 	CItem_IsWritableBook(item);
 	if (pageNum < 1 || pageNum > GetBookPageCount(item))
 		return;
+
 	sprintf(pageName, "bookPage%02d", pageNum);
-	pageBuf[0] = '\0';
-	pos = 0;
+	pageList = CResourceEntity_GetTagEntity(item, pageName);
+	if (pageList == NULL)
+		pageList = (CList *)(uintptr_t)CEntity_SetObjVar(item, pageName, WTYPE_LIST, 0)->value;
+
+	CList_Clear(pageList);
+	CString_DefaultConstructor(&tmp);
 	for (i = 0; i < lineCount; i++) {
-		int len;
-		if (lines[i] == NULL)
-			continue;
-		len = (int)strlen(lines[i]);
-		if (pos + len + 1 < (int)sizeof(pageBuf)) {
-			if (pos > 0)
-				pageBuf[pos++] = '\n';
-			memcpy(pageBuf + pos, lines[i], len);
-			pos += len;
-		}
+		CString_AssignCStr(&tmp, lines[i]);
+		CList_Append(pageList, WTYPE_STRING, (uintptr_t)&tmp);
 	}
-	pageBuf[pos] = '\0';
-	{
-		CString valStr, nameStr;
-		CString_Constructor(&valStr, pageBuf);
-		CString_Constructor(&nameStr, pageName);
-		ObjVar_SetStr(item, &nameStr, 1, (uintptr_t)&valStr);
-		CString_Destructor(&valStr);
-	}
+	CString_Destructor(&tmp);
 }
 
 /*
