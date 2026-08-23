@@ -198,6 +198,18 @@ enum {
 };
 
 /*
+ * Custom - CNPC.resourceAITarget discriminator (FEAT_ECOLOGY).
+ *
+ * resourceAITarget was a 0/1 flag; value NPC_RESTGT_MOBILE marks a
+ * player pickpocket target, so CNPC_PurseDesiresHandler routes it to
+ * the pickpocket path instead of the item-consume path. Value 2 is
+ * truthy, so existing if (resourceAITarget) tests are unaffected.
+ */
+#define NPC_RESTGT_NONE   0
+#define NPC_RESTGT_ITEM   1
+#define NPC_RESTGT_MOBILE 2
+
+/*
  * 0x00421300 - CNPC::SetState
  *
  * Save current AI state to prevAIState, set new state.

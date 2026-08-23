@@ -1870,9 +1870,9 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 	// paths without waiting on the sometimes-unreliable SEEK_DESIRES
 	// scan. After calling this, .aistate 4 transitions the NPC to
 	// PURSE_DESIRES so the handler walks to the target. A mobile
-	// target auto-sets resourceAITarget = NPC_RESTGT_MOBILE (1) so
+	// target auto-sets resourceAITarget = NPC_RESTGT_MOBILE (2) so
 	// PurseDesiresHandler routes to PurseDesiresPlayer; an item target
-	// sets resourceAITarget = NPC_RESTGT_ITEM (2).
+	// sets resourceAITarget = NPC_RESTGT_ITEM (1).
 	if (strncmp(cmd, "hoardprime ", 11) == 0 && CPlayer_IsEditing(player)) {
 		uint32_t npcSerial, targSerial;
 		char restypeName[64] = "gold";
@@ -1905,7 +1905,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		npc->resourceTargetSerial = targSerial;
 		npc->resourceType = (uint8_t)rt->typeId;
 		npc->resourceRate = 10;
-		npc->resourceAITarget = VT_IsMobile(targItem) ? 1 : 2;
+		npc->resourceAITarget = VT_IsMobile(targItem) ? NPC_RESTGT_MOBILE : NPC_RESTGT_ITEM;
 		CLocation_SetLoc(&npc->patrolTarget, &targItem->resourceEntity.entity.location);
 		npc->isWalking = 1;
 		char msg[160];

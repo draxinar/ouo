@@ -37,18 +37,6 @@
 #include "wombat_compile.h"
 #include "world.h"
 
-/*
- * Custom - CNPC.resourceAITarget discriminator (FEAT_ECOLOGY).
- *
- * resourceAITarget was a 0/1 flag; value NPC_RESTGT_MOBILE marks a
- * player pickpocket target, so CNPC_PurseDesiresHandler routes it to
- * the pickpocket path instead of the item-consume path. Value 2 is
- * truthy, so existing if (resourceAITarget) tests are unaffected.
- */
-#define NPC_RESTGT_NONE   0
-#define NPC_RESTGT_ITEM   1
-#define NPC_RESTGT_MOBILE 2
-
 static int CNPC_IsAversionTarget(CItem *self, CItem *target); // 0x00432300
 static int CNPC_IsPredatorTarget(CItem *self, CItem *target); // 0x004323A5
 static int CNPC_CanPackTarget(CItem *self, CItem *target); // 0x00432401
