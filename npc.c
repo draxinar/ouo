@@ -57,6 +57,7 @@ static void CNPC_PurseDesiresPlayer(CNPC *npc, CItem *target); // Custom
 static int CNPC_HasFoodAppetite(CNPC *npc); // Custom
 static int CNPC_GrazeHandler(CNPC *npc); // Custom
 static int CNPC_CarnivoreFeed(CNPC *npc); // Custom
+static int CNPC_ForageLeash(CNPC *npc); // Custom
 static int CNPC_GetPowerLevel(CItem *entity); // 0x00432C65
 #ifndef CUSTOM_ECOLOGY_DEBUG
 __attribute__((unused))
@@ -4223,6 +4224,12 @@ CNPC_HandleStates(CNPC *npc)
 	if (npc->isWalking != 0)
 		return;
 
+	// Custom (FEAT_ECOLOGY): keep a .foragemode NPC inside the radius
+	// where it still ticks. Checked before the IDLE-only preamble
+	// below, because a strayed forager is usually mid-WANDER.
+	if (feat(FEAT_ECOLOGY) && CNPC_ForageLeash(npc))
+		return;
+
 	if (feat(FEAT_ECOLOGY)) {
 		// Ecology idle scanning (predator/prey/pack/scavenger AI).
 		// IdleScan is wrapped in CNPC_EcologyTick for state translation -
@@ -8199,4 +8206,75 @@ CNPC_CarnivoreFeed(CNPC *npc)
 	}
 
 	return 0;
+}
+
+/*
+ * Custom - CNPC_ForageLeash (FEAT_ECOLOGY)
+ *
+ * Keeps an NPC tagged by the .foragemode GM test aid inside the radius
+ * where it still runs its AI.
+ *
+ * CNPC::WanderStep re-rolls a patrol target up to ten tiles from the
+ * NPC's current tile on every wander step, so a wandering creature is a
+ * random walk whose stride carries it tens of tiles within a minute.
+ * The AI tick freezes any NPC with no player inside eighteen tiles, and
+ * a frozen NPC resets its own freeze timer indefinitely - only
+ * CNPC_OnPlayerEnteredRange revives it. A forager that drifts out of a
+ * stationary observer's radius is therefore gone for the rest of the
+ * run, which left a squad of test dragons stranded about one run in
+ * four with nothing foraged at all.
+ *
+ * While foragemode is set, an NPC further than FORAGE_LEASH_TILES from
+ * the tile it was tagged on ("foragex"/"foragey", stamped by
+ * GM_ApplyForageMode) walks back to it instead of wandering further
+ * out, arriving in IDLE so the foragemode roll picks SEEK_DESIRES up
+ * again. Returns 1 when it claimed the tick.
+ *
+ * The anchor is the tag tile rather than homeLoc because homeLoc
+ * belongs to the test: the carry-home test re-homes its squad thirty
+ * tiles away for the kill-mid-carry phase, and a homeLoc anchor would
+ * march every idle dragon out of the observer's range exactly then.
+ *
+ * A pursuing or carrying NPC is already walking, and the isWalking
+ * early-out above this call means the leash never interrupts one.
+ *
+ * Only NPCs a GM has tagged are affected - the binary's wander is
+ * untouched, and an NPC tagged before this field existed is left
+ * alone.
+ */
+#define FORAGE_LEASH_TILES 10
+
+static int
+CNPC_ForageLeash(CNPC *npc)
+{
+	CItem *self = (CItem *)npc;
+	CLocation anchor;
+	int forageMode = 0;
+	int anchorX, anchorY;
+	int dx, dy;
+
+	CResourceEntity_GetTagInt(self, "foragemode", &forageMode);
+	if (forageMode <= 0)
+		return 0;
+
+	anchorX = 0;
+	anchorY = 0;
+	CResourceEntity_GetTagInt(self, "foragex", &anchorX);
+	CResourceEntity_GetTagInt(self, "foragey", &anchorY);
+	if (anchorX <= 0 || anchorY <= 0)
+		return 0;
+
+	dx = anchorX - (int)(int16_t)self->resourceEntity.entity.location.x;
+	dy = anchorY - (int)(int16_t)self->resourceEntity.entity.location.y;
+	if (abs(dx) <= FORAGE_LEASH_TILES && abs(dy) <= FORAGE_LEASH_TILES)
+		return 0;
+
+	CLocation_Init(&anchor);
+	CLocation_Set(&anchor, (uint16_t)anchorX, (uint16_t)anchorY, 0);
+	CLocation_SetLoc(&npc->patrolTarget, &anchor);
+	npc->isWalking = 1;
+	npc->ltype = NPC_STATE_IDLE;
+	npc->stateInfo2 = NPC_STATE_IDLE;
+	CNPC_SetState(npc, NPC_STATE_IDLE);
+	return 1;
 }

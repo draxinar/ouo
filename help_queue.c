@@ -4543,8 +4543,15 @@ GM_TargetResources(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, u
 		snprintf(msg, sizeof(msg), "NpcHome x=%d y=%d z=%d loiter=%d,%d scanTimer=%u hoard=%u", (int)(int16_t)npc->homeLoc.x, (int)(int16_t)npc->homeLoc.y,
 		        (int)(int16_t)npc->homeLoc.z, (int)(int16_t)npc->loiterLoc.x, (int)(int16_t)npc->loiterLoc.y, (unsigned)npc->scanTimer, (unsigned)npc->homeInfo3);
 		CPlayer_SystemMessage(player, msg);
-		snprintf(msg, sizeof(msg), "NpcBody stomach=%u hunger=%u cap=%u tick=%u gold=%u", (unsigned)npc->mobile.stomach, (unsigned)npc->mobile.hunger,
-		        (unsigned)npc->hungerCapacity, (unsigned)npc->tickCount, (unsigned)CMobile_GetTotalQuantityOfType(&npc->mobile, 0xEED));
+		// gold= counts equipment-slot containers only, which is what
+		// CMobile_GetTotalQuantityOfType walks. carried= counts the
+		// mobile's own contents chain and recurses, so it also sees
+		// loot placed directly on the creature - where
+		// transferGenericToContainer puts pickpocketed gold and where
+		// CNPC_StashHoardPile puts a hoarded pile.
+		snprintf(msg, sizeof(msg), "NpcBody stomach=%u hunger=%u cap=%u tick=%u gold=%u carried=%u", (unsigned)npc->mobile.stomach, (unsigned)npc->mobile.hunger,
+		        (unsigned)npc->hungerCapacity, (unsigned)npc->tickCount, (unsigned)CMobile_GetTotalQuantityOfType(&npc->mobile, 0xEED),
+		        (unsigned)CContainer_GetTotalQuantity((CContainer *)npc, 0xEED));
 		CPlayer_SystemMessage(player, msg);
 		snprintf(msg, sizeof(msg), "NpcPos x=%d y=%d z=%d", (int)(int16_t)target->resourceEntity.entity.location.x, (int)(int16_t)target->resourceEntity.entity.location.y,
 		        (int)(int8_t)target->resourceEntity.entity.location.z);
@@ -4597,6 +4604,14 @@ GM_TargetAIState(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uin
  * CNPC_HandleStates makes the NPC roll SEEK_DESIRES from IDLE every
  * tick instead of the binary's 50% gate - a test aid that drives the
  * unforced ecology forage loop without forcing the aiState directly.
+ *
+ * Enabling also stamps the NPC's current tile into "foragex"/"foragey".
+ * CNPC_ForageLeash walks the NPC back there when it strays, which keeps
+ * it inside the radius where the AI tick still runs it. The tag tile is
+ * the anchor rather than homeLoc because homeLoc is a test's to move -
+ * this test re-homes the whole squad thirty tiles away for its
+ * kill-mid-carry phase, and anchoring on homeLoc would march every idle
+ * dragon out of the observer's range at that moment.
  */
 static void
 GM_ApplyForageMode(CPlayer *player, CItem *target, int enable)
@@ -4604,6 +4619,10 @@ GM_ApplyForageMode(CPlayer *player, CItem *target, int enable)
 	char msg[96];
 
 	CEntity_SetObjVar(target, "foragemode", 0, (uintptr_t)(enable ? 1 : 0));
+	if (enable) {
+		CEntity_SetObjVar(target, "foragex", 0, (uintptr_t)(int)(int16_t)target->resourceEntity.entity.location.x);
+		CEntity_SetObjVar(target, "foragey", 0, (uintptr_t)(int)(int16_t)target->resourceEntity.entity.location.y);
+	}
 	snprintf(msg, sizeof(msg), "foragemode 0x%08X: %s", target->serial, enable ? "ON" : "OFF");
 	CPlayer_SystemMessage(player, msg);
 }
