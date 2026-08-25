@@ -2816,11 +2816,6 @@ CNPC_AddFragment(CNPC *npc, CString *name)
  *
  * Removes every entry matching name (case-insensitive) from the
  * convo-fragment list, destroying the list when it empties.
- *
- * MODIFIED: the binary's CNPC::AddFragment leaves the sentinel node's value
- * region uninitialised, and its destructor frees the sentinel with a raw
- * free. Our AddFragment default-constructs that CString, so it has to be
- * destroyed here - and in CNPC::~CNPC - before the sentinel is released.
  */
 void
 CNPC_RemoveFragment(CNPC *npc, CString *name)
@@ -3016,8 +3011,8 @@ CNPC_ClearFrozen(CNPC *npc)
 /*
  * 0x00483F4B - CNPCManager::AddToActiveList
  *
- * MODIFIED: CSerialList replaces the binary's std::vector<serial> with
- * the same push-back / drain-from-back semantics.
+ * Queues a serial onto the deferred-heartbeat list that
+ * CNPCManager::DrainActiveList pops from.
  */
 void
 CNPCManager_AddToActiveList(uint32_t serial)

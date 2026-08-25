@@ -1907,9 +1907,9 @@ ScalarDestructor_Flags0(CSdbStr *obj)
  * fresh CLocaleCategory once and caches it for every later call. The second
  * argument is pushed by the caller but never read by the binary.
  *
- * When allowConstruct is clear, or the locale reports itself invalid, the
- * binary throws through _CxxThrowException (0x004E8640); that path is CRT
- * and is not replicated, so it returns NULL instead.
+ * MODIFIED: when allowConstruct is clear, or the locale reports itself
+ * invalid, the binary throws through _CxxThrowException (0x004E8640). That
+ * path is CRT and has no Linux equivalent, so this returns NULL instead.
  */
 static void *
 locale_Getfacet(void *loc, int unused, int allowConstruct)
@@ -2324,10 +2324,11 @@ Locale_Facet_GetCat(void)
  * decrefs and destroys the cached facet at process exit. Called by
  * locale_Getfacet (0x004047A0) the first time a facet is materialized.
  *
- * Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical section
- * enter/leave); we don't replicate the lock. The atexit registration goes
- * through the CRT thunk at 0x004E8720, which is not replicated either -
- * Locale_FacetAtexitDtor is instead left for the caller to run.
+ * MODIFIED: the binary wraps the body in fcn.005c0310 / fcn.005c03d0
+ * (critical section enter/leave) and we do not replicate the lock. The
+ * atexit registration goes through the CRT thunk at 0x004E8720, which has no
+ * Linux equivalent, so Locale_FacetAtexitDtor is left for the caller to
+ * run.
  */
 static CLocaleFacet *
 Locale_Facet_RegisterAtexit(CLocaleFacet *facet)

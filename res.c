@@ -418,9 +418,9 @@ CResListNode_SetNext(CResListNode *node, CResListNode *next)
  * over it. Always returns 1; the validation result is stored to a local
  * and dropped.
  *
- * MODIFIED: both calls take their comparator byte from an uninitialised
- * stack slot - the binary never writes EBP-0x4 or EBP-0xc before
- * pushing them. The locals are zeroed here so the build stays free of
+ * Both calls take their comparator byte from a stack slot that the binary
+ * never writes - neither EBP-0x4 nor EBP-0xc is initialised before being
+ * pushed. The locals are zeroed here so the build stays free of
  * -Wuninitialized; the value is only a scratch accumulator whose result
  * this function discards, and nothing calls this.
  */
