@@ -290,6 +290,9 @@ void CEntityMap_Insert(CEntityMap *this, CItem *entity, int x, int y); // 0x0045
 void CEntityMap_Remove(CEntityMap *this, CItem *entity, int x, int y); // 0x004571F0
 int CEntityMap_CountInRange(CEntityMap *this, int16_t x, int16_t y, int range); // 0x004572B0
 void CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range, CItem *exclude); // 0x00457480
+void CEntityMap_CollectMovementVisibilityExclude(
+        CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range, CItem *exclude); // 0x00457920
+
 void CEntityMap_CollectMovementVisibility(
         CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range); // 0x00457660
 int ChebyshevDistXY(int x1, int y1, int x2, int y2); // 0x004578B0

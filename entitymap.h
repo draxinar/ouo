@@ -50,7 +50,4 @@ extern CEntityMap *g_ItemMap; // 0x00645AE8
 extern CEntityMap *g_MobileMap; // 0x0064706C
 extern CEntityMap *g_NPCMap; // 0x00698974
 
-void CEntityMap_CollectMovementVisibilityExclude(
-        CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range, CItem *exclude); // 0x00457920
-
 #endif /* ENTITYMAP_H_ */
