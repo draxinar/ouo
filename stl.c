@@ -43,8 +43,6 @@ static void *StdTree_RBInsert_Wombat(StdMapTree *this, void *outIter, void *addL
 static void StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos); // 0x00421CC0
 static void *StdMap_Insert(StdMapTree *this, void *outIter, void *beginIter, void *endIter); // 0x00422510
 static void *StdMap_FindImpl(StdMapTree *this, void *outIter, void *keyPtr); // 0x00422650
-static void Destroy4_Range_Terrain(CVector *self, void *first, void *last); // 0x00422740
-static void vector_DestroyRange(void *first, void *last); // 0x00422740
 static uintptr_t SortMulti_NoOp(uintptr_t arg); // 0x00422770
 static int StdMap_IntKeyLess(StdMapTree *this, void *a, void *b); // 0x00422780
 static void *StdTreeNode_Key(StdTreeNode *node); // 0x004E3550
@@ -1318,32 +1316,16 @@ done:
 /*
  * 0x00422740 - CVector::Destroy4_Range
  *
- * Destroys range of 4-byte elements. For POD types this is a no-op.
+ * Calls CVector_Destroy6_Single on each 4-byte slot in [first, last).
  */
-static void
-Destroy4_Range_Terrain(CVector *self, void *first, void *last)
+void
+CVector_Destroy4_Range(CVector *this, void *first, void *last)
 {
-	USED(self);
-	USED(first);
-	USED(last);
-}
+	char *ptr = (char *)first;
 
-/*
- * 0x00422740 - _Destroy range
- *
- * Iterates [first, last) calling allocator.destroy (0x00479FF0) per
- * element, which calls the element destructor (0x0045ACC0). For uint32_t
- * the destructor is empty.
- */
-static void
-vector_DestroyRange(void *first, void *last)
-{
-	uintptr_t *p = first;
-	uintptr_t *e = last;
-
-	while (p != e) {
-		// 0x00479FF0 -> 0x0045ACC0 (empty function for uintptr_t)
-		p++;
+	while (ptr != (char *)last) {
+		CVector_Destroy6_Single(this, ptr);
+		ptr += 4;
 	}
 }
 
@@ -2638,7 +2620,7 @@ CVector_Constructor(CVector *list, const char *typeFlag)
 void
 CVector_Destructor(CVector *list)
 {
-	vector_DestroyRange(list->begin, list->end);
+	CVector_Destroy4_Range(list, list->begin, list->end);
 	free(list->begin);
 
 	list->begin = NULL;
@@ -5013,8 +4995,7 @@ CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 		// Copy elements after pos
 		CVector_Ucopy_CC20(this, pos, (uintptr_t *)this->end, newEnd + count);
 
-		// CVector_Destroy4_Range (0x00422740) - no-op for POD
-		Destroy4_Range_Terrain(this, this->begin, this->end);
+		CVector_Destroy4_Range(this, this->begin, this->end);
 		// StdDeque_Dealloc (0x0046C9E0)
 		{
 			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
@@ -5171,14 +5152,14 @@ CVector_PopBack(uint32_t **iter, uintptr_t **out)
 /*
  * 0x00473040 - CVector::EraseSingle
  *
- * Copies [pos+1, end) to pos via vector_Copy, calls vector_DestroyRange on
+ * Copies [pos+1, end) to pos via vector_Copy, calls CVector_Destroy4_Range on
  * the vacated last element, decrements end. Returns pos.
  */
 void *
 CVector_EraseSingle(CVector *vec, void *pos)
 {
 	vector_Copy((uintptr_t *)pos + 1, vec->end, pos);
-	vector_DestroyRange((uintptr_t *)vec->end - 1, vec->end);
+	CVector_Destroy4_Range(vec, (uintptr_t *)vec->end - 1, vec->end);
 	vec->end = (uintptr_t *)vec->end - 1;
 	return pos;
 }
@@ -6396,7 +6377,7 @@ CVector_Erase(CVector *vec, void *first, void *last)
 	void *newEnd;
 
 	newEnd = vector_Copy(last, vec->end, first);
-	vector_DestroyRange(newEnd, vec->end);
+	CVector_Destroy4_Range(vec, newEnd, vec->end);
 	vec->end = newEnd;
 
 	return first;

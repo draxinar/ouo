@@ -266,6 +266,7 @@ void StdPtrList_ConstructorWithType(StdPtrList *list, void *typeBytePtr); // 0x0
 void StdPtrList_ScalarDelete_4DD0(StdPtrList *list, void *value); // 0x00424DD0
 void StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00424E00
 void *StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00424F70
+void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740
 void CVector_Constructor(CVector *list, const char *typeFlag); // 0x00426460
 void CVector_Destructor(CVector *list); // 0x004264A0
 void *vector_CopyBackward(void *first, void *last, void *dest_end); // 0x00426820

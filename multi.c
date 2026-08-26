@@ -165,22 +165,6 @@ static char *g_multiMulPath = "../.rundir/multi.mul";
 static char *g_multiIdxPath = "../.rundir/multi.idx";
 
 /*
- * 0x00422740 - CVector::Destroy4_Range
- *
- * Calls CVector_Destroy6_Single on each 4-byte slot in [first, last).
- */
-void
-CVector_Destroy4_Range(CVector *this, void *first, void *last)
-{
-	char *ptr = (char *)first;
-
-	while (ptr != (char *)last) {
-		CVector_Destroy6_Single(this, ptr);
-		ptr += 4;
-	}
-}
-
-/*
  * 0x0047423A - MultiComponentPool_Init
  *
  * Initializes the CMultiComponent pool with a 0x1000-element block.
