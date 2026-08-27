@@ -4300,7 +4300,9 @@ CNPC_HandleStates(CNPC *npc)
 		if (feat(FEAT_ECOLOGY)) {
 			int forageMode = 0;
 			CResourceEntity_GetTagInt((CItem *)npc, "foragemode", &forageMode);
-			if (forageMode > 0) {
+			// Mode 1 replaces the roll; mode 2 is leash-only, for a test
+			// whose whole point is that this roll is not replaced.
+			if (forageMode == 1) {
 				CNPC_ShouldProcess(npc);
 				CNPC_SetState(npc, NPC_STATE_SEEK_DESIRES);
 				goto state_switch;
@@ -8201,6 +8203,12 @@ CNPC_CarnivoreFeed(CNPC *npc)
  * run, which left a squad of test dragons stranded about one run in
  * four with nothing foraged at all.
  *
+ * The aid has two halves and they are separable: mode 1 both replaces the
+ * IDLE roll and leashes, mode 2 leashes only. A test that exists to watch
+ * the unforced roll still needs its squad to stay where it can be watched,
+ * and freezing is a property of the harness - no player within eighteen
+ * tiles - rather than of the AI under test.
+ *
  * While foragemode is set, an NPC further than FORAGE_LEASH_TILES from
  * the tile it was tagged on ("foragex"/"foragey", stamped by
  * GM_ApplyForageMode) walks back to it instead of wandering further
@@ -8231,7 +8239,7 @@ CNPC_ForageLeash(CNPC *npc)
 	int dx, dy;
 
 	CResourceEntity_GetTagInt(self, "foragemode", &forageMode);
-	if (forageMode <= 0)
+	if (forageMode == 0)
 		return 0;
 
 	anchorX = 0;

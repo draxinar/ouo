@@ -2386,8 +2386,11 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 	// Custom: .foragemode [0xSERIAL] [0|1] - bias an NPC to roll
 	// SEEK_DESIRES from IDLE every tick (a test aid for the unforced
 	// ecology loop). With a leading 0x... serial, acts directly;
-	// otherwise opens a target cursor. The optional trailing 0|1
-	// disables or enables it (default enable).
+	// otherwise opens a target cursor. The optional trailing value is
+	// 0 to disable, 1 to replace the IDLE roll and leash the NPC to the
+	// tile it was tagged on, or 2 to leash only - for a test that must
+	// leave the roll unforced but still needs its squad to stay inside
+	// the radius where NPCs run at all.
 	if ((strcmp(cmd, "foragemode") == 0 || strncmp(cmd, "foragemode ", 11) == 0) && CPlayer_IsEditing(player)) {
 		const char *args = (cmd[10] == ' ') ? cmd + 11 : "";
 		uint32_t tgtSerial;
