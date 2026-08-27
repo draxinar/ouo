@@ -1240,24 +1240,6 @@ CNPC_InitFields(CNPC *npc)
 }
 
 /*
- * 0x00480D3F - NPC_AddToHash
- *
- * Inserts npc at the head of its serial bucket in g_NPCHash.
- */
-void
-NPC_AddToHash(CNPC *npc)
-{
-	uint32_t bucket;
-
-	bucket = npc->mobile.container.item.serial & 0x3F;
-	npc->npcHashNext = g_NPCHash[bucket];
-	if (npc->npcHashNext != NULL)
-		npc->npcHashNext->npcHashPrev = npc;
-	npc->npcHashPrev = NULL;
-	g_NPCHash[bucket] = npc;
-}
-
-/*
  * 0x0048104C - CResourceMobile::CResourceMobile
  *
  * No-args CResourceMobile constructor: chains CMobile_Constructor,
@@ -8272,4 +8254,28 @@ CNPC_ForageLeash(CNPC *npc)
 	npc->stateInfo2 = NPC_STATE_IDLE;
 	CNPC_SetState(npc, NPC_STATE_IDLE);
 	return 1;
+}
+
+/*
+ * Helper - NPC_AddToHash
+ *
+ * Inserts npc at the head of its serial bucket in g_NPCHash.
+ *
+ * The binary has no such function: CNPC::InitFields writes the insert
+ * inline, twice, and both copies are visible in its disassembly as the
+ * `AND EAX,0x3f` bucket computations at 0x00480D44 and 0x00480D88. This
+ * was annotated 0x00480D3F, which lands mid-instruction inside InitFields
+ * and gave the row a size of 845 bytes - InitFields' own.
+ */
+void
+NPC_AddToHash(CNPC *npc)
+{
+	uint32_t bucket;
+
+	bucket = npc->mobile.container.item.serial & 0x3F;
+	npc->npcHashNext = g_NPCHash[bucket];
+	if (npc->npcHashNext != NULL)
+		npc->npcHashNext->npcHashPrev = npc;
+	npc->npcHashPrev = NULL;
+	g_NPCHash[bucket] = npc;
 }

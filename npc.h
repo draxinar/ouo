@@ -263,7 +263,7 @@ void CNPCHash_HeartbeatTick(void); // 0x00480B7A
 void CNPCHash_RegenMoveTick(void); // 0x00480C34
 void CResourceMobile_SetBodyAndPlace(CMobile *mob, uint16_t bodyType, CLocation *loc); // 0x00480CD6
 void CNPC_InitFields(CNPC *npc); // 0x00480CFF
-void NPC_AddToHash(CNPC *npc); // 0x00480D3F
+void NPC_AddToHash(CNPC *npc); // Helper
 void CResourceMobile_Init(CMobile *mob); // 0x0048104C
 void CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, CLocation *loc); // 0x00481127
 void CResourceMobile_Destructor(CNPC *npc); // 0x00481228

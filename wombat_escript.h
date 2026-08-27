@@ -22,7 +22,7 @@ CEScriptStringVar *CEScriptStringVar_Clone(CEScriptStringVar *self); // 0x0045BD
 CEScriptIntVar *CEScriptIntVar_Clone(CEScriptIntVar *self); // 0x0045BE94
 int CEScriptStringVar_GetValue(CEScriptStringVar *self); // 0x0045BF17
 void CEScriptIntVar_SetFromInt(CEScriptIntVar *self, int val); // 0x0045BF42
-void CEScriptIntVar_SetFromString(CEScriptIntVar *self, const char *str); // 0x0045BF50
+void CEScriptIntVar_SetFromString(CEScriptIntVar *self, const char *str); // 0x0045E140
 int CEScriptIntVar_GetValue(CEScriptIntVar *self); // 0x0045BF58
 int CEScript_EvalExpression(CEScript *ctx, char delim, const char *expr); // 0x0045BF69
 void CEScript_CmdAssign(CEScript *ctx, char *line); // 0x0045C440

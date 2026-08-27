@@ -346,18 +346,6 @@ CEScriptIntVar_SetFromInt(CEScriptIntVar *self, int val)
 }
 
 /*
- * 0x0045BF50 - CEScriptIntVar::SetFromString (vtable[3])
- *
- * No-op: ignores the string argument. Int vars cannot be set from strings.
- */
-void
-CEScriptIntVar_SetFromString(CEScriptIntVar *self, const char *str)
-{
-	USED(self);
-	USED(str);
-}
-
-/*
  * 0x0045BF58 - CEScriptIntVar::GetValue (vtable[1])
  *
  * Returns this->value.
@@ -1376,6 +1364,23 @@ CEScriptStringVar_SetFromInt(CEScriptStringVar *self, int val)
 {
 	USED(self);
 	USED(val);
+}
+
+/*
+ * 0x0045E140 - CEScriptIntVar::SetFromString (vtable[3])
+ *
+ * No-op: ignores the string argument. Int vars cannot be set from strings.
+ *
+ * Shares its body with CEScriptStringVar::SetFromInt - MSVC folded the two
+ * empty methods onto one 13-byte function, and the class vtable at
+ * 0x005EECD8 points slot 3 at it. This was annotated 0x0045BF50, which is
+ * not a function at all: it lands mid-instruction inside SetFromInt.
+ */
+void
+CEScriptIntVar_SetFromString(CEScriptIntVar *self, const char *str)
+{
+	USED(self);
+	USED(str);
 }
 
 /*
