@@ -1549,7 +1549,7 @@ CItem_Delete(CItem *item)
 /*
  * 0x00484FC7 - CBoard::Delete (vtable[0x90])
  *
- * Same shape as CItem::Delete but without the metric increment.
+ * Same shape as CItem::Delete.
  */
 void
 CBoard_Delete(CItem *self)

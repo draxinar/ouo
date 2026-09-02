@@ -6,7 +6,7 @@
  * alive but stops responding. Watchdog spawns one POSIX thread that
  * watches a heartbeat written by the main thread at the end of each
  * tick. When the heartbeat goes stale beyond g_WatchdogTimeoutMs the
- * watchdog logs, emits a metric, and calls abort(). The existing
+ * watchdog logs and calls abort(). The existing
  * systemd pipeline (LimitCORE=infinity, OnFailure=ouo-coredump@,
  * Restart=on-failure) then dumps the stack trace to journal and
  * restarts the unit.
