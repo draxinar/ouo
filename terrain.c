@@ -926,17 +926,33 @@ IsWaterTile(int id)
 }
 
 /*
+ * Match the original terrain averages' arithmetic right shift by one.
+ * C99 division truncates toward zero, raising negative odd sums by one Z.
+ * Explicitly round down without relying on signed right-shift behavior.
+ */
+static int
+Terrain_AverageZ(int z1, int z2)
+{
+	int sum = z1 + z2;
+
+	return sum / 2 - (sum < 0 && sum % 2 != 0);
+}
+
+/*
  * 0x0046A6CA - Terrain_GetInterpolatedZ
  *
  * Returns the land Z at (x,y) interpolated by direction: one corner
  * for diagonals, average of two adjacent corners for cardinals.
  *
- * FIXED: Binary computes cornerIdx = direction / 2 at 0x0046A70C
+ * FIXED: Binary computes cornerIdx = direction >> 1 at 0x0046A70C
  * with no follow-up mask, then indexes the 4-entry corner tables.
  * With the 0x80 running bit set (e.g. 0x86 = running west) cornerIdx
- * is 67 and the read returns garbage. prevIdx at 0x0046A744 uses
- * ((direction - 1) / 2) & 3, confirming 0..3 is the intended
- * domain. Fix: mask cornerIdx.
+ * is 67 and the read returns garbage. Mask cornerIdx to 0..3.
+ * The previous index uses ((direction - 1) >> 1) & 3 (SAR at
+ * 0x0046A742). Replacing that shift with C99 division loses the
+ * wrap from north (direction 0) to corner 3, since -1 / 2 is 0.
+ * Wrap the masked corner index explicitly to preserve the demo's
+ * corner selection for walking and running without a signed shift.
  */
 int
 Terrain_GetInterpolatedZ(int x, int y, int direction)
@@ -953,9 +969,9 @@ Terrain_GetInterpolatedZ(int x, int y, int direction)
 	if (direction & 1)
 		return corner1;
 
-	prevIdx = ((direction - 1) / 2) & 3;
+	prevIdx = (cornerIdx + 3) & 3;
 	corner2 = Terrain_GetLandZ(x + g_TerrainCornerDX[prevIdx], y + g_TerrainCornerDY[prevIdx]);
-	return (corner1 + corner2) / 2;
+	return Terrain_AverageZ(corner1, corner2);
 }
 
 /*
@@ -986,8 +1002,8 @@ Terrain_GetAvgLandZ(int x, int y)
 		diffTRBL = -diffTRBL;
 
 	if (diffTLBR > diffTRBL)
-		return (tr + bl) / 2;
-	return (tl + br) / 2;
+		return Terrain_AverageZ(tr, bl);
+	return Terrain_AverageZ(tl, br);
 }
 
 /*
