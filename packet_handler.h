@@ -188,7 +188,7 @@ void HandlePacket_POSTLOGIN_UserSock(CUserSock *this); // 0x0047E768
 void HandlePacket_PRELOGIN(CUserSock *this, uint8_t *buf); // 0x0047E79E
 void HandlePacket_ACCT_LOGIN_REQ_original(CUserSock *this, uint8_t *buf); // 0x0047E8D8
 void HandlePacket_ACCT_LOGIN_REQ(CUserSock *this, uint8_t *buf); // 0x0047E8D8
-void HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf); // 0x0047EA8F
+void HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf, uint16_t packetLen); // 0x0047EA8F
 void HandlePacket_CHG_CHAR_PW(CUserSock *this, uint8_t *buf); // 0x0047EADE
 void Handle_LookAt(CPlayer *this, uint32_t targetSerial); // 0x0048E779
 void Player_Login(CPlayer *this, uint32_t addr); // 0x00492746

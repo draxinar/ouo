@@ -299,7 +299,7 @@ loop:
 			HandlePacket_ACCT_LOGIN_REQ(this, buf);
 			break;
 		case PacketType_ACCT_DEL_CHAR: // 0x83
-			HandlePacket_ACCT_DEL_CHAR(this, buf);
+			HandlePacket_ACCT_DEL_CHAR(this, buf, g_PacketSize);
 			break;
 		case PacketType_CHG_CHAR_PW: // 0x84
 			HandlePacket_CHG_CHAR_PW(this, buf);

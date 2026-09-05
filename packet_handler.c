@@ -1936,10 +1936,8 @@ HandlePacket_ACCT_LOGIN_REQ(CUserSock *this, uint8_t *buf)
  * character list (0x86 ALL_CHARACTERS) back to client.
  */
 void
-HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
+HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf, uint16_t packetLen)
 {
-	char *characterPassword;
-	uint32_t off;
 	uint32_t characterSlot;
 	uint32_t clientIP;
 	uint8_t obuf[bufSize];
@@ -1950,13 +1948,30 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	int numCharacters;
 	CVector charVec;
 	char typeFlag;
+	PacketReader reader;
+	const uint8_t *characterPassword;
 
-	off = 0;
-	GetString(buf, &off, &characterPassword, 30);
-	GetDWord(buf, &off, &characterSlot);
-	GetDWord(buf, &off, &clientIP);
+	if (packetLen != 39) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_ACCT_DEL_CHAR: invalid packet length", PacketType_ACCT_DEL_CHAR);
+		this->socket.status = SocketClosing;
+		return;
+	}
+
+	if (this->player != NULL) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_ACCT_DEL_CHAR: character delete after game login", PacketType_ACCT_DEL_CHAR);
+		this->socket.status = SocketClosing;
+		return;
+	}
+
+	PacketReader_Init(&reader, buf, packetLen, 1);
+	if (!PacketReader_ReadBytesPtr(&reader, &characterPassword, 30) || !PacketReader_ReadU32(&reader, &characterSlot) || !PacketReader_ReadU32(&reader, &clientIP)) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_ACCT_DEL_CHAR: truncated fixed fields", PacketType_ACCT_DEL_CHAR);
+		this->socket.status = SocketClosing;
+		return;
+	}
 
 	USED(clientIP);
+	USED(characterPassword);
 
 	// Custom: reject if no account
 	if (this->account == NULL) {
@@ -1971,7 +1986,10 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	CVector_Constructor(&charVec, &typeFlag);
 	CPlayerList_CollectByAccountIDSorted(&charVec, this->account->accountNum);
 	numCharacters = CVector_GetCount(&charVec);
-	target = ((int)characterSlot < numCharacters) ? (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot] : NULL;
+	if (numCharacters < 0 || characterSlot >= (uint32_t)numCharacters)
+		target = NULL;
+	else
+		target = (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot];
 	CVector_Destructor(&charVec);
 
 	memset(obuf, 0, sizeof(obuf));
@@ -1983,8 +2001,8 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 		return;
 	}
 
-	if (target->usersock != NULL) {
-		// Character is currently logged in
+	if (target->usersock != NULL || World_IsEntityInHash((CItem *)target)) {
+		// Character is currently logged in or waiting for delayed logout
 		PacketManager_MakePacket_CHG_CHAR_RESULT(obuf, 2);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		return;
