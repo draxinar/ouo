@@ -606,10 +606,11 @@ CTerrainManager_GetMinMaxZ(int *outMinZ, int *outMaxZ, CLocation loc, int direct
 	*outMinZ = -128;
 	*outMaxZ = z;
 
-	// First entry: land surface baseline (only if actually land).
+	// Only consume the first entry here if it is land; an item or
+	// static surface still needs the height checks in the loop below.
 	s = (SurfaceInfo *)list.begin;
-	if (s != (SurfaceInfo *)list.end) {
-		if (s->item == NULL && (s->flags & TF_SURFACE)) {
+	if (s != (SurfaceInfo *)list.end && s->item == NULL) {
+		if (s->flags & TF_SURFACE) {
 			topZ = SurfaceInfo_GetTopZ(s);
 			if (topZ <= z) {
 				if (useInterpolatedZ)
