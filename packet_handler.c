@@ -9644,12 +9644,15 @@ HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf)
 	this->clientVersion[sizeof(this->clientVersion) - 1] = '\0';
 
 	{
-		const ClientVersionInfo *info = Version_FindByName(version);
+		// version points into the packet with no terminator; use the
+		// bounded clientVersion copy so the lookup and the log do not
+		// scan past the packet.
+		const ClientVersionInfo *info = Version_FindByName(this->clientVersion);
 		if (info)
 			this->detectedKeyIndex = info->clientEnum;
 	}
 
-	Log_Game(this->addr, "'%s' client version %s", this->account ? this->account->login : "?", version);
+	Log_Game(this->addr, "'%s' client version %s", this->account ? this->account->login : "?", this->clientVersion);
 }
 
 // SpeechKeywordDispatch deleted (CUSTOM) - binary handles via wombat scripts
