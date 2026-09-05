@@ -1271,7 +1271,7 @@ Combat_ApplyDurabilityLoss(CItem *attacker, CItem *defender, CItem **weapon_ptr,
 	}
 
 	bonusAC = CMobile_GetBonusAC((CMobile *)defender);
-	if (bonusAC > 0)
+	if (bonusAC != 0)
 		bonusAC = GetRandomRange(bonusAC / 2, bonusAC);
 
 	if (*armor_ptr != NULL)
@@ -2778,15 +2778,17 @@ struct CrimeType {
 // 0x00619930 - five-entry witness-phrase table (range, count, phrases, fmts)
 static const struct CrimeType g_CrimeTypes[5] = {
 	// 0: Murder/Attack - range 9, 21 phrases
-	{ 9, 21, g_CrimePhrases_Murder, NULL, "You see %s attacking %s!", NULL },
+	{ 9, 21, g_CrimePhrases_Murder, "DEBUG! THERE SHOULD ALWAYS BE A VICTIM IN A MURDER!", "You see %s attacking %s%s!", NULL },
 	// 1: Theft - range 7, 21 phrases
-	{ 7, 21, g_CrimePhrases_Theft, "You notice %s trying to steal something.", "You notice %s trying to steal from %s.", "You notice %s attempting to steal from you!" },
+	{ 7, 21, g_CrimePhrases_Theft, "You notice %s trying to steal %s.", "You notice %s trying to steal %s from %s.", "You notice %s attempting to steal %s from you!" },
 	// 2: Snooping - range 4, 12 phrases
-	{ 4, 12, g_CrimePhrases_Snoop, NULL, "You notice %s trying to peek into %s's belongings.", "You notice %s peeking into your belongings!" },
+	{ 4, 12, g_CrimePhrases_Snoop, "DEBUG! SHOULD NEVER BE NO VICTIM IN A PEEK!", "You notice %s trying to peek into %s's belongings.",
+	        "You notice %s peeking into your belongings!%s" },
 	// 3: Provocation - range 9, 20 phrases
-	{ 9, 20, g_CrimePhrases_Provoke, NULL, "You notice %s provoking %s to attack.", NULL },
+	{ 9, 20, g_CrimePhrases_Provoke, "DEBUG! SHOULD NEVER BE NO VICTIM IN PROVOKE!", "You notice %s provoking %s to attack %s.", NULL },
 	// 4: Generic - range 7, 10 phrases
-	{ 7, 10, g_CrimePhrases_Generic, "You notice %s committing a crime.", "You notice %s doing something illegal to %s.", "You notice %s doing something illegal to you." }
+	{ 7, 10, g_CrimePhrases_Generic, "You notice %s committing a crime.%s", "You notice %s doing something illegal to %s%s.",
+	        "You notice %s doing something illegal to you.%s" }
 };
 
 /*
@@ -2973,8 +2975,6 @@ no_victim_msg:
 		} else {
 			if (ct->fmtWithVictim != NULL) {
 				const char *victimName;
-				// Binary pushes victimName as 5th sprintf arg (unused
-				// by the 2-%s format but present on the stack).
 				victimName = ((const char *(*)(void *))VT_FN((CItem *)victim, VT_GET_NAME))(victim);
 				criminalName = ((const char *(*)(void *))VT_FN((CItem *)criminal, VT_GET_NAME))(criminal);
 				sprintf(buf, ct->fmtWithVictim, criminalName, callbackName, victimName);

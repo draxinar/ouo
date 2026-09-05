@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 
 #include "dat.h"
@@ -541,27 +542,27 @@ CTimeManager_Update(void)
 static int
 TimeManager_ParseTimeUnit(const char *unitName, int *outCount)
 {
-	if (strcmp(unitName, "min") == 0) {
+	if (strcasecmp(unitName, "min") == 0) {
 		*outCount = 60;
 		return 0;
 	}
-	if (strcmp(unitName, "hour") == 0) {
+	if (strcasecmp(unitName, "hour") == 0) {
 		*outCount = 24;
 		return 1;
 	}
-	if (strcmp(unitName, "day") == 0) {
+	if (strcasecmp(unitName, "day") == 0) {
 		*outCount = 7;
 		return 2;
 	}
-	if (strcmp(unitName, "week") == 0) {
+	if (strcasecmp(unitName, "week") == 0) {
 		*outCount = 4;
 		return 3;
 	}
-	if (strcmp(unitName, "month") == 0) {
+	if (strcasecmp(unitName, "month") == 0) {
 		*outCount = 12;
 		return 4;
 	}
-	if (strcmp(unitName, "year") == 0) {
+	if (strcasecmp(unitName, "year") == 0) {
 		*outCount = 1;
 		return 5;
 	}

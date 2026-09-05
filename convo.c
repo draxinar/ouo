@@ -668,7 +668,6 @@ restart:
 	if (*pos == '/' && *(pos + 1) == '*') {
 		savedLine = this->lineNumber;
 		savedPos = pos;
-		pos += 2;
 		while (*pos != '\0') {
 			if (*pos == '*' && *(pos + 1) == '/')
 				break;
@@ -750,7 +749,7 @@ restart:
 		len++;
 		pos++;
 	}
-	while (*pos != '\0' && (isalnum((unsigned char)*pos) || *pos == '_')) {
+	while (*pos != '\0' && (isalpha((unsigned char)*pos) || *pos == '_')) {
 		if (len == maxLen - 1)
 			return NULL;
 		outBuf[len] = *pos;
@@ -854,7 +853,7 @@ CConversationManager_LoadDefines(CConversationManager *this)
 			break;
 		}
 
-		if (!isalnum((unsigned char)buf[0])) {
+		if (!isalpha((unsigned char)buf[0])) {
 			err = 1;
 			break;
 		}
@@ -925,7 +924,7 @@ CConversationManager_LoadFragments(CConversationManager *this)
 			err = 1;
 			break;
 		}
-		if (!isalnum((unsigned char)buf[0])) {
+		if (!isalpha((unsigned char)buf[0])) {
 			err = 1;
 			break;
 		}
@@ -1037,7 +1036,7 @@ CConversationManager_LoadFragment(CConversationManager *this, const char *fragNa
 				err = 1;
 				break;
 			}
-			if (!isalnum((unsigned char)nameBuf[0]) || !isalnum((unsigned char)lookupNameBuf[0]) || !isalnum((unsigned char)fragNameBuf[0])) {
+			if (!isalpha((unsigned char)nameBuf[0]) || !isalpha((unsigned char)lookupNameBuf[0]) || !isalpha((unsigned char)fragNameBuf[0])) {
 				err = 1;
 				break;
 			}
@@ -1328,7 +1327,7 @@ CConversationManager_SubstituteResponse(CConversationManager *this, char *define
 			if (*defineKey == '0') {
 				defineKey++;
 				p = responseText;
-				while (*p != '\0' && (isalpha((unsigned char)*p) || *p == '*'))
+				while (*p != '\0' && (isspace((unsigned char)*p) || *p == '*'))
 					p++;
 				while (*p != '\0') {
 					if (*p != '*')

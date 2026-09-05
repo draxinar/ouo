@@ -3304,6 +3304,37 @@ CItem_FindTopContainerMobile(CItem *item)
 }
 
 /*
+ * 0x0048884D - StaticEntity::ReattachSpatial (vtable[0x3C])
+ *
+ * Moves a static entity from the head of its block's static list to the
+ * tail. Unlike CItem::ReattachSpatial this walks the nextInContainer
+ * chain, which is the link the static list uses, and has no parent guard.
+ */
+void
+StaticEntity_ReattachSpatial_VT(CItem *self)
+{
+	CItem *cur;
+	int blockIdx;
+
+	if (self->resourceEntity.nextInContainer == NULL)
+		return;
+
+	cur = self->resourceEntity.nextInContainer;
+	while (cur->resourceEntity.nextInContainer != NULL)
+		cur = cur->resourceEntity.nextInContainer;
+
+	self->resourceEntity.nextInContainer->resourceEntity.staticPrev = NULL;
+
+	self->resourceEntity.staticPrev = cur;
+	cur->resourceEntity.nextInContainer = self;
+
+	blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, &self->resourceEntity.entity.location, 0);
+	g_MapBlocks[blockIdx].staticHead = self->resourceEntity.nextInContainer;
+
+	self->resourceEntity.nextInContainer = NULL;
+}
+
+/*
  * 0x004888DD - CItem::ReattachSpatial (vtable[0x3C])
  *
  * Moves an item from the head of its spatial block's item list to the

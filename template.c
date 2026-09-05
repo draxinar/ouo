@@ -1619,7 +1619,7 @@ CTemplateManager_CreateEntity(uint16_t templateId, CLocation *loc, int *amount, 
 	CResManager eqRM;
 	CSearchCtx tmplCtx;
 	CString bodyTypeStr;
-	char subtypeBuf[128];
+	char subtypeBuf[512];
 	char *cursor;
 	uint16_t bodyType;
 	int isNone;
@@ -1867,7 +1867,7 @@ CTemplateManager_LoadTemplates(void)
 	FILE *f;
 	FILE *curFile;
 	char *line;
-	char key[96];
+	char key[128];
 	NPCTemplate *tmpl;
 	int splitFlag;
 	int fileCounter;
@@ -2097,7 +2097,7 @@ CTemplateManager_LoadTemplates(void)
 			// Binary inlines "type" subtype parsing here, before
 			// the generic strdup/ResolveDefines step.
 			if (fieldType == 0) {
-				char subtypeBuf[128];
+				char subtypeBuf[512];
 				GetValue(line, subtypeBuf);
 				tmpl->type = 0;
 				if (strcasecmp(subtypeBuf, "normal") == 0) {
@@ -2798,12 +2798,12 @@ CTemplateData_Constructor(NPCTemplate *this)
 /*
  * 0x004C0F70 - CTemplateManager::ApplyLabel
  *
- * Finds-or-inserts a label entry and stores *entity as its value.
- * Returns 0 on the dedup path (unreachable in practice since
- * g_TemplatesRM.flags==0).
+ * Finds-or-inserts a label entry in this manager and stores *entity as
+ * its value. Returns 0 on the dedup path (unreachable in practice since
+ * the caller's flags are 0).
  */
 int
-CTemplateManager_ApplyLabel(CString *label, CItem **entity)
+CTemplateManager_ApplyLabel(CResManager *this, CString *label, CItem **entity)
 {
 	CSearchCtx searchCtx;
 	CSearchCtx output;
@@ -2813,7 +2813,7 @@ CTemplateManager_ApplyLabel(CString *label, CItem **entity)
 
 	CSearchCtx_Constructor(&searchCtx);
 
-	result = CTemplateManager_FindFieldByLabel(&g_TemplatesRM, &output, label);
+	result = CTemplateManager_FindFieldByLabel(this, &output, label);
 	CSearchCtx_Add(&searchCtx, result);
 
 	if (!CSearchCtx_Find(&searchCtx))
@@ -2821,7 +2821,7 @@ CTemplateManager_ApplyLabel(CString *label, CItem **entity)
 
 	valNode = (CResListNode *)CSearchCtx_GetValNode(&searchCtx);
 	bucket = CSearchCtx_GetBucket(&searchCtx);
-	CResManager_ApplyTemplateData(g_TemplatesRM.vals[bucket], valNode, entity);
+	CResManager_ApplyTemplateData(this->vals[bucket], valNode, entity);
 
 	return 1;
 }

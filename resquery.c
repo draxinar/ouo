@@ -300,15 +300,18 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 		int changeFlags;
 		int32_t spawnedCount, quantity, field103D8Val;
 
+		// These guards return without sending. The binary jumps to
+		// 0x004B4C36, a bare RET, where its success path jumps to
+		// 0x004B4BEF and builds the reply.
 		if (g_ResQueryTypeCount == 0)
-			break;
+			return;
 
 		// Select the region by hash index.
 		ResQuery_SelectRegion(session, flags & 0xFF);
 
 		region = g_ResBankManager.hashTable[flags & 0xFF];
 		if (region == NULL)
-			break;
+			return;
 
 		// Reserve 4 bytes for header.
 		cursor += 4;
@@ -420,7 +423,7 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 
 		region = g_ResBankManager.hashTable[flags & 0xFF];
 		if (region == NULL)
-			break;
+			return;
 
 		WriteInt32LE(&cursor, region->minRespawnTime);
 		WriteInt32LE(&cursor, region->maxRespawnTime);
@@ -494,8 +497,9 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 		USED(found);
 
 case9_done:
-		// Check template limit.
-		if ((int32_t)param + 1 >= g_ResQueryTemplateLimit)
+		// Check template limit. The binary's test at 0x004B4446 is JC,
+		// so the comparison is unsigned.
+		if ((uint32_t)(param + 1) >= (uint32_t)g_ResQueryTemplateLimit)
 			return;
 
 		cursor = ResQuery_WriteResourceData(cursor, param, flags & 0xFF);

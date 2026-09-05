@@ -4352,12 +4352,10 @@ ClassifyTemplateBody(int templateId)
  *
  * Scans CResourceTypeManager by name and caches the well-known
  * resource-type IDs (meat, water, gold, etc.) in the g_ResTypeId_*
- * globals. "bone" and "weapon" are checked unconditionally, not as
- * else-if branches of the primary chain.
- *
- * FIXED: binary uses strcmp(name, "CARNIVOREMEAT") but restypes.mul
- * contains lowercase "carnivoremeat", so g_ResTypeId_CarnivoreMeat
- * stayed 0. Use strcasecmp for that one entry.
+ * globals. All 21 comparisons are _stricmp, which is why the uppercase
+ * "CARNIVOREMEAT" literal matches the lowercase name in restypes.mul.
+ * "bone" and "weapon" are checked unconditionally, not as else-if
+ * branches of the primary chain.
  */
 void
 InitResourceTypeIds(void)
@@ -4371,48 +4369,48 @@ InitResourceTypeIds(void)
 			continue;
 		name = rt->internalName;
 
-		if (strcmp(name, "meat") == 0)
+		if (strcasecmp(name, "meat") == 0)
 			g_ResTypeId_Meat = i;
-		else if (strcmp(name, "water") == 0)
+		else if (strcasecmp(name, "water") == 0)
 			g_ResTypeId_Water = i;
-		else if (strcmp(name, "self") == 0)
+		else if (strcasecmp(name, "self") == 0)
 			g_ResTypeId_Self = i;
-		else if (strcmp(name, "humans") == 0)
+		else if (strcasecmp(name, "humans") == 0)
 			g_ResTypeId_Humans = i;
-		else if (strcmp(name, "feathers") == 0)
+		else if (strcasecmp(name, "feathers") == 0)
 			g_ResTypeId_Feathers = i;
-		else if (strcmp(name, "hide") == 0)
+		else if (strcasecmp(name, "hide") == 0)
 			g_ResTypeId_Hide = i;
-		else if (strcmp(name, "wool") == 0)
+		else if (strcasecmp(name, "wool") == 0)
 			g_ResTypeId_Wool = i;
-		else if (strcmp(name, "gold") == 0)
+		else if (strcasecmp(name, "gold") == 0)
 			g_ResTypeId_Gold = i;
-		else if (strcmp(name, "magic") == 0)
+		else if (strcasecmp(name, "magic") == 0)
 			g_ResTypeId_Magic = i;
-		else if (strcmp(name, "darkness") == 0)
+		else if (strcasecmp(name, "darkness") == 0)
 			g_ResTypeId_Darkness = i;
-		else if (strcmp(name, "metal") == 0)
+		else if (strcasecmp(name, "metal") == 0)
 			g_ResTypeId_Metal = i;
-		else if (strcmp(name, "cloth") == 0)
+		else if (strcasecmp(name, "cloth") == 0)
 			g_ResTypeId_Cloth = i;
-		else if (strcmp(name, "leather") == 0)
+		else if (strcasecmp(name, "leather") == 0)
 			g_ResTypeId_Leather = i;
-		else if (strcmp(name, "wood") == 0)
+		else if (strcasecmp(name, "wood") == 0)
 			g_ResTypeId_Wood = i;
-		else if (strcmp(name, "good") == 0)
+		else if (strcasecmp(name, "good") == 0)
 			g_ResTypeId_Good = i;
-		else if (strcmp(name, "evil") == 0)
+		else if (strcasecmp(name, "evil") == 0)
 			g_ResTypeId_Evil = i;
-		else if (strcmp(name, "jewels") == 0)
+		else if (strcasecmp(name, "jewels") == 0)
 			g_ResTypeId_Jewels = i;
-		else if (strcmp(name, "danger") == 0)
+		else if (strcasecmp(name, "danger") == 0)
 			g_ResTypeId_Danger = i;
 		else if (strcasecmp(name, "CARNIVOREMEAT") == 0)
 			g_ResTypeId_CarnivoreMeat = i;
 
-		if (strcmp(name, "bone") == 0)
+		if (strcasecmp(name, "bone") == 0)
 			g_ResTypeId_Bone = i;
-		if (strcmp(name, "weapon") == 0)
+		if (strcasecmp(name, "weapon") == 0)
 			g_ResTypeId_Weapon = i;
 	}
 }
@@ -4958,7 +4956,6 @@ ParseAlignment(char *text)
 int
 CTemplateManager_SpawnVendorStock(CItem *mob, char *dataCursor, int *counter, CLocation loc, void *manager, int *colorPtr, uint32_t limit, int depth)
 {
-	USED(manager);
 	uint32_t bodyType;
 	char *savedCursor;
 	CItem *newEntity;
@@ -5233,17 +5230,15 @@ parse_color:
 		dataCursor = GetValue(dataCursor, valueBuf);
 		CString_AssignInternal(&inNameStr, valueBuf);
 
-		CResManager_FindContainer(&g_TemplatesRM, &inOutput, &inNameStr, 1);
+		CResManager_FindContainer((CResManager *)manager, &inOutput, &inNameStr, 1);
 		CSearchCtx_Add(&inSearchCtx, &inOutput);
 
 		if (CSearchCtx_Find(&inSearchCtx)) {
-			ptr = CResManager_GetResult(&g_TemplatesRM, &inSearchCtx);
-			if (ptr != NULL) {
-				foundContainer = *(CItem **)ptr;
-				if (foundContainer != NULL) {
-					if (VT_IsMobile2(foundContainer)) {
-						targetContainer = foundContainer;
-					}
+			ptr = CResManager_GetResult((CResManager *)manager, &inSearchCtx);
+			foundContainer = *(CItem **)ptr;
+			if (foundContainer != NULL) {
+				if (VT_IsMobile2(foundContainer)) {
+					targetContainer = foundContainer;
 				}
 			}
 		}
@@ -5461,9 +5456,10 @@ contained_done:;
 
 			CContainer_GetContainerBounds(targetContainer, &minX, &x, &minY, &y);
 
+			// contY is the third out-parameter, minY.
 			contX = minX + *counter;
 			*counter = *counter + 1;
-			contY = y;
+			contY = minY;
 
 			CLocation_Set(&contLoc, (int16_t)contX, (int16_t)contY, 0);
 		} else {
@@ -5483,7 +5479,7 @@ contained_done:;
 
 	// after_placement (binary convergence point 0x004BBDFD)
 	if (!CString_IsEmpty(&labelStr)) {
-		CTemplateManager_ApplyLabel(&labelStr, &newEntity);
+		CTemplateManager_ApplyLabel((CResManager *)manager, &labelStr, &newEntity);
 	}
 
 	if (bodyType < 0x186A0) {

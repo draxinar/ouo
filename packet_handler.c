@@ -286,7 +286,7 @@ NamedResource_Find(char *name)
 
 	i = 0;
 	while (g_NamedResources[i].name != NULL) {
-		if (strcmp(name, g_NamedResources[i].name) == 0)
+		if (strcasecmp(name, g_NamedResources[i].name) == 0)
 			return g_NamedResources[i].data;
 		i++;
 	}
@@ -3230,8 +3230,12 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 			CPlayer_SystemMessage(this, "This item needs resources.");
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x00);
 			SendToClient((CItem *)this, obuf, -1);
-			if (((int (*)(void *))VT_FN(item, VT_HAS_CORPSE_EQ))(item))
-				((void (*)(void *, void *, int))VT_FN(item, VT_SEND_ENTITY_UPDATE))(item, (CItem *)this, 1);
+			// The binary re-tests item at 0x004944A8, though 0x0049439B has
+			// already returned on NULL.
+			if (item != NULL) {
+				if (((int (*)(void *))VT_FN(item, VT_HAS_CORPSE_EQ))(item))
+					((void (*)(void *, void *, int))VT_FN(item, VT_SEND_ENTITY_UPDATE))(item, (CItem *)this, 1);
+			}
 			return;
 		}
 	}
@@ -3337,7 +3341,10 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 
 	if (isStealing != 0 && !CPlayer_IsEditing(this)) {
 		int acc = (int)(intptr_t)Entity_ExecuteEvent((CEntity *)topContainer, 0x3D, 5, CMobile_GetSerial(mob), item->serial);
-		if (acc == 0) {
+		// Subcode 5 has the opposite polarity to subcode 4 below: at
+		// 0x0049485F a zero result jumps past the failure, so a non-zero
+		// result is what blocks the steal.
+		if (acc != 0) {
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x00);
 			SendToClient((CItem *)this, obuf, -1);
 			return;
@@ -3679,13 +3686,16 @@ HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf)
 		goto cleanup;
 
 	if (contSerial == 0xFFFFFFFF) {
+		// Editing plus a valid coordinate skips both checks: the binary
+		// jumps past them at 0x00495160. Editing with an invalid
+		// coordinate falls into the common path and fails it there.
 		if (CPlayer_IsEditing(this)) {
-			if (!CBlockManager_IsValidCoord(&g_SpatialGrid, dropLoc.x, dropLoc.y))
+			if (CBlockManager_IsValidCoord(&g_SpatialGrid, dropLoc.x, dropLoc.y))
 				goto ground_drop_main;
-		} else {
-			if (!CBlockManager_IsValidCoord(&g_SpatialGrid, dropLoc.x, dropLoc.y))
-				goto cleanup;
 		}
+
+		if (!CBlockManager_IsValidCoord(&g_SpatialGrid, dropLoc.x, dropLoc.y))
+			goto cleanup;
 
 		if (!(CTerrainManager_CheckMoveBlocked(dropLoc, amount, 0, item, 0) & 2))
 			goto cleanup;
@@ -3699,7 +3709,7 @@ ground_drop_main:
 				uint16_t colorOverride = ((uint16_t (*)(void *))VT_FN(item, VT_GET_AMOUNT))(item);
 				PacketManager_MakePacket_OBJMOVE(pkt, CEntity_GetBodyType(item), CItem_IsStackable(item), item->resourceEntity.entity.color, colorOverride, 0,
 				        dropX, dropY, dropZ, ((CItem *)this)->serial, origLoc.x, origLoc.y, (uint8_t)origLoc.z);
-				CPlayerList_BroadcastToTwoLocs(pkt, &origLoc, &dropLoc, 18, NULL);
+				CPlayerList_BroadcastToTwoLocs(pkt, &origLoc, &dropLoc, 18, (CItem *)this);
 			}
 		}
 
@@ -3894,7 +3904,7 @@ container_event:
 			uint16_t colorOverride = ((uint16_t (*)(void *))VT_FN(item, VT_GET_AMOUNT))(item);
 			PacketManager_MakePacket_OBJMOVE(pkt, CEntity_GetBodyType(item), CItem_IsStackable(item), item->resourceEntity.entity.color, colorOverride, 0, contLoc.x,
 			        contLoc.y, (uint8_t)contLoc.z, ((CItem *)this)->serial, origLoc.x, origLoc.y, (uint8_t)origLoc.z);
-			CPlayerList_BroadcastToTwoLocs(pkt, &origLoc, &contLoc, 18, NULL);
+			CPlayerList_BroadcastToTwoLocs(pkt, &origLoc, &contLoc, 18, (CItem *)this);
 		}
 	}
 
@@ -6114,18 +6124,18 @@ HandlePacket_RequestAssistance(CPlayer *this, uint8_t *buf)
 	GetDWord(buf, &off, &serial);
 	GetString(buf, &off, &name, 0x1F);
 
-	memcpy(nameBuf, name, 0x1E);
+	strncpy(nameBuf, name, 0x1E);
 	nameBuf[0x1E] = '\0';
 
 	GetString(buf, &off, &category, 0x0F);
 
-	memcpy(catBuf, category, 0x0F);
+	strncpy(catBuf, category, 0x0F);
 	catBuf[0x0E] = '\0';
 
 	GetString(buf, &off, &body, 0x1F);
 
 	// Copies 0x100 bytes from name field position in packet buffer.
-	memcpy(bodyBuf, name, 0x100);
+	strncpy(bodyBuf, name, 0x100);
 	bodyBuf[0xFF] = '\0';
 
 	CAssistance_Constructor(&assist);
@@ -6258,7 +6268,9 @@ HandlePacket_GMSingle(CPlayer *this, uint8_t *buf)
  * Binary has 48-entry switch (types 0x02-0xB1, indexed by type-2).
  * Default falls through to GM switch if PlayerIsEditing.
  *
- * MODIFIED: Added CLIENT_VERSION (0xBD) case for 1.26+ clients.
+ * MODIFIED: the binary's table sends BRITANNIA_SELECT (0xA0) here. The
+ * custom login flow handles it in UserSock_DoHandlePacket instead, where
+ * the CUserSock it needs is in scope, so 0xA0 never reaches this switch.
  *
  * CUSTOM (FEAT_CHAT, FEAT_SKILL_LOCK): the chat text/open and skill-lock
  * packets are only dispatched when their flag is on.
@@ -7155,7 +7167,9 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			while (cur != NULL) {
 				entX = (int16_t)cur->resourceEntity.entity.location.x;
 				entY = (int16_t)cur->resourceEntity.entity.location.y;
-				if (entX >= x1 && entX < x2 && entY >= y1 && entY < y2) {
+				// The binary's four bounds tests are JC/JNC - unsigned - against
+				// the sign-extended coordinate at 0x004B5F3E onward.
+				if ((uint32_t)entX >= (uint32_t)x1 && (uint32_t)entX < (uint32_t)x2 && (uint32_t)entY >= (uint32_t)y1 && (uint32_t)entY < (uint32_t)y2) {
 					bucketCounts[i]++;
 				}
 				cur = cur->templateChainNext;
@@ -7233,7 +7247,10 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			((void (*)(CItem *))VT_FN(editEnt, VT_HIDE))(editEnt);
 		}
 
-		CLocation_Set(&editEnt->resourceEntity.entity.location, (int16_t)newBoundX, (int16_t)newBoundY, (int16_t)newBoundZ);
+		// The bound triple is the three shorts at 0x10, 0x12 and 0x14, the
+		// same slots mode 0x0D reads back.
+		editEnt->resourceEntity.nextInContainer = (CItem *)(uintptr_t)(((uint32_t)(uint16_t)newBoundX) | ((uint32_t)(uint16_t)newBoundY << 16));
+		editEnt->resourceEntity.staticPrev = (CItem *)(uintptr_t)((uint16_t)newBoundZ);
 
 		CEntity_SetBodyType(editEnt, (uint16_t)newBodyType);
 
@@ -7580,7 +7597,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 							// Check name prefix "link"
 							{
 								const char *tagName = tagDefNode->name;
-								if (strncasecmp(tagName, "link", 4) == 0)
+								if (strncasecmp(tagName, "link", 4) != 0)
 									goto next_tag_iter;
 							}
 
@@ -7590,8 +7607,8 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 								void *valObj = (void *)tagDefNode->value;
 								valStr = TriggerEdit_CString_GetCStr(valObj);
 
-								// Filter by search string if connIndex non-zero
-								if ((connIndex & 0xFFFF) != 0) {
+								// Filter by search string when connIndex is zero
+								if ((connIndex & 0xFFFF) == 0) {
 									if (strcmp(valStr, tagSearchStr) != 0)
 										goto next_tag_iter;
 								}
@@ -7617,7 +7634,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 
 								// If connIndex was 0, stop after first match
 								if ((connIndex & 0xFFFF) == 0)
-									goto next_tag_iter;
+									break;
 							}
 
 next_tag_iter:
@@ -7648,6 +7665,9 @@ next_tag_entity:
 			return;
 		}
 
+		// Table index 6 (mode 7) holds the same handler address as index 4;
+		// the trailing `(mode & 0xFF) == 7` test below is its arm.
+		case 6:
 		case 4: {
 			char *varData = readCur + 4;
 			int32_t varSubType = connIndex & 0xFFFF;
@@ -7732,6 +7752,8 @@ next_tag_entity:
 			return;
 		}
 
+		// Table index 3 (mode 4) holds the same handler address as index 1.
+		case 3:
 		case 1: {
 			char *scriptName = readCur + 4;
 			const char *attachResult;

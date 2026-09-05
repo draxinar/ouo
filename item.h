@@ -271,6 +271,7 @@ void CItem_HideVT(CItem *item); // 0x00487E94
 void StaticEntity_DetachSpatial_VT(CItem *self); // 0x00488382
 void CItem_DetachFromSpatial(CItem *item); // 0x004885CB
 CItem *CItem_FindTopContainerMobile(CItem *item); // 0x004887FD
+void StaticEntity_ReattachSpatial_VT(CItem *self); // 0x0048884D
 void CItem_ReattachSpatial_VT(CItem *item); // 0x004888DD
 void CItem_AddToEquip_VT(CItem *self, CMobile *mob); // 0x0048897A
 int CItem_GetTagInt(CItem *item, const char *name, int *outVal); // 0x00488A37

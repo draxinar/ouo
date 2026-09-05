@@ -947,13 +947,13 @@ Terrain_GetInterpolatedZ(int x, int y, int direction)
 		return Terrain_GetLandZ(x, y);
 
 	cornerIdx = (direction / 2) & 3;
-	corner1 = Terrain_GetLandZ(x + g_TerrainCornerDX[cornerIdx], y + g_TerrainCornerDY[cornerIdx]);
+	corner1 = Terrain_GetLandZ(x + g_TerrainCorner[cornerIdx][0], y + g_TerrainCorner[cornerIdx][1]);
 
 	if (direction & 1)
 		return corner1;
 
 	prevIdx = ((direction - 1) / 2) & 3;
-	corner2 = Terrain_GetLandZ(x + g_TerrainCornerDX[prevIdx], y + g_TerrainCornerDY[prevIdx]);
+	corner2 = Terrain_GetLandZ(x + g_TerrainCorner[prevIdx][0], y + g_TerrainCorner[prevIdx][1]);
 	return (corner1 + corner2) / 2;
 }
 
@@ -2218,10 +2218,11 @@ SendVerOk(uint32_t value, void *unused, CItem *target)
 /*
  * 0x0061BB98 - direction corner lookup table
  *
- * Indexed by dir/2. Used by GetInterpolatedZ for corner selection.
+ * Four {dx, dy} rows indexed by dir/2, laid out as the binary lays them
+ * out: GetInterpolatedZ indexes with a scale of 8 at 0x0046A71F and reads
+ * the second column at 0x0061BB9C. Used for corner selection.
  */
-const int g_TerrainCornerDX[4] = { 1, 1, 0, 0 };
-const int g_TerrainCornerDY[4] = { 0, 1, 1, 0 };
+const int g_TerrainCorner[4][2] = { { 1, 0 }, { 1, 1 }, { 0, 1 }, { 0, 0 } };
 
 // 8-direction delta tables.
 const int g_TerrainDirDX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };

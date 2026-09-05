@@ -455,7 +455,6 @@ classifyCreature(uint16_t bodyType, int *outType, int *outClass, int *outDiff)
 		*outType = 1;
 		break;
 	case 217:
-	case 262:
 		*outClass = 0x211c;
 		*outDiff = 2;
 		*outType = 1;

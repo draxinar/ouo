@@ -208,7 +208,7 @@ struct CRegion;
  */
 __extension__ typedef struct CResourceNode CResourceNode;
 
-extern const int g_TerrainCornerDX[4]; // 0x0061BB98
+extern const int g_TerrainCorner[4][2]; // 0x0061BB98
 extern int g_StaticItemCount; // 0x0068B380
 extern uint32_t g_DynamicItemCount; // 0x0068B384
 extern int g_TerrainDataLoaded; // 0x006982F8
@@ -216,7 +216,6 @@ extern CVector g_arenaPageVec; // 0x00699A30
 extern int g_IgnoreMobiles; // 0x006CA8E4
 extern CItem *g_StaticFreeList; // 0x006CA8FC
 extern LandTileData *g_LandTileData;
-extern const int g_TerrainCornerDY[4];
 extern const int g_TerrainDirDX[8];
 extern const int g_TerrainDirDY[8];
 

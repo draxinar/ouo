@@ -195,6 +195,9 @@ VT_Init(void)
 	// CheckEC: slot 59 (0xEC) = 0x004866C7 (reuses CEntity CheckDC)
 	g_vtable_CResourceEntity.fn[VT_CHECK_EC / 4] = (vfunc_t)CEntity_CheckDC_VT;
 
+	// 0x0044A7D0 - every class below CEntity keeps the stub here
+	g_vtable_CResourceEntity.fn[VT_ITEM_CHECK_9C / 4] = (vfunc_t)vt_stub_return_0;
+
 	// StaticEntity (binary vtable 0x005EF588): starts from CItem base,
 	// overrides lifecycle slots with static-chain-specific functions.
 	// Built after CItem so we can copy CItem's terrain-related slots.
@@ -427,6 +430,14 @@ VT_Init(void)
 	g_vtable_StaticEntity.fn[VT_HIDE / 4] = (vfunc_t)StaticEntity_Hide_VT;
 	// DetachSpatial: slot 4 (0x10) = 0x00488382
 	g_vtable_StaticEntity.fn[VT_DETACH_SPATIAL / 4] = (vfunc_t)StaticEntity_DetachSpatial_VT;
+
+	// 0x0048884D - walks nextInContainer, where CItem's walks spatialNext
+	g_vtable_StaticEntity.fn[VT_REATTACH_SPATIAL / 4] = (vfunc_t)StaticEntity_ReattachSpatial_VT;
+
+	// 0x0045E570 and 0x004911E0 - the binary leaves both as return-0 stubs
+	g_vtable_StaticEntity.fn[VT_HAS_RESOURCE_FLAG / 4] = (vfunc_t)vt_stub_return_0;
+
+	g_vtable_StaticEntity.fn[VT_GET_VALUE / 4] = (vfunc_t)vt_stub_return_0;
 	// GetHeight: slot 10 (0x28) = 0x00491078 (no door offset)
 	g_vtable_StaticEntity.fn[VT_GET_HEIGHT / 4] = (vfunc_t)StaticEntity_GetHeight_VT;
 	// GetFlags: slot 12 (0x30) = 0x00491230 (no door offset)
@@ -495,7 +506,7 @@ VT_Init(void)
 	g_vtable_CContainer.fn[VT_GET_MAX_WEIGHT / 4] = (vfunc_t)CContainer_GetMaxWeight;
 	// CanBeFreelyAggressed: slot 98 (0x188) = 0x0048F75D
 	g_vtable_CContainer.fn[VT_CAN_BE_FREELY_AGGRESSED / 4] = (vfunc_t)CMobile_CanBeFreelyAggressed_Impl;
-	// EquipmentDecayTick: slot 106 (0x1A8) = 0x00453792
+	// EquipmentDecayTick: slot 106 (0x1A8) = 0x004493A7
 	g_vtable_CContainer.fn[VT_EQUIP_DECAY_TICK / 4] = (vfunc_t)CMobile_DecayContainerContents;
 	// CancelTrade: slot 108 (0x1B0) = 0x00448926
 	g_vtable_CContainer.fn[VT_CANCEL_TRADE / 4] = (vfunc_t)CItem_CancelTrade;

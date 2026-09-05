@@ -213,10 +213,11 @@ StoreSemiResult(ResultNode **chain)
 }
 
 /*
- * AppendResultNode - walk to end of chain, allocate and append a new node.
+ * Helper - AppendResultNode
  *
- * This is the common pattern used by all Store* functions in the binary:
- * walk **chain until *cur == NULL, then allocate and link a new node.
+ * Walk to the end of the chain, allocate and append a new node. This is the
+ * pattern every Store* function inlines in the binary: walk **chain until
+ * *cur == NULL, then allocate and link a new node.
  */
 ResultNode *
 AppendResultNode(ResultNode **chain)
@@ -520,9 +521,8 @@ StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, Resul
 		matches[matchCount - 2]->next = scan->next;
 
 		walkPtr = matches[matchCount - 2];
-		do {
+		while (walkPtr->next != matches[matchCount - 1])
 			walkPtr = walkPtr->next;
-		} while (walkPtr->next != matches[matchCount - 1]);
 
 		scan->next = walkPtr->next;
 		walkPtr->next = scan;
@@ -2353,7 +2353,7 @@ ParseStatementBlock(const char *stream, CFuncScope *scope, int retTypeId)
 	int stmtType;
 	const BuiltinHandlerEntry *closingHandler;
 	ResultNode *resultChain;
-	char sigBuf[16];
+	char sigBuf[256];
 	int typeLoop;
 	const BuiltinHandlerEntry *poppedHandler;
 	char returnSig[4];
@@ -2976,7 +2976,7 @@ ClassifyStatement(const char *tokenBuf, CFuncScope *scope)
 const char *
 ProcessAssignment(CFuncScope *scope, const char *stream, char *varTokenBuf)
 {
-	char tokenBuf[48];
+	char tokenBuf[128];
 	ResultNode *lhsChain;
 	void *varPtr;
 	const BuiltinHandlerEntry *handler;
@@ -3859,6 +3859,17 @@ ExtractEventParams(int eventType, va_list ap, EventParam *params)
 		}
 		break;
 
+	case 0x0E: /* time - binary: 0x0042BC23 reads 1 int arg, used only
+		    * for the filter compare at 0x0042BC64 and never added as
+		    * a trigger param. */
+		params[n].name = "_filterValue";
+		params[n].type = WTYPE_INT;
+		params[n].ival = va_arg(ap, uintptr_t);
+		params[n].ival2 = 0;
+		params[n].sval = NULL;
+		n++;
+		break;
+
 	case 0x0F: /* creation - binary: 0x0042D011 reads 1 obj arg
 		    * (scriptInstance). Not added as a trigger param - used
 		    * only for scriptArr filtering. */
@@ -4601,14 +4612,20 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		numTriggers = matchCount;
 		break;
 	}
+	case 14: {
+		// 0x0E (time). The filter block at 0x0042BC42 has no back edge:
+		// it examines trigger 0, and whether or not the filter matches
+		// it falls into 0x0042BCB0, which sets the count to one. The
+		// comparison is computed and then ignored, so only the first
+		// trigger ever runs.
+		numTriggers = (numTriggers > 0) ? 1 : 0;
+		break;
+	}
+	// 0x1F, 0x20 and 0x21 keep every match and compact the arrays, ending
+	// `MOV [numTriggers],matchCount` at 0x0042C0C7.
 	case 31:
 	case 32:
-	case 33:
-	case 36:
-	case 37:
-	case 55:
-	case 58:
-	case 61: {
+	case 33: {
 		int filterValue = 0;
 		for (i = 0; i < numParams; i++) {
 			if (params[i].name != NULL && params[i].name[0] == '_') {
@@ -4628,6 +4645,33 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 			}
 		}
 		numTriggers = matchCount;
+		break;
+	}
+	// 0x24, 0x25, 0x37, 0x3A and 0x3D stop at the first match instead:
+	// 0x0042BD74 breaks out of the loop after copying [i] to [0], and the
+	// count becomes the boolean `i < numTriggers` at 0x0042BD89. Only the
+	// first matching trigger runs.
+	case 36:
+	case 37:
+	case 55:
+	case 58:
+	case 61: {
+		int filterValue = 0;
+		for (i = 0; i < numParams; i++) {
+			if (params[i].name != NULL && params[i].name[0] == '_') {
+				filterValue = (int)params[i].ival;
+				break;
+			}
+		}
+		for (i = 0; i < numTriggers; i++) {
+			CTrigger *btrig = (CTrigger *)trigArr[i];
+			if ((int)(intptr_t)btrig->filterData == filterValue) {
+				scriptArr[0] = scriptArr[i];
+				trigArr[0] = trigArr[i];
+				break;
+			}
+		}
+		numTriggers = (i < numTriggers) ? 1 : 0;
 		break;
 	}
 	case 35: {

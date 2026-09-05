@@ -562,14 +562,14 @@ CSkillManager_LoadSkills(CSkillManager *mgr)
 			sscanfRet = sscanf(line, "%s %d\n", name, &headerVersion);
 			if (sscanfRet != 2)
 				goto header_done;
-			if (strcmp(name, "version") != 0)
+			if (strcasecmp(name, "version") != 0)
 				goto header_done;
 
 			fgets_ServerSide(line, 0x1FF, f);
 			sscanfRet = sscanf(line, "%s %d\n", name, &hdrStatCurve);
 			if (sscanfRet != 2)
 				goto header_skip;
-			if (strcmp(name, "StatCurve") != 0)
+			if (strcasecmp(name, "StatCurve") != 0)
 				goto header_skip;
 			InitStatCurve(hdrStatCurve);
 
@@ -577,7 +577,7 @@ CSkillManager_LoadSkills(CSkillManager *mgr)
 			sscanfRet = sscanf(line, "%s %d\n", name, &hdrSkillCurve);
 			if (sscanfRet != 2)
 				goto header_skip;
-			if (strcmp(name, "SkillCurve") != 0)
+			if (strcasecmp(name, "SkillCurve") != 0)
 				goto header_skip;
 			InitSkillCurve(hdrSkillCurve);
 

@@ -604,53 +604,17 @@ CItem_Save(CItem *obj, CDataBuffer *b, int writeMarker)
 		}
 	}
 
+	// The binary dispatches through the multi's vtable slot 0xC at
+	// 0x004C6006; our multi system replaces that dispatch with the isOwner
+	// field, which is the documented container replacement. Either way the
+	// two Save functions do the work - inlining them here had already
+	// drifted, printing the serials with %u and dropping mrange's mask.
 	if (CItem_HasMulti(obj)) {
 		CMultiComponent *mc = CItem_GetMulti(obj);
-		if (CMultiComponent_IsOwner(mc)) {
-			CMultiSlave *ms = (CMultiSlave *)mc;
-
-			len = snprintf(buf, sizeof(buf), "multitype=slave");
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "mtypeid=%d", CMultiSlave_GetTypeId(ms));
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "mcarry=%d", CMultiSlave_GetCarry(ms));
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "mrange=%d", (int)CMultiSlave_GetRange(ms));
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "multislave=%u", mc->serial);
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "multiflags=%d", (int)mc->flags);
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "multioffset=%d %d %d", (int)(int16_t)mc->offset.x, (int)(int16_t)mc->offset.y, (int)(int16_t)mc->offset.z);
-			CDataBuffer_Append(b, buf, len + 1);
-
-			{
-				uintptr_t *cIter = (uintptr_t *)ms->components.begin;
-				while (cIter != (uintptr_t *)ms->components.end) {
-					len = snprintf(buf, sizeof(buf), "multicomponent=%u", (uint32_t)*cIter);
-					CDataBuffer_Append(b, buf, len + 1);
-					cIter++;
-				}
-			}
-		} else {
-			len = snprintf(buf, sizeof(buf), "multitype=component");
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "multislave=%u", mc->serial);
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "multiflags=%d", (int)mc->flags);
-			CDataBuffer_Append(b, buf, len + 1);
-
-			len = snprintf(buf, sizeof(buf), "multioffset=%d %d %d", (int)(int16_t)mc->offset.x, (int)(int16_t)mc->offset.y, (int)(int16_t)mc->offset.z);
-			CDataBuffer_Append(b, buf, len + 1);
-		}
+		if (CMultiComponent_IsOwner(mc))
+			CMultiSlave_Save((CMultiSlave *)mc, b, 1);
+		else
+			CMultiComponent_Save(mc, b, 1);
 	}
 
 	len = snprintf(buf, sizeof(buf), "loc=%d %d %d", (int)(int16_t)ent->location.x, (int)(int16_t)ent->location.y, (int)ent->location.z);
@@ -934,7 +898,7 @@ CWeapon_Save(CContainer *cont, CDataBuffer *b, int writeMarker)
 
 	if (!CDiceRoll_IsZero(&cont->weaponDamage)) {
 		CString diceStr = { NULL, 0, 1, 0 };
-		char wcbuf[48];
+		char wcbuf[256];
 		int len;
 		CDiceRoll_ToString(&cont->weaponDamage, &diceStr);
 		len = snprintf(wcbuf, sizeof(wcbuf), "wcstr=%s", CString_GetBuffer(&diceStr));
@@ -1062,7 +1026,7 @@ CMobile_Save(CMobile *mob, CDataBuffer *b, int writeMarker)
 
 	if (mob->sex != 0)
 		CDataBuffer_WriteInt(b, "sex", mob->sex);
-	CDataBuffer_WriteField(b, "name", mob->name != NULL ? mob->name : "");
+	CDataBuffer_WriteField(b, "name", mob->name);
 
 	if (mob->lightTime != 0)
 		CDataBuffer_WriteInt(b, "lt", mob->lightTime);
@@ -1115,7 +1079,7 @@ CMobile_Save(CMobile *mob, CDataBuffer *b, int writeMarker)
 void
 CNPC_Save(CNPC *npc, CDataBuffer *b, int writeMarker)
 {
-	char buf[256];
+	char buf[128];
 	int len;
 
 	if (writeMarker)
@@ -1148,13 +1112,13 @@ CNPC_Save(CNPC *npc, CDataBuffer *b, int writeMarker)
 	if (npc->npcFlee != 0x10)
 		CDataBuffer_WriteInt(b, "npcflee", npc->npcFlee);
 
-	len = snprintf(buf, sizeof(buf), "desireLoc=%d %d %d", npc->desireLoc.x, npc->desireLoc.y, npc->desireLoc.z);
+	len = snprintf(buf, sizeof(buf), "desireLoc=%d %d %d", (int)(int16_t)npc->desireLoc.x, (int)(int16_t)npc->desireLoc.y, npc->desireLoc.z);
 	CDataBuffer_Append(b, buf, len + 1);
 
-	len = snprintf(buf, sizeof(buf), "lastDesireLoc=%d %d %d", npc->lastDesireLoc.x, npc->lastDesireLoc.y, npc->lastDesireLoc.z);
+	len = snprintf(buf, sizeof(buf), "lastDesireLoc=%d %d %d", (int)(int16_t)npc->lastDesireLoc.x, (int)(int16_t)npc->lastDesireLoc.y, npc->lastDesireLoc.z);
 	CDataBuffer_Append(b, buf, len + 1);
 
-	len = snprintf(buf, sizeof(buf), "homeLoc=%d %d %d", npc->homeLoc.x, npc->homeLoc.y, npc->homeLoc.z);
+	len = snprintf(buf, sizeof(buf), "homeLoc=%d %d %d", (int)(int16_t)npc->homeLoc.x, (int)(int16_t)npc->homeLoc.y, npc->homeLoc.z);
 	CDataBuffer_Append(b, buf, len + 1);
 
 	len = snprintf(buf, sizeof(buf), "followObjs=%d %d %d", npc->followObj1, npc->followObj2, npc->followObj3);
@@ -1169,7 +1133,7 @@ CNPC_Save(CNPC *npc, CDataBuffer *b, int writeMarker)
 	len = snprintf(buf, sizeof(buf), "npcInfo2=%d %d", npc->speechCounter, npc->npcCombatTarget);
 	CDataBuffer_Append(b, buf, len + 1);
 
-	len = snprintf(buf, sizeof(buf), "loiterInfo=%d %d %d %d", npc->loiterLoc.x, npc->loiterLoc.y, npc->loiterLoc.z, npc->loiterData);
+	len = snprintf(buf, sizeof(buf), "loiterInfo=%d %d %d %d", (int)(int16_t)npc->loiterLoc.x, (int)(int16_t)npc->loiterLoc.y, npc->loiterLoc.z, npc->loiterData);
 	CDataBuffer_Append(b, buf, len + 1);
 
 	len = snprintf(buf, sizeof(buf), "stateInfo=%d %d %d %d", npc->npcInfo1_0, npc->aiState, npc->ltype, npc->stateInfo2);
@@ -1670,6 +1634,19 @@ Dynamic_ClearPendingAndFireEvents(void)
  * the binary calls CMobile::SetSkillBonus, which rejects any id the
  * skill manager does not know. Ids 46 to 49 are stored here and refused
  * by the binary.
+ *
+ * MODIFIED: four keys the binary's loader does not have - dc, fs, fw and
+ * fa. The binary's saver drops deathCount and the three combat bytes and
+ * its loader has no handler for them; ours writes and reads both halves,
+ * so a save round-trips them. The parser pushes 167 key strings and none
+ * of these four is among them.
+ *
+ * FIXED: the binary tests the return of 3 of its 45 sscanf calls and
+ * writes the parsed locals regardless, so a short or malformed line
+ * stores uninitialised stack into the object. Ours guards 29 of 31 and
+ * leaves the field untouched instead. The corpitem case bounds the equip
+ * slot the binary indexes unchecked, and pswd copies into a bounded
+ * buffer where the binary calls strcpy into a 32-byte field.
  */
 static void
 LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveParent, CLocation *recursiveLoc)
@@ -1880,6 +1857,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 				eqpos = atoi(val);
 			} else if (strcmp(keybuf, "stat") == 0) {
 				obj->itemFlags = (uint8_t)atoi(val);
+				CDataManager_SetLockdown(obj, 1);
 			} else if (strcmp(keybuf, "flags") == 0) {
 
 				if (VT_IsNPC(obj)) {
@@ -2344,7 +2322,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 				{
 					int v[9];
 					if (sscanf(val, "%d %d %d %d %d %d %d %d %d", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5], &v[6], &v[7], &v[8]) == 9) {
-						CResourceEntity_AddNode(obj, v[8], v[7], v[0], v[1], v[2], 1);
+						CResourceEntity_AddNode(obj, v[8], v[3], v[0], v[1], v[2], 1);
 					}
 				}
 			} else if (strcmp(keybuf, "newres") == 0) {

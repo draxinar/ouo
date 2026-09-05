@@ -307,14 +307,14 @@ void
 CRegion_CopyFrom(CRegion *this, CRegion *src)
 {
 	this->prefix = src->prefix;
-	memcpy(this->name, src->name, REGION_NAME_LEN);
+	strncpy(this->name, src->name, REGION_NAME_LEN);
 	this->x = src->x;
 	this->y = src->y;
 	this->width = src->width;
 	this->height = src->height;
 	this->zMin = src->zMin;
 	this->zMax = src->zMax;
-	memcpy(this->name2, src->name2, REGION_DESC_LEN);
+	strncpy(this->name2, src->name2, REGION_DESC_LEN);
 	this->weatherSeason = src->weatherSeason;
 	this->weatherDay = src->weatherDay;
 	this->weatherNight = src->weatherNight;
@@ -1782,6 +1782,13 @@ __extension__ typedef struct __attribute__((packed)) CRegionFileRecord_NEW {
  * "regions.mul" in one of three format versions (< 0xFACE, == 0xFACE,
  * > 0xFACE). Unused on the server, which loads regions via
  * RegionManager_LoadRegions (text format).
+ *
+ * MODIFIED: the pre-0xFACE branch indexes regions[] with the slot read
+ * from the file. The binary reads that field into a local it never uses
+ * and indexes with an adjacent slot nothing writes, so every record of an
+ * old-format file lands on whatever the caller left there. Reproducing a
+ * read of uninitialised stack is not useful, and the branch is
+ * unreachable on the server.
  */
 static __attribute__((unused)) void
 RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
@@ -1848,7 +1855,7 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 			if (fread(&rd_prefix, 4, 1, fp) != 1)
 				break;
 
-			memcpy(temp.name, rd_name, 0x28);
+			strncpy(temp.name, (const char *)rd_name, 0x28);
 			temp.x = rd_x;
 			temp.y = rd_y;
 			temp.width = rd_w;
@@ -1884,14 +1891,14 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 
 			regions[slot] = region;
 
-			memcpy(region->name, temp.name, 0x28);
+			strncpy(region->name, temp.name, 0x28);
 			region->x = temp.x;
 			region->y = temp.y;
 			region->width = temp.width;
 			region->height = temp.height;
 			region->zMin = temp.zMin;
 			region->zMax = temp.zMax;
-			memcpy(region->name2, temp.name2, 0x28);
+			strncpy(region->name2, temp.name2, 0x28);
 			region->weatherSeason = temp.weatherSeason;
 			region->weatherDay = temp.weatherDay;
 			region->type = temp.type;
@@ -1975,14 +1982,14 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 			// 0x00556E6E
 			regions[slot] = region;
 
-			memcpy(region->name, temp.name, 0x28);
+			strncpy(region->name, temp.name, 0x28);
 			region->x = temp.x;
 			region->y = temp.y;
 			region->width = temp.width;
 			region->height = temp.height;
 			region->zMin = temp.zMin;
 			region->zMax = temp.zMax;
-			memcpy(region->name2, temp.name2, 0x28);
+			strncpy(region->name2, temp.name2, 0x28);
 			region->weatherSeason = temp.weatherSeason;
 			region->weatherDay = temp.weatherDay;
 			region->type = temp.type;
@@ -2073,14 +2080,14 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 			// 0x00557148
 			regions[slot] = region;
 
-			memcpy(region->name, temp.name, 0x28);
+			strncpy(region->name, temp.name, 0x28);
 			region->x = temp.x;
 			region->y = temp.y;
 			region->width = temp.width;
 			region->height = temp.height;
 			region->zMin = temp.zMin;
 			region->zMax = temp.zMax;
-			memcpy(region->name2, temp.name2, 0x28);
+			strncpy(region->name2, temp.name2, 0x28);
 			region->weatherSeason = temp.weatherSeason;
 			region->weatherDay = temp.weatherDay;
 			region->weatherNight = temp.weatherNight;

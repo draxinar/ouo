@@ -358,7 +358,7 @@ WomScr_LoadFromLine(uint32_t serial, const char *val)
 			break;
 		}
 		case 1: { // str
-			char decoded[256];
+			char decoded[0x8000];
 			p = ObjVar_UnescapeStr(p, decoded);
 			if (*p != '\0')
 				p++;
@@ -371,7 +371,7 @@ WomScr_LoadFromLine(uint32_t serial, const char *val)
 			break;
 		}
 		case 2: { // ust (unicode string)
-			uint16_t wbuf[256];
+			uint16_t wbuf[0x4000];
 			p = Hex2Wchar((char *)p, wbuf);
 			if (*p != '\0')
 				p++;

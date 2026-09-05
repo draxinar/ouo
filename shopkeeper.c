@@ -386,6 +386,12 @@ Vendor_SplitItem(CItem *srcItem, int amount)
  * template or bodyType), handles pet purchase (myBoss/isPet/myLoyalty
  * ObjVars), transfers items to player backpack or drops at feet,
  * attaches afterShopScript.
+ *
+ * FIXED: the binary loads backpack's vtable unconditionally at all four
+ * transfer sites - 0x004D13F3, 0x004D1559, 0x004D1622 and 0x004D18DE -
+ * and backpack is initialised to 0 at 0x004D0FC1 and assigned only inside
+ * the equipment scan, so a buyer with no accessible container dereferences
+ * NULL. Each site is guarded, which takes the drop-at-feet path instead.
  */
 void
 CMobile_ProcessBuyList(CMobile *this, CPlayer *player, int numItems, BuyEntry *entries)
@@ -1022,7 +1028,7 @@ CMobile_ProcessSellOffer(CMobile *this, CPlayer *player, int itemCount, SellEntr
 	CItem *goldItem;
 	uint32_t savedGoldSerial;
 	CLocation loc;
-	char msgbuf[600];
+	char msgbuf[80];
 	uint8_t obuf[0x708];
 	SellEntry *ent = entries;
 

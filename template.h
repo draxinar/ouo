@@ -80,7 +80,7 @@ void CTemplateManager_ApplyTemplate(int isRestock, CItem *entity, int amount, CL
 int CTemplateManager_HasAnimationVariant(int bodyId); // 0x004C0462
 int CTemplateManager_HasAnimation(uint16_t templateId); // 0x004C04BB
 int CTemplateManager_ValidateOwner(uint32_t serial, CItem *mob); // 0x004C0508
-int CTemplateManager_ApplyLabel(CString *label, CItem **entity); // 0x004C0F70
+int CTemplateManager_ApplyLabel(CResManager *this, CString *label, CItem **entity); // 0x004C0F70
 void CStringPairList_Init(CStringPairList *sl); // 0x004C10A0
 void CResManager_ApplyTemplateData(CResList *list, CResListNode *valNode, CItem **entity); // 0x004C1CF0
 void *CTemplate_ScalarDelete(NPCTemplate *this, int flags); // 0x004C29E0

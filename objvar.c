@@ -439,7 +439,7 @@ void
 ObjVar_LoadFromLine(uint32_t serial, const char *val)
 {
 	char typebuf[8];
-	char namebuf[64];
+	char namebuf[128];
 	const char *p;
 	int n;
 	CItem *item;
@@ -467,11 +467,11 @@ ObjVar_LoadFromLine(uint32_t serial, const char *val)
 		sscanf(p, "%d", &ival);
 		Dynamic_LoadEntity(item, namebuf, 0, (uintptr_t)ival);
 	} else if (strcmp(typebuf, "str") == 0) {
-		char decoded[256];
+		char decoded[0x8000];
 		ObjVar_UnescapeStr(p, decoded);
 		Dynamic_LoadEntity(item, namebuf, 1, (uintptr_t)decoded);
 	} else if (strcmp(typebuf, "ust") == 0) {
-		unsigned short decoded[256];
+		unsigned short decoded[0x4000];
 		Hex2Wchar((char *)p, decoded);
 		Dynamic_LoadEntity(item, namebuf, 2, (uintptr_t)decoded);
 	} else if (strcmp(typebuf, "loc") == 0) {

@@ -223,7 +223,7 @@ CString_AssignRange(CString *s, const char *str, int maxCount)
 		s->data = (char *)OperatorNew(s->capacity);
 	}
 
-	memcpy(s->data, str, finalLen);
+	strncpy(s->data, str, finalLen);
 	s->data[finalLen] = '\0';
 	s->length = finalLen;
 

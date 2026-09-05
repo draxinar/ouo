@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "dat.h"
 
@@ -154,7 +155,7 @@ GetLine(FILE *f)
 			lineBuffer[i] = end;
 		}
 		lineBuffer[i] = 0;
-		if (strcmp(lineBuffer, endMarker))
+		if (strcasecmp(lineBuffer, endMarker))
 			line = lineBuffer;
 		else
 			line = 0;
@@ -261,28 +262,30 @@ CConfig_Init(CConfig *this)
 		if (line) {
 			for (line = GetValue(line, key); *line && isspace(*line); ++line)
 				;
-			if (strcmp(key, "owner")) {
-				if (strcmp(key, "id")) {
-					if (strcmp(key, "port")) {
-						if (strcmp(key, "x")) {
-							if (strcmp(key, "y")) {
-								if (strcmp(key, "width")) {
-									if (strcmp(key, "height")) {
-										if (strcmp(key, "statics")) {
-											if (strcmp(key, "terrain")) {
-												if (strcmp(key, "art")) {
-													if (strcmp(key, "tiledata")) {
-														if (strcmp(key, "hues")) {
-															if (strcmp(key, "animdata")) {
-																if (strcmp(key, "resources")) {
-																	if (strcmp(key, "templates")) {
-																		if (strcmp(key, "multis")) {
-																			if (strcmp(key, "spawnclien"
-																			                "t")) {
-																				if (strcmp(key,
+			if (strcasecmp(key, "owner")) {
+				if (strcasecmp(key, "id")) {
+					if (strcasecmp(key, "port")) {
+						if (strcasecmp(key, "x")) {
+							if (strcasecmp(key, "y")) {
+								if (strcasecmp(key, "width")) {
+									if (strcasecmp(key, "height")) {
+										if (strcasecmp(key, "statics")) {
+											if (strcasecmp(key, "terrain")) {
+												if (strcasecmp(key, "art")) {
+													if (strcasecmp(key, "tiledata")) {
+														if (strcasecmp(key, "hues")) {
+															if (strcasecmp(key, "animdata")) {
+																if (strcasecmp(key, "resources")) {
+																	if (strcasecmp(key, "templates")) {
+																		if (strcasecmp(key, "multis")) {
+																			if (strcasecmp(key,
+																			            "spawnclien"
+																			            "t")) {
+																				if (strcasecmp(key,
 																				            "start"
 																				            "x")) {
-																					if (!strcmp(key,
+																					if (!strcasecmp(
+																					            key,
 																					            "starty"))
 																						g_ConfigStartY =
 																						        atoi(line);

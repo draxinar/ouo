@@ -275,16 +275,21 @@ CWeaponDef_SetHandedness(CWeaponDef *def, const char *hand)
  * Loads "weapon.<id>" into a freshly constructed CWeaponDef by
  * parsing one named field per line, then replaces any existing
  * entry in the manager array.
+ *
+ * The binary reads 0x1FF bytes into a 128-byte line buffer and runs
+ * unbounded %s conversions out of it into a 128-byte and three 64-byte
+ * buffers. The shipped weapon.<id> files reach 45 bytes on their longest
+ * line, so none of it is reachable from the data as delivered.
  */
 int
 CWeaponManager_LoadWeaponDef(CWeaponManager *mgr, int id)
 {
 	char filename[256];
-	char line[512];
-	char strBuf[176];
-	char type1[160];
-	char type2[192];
-	char type3[168];
+	char line[128];
+	char strBuf[128];
+	char type1[64];
+	char type2[64];
+	char type3[64];
 	int intBuf;
 	int nMatched;
 	CWeaponDef *def;

@@ -2739,6 +2739,11 @@ FindCorpseBySerial(uint32_t serial)
  * resource nodes onto it, runs death events and the corpse script,
  * and schedules decay. Returns the corpse, or NULL (pack animals,
  * script cancellation).
+ *
+ * FIXED: the binary stores operator new's result and uses it unguarded,
+ * so an allocation failure dereferences NULL at the constructor call.
+ * Returns NULL instead, which skips the death sequence rather than
+ * crashing.
  */
 CCorpse *
 CMobile_CreateCorpse(CMobile *mob, CMobile *attacker, int dropLoot)
@@ -2896,7 +2901,7 @@ free_node:
 
 	CMobile_LoseNotoriety(mob, 10);
 
-	BroadcastEventToNearby(mobLoc, 8, SawDeath, attackerSerial, mob->container.item.serial, corpseSerial);
+	BroadcastEventToNearby(((CLocation * (*)(void *)) VT_FN((CItem *)mob, VT_GET_LOCATION))(mob), 8, SawDeath, attackerSerial, mob->container.item.serial, corpseSerial);
 
 	if (corpse != NULL)
 		corpse = FindCorpseBySerial(corpseSerial);

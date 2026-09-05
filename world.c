@@ -644,10 +644,10 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 	CWeaponDice dice;
 	char skillName[256];
 	int skillNum;
-	int16_t skillValue;
+	int skillValue;
 	char skillmodName[256];
 	int skillmodNum;
-	int16_t skillmodValue;
+	int skillmodValue;
 	CString logStr;
 	CString notFoundStr;
 	CNPC *npc;
@@ -721,7 +721,7 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 
 	// Try "me" keyword
 	if (target == NULL) {
-		if (strcasecmp(targetNameBuf, "me") == 0)
+		if (strcmp(targetNameBuf, "me") == 0)
 			target = (CItem *)player;
 	}
 
@@ -733,17 +733,17 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 
 	// -- Item-level properties (hue, phue, location) --
 
-	if (strcasecmp(varName, "hue") == 0) {
+	if (strcmp(varName, "hue") == 0) {
 		target->resourceEntity.entity.color = (uint16_t)intValue;
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "phue") == 0) {
+	if (strcmp(varName, "phue") == 0) {
 		target->resourceEntity.entity.color = (uint16_t)(intValue | 0x8000);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "location") == 0) {
+	if (strcmp(varName, "location") == 0) {
 		CLocation_Init(&loc);
 		sscanfResult = sscanf(valueBuf, "%hu %hu %hd", &loc.x, &loc.y, &loc.z);
 		if (sscanfResult >= 2) {
@@ -778,122 +778,122 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 
 	mob = (CMobile *)target;
 
-	if (strcasecmp(varName, "naturalac") == 0 || strcasecmp(varName, "nac") == 0) {
+	if (strcmp(varName, "naturalac") == 0 || strcmp(varName, "nac") == 0) {
 		CMobile_SetBonusAC(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "naturalwc") == 0 || strcasecmp(varName, "nwc") == 0) {
+	if (strcmp(varName, "naturalwc") == 0 || strcmp(varName, "nwc") == 0) {
 		CDiceRoll_InitParse(&dice, valueBuf);
 		CMobile_SetArmorRating(mob, &dice);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "strength") == 0 || strcasecmp(varName, "s") == 0) {
+	if (strcmp(varName, "strength") == 0 || strcmp(varName, "s") == 0) {
 		((void (*)(void *, int, int16_t))VT_FN(target, VT_SET_BASE_STAT))(mob, 0, (int16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "dexterity") == 0 || strcasecmp(varName, "d") == 0) {
+	if (strcmp(varName, "dexterity") == 0 || strcmp(varName, "d") == 0) {
 		((void (*)(void *, int, int16_t))VT_FN(target, VT_SET_BASE_STAT))(mob, 1, (int16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "intelligence") == 0 || strcasecmp(varName, "i") == 0) {
+	if (strcmp(varName, "intelligence") == 0 || strcmp(varName, "i") == 0) {
 		((void (*)(void *, int, int16_t))VT_FN(target, VT_SET_BASE_STAT))(mob, 2, (int16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "strengthmod") == 0 || strcasecmp(varName, "sm") == 0) {
+	if (strcmp(varName, "strengthmod") == 0 || strcmp(varName, "sm") == 0) {
 		((void (*)(void *, int, int16_t))VT_FN(target, VT_SET_STAT_BONUS))(mob, 0, (int16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "dexteritymod") == 0 || strcasecmp(varName, "dm") == 0) {
+	if (strcmp(varName, "dexteritymod") == 0 || strcmp(varName, "dm") == 0) {
 		((void (*)(void *, int, int16_t))VT_FN(target, VT_SET_STAT_BONUS))(mob, 1, (int16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "intelligencemod") == 0 || strcasecmp(varName, "im") == 0) {
+	if (strcmp(varName, "intelligencemod") == 0 || strcmp(varName, "im") == 0) {
 		((void (*)(void *, int, int16_t))VT_FN(target, VT_SET_STAT_BONUS))(mob, 2, (int16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "maxhp") == 0) {
+	if (strcmp(varName, "maxhp") == 0) {
 		((void (*)(void *, int))VT_FN(target, VT_SET_MAX_HP))(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "curhp") == 0) {
+	if (strcmp(varName, "curhp") == 0) {
 		((void (*)(void *, int, int))VT_FN(target, VT_SET_HP))(mob, intValue, 0);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "maxmana") == 0) {
+	if (strcmp(varName, "maxmana") == 0) {
 		((void (*)(void *, int))VT_FN(target, VT_SET_MAX_MANA))(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "curmana") == 0) {
+	if (strcmp(varName, "curmana") == 0) {
 		((void (*)(void *, int))VT_FN(target, VT_SET_MANA))(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "maxfatigue") == 0) {
+	if (strcmp(varName, "maxfatigue") == 0) {
 		((void (*)(void *, int))VT_FN(target, VT_SET_MAX_STAMINA))(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "curfatigue") == 0) {
+	if (strcmp(varName, "curfatigue") == 0) {
 		((void (*)(void *, int))VT_FN(target, VT_SET_STAMINA))(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "notoriety") == 0) {
+	if (strcmp(varName, "notoriety") == 0) {
 		((void (*)(void *, int))VT_FN(target, VT_SET_NOTORIETY))(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "fame") == 0) {
-		CMobile_SetFame(mob, (int16_t)intValue);
+	if (strcmp(varName, "fame") == 0) {
+		CMobile_SetFame(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "karma") == 0) {
-		CMobile_SetKarma(mob, (int16_t)intValue);
+	if (strcmp(varName, "karma") == 0) {
+		CMobile_SetKarma(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "changefame") == 0) {
+	if (strcmp(varName, "changefame") == 0) {
 		CMobile_ChangeFame(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "changekarma") == 0) {
+	if (strcmp(varName, "changekarma") == 0) {
 		CMobile_ChangeKarma(mob, intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "name") == 0) {
+	if (strcmp(varName, "name") == 0) {
 		CMobile_SetName(mob, valueBuf);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "body") == 0) {
+	if (strcmp(varName, "body") == 0) {
 		CEntity_SetBodyType(target, (uint16_t)intValue);
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "hunger") == 0) {
+	if (strcmp(varName, "hunger") == 0) {
 		mob->hunger = (uint8_t)intValue;
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "skill") == 0) {
+	if (strcmp(varName, "skill") == 0) {
 		skillNum = 0;
 		memset(skillName, 0, 256);
 		skillValue = 0;
-		sscanfResult = sscanf(valueBuf, "%s %d", skillName, (int *)&skillValue);
+		sscanfResult = sscanf(valueBuf, "%s %d", skillName, &skillValue);
 		if (sscanfResult < 2) {
 			if (player != NULL)
 				CPlayer_SystemMessage(player, "Format: set <target> skill"
@@ -908,18 +908,18 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 			CPlayer_SystemMessage(player, "Invalid skill");
 			goto skill_done;
 		}
-		CMobile_SetSkill(mob, (int8_t)skillNum, skillValue);
+		CMobile_SetSkill(mob, (int8_t)skillNum, (int16_t)skillValue);
 		if (player != NULL)
 			CSkillManager_SendSkillList(&g_SkillManager, (CItem *)player);
 skill_done:
 		changed = 1;
 	}
 
-	if (strcasecmp(varName, "skillmod") == 0) {
+	if (strcmp(varName, "skillmod") == 0) {
 		skillmodNum = 0;
 		memset(skillmodName, 0, 256);
 		skillmodValue = 0;
-		sscanfResult = sscanf(valueBuf, "%s %d", skillmodName, (int *)&skillmodValue);
+		sscanfResult = sscanf(valueBuf, "%s %d", skillmodName, &skillmodValue);
 		if (sscanfResult < 2) {
 			if (player != NULL)
 				CPlayer_SystemMessage(player, "Format: set <target> skillmod"
@@ -934,7 +934,7 @@ skill_done:
 			CPlayer_SystemMessage(player, "Invalid skill");
 			goto skillmod_done;
 		}
-		CMobile_SetSkillBonus(mob, (int8_t)skillmodNum, skillmodValue);
+		CMobile_SetSkillBonus(mob, (int8_t)skillmodNum, (int16_t)skillmodValue);
 		if (player != NULL)
 			CSkillManager_SendSkillList(&g_SkillManager, (CItem *)player);
 skillmod_done:
@@ -945,7 +945,7 @@ post_mobile:
 	// NPC-only: attitude (binary field at mob+0x28B = attackMode)
 	if (VT_IsNPC(target)) {
 		npc = (CNPC *)target;
-		if (strcasecmp(varName, "attitude") == 0) {
+		if (strcmp(varName, "attitude") == 0) {
 			npc->mobile.attackMode = (uint8_t)intValue;
 			changed = 1;
 		}

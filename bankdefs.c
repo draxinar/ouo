@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <strings.h>
 
 #include "bankdefs.h"
@@ -118,7 +119,7 @@ ResBankSet_LookupByName(const char *name)
 
 	i = 0;
 	while (set != NULL) {
-		if (strcasecmp(set->name, name) == 0)
+		if (strcmp(set->name, name) == 0)
 			break;
 		i++;
 		set = set->prev;
@@ -152,21 +153,21 @@ CResBankSet_DumpSetInfo(CResBankSet *set, FILE *fp, int textMode)
 
 		set->type = 0x29A;
 
-		if (strcasecmp(typeBuf, "WALL") == 0)
+		if (strcmp(typeBuf, "WALL") == 0)
 			set->type = 0;
-		else if (strcasecmp(typeBuf, "HOUSE") == 0)
+		else if (strcmp(typeBuf, "HOUSE") == 0)
 			set->type = 1;
-		else if (strcasecmp(typeBuf, "TREE") == 0)
+		else if (strcmp(typeBuf, "TREE") == 0)
 			set->type = 2;
-		else if (strcasecmp(typeBuf, "TERRAIN") == 0)
+		else if (strcmp(typeBuf, "TERRAIN") == 0)
 			set->type = 3;
-		else if (strcasecmp(typeBuf, "ROOF") == 0)
+		else if (strcmp(typeBuf, "ROOF") == 0)
 			set->type = 4;
-		else if (strcasecmp(typeBuf, "FLATROOF") == 0)
+		else if (strcmp(typeBuf, "FLATROOF") == 0)
 			set->type = 5;
-		else if (strcasecmp(typeBuf, "COASTLINE") == 0)
+		else if (strcmp(typeBuf, "COASTLINE") == 0)
 			set->type = 6;
-		else if (strcasecmp(typeBuf, "TRANSITION") == 0)
+		else if (strcmp(typeBuf, "TRANSITION") == 0)
 			set->type = 7;
 
 		set->color = color;
@@ -381,128 +382,128 @@ CResBankSetMember_DumpInfo(CResBankSetMember *member, CResBankSet *parent, FILE 
 
 		switch (parentType) {
 		case 0: // WALL
-			if (strcasecmp(typeBuf, "NS(/)") == 0)
+			if (strcmp(typeBuf, "NS(/)") == 0)
 				member->subtype = 0;
-			else if (strcasecmp(typeBuf, "EW(\\)") == 0)
+			else if (strcmp(typeBuf, "EW(\\)") == 0)
 				member->subtype = 1;
-			else if (strcasecmp(typeBuf, "N_Corner") == 0)
+			else if (strcmp(typeBuf, "N_Corner") == 0)
 				member->subtype = 2;
-			else if (strcasecmp(typeBuf, "S_Corner") == 0)
+			else if (strcmp(typeBuf, "S_Corner") == 0)
 				member->subtype = 7;
-			else if (strcasecmp(typeBuf, "Roof_Bit_1") == 0)
+			else if (strcmp(typeBuf, "Roof_Bit_1") == 0)
 				member->subtype = 0xA;
-			else if (strcasecmp(typeBuf, "Roof_Bit_2") == 0)
+			else if (strcmp(typeBuf, "Roof_Bit_2") == 0)
 				member->subtype = 0xB;
 			else
 				member->subtype = 0xC;
 			break;
 
 		case 4: // ROOF
-			if (strcasecmp(typeBuf, "Piece_1") == 0)
+			if (strcmp(typeBuf, "Piece_1") == 0)
 				member->subtype = 0;
-			else if (strcasecmp(typeBuf, "Piece_2") == 0)
+			else if (strcmp(typeBuf, "Piece_2") == 0)
 				member->subtype = 1;
-			else if (strcasecmp(typeBuf, "Piece_3") == 0)
+			else if (strcmp(typeBuf, "Piece_3") == 0)
 				member->subtype = 2;
-			else if (strcasecmp(typeBuf, "Piece_4") == 0)
+			else if (strcmp(typeBuf, "Piece_4") == 0)
 				member->subtype = 3;
-			else if (strcasecmp(typeBuf, "Piece_5") == 0)
+			else if (strcmp(typeBuf, "Piece_5") == 0)
 				member->subtype = 4;
-			else if (strcasecmp(typeBuf, "Piece_6") == 0)
+			else if (strcmp(typeBuf, "Piece_6") == 0)
 				member->subtype = 5;
-			else if (strcasecmp(typeBuf, "Piece_7") == 0)
+			else if (strcmp(typeBuf, "Piece_7") == 0)
 				member->subtype = 6;
-			else if (strcasecmp(typeBuf, "Piece_8") == 0)
+			else if (strcmp(typeBuf, "Piece_8") == 0)
 				member->subtype = 7;
-			else if (strcasecmp(typeBuf, "SW_Join") == 0)
+			else if (strcmp(typeBuf, "SW_Join") == 0)
 				member->subtype = 8;
-			else if (strcasecmp(typeBuf, "NE_Join") == 0)
+			else if (strcmp(typeBuf, "NE_Join") == 0)
 				member->subtype = 9;
-			else if (strcasecmp(typeBuf, "NW_Join") == 0)
+			else if (strcmp(typeBuf, "NW_Join") == 0)
 				member->subtype = 0xA;
-			else if (strcasecmp(typeBuf, "SE_Join") == 0)
+			else if (strcmp(typeBuf, "SE_Join") == 0)
 				member->subtype = 0xB;
-			else if (strcasecmp(typeBuf, "X_Join") == 0)
+			else if (strcmp(typeBuf, "X_Join") == 0)
 				member->subtype = 0xC;
-			else if (strcasecmp(typeBuf, "N_T") == 0)
+			else if (strcmp(typeBuf, "N_T") == 0)
 				member->subtype = 0xD;
-			else if (strcasecmp(typeBuf, "S_T") == 0)
+			else if (strcmp(typeBuf, "S_T") == 0)
 				member->subtype = 0xE;
-			else if (strcasecmp(typeBuf, "W_T") == 0)
+			else if (strcmp(typeBuf, "W_T") == 0)
 				member->subtype = 0xF;
-			else if (strcasecmp(typeBuf, "E_T") == 0)
+			else if (strcmp(typeBuf, "E_T") == 0)
 				member->subtype = 0x10;
 			else
 				member->subtype = 0x11;
 			break;
 
 		case 6: // COASTLINE
-			if (strcasecmp(typeBuf, "Bank_TL-BR") == 0)
+			if (strcmp(typeBuf, "Bank_TL-BR") == 0)
 				member->subtype = 0;
-			else if (strcasecmp(typeBuf, "Bank_TR-BL") == 0)
+			else if (strcmp(typeBuf, "Bank_TR-BL") == 0)
 				member->subtype = 1;
-			else if (strcasecmp(typeBuf, "Bank_T-B") == 0)
+			else if (strcmp(typeBuf, "Bank_T-B") == 0)
 				member->subtype = 2;
-			else if (strcasecmp(typeBuf, "Edge_TL-Bank_BR_1") == 0)
+			else if (strcmp(typeBuf, "Edge_TL-Bank_BR_1") == 0)
 				member->subtype = 3;
-			else if (strcasecmp(typeBuf, "Edge_TL-Bank_BR_2") == 0)
+			else if (strcmp(typeBuf, "Edge_TL-Bank_BR_2") == 0)
 				member->subtype = 4;
-			else if (strcasecmp(typeBuf, "Edge_TR-Bank_BL_1") == 0)
+			else if (strcmp(typeBuf, "Edge_TR-Bank_BL_1") == 0)
 				member->subtype = 5;
-			else if (strcasecmp(typeBuf, "Edge_TR-Bank_BL_2") == 0)
+			else if (strcmp(typeBuf, "Edge_TR-Bank_BL_2") == 0)
 				member->subtype = 6;
-			else if (strcasecmp(typeBuf, "Edge_BL-Bank_TR_1") == 0)
+			else if (strcmp(typeBuf, "Edge_BL-Bank_TR_1") == 0)
 				member->subtype = 7;
-			else if (strcasecmp(typeBuf, "Edge_BL-Bank_TR_2") == 0)
+			else if (strcmp(typeBuf, "Edge_BL-Bank_TR_2") == 0)
 				member->subtype = 8;
-			else if (strcasecmp(typeBuf, "Edge_BR-Bank_TL_1") == 0)
+			else if (strcmp(typeBuf, "Edge_BR-Bank_TL_1") == 0)
 				member->subtype = 9;
-			else if (strcasecmp(typeBuf, "Edge_BR-Bank_TL_2") == 0)
+			else if (strcmp(typeBuf, "Edge_BR-Bank_TL_2") == 0)
 				member->subtype = 0xA;
-			else if (strcasecmp(typeBuf, "Edge_T-Bank_B") == 0)
+			else if (strcmp(typeBuf, "Edge_T-Bank_B") == 0)
 				member->subtype = 0xB;
-			else if (strcasecmp(typeBuf, "Edge_L-Bank_R") == 0)
+			else if (strcmp(typeBuf, "Edge_L-Bank_R") == 0)
 				member->subtype = 0xC;
-			else if (strcasecmp(typeBuf, "Edge_R-Bank_L") == 0)
+			else if (strcmp(typeBuf, "Edge_R-Bank_L") == 0)
 				member->subtype = 0xD;
-			else if (strcasecmp(typeBuf, "Edge_B-Bank_T") == 0)
+			else if (strcmp(typeBuf, "Edge_B-Bank_T") == 0)
 				member->subtype = 0xE;
-			else if (strcasecmp(typeBuf, "Ravine_Width") == 0)
+			else if (strcmp(typeBuf, "Ravine_Width") == 0)
 				member->subtype = 0xF;
-			else if (strcasecmp(typeBuf, "Ravine_Floor_Tile") == 0)
+			else if (strcmp(typeBuf, "Ravine_Floor_Tile") == 0)
 				member->subtype = 0x10;
 			else
 				member->subtype = 0x11;
 			break;
 
 		case 7: // TRANSITION
-			if (strcasecmp(typeBuf, "Tile_1") == 0)
+			if (strcmp(typeBuf, "Tile_1") == 0)
 				member->subtype = 0;
-			else if (strcasecmp(typeBuf, "Tile_2") == 0)
+			else if (strcmp(typeBuf, "Tile_2") == 0)
 				member->subtype = 1;
-			else if (strcasecmp(typeBuf, "2_Corner_Top") == 0)
+			else if (strcmp(typeBuf, "2_Corner_Top") == 0)
 				member->subtype = 2;
-			else if (strcasecmp(typeBuf, "2_Corner_Right") == 0)
+			else if (strcmp(typeBuf, "2_Corner_Right") == 0)
 				member->subtype = 3;
-			else if (strcasecmp(typeBuf, "2_Corner_Bottom") == 0)
+			else if (strcmp(typeBuf, "2_Corner_Bottom") == 0)
 				member->subtype = 4;
-			else if (strcasecmp(typeBuf, "2_Corner_Left") == 0)
+			else if (strcmp(typeBuf, "2_Corner_Left") == 0)
 				member->subtype = 5;
-			else if (strcasecmp(typeBuf, "1_Corner_Top") == 0)
+			else if (strcmp(typeBuf, "1_Corner_Top") == 0)
 				member->subtype = 6;
-			else if (strcasecmp(typeBuf, "1_Corner_Right") == 0)
+			else if (strcmp(typeBuf, "1_Corner_Right") == 0)
 				member->subtype = 7;
-			else if (strcasecmp(typeBuf, "1_Corner_Bottom") == 0)
+			else if (strcmp(typeBuf, "1_Corner_Bottom") == 0)
 				member->subtype = 8;
-			else if (strcasecmp(typeBuf, "1_Corner_Left") == 0)
+			else if (strcmp(typeBuf, "1_Corner_Left") == 0)
 				member->subtype = 9;
-			else if (strcasecmp(typeBuf, "2_TR-1_BL") == 0)
+			else if (strcmp(typeBuf, "2_TR-1_BL") == 0)
 				member->subtype = 0xA;
-			else if (strcasecmp(typeBuf, "1_TL-2_BR") == 0)
+			else if (strcmp(typeBuf, "1_TL-2_BR") == 0)
 				member->subtype = 0xB;
-			else if (strcasecmp(typeBuf, "1_TR-2_BL") == 0)
+			else if (strcmp(typeBuf, "1_TR-2_BL") == 0)
 				member->subtype = 0xC;
-			else if (strcasecmp(typeBuf, "2_TL-1_BR") == 0)
+			else if (strcmp(typeBuf, "2_TL-1_BR") == 0)
 				member->subtype = 0xD;
 			else
 				member->subtype = 0xE;
@@ -1184,11 +1185,11 @@ ResBankDistrib_ScanBorderX(CResBankVertex *lower, CResBankVertex *upper, int xOf
 
 	set = ResBankSet_LookupByIndex(lower->setIndex);
 	if (set == NULL)
-		abort();
+		exit(1);
 
 	member = CResBankSet_GetTypeMember(set, 0);
 	if (member == NULL)
-		abort();
+		exit(1);
 
 	for (i = (uint16_t)lower->y + 1; i < (int)(uint16_t)upper->y; i++) {
 		ResBankDistrib_PlaceStatic(member->tileId, xOff + (uint16_t)lower->x, yOff + i, (uint16_t)set->hue);
@@ -1209,11 +1210,11 @@ ResBankDistrib_ScanBorderY(CResBankVertex *lower, CResBankVertex *upper, int xOf
 
 	set = ResBankSet_LookupByIndex(lower->setIndex);
 	if (set == NULL)
-		abort();
+		exit(1);
 
 	member = CResBankSet_GetTypeMember(set, 1);
 	if (member == NULL)
-		abort();
+		exit(1);
 
 	for (i = (uint16_t)lower->x + 1; i < (int)(uint16_t)upper->x; i++) {
 		ResBankDistrib_PlaceStatic(member->tileId, xOff + i, yOff + (uint16_t)lower->y, (uint16_t)set->hue);
@@ -1234,29 +1235,29 @@ ResBankDistrib_ScanTransition(CResBankVertex *vertex, int xOff, int yOff)
 
 	set = ResBankSet_LookupByIndex(vertex->setIndex);
 	if (set == NULL)
-		abort();
+		exit(1);
 
 	if (ResBankVertex_LookupByIndex(vertex->n) == NULL && ResBankVertex_LookupByIndex(vertex->w) == NULL) {
 		member = CResBankSet_GetTypeMember(set, 2);
 		if (member == NULL)
-			abort();
+			exit(1);
 	} else if (ResBankVertex_LookupByIndex(vertex->n) != NULL && ResBankVertex_LookupByIndex(vertex->w) != NULL) {
 		member = CResBankSet_GetTypeMember(set, 7);
 		if (member == NULL)
-			abort();
+			exit(1);
 	} else if (ResBankVertex_LookupByIndex(vertex->w) != NULL && ResBankVertex_LookupByIndex(vertex->s) != NULL) {
 		member = CResBankSet_GetTypeMember(set, 1);
 		if (member == NULL)
-			abort();
+			exit(1);
 	} else {
 		if (ResBankVertex_LookupByIndex(vertex->n) != NULL || ResBankVertex_LookupByIndex(vertex->s) != NULL) {
 			member = CResBankSet_GetTypeMember(set, 0);
 			if (member == NULL)
-				abort();
+				exit(1);
 		} else {
 			member = CResBankSet_GetTypeMember(set, 1);
 			if (member == NULL)
-				abort();
+				exit(1);
 		}
 	}
 
@@ -1324,10 +1325,10 @@ ResBankManager_ScanNPCsForPlacementX(CResBankVertex *lower, CResBankVertex *uppe
 
 	set = ResBankSet_LookupByIndex(vertex->setIndex);
 	if (set == NULL)
-		abort();
+		exit(1);
 	member0 = CResBankSet_GetTypeMember(set, 0);
 	if (member0 == NULL)
-		abort();
+		exit(1);
 
 	baseHeight = g_ItemTileData[member0->tileId].quantity;
 	span = (uint16_t)found->x - (uint16_t)vertex->x + 1;
@@ -1343,15 +1344,15 @@ ResBankManager_ScanNPCsForPlacementX(CResBankVertex *lower, CResBankVertex *uppe
 	for (i = 0; i < span / 2; i++) {
 		for (j = 0; j < i; j++) {
 			if (memberA == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(memberA->tileId, xOff + (uint16_t)found->x - i, yOff + (uint16_t)upper->y, (uint16_t)vertexSet->hue, j * 3 + baseHeight);
 			ResBankDistrib_PlaceStaticNPC(memberA->tileId, xOff + (uint16_t)vertex->x + i, yOff + (uint16_t)upper->y, (uint16_t)vertexSet->hue, j * 3 + baseHeight);
 		}
 		for (k = (uint16_t)lower->y + 1; k < (int)(uint16_t)upper->y + 2; k++) {
 			if (member1 == NULL)
-				abort();
+				exit(1);
 			if (member2 == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(member1->tileId, xOff + (uint16_t)found->x + 1 - i, yOff + k, (uint16_t)set->hue, i * 3 + baseHeight);
 			ResBankDistrib_PlaceStaticNPC(member2->tileId, xOff + (uint16_t)vertex->x + i + 1, yOff + k, (uint16_t)set->hue, i * 3 + baseHeight);
 		}
@@ -1360,13 +1361,13 @@ ResBankManager_ScanNPCsForPlacementX(CResBankVertex *lower, CResBankVertex *uppe
 	if (span & 1) {
 		for (i = 0; i < span / 2; i++) {
 			if (memberA == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(
 			        memberA->tileId, xOff + (uint16_t)found->x - span / 2, yOff + (uint16_t)upper->y, (uint16_t)vertexSet->hue, i * 3 + baseHeight);
 		}
 		for (k = (uint16_t)lower->y + 1; k < (int)(uint16_t)upper->y + 2; k++) {
 			if (member3 == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(member3->tileId, xOff + (uint16_t)vertex->x + span / 2 + 1, yOff + k, (uint16_t)set->hue, (span / 2) * 3 + baseHeight);
 		}
 	}
@@ -1433,10 +1434,10 @@ ResBankManager_ScanNPCsForPlacementY(CResBankVertex *lower, CResBankVertex *uppe
 
 	set = ResBankSet_LookupByIndex(vertex->setIndex);
 	if (set == NULL)
-		abort();
+		exit(1);
 	member0 = CResBankSet_GetTypeMember(set, 0);
 	if (member0 == NULL)
-		abort();
+		exit(1);
 
 	baseHeight = g_ItemTileData[member0->tileId].quantity;
 	span = (uint16_t)found->y - (uint16_t)vertex->y + 1;
@@ -1452,15 +1453,15 @@ ResBankManager_ScanNPCsForPlacementY(CResBankVertex *lower, CResBankVertex *uppe
 	for (i = 0; i < span / 2; i++) {
 		for (j = 0; j < i; j++) {
 			if (memberB == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(memberB->tileId, xOff + (uint16_t)upper->x, yOff + (uint16_t)found->y - i, (uint16_t)vertexSet->hue, j * 3 + baseHeight);
 			ResBankDistrib_PlaceStaticNPC(memberB->tileId, xOff + (uint16_t)upper->x, yOff + (uint16_t)vertex->y + i, (uint16_t)vertexSet->hue, j * 3 + baseHeight);
 		}
 		for (k = (uint16_t)lower->x + 1; k < (int)(uint16_t)upper->x + 2; k++) {
 			if (member5 == NULL)
-				abort();
+				exit(1);
 			if (member6 == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(member5->tileId, xOff + k, yOff + (uint16_t)found->y + 1 - i, (uint16_t)set->hue, i * 3 + baseHeight);
 			ResBankDistrib_PlaceStaticNPC(member6->tileId, xOff + k, yOff + (uint16_t)vertex->y + i + 1, (uint16_t)set->hue, i * 3 + baseHeight);
 		}
@@ -1469,13 +1470,13 @@ ResBankManager_ScanNPCsForPlacementY(CResBankVertex *lower, CResBankVertex *uppe
 	if (span & 1) {
 		for (i = 0; i < span / 2; i++) {
 			if (memberB == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(
 			        memberB->tileId, xOff + (uint16_t)upper->x, yOff + (uint16_t)found->y - span / 2, (uint16_t)vertexSet->hue, i * 3 + baseHeight);
 		}
 		for (k = (uint16_t)lower->x + 1; k < (int)(uint16_t)upper->x + 2; k++) {
 			if (member7 == NULL)
-				abort();
+				exit(1);
 			ResBankDistrib_PlaceStaticNPC(member7->tileId, xOff + k, yOff + (uint16_t)vertex->y + span / 2 + 1, (uint16_t)set->hue, (span / 2) * 3 + baseHeight);
 		}
 	}

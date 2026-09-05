@@ -473,7 +473,7 @@ WeatherEffect_LoadPolygons(FILE *fp, int scale, CItem *region, int isText)
 		}
 	}
 
-	// Pass 1: iterate all blocks, clear active flag, check void tiles.
+	// Pass 1: iterate all blocks and check void tiles.
 	for (i = 0; i < 0x19; i++) {
 		for (blockIdx = 0; blockIdx < g_SpatialGrid.totalBlocks; blockIdx++) {
 			if (!(g_SpatialGrid.cells[blockIdx].flags111 & 0x40))
@@ -646,7 +646,9 @@ WeatherEffect_ApplyTilePatterns(FILE *fp, int scale, CItem *region)
 			set = ResBankSet_FindByTypeAndColor(3, color & 0xFFFF);
 			if (set == NULL)
 				continue;
-			if (set->memberCount == 0)
+			// The walk starts from memberTail, which is what the zero
+			// test looks at too.
+			if (set->memberTail == NULL)
 				continue;
 
 			member = set->memberTail;
@@ -681,7 +683,7 @@ WeatherEffect_ApplyTilePatterns(FILE *fp, int scale, CItem *region)
 					goto pass1_next;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 3)->tileId, -666);
-				goto pass1_done;
+				continue;
 pass1_next:
 
 				if (!CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0))
@@ -694,7 +696,7 @@ pass1_next:
 					goto pass1_next2;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 4)->tileId, -666);
-				goto pass1_done;
+				continue;
 pass1_next2:
 
 				if (!CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0))
@@ -707,7 +709,7 @@ pass1_next2:
 					goto pass1_next3;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 5)->tileId, -666);
-				goto pass1_done;
+				continue;
 pass1_next3:
 
 				if (!CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0))
@@ -720,9 +722,8 @@ pass1_next3:
 					continue;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 2)->tileId, -666);
-				goto pass1_done;
+				continue;
 			}
-pass1_done:;
 		}
 	}
 
@@ -743,7 +744,7 @@ pass1_done:;
 					goto pass2_next;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 9)->tileId, -666);
-				goto pass2_done;
+				continue;
 pass2_next:
 
 				if (!CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0))
@@ -756,7 +757,7 @@ pass2_next:
 					goto pass2_next2;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 6)->tileId, -666);
-				goto pass2_done;
+				continue;
 pass2_next2:
 
 				if (!CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0))
@@ -769,7 +770,7 @@ pass2_next2:
 					goto pass2_next3;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 7)->tileId, -666);
-				goto pass2_done;
+				continue;
 pass2_next3:
 
 				if (!CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0))
@@ -782,9 +783,8 @@ pass2_next3:
 					continue;
 
 				SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 8)->tileId, -666);
-				goto pass2_done;
+				continue;
 			}
-pass2_done:;
 		}
 	}
 
@@ -799,31 +799,30 @@ pass2_done:;
 				if (CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0) &&
 				        CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX + 1, outerY), 1)) {
 					SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 0xB)->tileId, -666);
-					goto pass3_done;
+					continue;
 				}
 
 				// South edge: (x,y) + (x-1,y).
 				if (CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0) &&
 				        CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX - 1, outerY), 1)) {
 					SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 0xD)->tileId, -666);
-					goto pass3_done;
+					continue;
 				}
 
 				// North edge: (x,y) + (x,y+1).
 				if (CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0) &&
 				        CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY + 1), 1)) {
 					SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 0xC)->tileId, -666);
-					goto pass3_done;
+					continue;
 				}
 
 				// West edge: (x,y) + (x,y-1).
 				if (CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY), 0) &&
 				        CResBankSet_ContainsMember(cur, CTerrainManager_GetLandTileID(NULL, innerX, outerY - 1), 1)) {
 					SetTerrainTile((intptr_t)region, innerX, outerY, CResBankSet_GetTypeMember(cur, 0xA)->tileId, -666);
-					goto pass3_done;
+					continue;
 				}
 			}
-pass3_done:;
 		}
 	}
 }
