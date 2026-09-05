@@ -266,12 +266,37 @@ void
 CMobile_HandleFollowerMovement(CMobile *owner, int direction)
 {
 	CMobile *follower;
+	CItem *resolved;
+	CVector followerSerials;
+	uintptr_t *serialIter;
+	char typeFlag = 1;
 
-	for (follower = owner->firstFollower; follower != NULL; follower = follower->nextFollower) {
+	/* Movement can fire enter/leave-range scripts that delete or reparent a
+	 * follower. Snapshot stable serials before invoking either virtual method
+	 * and re-resolve ownership at every callback boundary. */
+	CVector_Constructor(&followerSerials, &typeFlag);
+	for (follower = owner->firstFollower; follower != NULL; follower = follower->nextFollower)
+		CVector_PushBack(&followerSerials, follower->container.item.serial);
+
+	for (serialIter = (uintptr_t *)followerSerials.begin; serialIter != (uintptr_t *)followerSerials.end; serialIter++) {
+		resolved = CWorld_FindBySerial(g_World, (uint32_t)*serialIter);
+		if (resolved == NULL || !VT_IsMobile(resolved))
+			continue;
+		follower = (CMobile *)resolved;
+		if (!follower->isFollower || follower->owner != owner)
+			continue;
 		if (!((int (*)(void *, int, int))VT_FN((CItem *)follower, VT_WALK_CHECK))(follower, direction, 0))
+			continue;
+
+		resolved = CWorld_FindBySerial(g_World, (uint32_t)*serialIter);
+		if (resolved == NULL || !VT_IsMobile(resolved))
+			continue;
+		follower = (CMobile *)resolved;
+		if (!follower->isFollower || follower->owner != owner)
 			continue;
 		((void (*)(void *, int, int))VT_FN((CItem *)follower, VT_DO_WALK))(follower, direction, -128);
 	}
+	CVector_Destructor(&followerSerials);
 }
 
 /*
