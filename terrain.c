@@ -1223,6 +1223,26 @@ CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc
 	}
 }
 
+/* Interpret a demo register as signed without an out-of-range int32_t cast. */
+static int32_t
+LOS_Signed32(uint32_t value)
+{
+	if (value <= INT32_MAX)
+		return (int32_t)value;
+	return -1 - (int32_t)(UINT32_MAX - value);
+}
+
+/* Demo SAR, including sign extension. All callers shift by 1, 2, or 16. */
+static int32_t
+LOS_ShiftRight32(uint32_t value, unsigned int shift)
+{
+	uint32_t result = value >> shift;
+
+	if (value & UINT32_C(0x80000000))
+		result |= UINT32_MAX << (32 - shift);
+	return LOS_Signed32(result);
+}
+
 /*
  * 0x0046ADA5 - CTerrainManager::LOSRaycast
  *
@@ -1230,6 +1250,12 @@ CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc
  * 16.16 fixed-point stepping. Returns 1 if at least one ray reaches
  * the destination unblocked, 0 if both are blocked. flags bit 0 adds
  * 0x3000 (walls/roofs), bit 1 adds 0x40 (impassable) to blockers.
+ *
+ * Keep fixed-point values as unsigned 32-bit register contents: SHL,
+ * ADD and SUB wrap in the demo. Interpret those bits as signed before
+ * IDIV (0x0046AF67/74/87), which truncates toward zero, and explicitly
+ * sign-extend SAR results. Signed C shifts/overflow are not a portable
+ * substitute, and widening the arithmetic changes extreme-input rays.
  */
 int
 CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
@@ -1241,9 +1267,9 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 	int steps;
 	int zHigh, zLow;
 	int losFlags;
-	int dx_fp, dy_fp, dz_fp;
-	int z_fp;
-	int x1_fp, y1_fp, x2_fp, y2_fp;
+	uint32_t dx_fp, dy_fp, dz_fp;
+	uint32_t z_fp;
+	uint32_t x1_fp, y1_fp, x2_fp, y2_fp;
 	int ray_alive[2];
 	int i, j;
 
@@ -1311,19 +1337,19 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 	}
 
 	// Long-distance path: fixed-point ray stepping.
-	dx_fp = (dx << 16) / steps;
-	dy_fp = (dy << 16) / steps;
-	dz_fp = (dz << 16) / (steps - 1);
+	dx_fp = (uint32_t)(LOS_Signed32((uint32_t)dx << 16) / steps);
+	dy_fp = (uint32_t)(LOS_Signed32((uint32_t)dy << 16) / steps);
+	dz_fp = (uint32_t)(LOS_Signed32((uint32_t)dz << 16) / (steps - 1));
 
-	z_fp = ((int)(int16_t)src.z << 16) + 0x8000;
+	z_fp = ((uint32_t)(int16_t)src.z << 16) + 0x8000;
 
 	// Ray 1 offset +perpendicular from center line.
-	x1_fp = ((int)(int16_t)src.x << 16) + (dy_fp >> 2) + 0x8000;
-	y1_fp = ((int)(int16_t)src.y << 16) + 0x8000 - (dx_fp >> 2);
+	x1_fp = ((uint32_t)(int16_t)src.x << 16) + (uint32_t)LOS_ShiftRight32(dy_fp, 2) + 0x8000;
+	y1_fp = ((uint32_t)(int16_t)src.y << 16) + 0x8000 - (uint32_t)LOS_ShiftRight32(dx_fp, 2);
 
 	// Ray 2 offset -perpendicular.
-	x2_fp = x1_fp - (dy_fp >> 1);
-	y2_fp = y1_fp + (dx_fp >> 1);
+	x2_fp = x1_fp - (uint32_t)LOS_ShiftRight32(dy_fp, 1);
+	y2_fp = y1_fp + (uint32_t)LOS_ShiftRight32(dx_fp, 1);
 
 	ray_alive[0] = 1;
 	ray_alive[1] = 1;
@@ -1341,12 +1367,12 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 
 		CLocation_Init(&tiles[0]);
 		CLocation_Init(&tiles[1]);
-		tiles[0].x = (uint16_t)(x1_fp >> 16);
-		tiles[0].y = (uint16_t)(y1_fp >> 16);
-		tiles[0].z = (int16_t)(z_fp >> 16);
-		tiles[1].x = (uint16_t)(x2_fp >> 16);
-		tiles[1].y = (uint16_t)(y2_fp >> 16);
-		tiles[1].z = (int16_t)(z_fp >> 16);
+		tiles[0].x = (uint16_t)LOS_ShiftRight32(x1_fp, 16);
+		tiles[0].y = (uint16_t)LOS_ShiftRight32(y1_fp, 16);
+		tiles[0].z = (int16_t)LOS_ShiftRight32(z_fp, 16);
+		tiles[1].x = (uint16_t)LOS_ShiftRight32(x2_fp, 16);
+		tiles[1].y = (uint16_t)LOS_ShiftRight32(y2_fp, 16);
+		tiles[1].z = (int16_t)LOS_ShiftRight32(z_fp, 16);
 
 		// Advance z after setting tiles but before checking.
 		z_fp += dz_fp;
@@ -1379,7 +1405,7 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 				goto store_result;
 			}
 
-			curZ = z_fp >> 16;
+			curZ = LOS_ShiftRight32(z_fp, 16);
 			if (curZ < (int)(int16_t)prevLoc.z) {
 				prevLoc.z = (int16_t)curZ;
 				curZ = (int)(int16_t)tiles[j].z;
