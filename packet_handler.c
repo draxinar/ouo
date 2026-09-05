@@ -5930,11 +5930,15 @@ HandlePacket_HUEPICKER(CPlayer *this, uint8_t *buf)
  * 0x004982EA - HandlePacket_MOBNAME
  *
  * Replies to the client with the name of the given mobile serial.
+ *
+ * FIXED: the reply is 37 bytes (3-byte header, serial, 30-byte name),
+ * but the binary sizes obuf at 36 and the last name byte spills onto the
+ * spent serial local. Size obuf to hold the full payload.
  */
 void
 HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf)
 {
-	uint8_t obuf[0x23];
+	uint8_t obuf[0x25];
 	uint32_t off;
 	uint32_t serial;
 
