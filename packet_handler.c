@@ -9723,16 +9723,19 @@ Vendor_SayTo(CPlayer *player, CMobile *vendor, char *text)
  * CPlayer exists. Format: null-terminated version string (e.g. "2.0.8").
  */
 void
-HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf)
+HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
-	char *version;
+	PacketReader reader;
+	char version[24];
 
-	off = 0;
-	GetString(buf, &off, &version, 20);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadCStringCopy(&reader, version, sizeof(version), sizeof(version))) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_CLIENT_VERSION: invalid client version string", PacketType_CLIENT_VERSION);
+		this->socket.status = SocketClosing;
+		return;
+	}
 
-	strncpy(this->clientVersion, version, sizeof(this->clientVersion) - 1);
-	this->clientVersion[sizeof(this->clientVersion) - 1] = '\0';
+	strcpy(this->clientVersion, version);
 
 	{
 		const ClientVersionInfo *info = Version_FindByName(version);

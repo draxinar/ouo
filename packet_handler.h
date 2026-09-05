@@ -263,7 +263,7 @@ void UseItem_Default(CPlayer *player, CItem *entity); // 0x004DCC42
 void UseItemDispatch(CItem *player, CItem *entity); // 0x004DCCB5
 void DispatchDoubleClick(CPlayer *this, CItem *entity, int isPaperdoll); // 0x004DCD04
 void Vendor_SayTo(CPlayer *player, CMobile *vendor, char *text);
-void HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf);
+void HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf, uint16_t packetLen);
 void HandlePacket_SKILLOCK(CPlayer *this, uint8_t *buf);
 uint16_t ClampStat(int32_t val);
 void HandlePacket_TILEDATA(CPlayer *this, uint8_t *buf);

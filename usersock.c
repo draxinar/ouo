@@ -319,7 +319,7 @@ loop:
 		// Dispatch at the CUserSock layer so clientVersion is populated in
 		// time for PRELOGIN's auth log event.
 		case PacketType_CLIENT_VERSION: // 0xBD
-			HandlePacket_CLIENT_VERSION(this, buf);
+			HandlePacket_CLIENT_VERSION(this, buf, g_PacketSize);
 			break;
 		default:
 			if (this->player)
