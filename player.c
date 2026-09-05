@@ -3888,6 +3888,13 @@ CollectContainerScripts(CItem *container, CVector *vec)
  * Disconnect handler: fires the logout event on the player and all
  * equipped scripts, broadcasts DESTROY_OBJECT to nearby clients, and
  * tears down the entity.
+ *
+ * FIXED: the binary removes the player without closing the socket, so a
+ * server-initiated logout - the idle timer or Script_removePlayerFromGame
+ * - leaves a live connection whose player field points at a removed
+ * entity and keeps dispatching packets into it. Close and detach the
+ * socket here. The SocketDestroyed guard in the helper keeps the
+ * socket-initiated path (Delete -> LogOut -> Disconnect) unaffected.
  */
 void
 CPlayer_Disconnect(CPlayer *this)
@@ -3926,6 +3933,9 @@ CPlayer_Disconnect(CPlayer *this)
 	SendPacketInRange(obuf, &this->mobile.container.item.resourceEntity.entity.location, 0x12);
 
 	BroadcastDestroyAndRemove(&this->mobile.container.item);
+
+	// Close and detach the connection for a server-initiated logout.
+	CUserSock_CloseAndDetachPlayer(this->usersock, this);
 
 	CVector_Destructor(&scriptVec);
 }
