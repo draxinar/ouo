@@ -715,6 +715,12 @@ CMultiSlave_RemoveAllComponents(CMultiSlave *slave, uint32_t unused)
  * skipping the multi's own components and items above the tile height.
  * Each component's query starts at its top surface (component z plus
  * CItem::GetSurfaceHeight). Early-out when carry is 0.
+ *
+ * FIXED: the binary assigns foundZ + surfaceHeight to maxZ
+ * unconditionally, so a shorter item processed after a taller one lowers
+ * the reachable stack height; a higher item then fails foundZ > maxZ and
+ * the walk drops it, leaving it behind when the multi moves. Keep the
+ * highest surface reached instead.
  */
 void
 CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
@@ -798,9 +804,14 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 			if (foundZ > maxZ)
 				break;
 
-			// Update maxZ with this item's surface height
+			// Keep the highest surface reached: a shorter item must not
+			// lower the reachable stack height and strand a later one.
 			surfaceH = ((int (*)(void *))VT_FN(found, VT_GET_SURFACE_H))(found);
-			maxZ = foundZ + surfaceH;
+			{
+				int foundTopZ = foundZ + surfaceH;
+				if (foundTopZ > maxZ)
+					maxZ = foundTopZ;
+			}
 
 			// Check if already in output list
 			findResult = Vector_Find(outList->begin, outList->end, tp);
