@@ -922,7 +922,8 @@ NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *
 
 	player = NewPlayer(name, locX, locY, locZ, genre, strength, dexterity, intelligence, skill1Number, skill1Value, skill2Number, skill2Value, skill3Number, skill3Value,
 	        skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
-	strcpy(player->password, password);
+	strncpy(player->password, password ? password : "", sizeof(player->password) - 1);
+	player->password[sizeof(player->password) - 1] = '\0';
 	player->usersock = this;
 	this->player = player;
 

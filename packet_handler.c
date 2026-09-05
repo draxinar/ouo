@@ -1516,6 +1516,8 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	uint16_t pattern1, pattern2;
 	uint8_t pattern3;
 	char *characterName, *characterPassword;
+	char characterNameBuf[31];
+	char characterPasswordBuf[31];
 	uint8_t genre, strength, dexterity, intelligence;
 	uint8_t skill1Number, skill2Number, skill3Number;
 	uint8_t skill1Value, skill2Value, skill3Value;
@@ -1563,6 +1565,10 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	GetByte(buf, &off, &pattern3);
 	GetString(buf, &off, &characterName, 30);
 	GetString(buf, &off, &characterPassword, 30);
+	memcpy(characterNameBuf, characterName, 30);
+	characterNameBuf[30] = '\0';
+	memcpy(characterPasswordBuf, characterPassword, 30);
+	characterPasswordBuf[30] = '\0';
 	GetByte(buf, &off, &genre);
 	GetByte(buf, &off, &strength);
 	GetByte(buf, &off, &dexterity);
@@ -1616,9 +1622,9 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 			locY = g_PlaceNameList[startLocation].y;
 			locZ = g_PlaceNameList[startLocation].z;
 		}
-		player = NewCharacter(this, locX, locY, locZ, characterName, characterPassword, genre, strength, dexterity, intelligence, skill1Number, skill1Value, skill2Number,
-		        skill2Value, skill3Number, skill3Value, skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
-		Log_Game(this->addr, "'%s' created character '%s'", this->account->login, characterName);
+		player = NewCharacter(this, locX, locY, locZ, characterNameBuf, characterPasswordBuf, genre, strength, dexterity, intelligence, skill1Number, skill1Value,
+		        skill2Number, skill2Value, skill3Number, skill3Value, skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
+		Log_Game(this->addr, "'%s' created character '%s'", this->account->login, characterNameBuf);
 		Player_Login(player, addr);
 	} else {
 		PacketManager_MakePacket_LOGIN_REJECT(&obuf[0], 0x00);

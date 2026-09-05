@@ -35,6 +35,7 @@
 #include "world.h"
 
 static int ObjPickerEntryTextLen(ObjPickerEntry *entry); // 0x0049C366
+static void PacketManager_CopyFixedCString(char *dst, size_t dstLen, const char *src);
 
 // 0x00698318 - facet id written by DRAW_PLAYER (always 0 in demo)
 static uint16_t g_MapFacetId;
@@ -58,6 +59,19 @@ uint32_t g_HighlightColorTable[] = {
 	0x0FF7F00,
 };
 
+static void
+PacketManager_CopyFixedCString(char *dst, size_t dstLen, const char *src)
+{
+	if (dstLen == 0)
+		return;
+
+	if (src == NULL)
+		src = "";
+
+	strncpy(dst, src, dstLen - 1);
+	dst[dstLen - 1] = '\0';
+}
+
 /*
  * 0x00498771 - PacketManager::MakePacket_GMSingle
  *
@@ -79,7 +93,7 @@ PacketManager_MakePacket_GMSingle(uint8_t *buf, uint8_t type, uint32_t serial, u
 	PutDWord(buf, hue);
 	PutByte(buf, amount);
 	memset(nameBuf, 0, 30);
-	strcpy(nameBuf, name);
+	PacketManager_CopyFixedCString(nameBuf, sizeof(nameBuf), name);
 	PutString(buf, nameBuf, 30);
 }
 
@@ -790,13 +804,12 @@ PacketManager_MakePacket_TEXT(uint8_t *buf, CItem *entity, CItem *target, uint8_
 
 	if (entity != NULL && VT_IsPlayer(entity)) {
 		if (CPlayer_IsGMAndManifested((CPlayer *)entity)) {
-			sprintf(nameBuf, "GM %s", ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
+			snprintf(nameBuf, sizeof(nameBuf), "GM %s", ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
 		} else {
-			strcpy(nameBuf, ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
+			PacketManager_CopyFixedCString(nameBuf, sizeof(nameBuf), ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
 		}
 	} else if (entity != NULL && VT_IsNPC(entity)) {
-		// vtable[0x34] GetName, strcpy
-		strcpy(nameBuf, ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
+		PacketManager_CopyFixedCString(nameBuf, sizeof(nameBuf), ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
 	}
 
 	PutString(buf, nameBuf, 30);
@@ -826,7 +839,7 @@ PacketManager_MakePacket_ASCII_SPEECH(uint8_t *buf, uint32_t serial, uint16_t mo
 	PutWord(buf, color);
 	PutWord(buf, font);
 	memset(nameBuf, 0, 30);
-	strcpy(nameBuf, name);
+	PacketManager_CopyFixedCString(nameBuf, sizeof(nameBuf), name);
 	PutString(buf, nameBuf, 30);
 	strncpy(textBuf, text, 1023);
 	textBuf[1023] = '\0';
@@ -1167,7 +1180,7 @@ PacketManager_MakePacket_MOBILESTAT(uint8_t *buf, CMobile *mob, uint32_t viewerS
 
 	if (VT_IsPlayer(&mob->container.item)) {
 		char *nameStr = ((char *(*)(void *, int))VT_FN(&mob->container.item, VT_SPEAK_SYS_MSG))(&mob->container.item, 1);
-		strcpy(name, nameStr);
+		PacketManager_CopyFixedCString(name, sizeof(name), nameStr);
 		PutString(buf, name, 30);
 		PutWord(buf, (uint16_t)mob->hp);
 		PutWord(buf, (uint16_t)mob->maxHp);
@@ -1177,7 +1190,7 @@ PacketManager_MakePacket_MOBILESTAT(uint8_t *buf, CMobile *mob, uint32_t viewerS
 			PutByte(buf, mob->sex);
 	} else if (VT_IsNPC(&mob->container.item)) {
 		char *nameStr = ((char *(*)(void *))VT_FN(&mob->container.item, VT_GET_NAME))(&mob->container.item);
-		strcpy(name, nameStr);
+		PacketManager_CopyFixedCString(name, sizeof(name), nameStr);
 		PutString(buf, name, 30);
 		PutWord(buf, (uint16_t)mob->hp);
 		PutWord(buf, (uint16_t)mob->maxHp);
@@ -2803,13 +2816,12 @@ PacketManager_MakePacket_TEXT_UNICODE(uint8_t *buf, CItem *entity, CItem *entity
 
 	if (entity != NULL && VT_IsPlayer(entity)) {
 		if (CPlayer_IsGMAndManifested((CPlayer *)entity)) {
-			sprintf(nameBuf, "GM %s", ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
+			snprintf(nameBuf, sizeof(nameBuf), "GM %s", ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
 		} else {
-			strcpy(nameBuf, ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
+			PacketManager_CopyFixedCString(nameBuf, sizeof(nameBuf), ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
 		}
 	} else if (entity != NULL && VT_IsNPC(entity)) {
-		// vtable[0x34] GetName, strcpy
-		strcpy(nameBuf, ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
+		PacketManager_CopyFixedCString(nameBuf, sizeof(nameBuf), ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity));
 	}
 	PutString(buf, nameBuf, 30);
 
