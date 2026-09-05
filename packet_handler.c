@@ -119,6 +119,66 @@ static int g_PendingReleaseLocSet;
 // Custom - shared outbound packet buffer size
 static int bufSize = 8192;
 
+static int
+TriggerEdit_CStringFits(const char *str, const char *end)
+{
+	if (str == NULL || str > end)
+		return 0;
+	return memchr(str, '\0', (size_t)(end - str)) != NULL;
+}
+
+static int
+TriggerEdit_CopyNextCString(char **cursor, const char *end, char *dst, size_t dstSize)
+{
+	char *nul;
+	size_t len;
+
+	if (cursor == NULL || *cursor == NULL || *cursor > end || dstSize == 0)
+		return 0;
+
+	nul = memchr(*cursor, '\0', (size_t)(end - *cursor));
+	if (nul == NULL)
+		return 0;
+
+	len = (size_t)(nul - *cursor);
+	if (len >= dstSize)
+		return 0;
+
+	memcpy(dst, *cursor, len);
+	dst[len] = '\0';
+	*cursor = nul + 1;
+	return 1;
+}
+
+static int
+TriggerEdit_WriteBytesBounded(char **cursor, char *start, size_t cap, const void *src, size_t len)
+{
+	if (*cursor < start || (size_t)(*cursor - start) > cap)
+		return 0;
+	if (len > cap - (size_t)(*cursor - start))
+		return 0;
+
+	memcpy(*cursor, src, len);
+	*cursor += len;
+	return 1;
+}
+
+static int
+TriggerEdit_WriteCStringBounded(char **cursor, char *start, size_t cap, const char *src)
+{
+	return TriggerEdit_WriteBytesBounded(cursor, start, cap, src, strlen(src) + 1);
+}
+
+int
+PacketSecurity_RequireGM(CPlayer *this, uint8_t packetType, const char *handler)
+{
+	if (this != NULL && CPlayer_IsGameMaster(this))
+		return 1;
+
+	PacketSecurity_ClosePlayer(this, packetType, handler, "GM account required");
+	return 0;
+}
+
 enum {
 	kPacketSecurityMaxText = 4096,
 };
@@ -4541,7 +4601,7 @@ bounce:
  *      from template slot (0x0045B42C)
  */
 void
-HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf)
+HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint32_t off;
 	CResourceNode *node;
@@ -4549,6 +4609,11 @@ HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf)
 	uint32_t serial;
 	uint16_t tmpWord;
 	uint32_t tmpDWord;
+
+	USED(packetLen);
+
+	if (!PacketSecurity_RequireGM(this, PacketType_RESOURCETILEDATA, "HandlePacket_RESOURCETILEDATA"))
+		return;
 
 	off = 0;
 	node = NULL;
@@ -6505,19 +6570,19 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 		HandlePacket_RENAME_MOB(this, buf);
 		break;
 	case PacketType_ResourceQuery:
-		HandlePacket_ResourceQuery(this, buf);
+		HandlePacket_ResourceQuery(this, buf, packetLen);
 		break;
 	case PacketType_PICKEDOBJ:
 		HandlePacket_PICKEDOBJ(this, buf);
 		break;
 	case PacketType_GodViewQuery:
-		HandlePacket_GodViewQuery(this, buf);
+		HandlePacket_GodViewQuery(this, buf, packetLen);
 		break;
 	case PacketType_SendResources:
-		HandlePacket_SendResources(this, buf);
+		HandlePacket_SendResources(this, buf, packetLen);
 		break;
 	case PacketType_TriggerEdit:
-		HandlePacket_TriggerEdit(this, buf);
+		HandlePacket_TriggerEdit(this, buf, packetLen);
 		break;
 	case PacketType_POSTLOGIN:
 		HandlePacket_POSTLOGIN_Player(this, buf);
@@ -6529,7 +6594,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 		HandlePacket_HUEPICKER(this, buf);
 		break;
 	case PacketType_GameCentMon:
-		HandlePacket_GameCentMon(this, buf);
+		HandlePacket_GameCentMon(this, buf, packetLen);
 		break;
 	case PacketType_MOBNAME:
 		HandlePacket_MOBNAME(this, buf, packetLen);
@@ -6595,7 +6660,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 				HandlePacket_AddResource(this, buf);
 				break;
 			case PacketType_RESOURCETILEDATA:
-				HandlePacket_RESOURCETILEDATA(this, buf);
+				HandlePacket_RESOURCETILEDATA(this, buf, packetLen);
 				break;
 			case PacketType_NEW_ART:
 				HandlePacket_NEW_ART(this, buf);
@@ -6800,9 +6865,8 @@ BuildGodViewPacket(uint8_t *buf, uint8_t type, uint16_t count, int dataLen, uint
  * writes original subtype. Empty result sends type=0xFF, count=0.
  */
 void
-HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
+HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t offset;
 	uint8_t subtype;
 	uint8_t pktBuf[0x2006];
 	uint8_t dataBuf[0x2000];
@@ -6812,9 +6876,16 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 	CItem *entity;
 	uint16_t category;
 	int dataLen;
+	PacketReader reader;
 
-	offset = 0;
-	GetByte(buf, &offset, &subtype);
+	if (!PacketSecurity_RequireGM(this, PacketType_GodViewQuery, "HandlePacket_GodViewQuery"))
+		return;
+
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU8(&reader, &subtype)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GodViewQuery, "HandlePacket_GodViewQuery", "truncated subtype");
+		return;
+	}
 
 	if (subtype != 0)
 		return;
@@ -7258,29 +7329,58 @@ restore_location:
  * mode 0x01-0x0B: trigger operations via jump table (11 cases)
  */
 void
-HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
+HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t mode;
 	uint16_t connIndex, dataLen;
 	char *data;
 	char *dataSaved;
 	char *readCur;
+	char *dataEnd;
 	char *writeCur;
 	uint8_t responseBuf[0x2040];
 	char localBuf[0x2038];
 	int32_t entitySerial;
 	CItem *entity;
+	PacketReader reader;
+	const uint8_t *dataPtr;
 
-	off = 0;
-	GetByte(buf, &off, &mode);
-	GetWord(buf, &off, &connIndex);
-	GetWord(buf, &off, &dataLen);
-	GetString(buf, &off, &data, dataLen);
+	if (!PacketSecurity_RequireGM(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit"))
+		return;
+
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &mode) || !PacketReader_ReadU16(&reader, &connIndex) || !PacketReader_ReadU16(&reader, &dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "truncated trigger header");
+		return;
+	}
+	if (packetLen < 8 || dataLen != (uint16_t)(packetLen - 8)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "data length does not match packet");
+		return;
+	}
+	if (!PacketReader_ReadBytesPtr(&reader, &dataPtr, dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "truncated trigger data");
+		return;
+	}
+	data = (char *)dataPtr;
+	dataEnd = data + dataLen;
 
 	dataSaved = data;
 	writeCur = localBuf;
 	readCur = data;
+
+#define TRIGGER_REQUIRE_INPUT(cur, len, why)                                                                       \
+	do {                                                                                                       \
+		if ((cur) < data || (cur) > dataEnd || (size_t)(dataEnd - (cur)) < (size_t)(len)) {                \
+			PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", why); \
+			return;                                                                                    \
+		}                                                                                                  \
+	} while (0)
+
+#define TRIGGER_READ_I32(dst, why)                      \
+	do {                                            \
+		TRIGGER_REQUIRE_INPUT(readCur, 4, why); \
+		(dst) = ReadInt32LE(&readCur);          \
+	} while (0)
 
 	if ((mode & 0xFF) == 0x10) {
 		// Mode 0x10: region query - scan 0x1000 template chain buckets
@@ -7296,10 +7396,10 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		regionWriteCur = regionBuf;
 
 		// Read bounding rect
-		x1 = ReadInt32LE(&readCur);
-		y1 = ReadInt32LE(&readCur);
-		x2 = ReadInt32LE(&readCur);
-		y2 = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(x1, "truncated region query x1");
+		TRIGGER_READ_I32(y1, "truncated region query y1");
+		TRIGGER_READ_I32(x2, "truncated region query x2");
+		TRIGGER_READ_I32(y2, "truncated region query y2");
 
 		for (i = 0; i < 0x1000; i++) {
 			cur = g_TemplateChain[i];
@@ -7363,21 +7463,21 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		int32_t newTemplateIdx, newExtra;
 		CLocation newLoc;
 
-		findSerial = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(findSerial, "truncated entity update serial");
 		editEnt = CWorld_FindBySerial(g_World, findSerial);
 		if (editEnt == NULL)
 			return;
 
-		newBodyType = ReadInt32LE(&readCur);
-		newColor = ReadInt32LE(&readCur);
-		newLocX = ReadInt32LE(&readCur);
-		newLocY = ReadInt32LE(&readCur);
-		newLocZ = ReadInt32LE(&readCur);
-		newBoundX = ReadInt32LE(&readCur);
-		newBoundY = ReadInt32LE(&readCur);
-		newBoundZ = ReadInt32LE(&readCur);
-		newTemplateIdx = ReadInt32LE(&readCur);
-		newExtra = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(newBodyType, "truncated entity update body");
+		TRIGGER_READ_I32(newColor, "truncated entity update color");
+		TRIGGER_READ_I32(newLocX, "truncated entity update x");
+		TRIGGER_READ_I32(newLocY, "truncated entity update y");
+		TRIGGER_READ_I32(newLocZ, "truncated entity update z");
+		TRIGGER_READ_I32(newBoundX, "truncated entity update bound x");
+		TRIGGER_READ_I32(newBoundY, "truncated entity update bound y");
+		TRIGGER_READ_I32(newBoundZ, "truncated entity update bound z");
+		TRIGGER_READ_I32(newTemplateIdx, "truncated entity update template");
+		TRIGGER_READ_I32(newExtra, "truncated entity update extra");
 		USED(newTemplateIdx);
 		USED(newExtra);
 
@@ -7418,17 +7518,17 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 
 		respConnIndex = 0;
 
-		queryBodyType = ReadInt32LE(&readCur);
-		queryX = ReadInt32LE(&readCur);
-		queryY = ReadInt32LE(&readCur);
-		queryZ = ReadInt32LE(&readCur);
-		hasChild = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(queryBodyType, "truncated query body");
+		TRIGGER_READ_I32(queryX, "truncated query x");
+		TRIGGER_READ_I32(queryY, "truncated query y");
+		TRIGGER_READ_I32(queryZ, "truncated query z");
+		TRIGGER_READ_I32(hasChild, "truncated query child flag");
 
 		childSerial = 0;
 		foundEnt = NULL;
 
 		if (hasChild != 0) {
-			childSerial = ReadInt32LE(&readCur);
+			TRIGGER_READ_I32(childSerial, "truncated query child serial");
 			foundEnt = CWorld_FindBySerial(g_World, childSerial);
 		} else {
 			if (CBlockManager_IsValidCoord(&g_SpatialGrid, queryX, queryY)) {
@@ -7558,6 +7658,9 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 				childCount = 0;
 				childCur = foundEnt->resourceEntity.firstChild;
 				while (childCur != NULL) {
+					if ((size_t)(localBuf + sizeof(localBuf) - readCur) < 28)
+						break;
+
 					respConnIndex++;
 					// Write child id (CResourceNode.id)
 					WriteInt32LE(&readCur, (int32_t)childCur->id);
@@ -7607,7 +7710,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		int32_t deleteIdx;
 		int32_t foundCount;
 
-		deleteCount = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(deleteCount, "truncated count query");
 		USED(deleteCount);
 		foundCount = 0;
 
@@ -7615,7 +7718,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			int32_t delSerial;
 			int blockScanIdx;
 
-			delSerial = ReadInt32LE(&readCur);
+			TRIGGER_READ_I32(delSerial, "truncated count query body type");
 
 			for (blockScanIdx = 0; blockScanIdx < (int)g_SpatialGrid.totalBlocks; blockScanIdx++) {
 				CItem *scanItem;
@@ -7640,7 +7743,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		return;
 	}
 
-	entitySerial = ReadInt32LE(&readCur);
+	TRIGGER_READ_I32(entitySerial, "truncated entity serial");
 	readCur -= 4; // binary: sub edx, 4 at 0x004b6a9a
 	entity = CWorld_FindBySerial(g_World, entitySerial);
 
@@ -7664,7 +7767,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 				int32_t delSer;
 				CItem *delEnt;
 
-				delSer = ReadInt32LE(&readCur);
+				TRIGGER_READ_I32(delSer, "truncated delete serial");
 				delEnt = CWorld_FindBySerial(g_World, delSer);
 				if (delEnt != NULL) {
 					TriggerEdit_DeleteEntity(delEnt);
@@ -7685,6 +7788,14 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			CItem *tagEntity;
 
 			tagSearchStr = readCur + 4;
+			if (tagSearchStr < data || tagSearchStr > dataEnd) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "invalid tag search pointer");
+				return;
+			}
+			if ((connIndex & 0xFFFF) != 0 && !TriggerEdit_CStringFits(tagSearchStr, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated tag search string");
+				return;
+			}
 			readCur = writeCur;
 
 			// Write entity serial
@@ -7790,12 +7901,20 @@ next_tag_entity:
 
 		case 7: {
 			char *opData = readCur + 4;
+			if (!TriggerEdit_CStringFits(opData, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated script operation string");
+				return;
+			}
 			TriggerEdit_Op546F(opData);
 			return;
 		}
 
 		case 5: {
 			char *opData = readCur + 4;
+			if (!TriggerEdit_CStringFits(opData, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated property string");
+				return;
+			}
 			TriggerEdit_SetStringProp(entity, opData);
 			return;
 		}
@@ -7806,18 +7925,24 @@ next_tag_entity:
 			char nameBuf[128];
 			char *varCur = varData;
 
+			TRIGGER_REQUIRE_INPUT(varData, 1, "truncated objvar data");
+
 			// Check if first byte is non-zero (has prefix name)
 			if ((int8_t)*varCur != 0) {
-				strcpy(nameBuf, varCur);
-				varCur += strlen(varCur) + 1;
+				if (!TriggerEdit_CopyNextCString(&varCur, dataEnd, nameBuf, sizeof(nameBuf))) {
+					PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "invalid objvar prefix string");
+					return;
+				}
 				TriggerEdit_SetStringProp(entity, nameBuf);
 			} else {
 				varCur++;
 			}
 
 			// Copy value name
-			strcpy(nameBuf, varCur);
-			varCur += strlen(varCur) + 1;
+			if (!TriggerEdit_CopyNextCString(&varCur, dataEnd, nameBuf, sizeof(nameBuf))) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "invalid objvar name string");
+				return;
+			}
 
 			// Inner switch on varSubType (0-4)
 			if (varSubType > 4) {
@@ -7829,6 +7954,7 @@ next_tag_entity:
 					char *locCur = varCur;
 					CLocation varLoc;
 
+					TRIGGER_REQUIRE_INPUT(locCur, 12, "truncated objvar location");
 					locValX = ReadInt32LE(&locCur);
 					locValY = ReadInt32LE(&locCur);
 					locValZ = ReadInt32LE(&locCur);
@@ -7843,6 +7969,7 @@ next_tag_entity:
 					int32_t intVal;
 					char *intCur = varCur;
 
+					TRIGGER_REQUIRE_INPUT(intCur, 4, "truncated objvar integer");
 					intVal = ReadInt32LE(&intCur);
 					CEntity_SetObjVar(entity, nameBuf, 0, (uint32_t)intVal);
 					break;
@@ -7851,12 +7978,17 @@ next_tag_entity:
 					int32_t objVal;
 					char *objCur = varCur;
 
+					TRIGGER_REQUIRE_INPUT(objCur, 4, "truncated objvar object");
 					objVal = ReadInt32LE(&objCur);
 					CEntity_SetObjVar(entity, nameBuf, 4, (uint32_t)objVal);
 					break;
 				}
 				case 1: {
 					CString _v, _n;
+					if (!TriggerEdit_CStringFits(varCur, dataEnd)) {
+						PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated objvar string value");
+						return;
+					}
 					CString_Constructor(&_v, varCur);
 					CString_Constructor(&_n, nameBuf);
 					ObjVar_SetStr(entity, &_n, 1, (uintptr_t)&_v);
@@ -7871,8 +8003,10 @@ next_tag_entity:
 
 			if ((mode & 0xFF) == 7) {
 				uint16_t cpLen = dataLen & 0xFFFF;
-				memcpy(writeCur, dataSaved, cpLen);
-				writeCur += cpLen;
+				if (!TriggerEdit_WriteBytesBounded(&writeCur, localBuf, sizeof(localBuf), dataSaved, cpLen)) {
+					PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "trigger response too large");
+					return;
+				}
 				goto epilogue;
 			}
 			return;
@@ -7880,6 +8014,10 @@ next_tag_entity:
 
 		case 2: {
 			char *opData = readCur + 4;
+			if (!TriggerEdit_CStringFits(opData, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated trigger operation string");
+				return;
+			}
 			TriggerEdit_Op545E(entity, opData);
 			return;
 		}
@@ -7888,6 +8026,10 @@ next_tag_entity:
 			char *scriptName = readCur + 4;
 			const char *attachResult;
 
+			if (!TriggerEdit_CStringFits(scriptName, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated attach script name");
+				return;
+			}
 			attachResult = entity != NULL ? Entity_AttachScript(entity, scriptName, 1) : "Entity not found";
 
 			readCur = writeCur;
@@ -7895,8 +8037,10 @@ next_tag_entity:
 			writeCur = readCur;
 
 			if (attachResult != NULL) {
-				strcpy(writeCur, attachResult);
-				writeCur += strlen(attachResult) + 1;
+				if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), attachResult)) {
+					PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "attach response too large");
+					return;
+				}
 			}
 			goto epilogue;
 		}
@@ -7937,8 +8081,11 @@ next_tag_entity:
 					dataLen = nameLen;
 
 					// Copy name to write cursor
-					strcpy(writeCur, sName);
-					writeCur += nameLen;
+					if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), sName)) {
+						PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "script response too large");
+						CVector_Destructor(&scriptList);
+						return;
+					}
 
 					scriptCount++;
 					scriptIter++;
@@ -7971,13 +8118,22 @@ next_tag_entity:
 					dataLen = tdNameLen;
 
 					// Copy name to write cursor
-					strcpy(writeCur, tdName);
-					writeCur += tdNameLen;
+					if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), tdName)) {
+						PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "tag response too large");
+						CVector_Destructor(&tagDefList);
+						return;
+					}
 
 					// Write value after name based on type
 					{
 						char *tagWritePos = writeCur;
 						int tagType = (int)tagDefEntry->type;
+
+						if ((size_t)(localBuf + sizeof(localBuf) - writeCur) < 16) {
+							PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "tag value response too large");
+							CVector_Destructor(&tagDefList);
+							return;
+						}
 
 						switch (tagType) {
 						case 0: {
@@ -8009,8 +8165,12 @@ next_tag_entity:
 							strLen = (uint16_t)(strlen(strVal) + 1);
 							dataLen = strLen;
 
-							strcpy(writeCur, strVal);
-							writeCur += strLen;
+							if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), strVal)) {
+								PacketSecurity_ClosePlayer(
+								        this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "tag string response too large");
+								CVector_Destructor(&tagDefList);
+								return;
+							}
 							break;
 						}
 						case 3: {
@@ -8063,12 +8223,18 @@ next_tag_entity:
 		}
 	}
 
-epilogue: {
-	int32_t respDataLen = (int32_t)(writeCur - localBuf);
+epilogue:
+	{
+		int32_t respDataLen;
 
-	BuildTriggerEditResponse(responseBuf, mode, connIndex, localBuf, (uint16_t)respDataLen);
-	SendToClient((CItem *)this, responseBuf, -1);
-}
+		if (writeCur < localBuf || writeCur > localBuf + sizeof(localBuf)) {
+			PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "trigger response cursor out of bounds");
+			return;
+		}
+		respDataLen = (int32_t)(writeCur - localBuf);
+		BuildTriggerEditResponse(responseBuf, mode, connIndex, localBuf, (uint16_t)respDataLen);
+		SendToClient((CItem *)this, responseBuf, -1);
+	}
 }
 
 /*

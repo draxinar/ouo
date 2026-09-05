@@ -20,6 +20,7 @@
 #include "main.h"
 #include "npc.h"
 #include "packet_handler.h"
+#include "packet_reader.h"
 #include "packet_utils.h"
 #include "player.h"
 #include "region.h"
@@ -218,9 +219,8 @@ GameCentMon_UpdateTimestamp(CPlayer *player)
  * 0x004B822F / 0x004B8203.
  */
 void
-HandlePacket_GameCentMon(CPlayer *this, uint8_t *buf)
+HandlePacket_GameCentMon(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t subtype;
 	uint16_t param1, dataLen;
 	char *data;
@@ -238,12 +238,26 @@ HandlePacket_GameCentMon(CPlayer *this, uint8_t *buf)
 	int32_t fileSize;
 	int32_t offset;
 	uint8_t savedByte;
+	PacketReader reader;
+	const uint8_t *dataBytes;
 
-	off = 0;
-	GetByte(buf, &off, &subtype);
-	GetWord(buf, &off, &param1);
-	GetWord(buf, &off, &dataLen);
-	GetString(buf, &off, &data, dataLen);
+	if (!PacketSecurity_RequireGM(this, PacketType_GameCentMon, "HandlePacket_GameCentMon"))
+		return;
+
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &subtype) || !PacketReader_ReadU16(&reader, &param1) || !PacketReader_ReadU16(&reader, &dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "truncated fixed fields");
+		return;
+	}
+	if (packetLen < 8 || dataLen != (uint16_t)(packetLen - 8)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "data length does not match packet");
+		return;
+	}
+	if (!PacketReader_ReadBytesPtr(&reader, &dataBytes, dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "truncated data");
+		return;
+	}
+	data = (char *)dataBytes;
 
 	dataPtr = data;
 	dataPtr = data;
@@ -317,6 +331,15 @@ HandlePacket_GameCentMon(CPlayer *this, uint8_t *buf)
 		static const uint8_t byteTable[18] = { 0, 1, 2, 2, 2, 2, 2, 3, 4, 10, 5, 10, 6, 10, 7, 8, 10, 9 };
 		int caseIndex = byteTable[switchIndex];
 
+		if (caseIndex == 1 && dataLen < 4) {
+			PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "truncated teleport payload");
+			return;
+		}
+		if (caseIndex == 6 && (dataLen < 24 || (dataLen % 4) != 0)) {
+			PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "invalid broadcast payload");
+			return;
+		}
+
 		switch (caseIndex) {
 		case 9:
 			broadcastBuf[0] = (int32_t)this->mobile.container.item.serial;
@@ -358,6 +381,20 @@ HandlePacket_GameCentMon(CPlayer *this, uint8_t *buf)
 			*(int32_t *)dataPtr = (int32_t)this->mobile.container.item.serial;
 			*(int32_t *)(dataPtr + 4) = 4;
 			*(int32_t *)(dataPtr + 8) = 0;
+			{
+				int32_t numTemplates = *(int32_t *)(dataPtr + 20);
+				uint32_t requiredLen;
+
+				if (numTemplates < 0 || numTemplates > RESBANK_MAX_TEMPLATES) {
+					PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "invalid template count");
+					return;
+				}
+				requiredLen = 24u + (uint32_t)numTemplates * 8u;
+				if (requiredLen > dataLen) {
+					PacketSecurity_ClosePlayer(this, PacketType_GameCentMon, "HandlePacket_GameCentMon", "truncated resource update payload");
+					return;
+				}
+			}
 			GameCentMon_BroadcastEvent(dataPtr, dataLen & 0xFFFF);
 			break;
 		}

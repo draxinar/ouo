@@ -206,11 +206,12 @@ void HandlePacket_REQ_OBJUSE(CPlayer *this, uint8_t *buf); // 0x00493E4C
 void HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf); // 0x004942A6
 void HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf); // 0x00494D6F
 void HandlePacket_ATTACK(CPlayer *this, uint8_t *buf); // 0x00495D46
+int PacketSecurity_RequireGM(CPlayer *this, uint8_t packetType, const char *handler);
 void PacketSecurity_ClosePlayer(CPlayer *this, uint8_t packetType, const char *handler, const char *reason);
 void HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00495DBE
 void HandlePacket_REQ_LOOK(CPlayer *this, uint8_t *buf); // 0x00495E18
 void HandlePacket_REQ_OBJEQUIP(CPlayer *this, uint8_t *buf); // 0x00495E4D
-void HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf); // 0x0049606F
+void HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x0049606F
 void SendStatusToPlayer(CMobile *mob, CPlayer *player, uint32_t serial, uint8_t flag); // 0x004963DD
 void HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf); // 0x004964CA
 void HandlePacket_ELEVCHANGE(CPlayer *this, uint8_t *buf); // 0x00496A03
@@ -248,10 +249,10 @@ uint8_t PacketManager_GetPacketByte(uint8_t *ptr); // 0x0049DB00
 uint16_t SetPacketOffset(uint8_t *buf, uint16_t off); // 0x0049DB10
 uint16_t SetGlobalOffset(uint16_t off); // 0x0049DB50
 void BuildTriggerPacket(uint8_t *buf, uint8_t subtype, int32_t datalen, char *data); // 0x004B3390
-void HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf); // 0x004B4CE4
+void HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004B4CE4
 void SaveResources(void); // 0x004B503E
 TagNode *TriggerEdit_FindTagDef(CItem *entity, const char *name); // 0x004B56A1
-void HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf); // 0x004B5DC7
+void HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004B5DC7
 void Script_createPlaceHolder(uint32_t serial); // 0x004B7616
 void HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004DB1C1
 void CWorld_SpeechNotifyNearbyUnicode(CWorld *self, uint32_t serial, CLocation *loc, uint16_t *text, int unused, int range); // 0x004DB1C6
