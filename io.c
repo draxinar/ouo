@@ -161,10 +161,11 @@ fclose_ServerSide(FILE *f)
  * 0xFF sentinel. Walks the ContainerHandle page cache directly when
  * the file has one; otherwise falls through to fgets.
  *
- * MODIFIED: the binary keeps whatever precedes the newline, so a CRLB
+ * MODIFIED: the binary keeps whatever precedes the newline, so a CRLF
  * data file comes back with the CR attached. We collapse "\r\n" to
- * "\n", which every caller that measures the line then sees one byte
- * shorter.
+ * "\n" on both arms - the page cache and the standalone fgets the
+ * binary dispatches to a plain CRT read - so every caller that measures
+ * the line sees it one byte shorter.
  *
  * MODIFIED: the binary's page-cache arm is a separate thiscall at
  * 0x004E5B1A; ours inlines it.
@@ -177,8 +178,21 @@ fgets_ServerSide(char *buf, int maxLen, FILE *f)
 	int remaining;
 
 	ch = FindContainerHandle(f);
-	if (ch == NULL)
-		return fgets(buf, maxLen, f);
+	if (ch == NULL) {
+		// Standalone mode reads bare files (no uodemo.dat container).
+		// Fold a trailing CRLF to LF the way the container page path
+		// below does, so a file with Windows line endings leaves no
+		// carriage return in the last parsed field.
+		char *ret = fgets(buf, maxLen, f);
+		if (ret != NULL) {
+			size_t len = strlen(ret);
+			if (len >= 2 && ret[len - 1] == '\n' && ret[len - 2] == '\r') {
+				ret[len - 2] = '\n';
+				ret[len - 1] = '\0';
+			}
+		}
+		return ret;
+	}
 
 	dst = buf;
 	remaining = maxLen;
