@@ -3347,7 +3347,11 @@ CPlayer_HeartbeatCleanup(CPlayer *this)
 void
 CPlayer_PingReply(CPlayer *this, uint8_t sequence)
 {
-	USED(sequence);
+	uint8_t obuf[2];
+
+	obuf[0] = PacketType_PING;
+	obuf[1] = sequence;
+	SendPacketToPlayer(this, obuf, sizeof(obuf));
 	this->pingTimer = 0;
 }
 

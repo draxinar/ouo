@@ -38,6 +38,16 @@ uint8_t g_ServerAddr[4];
 uint16_t g_ServerPort = 2593;
 
 static void
+UserSock_HandlePreCharPing(CUserSock *this, uint8_t *buf)
+{
+	uint8_t obuf[2];
+
+	obuf[0] = PacketType_PING;
+	obuf[1] = buf[1];
+	Socket_Copy_To_CSocketBuffer(&this->socket, obuf, sizeof(obuf));
+}
+
+static void
 UserSock_CloseMalformedPacket(CUserSock *this, uint8_t packetType, const char *reason)
 {
 	this->invalidPacketCount++;
@@ -320,6 +330,12 @@ loop:
 		// time for PRELOGIN's auth log event.
 		case PacketType_CLIENT_VERSION: // 0xBD
 			HandlePacket_CLIENT_VERSION(this, buf, g_PacketSize);
+			break;
+		case PacketType_PING: // 0x73
+			if (this->player)
+				DoHandlePacket_Player(this->player, *packetType, buf, g_PacketSize);
+			else
+				UserSock_HandlePreCharPing(this, buf);
 			break;
 		default:
 			if (this->player)
