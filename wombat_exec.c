@@ -6329,7 +6329,7 @@ Script_areBehaviorsEnabled(uint32_t serial)
 		return 0;
 	if (ent->resourceEntity.entity.removedFromWorld)
 		return 0;
-	return ((int (*)(void *, int))VT_FN(ent, VT_TEST_BEHAVIOR))(ent, 8);
+	return !((int (*)(void *, int))VT_FN(ent, VT_TEST_BEHAVIOR))(ent, 8);
 }
 
 /*
