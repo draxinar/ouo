@@ -981,6 +981,7 @@ CResBankManager_ProcessEntry(CDistribEntry *entry, CEntity *entity)
 							SetTerrainTile((intptr_t)entity, x, y, tileTable[g_TerrainRules[j].setIndex - 1], -666);
 						else
 							SetTerrainTile((intptr_t)entity, x, y, tileTable[g_TerrainRules[j].altSetIndex - 1], -666);
+						break;
 					}
 					j++;
 				}

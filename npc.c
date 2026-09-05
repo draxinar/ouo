@@ -121,7 +121,7 @@ static int CNPC_CompareFightStrength(CNPC *npc, CMobile *target); // 0x004AC0E3
 static void NPC_AddToFollowerTarget(CMobile *target); // 0x004AC248
 static int CNPC_CheckPetHunger(CNPC *npc); // 0x004AC69B
 static void CNPC_HandleCorpseEat(CNPC *npc, CItem *corpse); // 0x004AC7BC
-static void CNPC_WalkAnimDispatch(CMobile *mob); // 0x004AC9C0
+static void CNPC_WalkAnimDispatch(CMobile *mob, int unused); // 0x004AC9C0
 
 // Local forward declarations
 
@@ -3873,9 +3873,6 @@ CNPC_InitFromResourceNodes(CNPC *npc)
 							type2_switch[npc->resTplCount1] = 6;
 							npc->resTplCount1++;
 						}
-					} else {
-						type2_switch[npc->resTplCount1] = 6;
-						npc->resTplCount1++;
 					}
 					break;
 				case 5:
@@ -3890,9 +3887,6 @@ CNPC_InitFromResourceNodes(CNPC *npc)
 							type2_switch[npc->resTplCount1] = 9;
 							npc->resTplCount1++;
 						}
-					} else {
-						type2_switch[npc->resTplCount1] = 9;
-						npc->resTplCount1++;
 					}
 					break;
 				}
@@ -3977,14 +3971,12 @@ next_node:
 		region = CResBankManager_GetRegionByLocation(loc.x, loc.y);
 	}
 
-	if (region != NULL) {
-		if (region->noWander == 1) {
-			((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x100000);
-		} else if (region->noWander == 2) {
-			((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x80000);
-		} else {
-			((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x200000);
-		}
+	if (region->noWander == 1) {
+		((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x100000);
+	} else if (region->noWander == 2) {
+		((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x80000);
+	} else {
+		((void (*)(void *, int))VT_FN((CItem *)npc, VT_SET_BEHAVIOR))(npc, 0x200000);
 	}
 
 	// Dead template-processing scratch arrays (binary writes without
@@ -4188,8 +4180,8 @@ CNPC_HandleStates(CNPC *npc)
 		if (npc->aiState == NPC_STATE_RUNAWAY) {
 			if (npc->isWalking == 0)
 				CNPC_RunawayTick(npc);
+			return;
 		}
-		return;
 	}
 
 	CNPC_CombatPatrol(npc);
@@ -4240,7 +4232,7 @@ CNPC_HandleStates(CNPC *npc)
 			npc->ltype = 0xA;
 			npc->stateInfo2 = 0xA;
 			npc->isWalking = 1;
-			CNPC_WalkAnimDispatch(mob);
+			CNPC_WalkAnimDispatch(mob, 0x32);
 			return;
 		}
 
@@ -4257,7 +4249,7 @@ CNPC_HandleStates(CNPC *npc)
 				npc->patrolTarget = tmpLoc;
 				npc->ltype = 0xA;
 				npc->stateInfo2 = 0xA;
-				CNPC_WalkAnimDispatch(mob);
+				CNPC_WalkAnimDispatch(mob, 0x32);
 				npc->isWalking = 1;
 				return;
 			}
@@ -4838,7 +4830,7 @@ CNPC_WanderTick(CNPC *npc)
 	CNPC_WanderStep(mob, 0x14);
 	npc->ltype = NPC_STATE_WANDER;
 	npc->stateInfo2 = NPC_STATE_WANDER;
-	CNPC_WalkAnimDispatch(mob);
+	CNPC_WalkAnimDispatch(mob, 0x32);
 }
 
 /*
@@ -5126,7 +5118,7 @@ CNPC_RunawayTick(CNPC *npc)
 		return;
 	}
 
-	CNPC_WalkAnimDispatch(mob);
+	CNPC_WalkAnimDispatch(mob, 0x64);
 
 	if (npc->aiByte2 != 0) {
 		CNPC_WanderStep(mob, 6);
@@ -5317,7 +5309,7 @@ CNPC_EnterWanderState(CNPC *npc, int minSteps, int maxSteps)
 {
 	CNPC_SetState(npc, NPC_STATE_WANDER);
 	npc->wanderSteps = GetRandomRange(minSteps, maxSteps);
-	CNPC_WalkAnimDispatch(&npc->mobile);
+	CNPC_WalkAnimDispatch(&npc->mobile, 0x32);
 }
 
 /*
@@ -6308,10 +6300,14 @@ CreateItemAtLocation(uint16_t id, CLocation loc)
  * 0x004AC9C0 - CNPC::WalkAnimDispatch
  *
  * Sets run state to 1 for flying/ghost mobs (movementType == 2), else 0.
+ * The argument is never read; the binary's four callers pass 0x32, except
+ * CNPC::RunawayTick which passes 0x64.
  */
 static void
-CNPC_WalkAnimDispatch(CMobile *mob)
+CNPC_WalkAnimDispatch(CMobile *mob, int unused)
 {
+	USED(unused);
+
 	if (CMobile_GetMovementType(mob) == 2)
 		CNPC_SetRunState(mob, 1);
 	else

@@ -797,7 +797,7 @@ GameCentMon_BroadcastEvent(char *data, int len)
 	uint32_t serial;
 	int32_t eventType;
 	int32_t thirdArg;
-	char buf[0x2024];
+	char buf[0x2000];
 	char *cursorOut;
 	char *savedCursorOut;
 	uint32_t flag;
@@ -902,8 +902,9 @@ GameCentMon_BroadcastEvent(char *data, int len)
 
 	case 1: { // Event 2: entity list query.
 		GCMEntityListBuilder entityBuilder;
-		char entityBuf[0x202C];
-		GameCentMon_BuildEntityList(&entityBuilder, entityBuf, serial);
+		// The binary hands BuildEntityList responseBuf, which it
+		// overwrites at send_response before anything reads it.
+		GameCentMon_BuildEntityList(&entityBuilder, (char *)responseBuf, serial);
 		eventType = 0xC;
 		flag = thirdArg;
 		cursorOut = buf;
@@ -983,7 +984,9 @@ GameCentMon_BroadcastEvent(char *data, int len)
 	}
 
 	default:
-		break;
+		// 0x004B8BA0 - the bounds check jumps into send_response, not
+		// the epilogue, so an out-of-range eventType still answers.
+		goto send_response;
 	}
 
 	return;

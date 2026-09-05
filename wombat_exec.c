@@ -665,8 +665,8 @@ Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int cat
 		if (outCreatureType != typeClass)
 			continue;
 
-		// Skip if creature class exceeds player's difficulty rating.
-		if (outCreatureClass > difficulty)
+		// Skip if the creature's difficulty exceeds the player's rating.
+		if (outDifficulty > difficulty)
 			continue;
 
 		// Skip owned pets: manual CList iteration on myBoss tag.
@@ -6253,8 +6253,8 @@ CalcDirection(const CLocation *loc1, const CLocation *loc2)
  * Direction delta tables for the 8-direction UO compass:
  * N=0, NE=1, E=2, SE=3, S=4, SW=5, W=6, NW=7.
  */
-const int16_t g_DirDeltaX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-const int16_t g_DirDeltaY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+const int32_t g_DirDeltaX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+const int32_t g_DirDeltaY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
 /*
  * 0x004111D7 - setConvoRet
@@ -15802,6 +15802,8 @@ Script_processTriggerCmds(uint32_t serial, CString *cmdStr)
 		} else if (subType == 'c') {
 			if (cmdNode->type != WTYPE_STRING)
 				continue;
+
+			varBuf[255] = '\0';
 
 			// Scan for '=' in strVal (up to 255 chars)
 			// Binary calls CString_GetCStr each iteration (redundantly)

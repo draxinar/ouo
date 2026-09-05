@@ -687,6 +687,12 @@ GetBeardInfo(uint32_t *style, int genre)
  *
  * CUSTOM (FEAT_CREATION_COLORS): the client's chosen clothing colours
  * override the starting template's hues.
+ *
+ * MODIFIED: the binary places the character at (g_Config.x, g_Config.y, 0)
+ * at 0x00450996, ignoring the city the client selected; the arguments
+ * locX/locY/locZ are used instead so the selection is honoured.
+ *
+ * CUSTOM: under -test the new backpack also receives the starter kit.
  */
 CPlayer *
 NewPlayer(char *name, uint16_t locX, uint16_t locY, uint8_t locZ, uint8_t genre, uint8_t strength, uint8_t dexterity, uint8_t intelligence, uint8_t skill1Number,

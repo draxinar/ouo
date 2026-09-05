@@ -904,7 +904,7 @@ CEditorObj_Destructor(CEditorObj *this)
  * 0x0045AD13 - CEditorObj::HandleEdit
  *
  * GM editor dispatch for HandlePacket_EDIT. Cases: 0 reports the
- * outdated-form message; 4/11 create a dynamic or static item;
+ * outdated-form message; 4/10/11 create a dynamic or static item;
  * 5 removes/replaces the highest item at the target tile; 6 toggles
  * hidden on the player; 7 spawns an NPC from a template.
  */
@@ -957,8 +957,9 @@ CEditorObj_HandleEdit(CPlayer *player, int type, int16_t x, int16_t y, int8_t z,
 	}
 
 	case 4:
+	case 10:
 	case 11: {
-		// Create item (dynamic for type 4, static for type 11).
+		// Create item (dynamic for type 4, static for types 10 and 11).
 		blockIdx = CBlockManager_GetBlockIndex(&g_SpatialGrid, x & 0xFFFF, y & 0xFFFF, 0);
 		USED(blockIdx); // binary computes but discards
 
@@ -975,7 +976,11 @@ CEditorObj_HandleEdit(CPlayer *player, int type, int16_t x, int16_t y, int8_t z,
 
 		isDynamic = ((type & 0xFF) != 4) ? 1 : 0;
 
-		if (isDynamic && g_EditorStaticCreateFlag)
+		// AllocateItem validates the resource at 0x0048E185, ahead of the
+		// static branch at 0x0048E195, so it gates both paths.
+		if (!CWorld_LookupItemResource(id))
+			item = NULL;
+		else if (isDynamic && g_EditorStaticCreateFlag)
 			item = (CItem *)CreateStaticEntity();
 		else
 			item = CWorld_CreateItem(g_World, id);
@@ -7003,7 +7008,7 @@ TriggerEdit_DeleteEntity(CItem *entity)
 
 		// Script iteration: build "+"-separated list, remove each
 		{
-			char scriptsBuf[0x238];
+			char scriptsBuf[0x200];
 			scriptsBuf[0] = '\0';
 
 			CVector_Constructor(&scriptVec, &typeFlag2);

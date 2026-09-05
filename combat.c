@@ -28,6 +28,7 @@
 #include "template.h"
 #include "timer.h"
 #include "utils.h"
+#include "wombat_exec.h"
 #include "vtable.h"
 #include "weapon.h"
 #include "wombat_compile.h"
@@ -259,11 +260,6 @@ Combat_CheckStrength(CMobile *mob)
 	USED(mob);
 	return 0;
 }
-
-// 0x0061BB28 - direction offset X table (N, NE, E, SE, S, SW, W, NW)
-static const int32_t g_DirOffsetX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
-// 0x0061BB50 - direction offset Y table (N, NE, E, SE, S, SW, W, NW)
-static const int32_t g_DirOffsetY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
 #define ARMOR_GROUP_COUNT   14
 #define ARMOR_SLOTS_PER_GRP 4
@@ -657,8 +653,8 @@ blood_item:
 	dir = GetRandomRange(0, 7);
 	targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)target, VT_GET_LOCATION))(target);
 	splatLoc = *targetLoc;
-	splatLoc.x += g_DirOffsetX[dir];
-	splatLoc.y += g_DirOffsetY[dir];
+	splatLoc.x += g_DirDeltaX[dir];
+	splatLoc.y += g_DirDeltaY[dir];
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)splatLoc.x, (int16_t)splatLoc.y))
 		return;
 	blood = CWorld_CreateItem(g_World, 0x1645);
@@ -688,7 +684,8 @@ Combat_PlaySwingAnimation(CMobile *mob, CItem *weapon, CMobile *target)
 	uint16_t repeatCount;
 	uint8_t backward;
 	uint8_t repeat;
-	uint8_t pktBuf[300];
+	uint8_t swingBuf[12];
+	uint8_t animBuf[16];
 	CLocation *attackerLoc;
 	CLocation *targetLoc;
 	int dx, dy;
@@ -731,13 +728,13 @@ Combat_PlaySwingAnimation(CMobile *mob, CItem *weapon, CMobile *target)
 			dy = 1;
 
 		for (i = 0; i < 7; i++) {
-			if (g_DirOffsetX[i] == dx && g_DirOffsetY[i] == dy)
+			if (g_DirDeltaX[i] == dx && g_DirDeltaY[i] == dy)
 				break;
 		}
 
 		if (i != (int)mob->direction) {
 			CVector playerList;
-			char typeFlag[16] = { 0 };
+			char typeFlag[4] = { 0 };
 
 			CMobile_SetDirection((CItem *)mob, (uint32_t)i);
 			CVector_Constructor(&playerList, typeFlag);
@@ -747,8 +744,8 @@ Combat_PlaySwingAnimation(CMobile *mob, CItem *weapon, CMobile *target)
 			CVector_Destructor(&playerList);
 		}
 	} else {
-		PacketManager_MakePacket_SWING(pktBuf, 0, mob->container.item.serial, target->container.item.serial);
-		SendToClient((CItem *)mob, pktBuf, -1);
+		PacketManager_MakePacket_SWING(swingBuf, 0, mob->container.item.serial, target->container.item.serial);
+		SendToClient((CItem *)mob, swingBuf, -1);
 	}
 
 	repeat = 0;
@@ -872,10 +869,10 @@ Combat_PlaySwingAnimation(CMobile *mob, CItem *weapon, CMobile *target)
 		}
 	}
 
-	PacketManager_MakePacket_ANIM(pktBuf, mob->container.item.serial, animId, frameCount, repeatCount, backward, repeat, 1);
+	PacketManager_MakePacket_ANIM(animBuf, mob->container.item.serial, animId, frameCount, repeatCount, backward, repeat, 1);
 	targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)target, VT_GET_LOCATION))(target);
 	attackerLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)mob, VT_GET_LOCATION))(mob);
-	CPlayerList_BroadcastToTwoLocs(pktBuf, attackerLoc, targetLoc, 0x12, NULL);
+	CPlayerList_BroadcastToTwoLocs(animBuf, attackerLoc, targetLoc, 0x12, NULL);
 }
 
 /*

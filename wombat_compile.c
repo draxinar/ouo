@@ -2654,6 +2654,11 @@ cleanup:
  * reading (*chain)->next without testing *chain, so an operator with
  * no left-hand operand faults. Here an empty chain skips the operator
  * and re-enters the evaluator instead.
+ *
+ * FIXED: the binary passes LookupHandler's result straight into
+ * StoreHandlerArgNodes at 0x0042A505 with no NULL test, so an operator
+ * whose handler is missing from the table faults inside it. Here the
+ * expression is abandoned and the caller reports a parse failure.
  */
 const char *
 EvaluateExpression(CFuncScope *scope, const char *stream, ResultNode **chain, int endToken)
@@ -2829,8 +2834,6 @@ EvaluateExpression(CFuncScope *scope, const char *stream, ResultNode **chain, in
 			BuildSignature(sigBuf, tmpNode);
 			binOpHandler = LookupHandler(g_OperatorTable[oprIndex].name, sigBuf);
 
-			// Binary does NOT check for NULL here (passes directly
-			// to StoreHandlerArgNodes). Safety check to avoid crash.
 			if (binOpHandler == NULL)
 				return NULL;
 

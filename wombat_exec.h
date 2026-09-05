@@ -46,13 +46,13 @@ struct CHintItem {
 };
 
 extern NamedResource g_NamedResources[]; // 0x00615390
-extern const int16_t g_DirDeltaX[8]; // 0x0061BB28
+extern const int32_t g_DirDeltaX[8]; // 0x0061BB28
 extern SCommandEntry g_SCommandTable[128]; // 0x0063F968
 extern char g_esLineBuf[4096]; // 0x00645B50
 extern CEScript g_CEScriptCtx; // 0x00645C50
 extern CResManager g_HintManager; // 0x00698E90
 extern SCommandManager g_SCommandManager; // 0x00699910
-extern const int16_t g_DirDeltaY[8];
+extern const int32_t g_DirDeltaY[8]; // 0x0061BB50
 extern int g_ConfigSpawnClient;
 extern uint16_t g_ConfigStartX;
 extern uint16_t g_ConfigStartY;
