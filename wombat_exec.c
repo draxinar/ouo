@@ -666,8 +666,8 @@ Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int cat
 		if (outCreatureType != typeClass)
 			continue;
 
-		// Skip if creature class exceeds player's difficulty rating.
-		if (outCreatureClass > difficulty)
+		// Skip if the creature's tracking difficulty exceeds the player's rating.
+		if (outDifficulty > difficulty)
 			continue;
 
 		// Skip owned pets: manual CList iteration on myBoss tag.
