@@ -101,6 +101,13 @@ enum {
 	PacketType_GMSingle = 0x9D,          // unknown name
 };
 
+/* ObjAccess subtype 5 returns zero when a pickup is authorized. */
+static inline int
+PacketHandler_IsPickupAccessAuthorized(int accessResult)
+{
+	return accessResult == 0;
+}
+
 __extension__ typedef struct CTradeSession CTradeSession;
 
 /*

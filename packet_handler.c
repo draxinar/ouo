@@ -3465,7 +3465,9 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 
 	if (isStealing != 0 && !CPlayer_IsEditing(this)) {
 		int acc = (int)(intptr_t)Entity_ExecuteEvent((CEntity *)topContainer, 0x3D, 5, CMobile_GetSerial(mob), item->serial);
-		if (acc == 0) {
+		/* Pickup access filters return 0 to authorize the move and nonzero
+		 * to reject it. An unhandled mobile filter defaults to rejection. */
+		if (!PacketHandler_IsPickupAccessAuthorized(acc)) {
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x00);
 			SendToClient((CItem *)this, obuf, -1);
 			return;
