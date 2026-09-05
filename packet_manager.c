@@ -1780,10 +1780,15 @@ PacketManager_MakePacket_FEATURES(uint8_t *buf)
 }
 
 /*
- * Not present on UoDemo, but required on clients >= 1.25.35.
+ * Character list + starting locations for post-login character select.
+ *
+ * 1.25.30-1.25.34 still use indexed 63-byte starting-location records
+ * (index + 31-byte city + 31-byte area), but they do not expect the
+ * trailing dword that later clients tolerate. 1.25.35+ use the same
+ * per-location layout and accept the trailing dword.
  */
 uint16_t
-PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, char *characterPasswords)
+PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, char *characterPasswords, int legacyLocationFormat)
 {
 	unsigned int i;
 	unsigned int numStartingPlaces;
@@ -1803,7 +1808,8 @@ PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, ch
 		PutString(buf, g_PlaceNameList[i].city, 31);
 		PutString(buf, g_PlaceNameList[i].place, 31);
 	}
-	PutDWord(buf, 0x00);
+	if (!legacyLocationFormat)
+		PutDWord(buf, 0x00);
 
 	return 0;
 }

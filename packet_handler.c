@@ -943,11 +943,11 @@ static const uint16_t g_CheckerGraphics[32] = {
 // clang-format on
 
 /*
- * Not present on UoDemo, but required on clients >= 1.25.35.
+ * Not present on UoDemo, but required on clients >= 1.25.30.
  * The order should match the hardcoded list in clients >= 1.26.0.
  */
 PlaceName g_PlaceNameList[] = {
-	{ "Ocllo", "Bountiful Harvest", 341, 316, 0 },
+	{ "Ocllo", "Bountiful Harvest", 3668, 2626, 0 },
 	{ "Minoc", "Tavern", 2477, 411, 15 },
 	{ "Britain", "Sweet Dreams Inn", 1495, 1629, 10 },
 	{ "Moonglow", "Docks", 4406, 1045, 0 },
@@ -1613,7 +1613,7 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	uint16_t hairColor;
 	uint16_t facialHairStyle;
 	uint16_t facialHairColor;
-	uint8_t unknown, slot;
+	uint8_t legacyAuxByte, legacyCityByte;
 	uint16_t unknownD, slotD;
 	uint32_t clientIP;
 	uint32_t colors;
@@ -1678,9 +1678,11 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	if (connVer < 0)
 		connVer = CLIENT_12600;
 	if (connVer < CLIENT_12535) {
-		startLocation = -1;
-		GetByte(buf, &off, &unknown);
-		GetByte(buf, &off, &slot);
+		// 1.25.32 client tracing shows the second tail byte carries the chosen
+		// city index; the first byte is some other character-creation selector.
+		GetByte(buf, &off, &legacyAuxByte);
+		GetByte(buf, &off, &legacyCityByte);
+		startLocation = legacyCityByte;
 		GetDWord(buf, &off, &clientIP);
 		GetDWord(buf, &off, &colors);
 		colors = 0;
@@ -1704,7 +1706,7 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	// accounts), but with account-scoped slot-based selection (0x5D) names
 	// don't need to be unique.
 	if (succeed) {
-		if (startLocation > 0 && startLocation < nelem(g_PlaceNameList)) {
+		if (startLocation < nelem(g_PlaceNameList)) {
 			locX = g_PlaceNameList[startLocation].x;
 			locY = g_PlaceNameList[startLocation].y;
 			locZ = g_PlaceNameList[startLocation].z;
@@ -2031,7 +2033,7 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf, uint16_t packetLen)
 	}
 	CVector_Destructor(&charVec);
 
-	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
+	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0], Version_GetConnVer(this, CLIENT_12600) < CLIENT_12535);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 
@@ -9790,7 +9792,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 			PacketManager_MakePacket_FEATURES(obuf);
 			Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		}
-		PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
+		PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0], Version_GetConnVer(this, CLIENT_12600) < CLIENT_12535);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		return;
 	}
@@ -9826,7 +9828,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 	}
 
-	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
+	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0], Version_GetConnVer(this, CLIENT_12600) < CLIENT_12535);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 
