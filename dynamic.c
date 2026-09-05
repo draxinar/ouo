@@ -1626,6 +1626,38 @@ Dynamic_ClearPendingAndFireEvents(void)
 }
 
 /*
+ * Custom - Dynamic_LoadQueuedWomScripts
+ *
+ * Attaches a run of saved wom_scr lines in reverse. Script attachment
+ * prepends to the list, so replaying the saved lines in file order would
+ * reverse their attachment order and change event-handler precedence
+ * after a restart. Walking the queued run back to front restores the
+ * saved order. Clears the queue.
+ */
+static void
+Dynamic_LoadQueuedWomScripts(CItem *obj, CVector *womScrLines)
+{
+	uintptr_t *iter;
+	uint32_t serial;
+
+	if (womScrLines->begin == womScrLines->end)
+		return;
+
+	if (obj != NULL) {
+		serial = obj->serial;
+		if (serial != 0) {
+			iter = (uintptr_t *)womScrLines->end;
+			while (iter != (uintptr_t *)womScrLines->begin) {
+				iter--;
+				WomScr_LoadFromLine(serial, (const char *)*iter);
+			}
+		}
+	}
+
+	CVector_Erase(womScrLines, womScrLines->begin, womScrLines->end);
+}
+
+/*
  * 0x004C9184 - LoadDynamic0_ParseBlock
  *
  * Parses a block's NUL-delimited object stream. Each object begins
@@ -1703,6 +1735,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 		obj = NULL;
 		containerSerial = 0;
 		eqpos = -1;
+		CVector womScrLines;
 		int inHash = 1;
 
 		if (strcmp(keybuf, "@") == 0) {
@@ -1807,9 +1840,13 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 		if (VT_IsWeapon(obj))
 			weaponTemplate = 0;
 		quantity = -1;
+		CVector_Constructor(&womScrLines, &vecType);
 
 		while (keybuf[0] != '\0') {
 			char *val = p;
+
+			if (strcmp(keybuf, "wom_scr") != 0)
+				Dynamic_LoadQueuedWomScripts(obj, &womScrLines);
 
 			if (strcmp(keybuf, "id") == 0) {
 				uint32_t parsed = (uint32_t)atoi(val);
@@ -2368,7 +2405,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 
 			} else if (strcmp(keybuf, "wom_scr") == 0) {
 				if (obj->serial != 0)
-					WomScr_LoadFromLine(obj->serial, val);
+					CVector_PushBack(&womScrLines, (uintptr_t)val);
 
 			} else if (strcmp(keybuf, "shopscr") == 0) {
 				{
@@ -2560,6 +2597,8 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 
 			p = ReadToken(p, keybuf);
 		}
+
+		Dynamic_LoadQueuedWomScripts(obj, &womScrLines);
 
 		if (CMobile_GetSerial((CMobile *)obj) == 0)
 			inHash = 1;
@@ -2778,6 +2817,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 		}
 
 done_with_object:
+		CVector_Destructor(&womScrLines);
 		while (*p != '\0')
 			p++;
 		p++;
