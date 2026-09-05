@@ -169,8 +169,20 @@ fgets_ServerSide(char *buf, int maxLen, FILE *f)
 	int remaining;
 
 	ch = FindContainerHandle(f);
-	if (ch == NULL)
-		return fgets(buf, maxLen, f);
+	if (ch == NULL) {
+		char *ret = fgets(buf, maxLen, f);
+		// Collapse CRLF to LF like the page-cache path below; the
+		// binary read these files in Windows text mode and never saw
+		// the \r, so plain-stream reads must strip it too.
+		if (ret != NULL) {
+			size_t len = strlen(ret);
+			if (len >= 2 && ret[len - 1] == '\n' && ret[len - 2] == '\r') {
+				ret[len - 2] = '\n';
+				ret[len - 1] = '\0';
+			}
+		}
+		return ret;
+	}
 
 	dst = buf;
 	remaining = maxLen;
