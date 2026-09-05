@@ -1064,15 +1064,15 @@ int
 EventRingBuffer_PurgeScriptEvents(ScriptAttachNode *scriptNode)
 {
 	int purged;
+	uint32_t remaining;
 	StdDequeIter iter;
 	StdDequeIter localFront;
-	StdDequeIter localEnd;
 	StdDequeIter *frontResult;
-	StdDequeIter *endResult;
 	StdDequeIter oldIter;
 	TimeEvent *ev;
 
 	purged = 0;
+	remaining = EventRingBuffer_Count();
 	StdDequeIter_InitZero(&iter);
 
 	frontResult = StdDeque_CopyFrontIter(&g_eventRingBuffer, &localFront);
@@ -1081,24 +1081,23 @@ EventRingBuffer_PurgeScriptEvents(ScriptAttachNode *scriptNode)
 	iter.cur = frontResult->cur;
 	iter.node = frontResult->node;
 
-	goto check;
-loop:
-	StdDequeIter_PostInc(&iter, &oldIter, 0);
-check:
-	endResult = StdDeque_CopyEndIter(&g_eventRingBuffer, &localEnd);
-	if (!StdDequeIter_NotEqual(&iter, endResult))
-		goto done;
+	while (remaining != 0) {
+		ev = StdDequeIter_Deref(&iter);
+		if (ev->param == (uintptr_t)scriptNode) {
+			ev->param = 0;
+			purged++;
+		}
 
-	ev = StdDequeIter_Deref(&iter);
-	if (ev->param != (uintptr_t)scriptNode)
-		goto loop;
+		remaining--;
 
-	ev = StdDequeIter_Deref(&iter);
-	ev->param = 0;
-	purged = purged + 1;
+		/*
+		 * Do not advance after the final element. If it is the last
+		 * slot in a page, advancing would enter an unused map entry.
+		 */
+		if (remaining != 0)
+			StdDequeIter_PostInc(&iter, &oldIter, 0);
+	}
 
-	goto loop;
-done:
 	return purged;
 }
 
