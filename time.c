@@ -1070,20 +1070,28 @@ TimeManager_DispatchEvents(void)
  * Walks the event ring buffer and zeros the param of every event whose
  * param matches scriptNode, preventing later dispatch. Returns the
  * number of events neutralized.
+ *
+ * FIXED: the binary walks front to end with a post-increment iterator.
+ * StdDequeIter_Inc (0x004D9500) dereferences the next map node when it
+ * steps off a page, and push_back only allocates the next page on the
+ * following push, so when the queue ends exactly on a page boundary the
+ * increment past the final event reads an unallocated map slot and the
+ * end comparison then dereferences garbage. Walk the known event count
+ * and skip the final increment; the events purged are identical.
  */
 int
 EventRingBuffer_PurgeScriptEvents(ScriptAttachNode *scriptNode)
 {
 	int purged;
+	uint32_t remaining;
 	StdDequeIter iter;
 	StdDequeIter localFront;
-	StdDequeIter localEnd;
 	StdDequeIter *frontResult;
-	StdDequeIter *endResult;
 	StdDequeIter oldIter;
 	TimeEvent *ev;
 
 	purged = 0;
+	remaining = EventRingBuffer_Count();
 	StdDequeIter_InitZero(&iter);
 
 	frontResult = StdDeque_CopyFrontIter(&g_eventRingBuffer, &localFront);
@@ -1092,24 +1100,21 @@ EventRingBuffer_PurgeScriptEvents(ScriptAttachNode *scriptNode)
 	iter.cur = frontResult->cur;
 	iter.node = frontResult->node;
 
-	goto check;
-loop:
-	StdDequeIter_PostInc(&iter, &oldIter, 0);
-check:
-	endResult = StdDeque_CopyEndIter(&g_eventRingBuffer, &localEnd);
-	if (!StdDequeIter_NotEqual(&iter, endResult))
-		goto done;
+	while (remaining != 0) {
+		ev = StdDequeIter_Deref(&iter);
+		if (ev->param == (uintptr_t)scriptNode) {
+			ev->param = 0;
+			purged++;
+		}
 
-	ev = StdDequeIter_Deref(&iter);
-	if (ev->param != (uintptr_t)scriptNode)
-		goto loop;
+		remaining--;
 
-	ev = StdDequeIter_Deref(&iter);
-	ev->param = 0;
-	purged = purged + 1;
+		// Do not advance after the final element. If it is the last slot
+		// in a page, advancing would enter an unused map entry.
+		if (remaining != 0)
+			StdDequeIter_PostInc(&iter, &oldIter, 0);
+	}
 
-	goto loop;
-done:
 	return purged;
 }
 
