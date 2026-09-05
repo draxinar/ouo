@@ -153,16 +153,12 @@ IsCoordInRect(int x, int y, int x1, int y1, int x2, int y2)
 int
 Mobile_IsFacingEntity(CMobile *mob1, CMobile *mob2)
 {
-	CLocation *loc1, *loc2;
 	int dirToTarget, facing;
 
-	loc1 = &mob1->container.item.resourceEntity.entity.location;
-	loc2 = &mob2->container.item.resourceEntity.entity.location;
-
-	if (CLocation_IsEqualXY(loc1, loc2))
+	if (CLocation_IsEqualXY(VT_GetLocation((CItem *)mob1), VT_GetLocation((CItem *)mob2)))
 		return 1;
 
-	dirToTarget = CalcDirection(loc1, loc2);
+	dirToTarget = CalcDirection(VT_GetLocation((CItem *)mob1), VT_GetLocation((CItem *)mob2));
 	facing = mob1->direction & 0x07;
 
 	if (facing == dirToTarget)
@@ -495,7 +491,7 @@ Combat_PlayRangedMissEffects(CItem *attacker, CItem *target, CItem *weapon)
 	if (GetRandomRange(0, 100) >= 50)
 		goto part2;
 
-	CLocation_ComputeDelta(CEntity_GetLocation(&target->resourceEntity.entity), &delta, CEntity_GetLocation(&attacker->resourceEntity.entity));
+	CLocation_ComputeDelta(VT_GetLocation(target), &delta, VT_GetLocation(attacker));
 
 	magnitude = CLocation_ChebyshevMagnitude(&delta);
 
@@ -528,7 +524,7 @@ Combat_PlayRangedMissEffects(CItem *attacker, CItem *target, CItem *weapon)
 	while (iter != NULL) {
 		CLocation *iterLoc;
 
-		iterLoc = CEntity_GetLocation(&iter->resourceEntity.entity);
+		iterLoc = VT_GetLocation(iter);
 		if (CLocation_IsEqualXYZ(iterLoc, &impactLoc)) {
 			if (((int (*)(void *, void *))VT_FN(newAmmo, VT_MERGE_INTO))(newAmmo, iter)) {
 				CItem_MergeIntoWrapper(newAmmo, iter);

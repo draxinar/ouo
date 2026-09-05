@@ -2187,8 +2187,8 @@ CMagicItemFactory_Create(CMagicItemList *magicList, int minLevel, int maxLevel, 
 	intptr_t resolvedValue;
 
 	CString_DefaultConstructor(&itemIdStr);
-	memset(&localKeysA, 0, sizeof(CResList));
-	memset(&localKeysB, 0, sizeof(CResList));
+	CResListNode_Constructor_bin((CResListNode *)&localKeysA);
+	CResListNode_Constructor_bin((CResListNode *)&localKeysB);
 	CString_DefaultConstructor(&propName);
 	CString_DefaultConstructorWrap(&effectName.str);
 	done = 0;
@@ -2196,7 +2196,7 @@ CMagicItemFactory_Create(CMagicItemList *magicList, int minLevel, int maxLevel, 
 	itemId = CMagicItemFactory_ResolveItemId(factory, searchCtx, (void *)&factory->includeRM);
 
 	if ((itemId & 0xFFFF) == 0) {
-		CString_Destructor(&effectName.str);
+		CString_DestructorWrap(&effectName.str);
 		CString_Destructor(&propName);
 		CResList_DestructorA(&localKeysB);
 		CResList_DestructorA(&localKeysA);
@@ -2283,7 +2283,7 @@ CMagicItemFactory_Create(CMagicItemList *magicList, int minLevel, int maxLevel, 
 		}
 	}
 
-	CString_Destructor(&effectName.str);
+	CString_DestructorWrap(&effectName.str);
 	CString_Destructor(&propName);
 	CResList_DestructorA(&localKeysB);
 	CResList_DestructorA(&localKeysA);

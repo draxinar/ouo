@@ -82,7 +82,6 @@ static char *CResBankRegion_GetName(CResBankRegion *region); // 0x004AF4B1
 static void CClassification_InsertEntry(CResBankRegion *region, int entryIdx, uint16_t templateId, int frequency); // 0x004B1BB0
 static void ProcessBlockItemsForSpawn(CItem *head); // 0x004B955A
 static void ProcessDynamicItemForSpawn(CItem *item); // 0x004B91B2
-static void *CResBankRegion_ScalarDelete(CResBankRegion *region, int flags); // 0x004B3150
 static CResListNode **CStringList_FindByName(CResList *list, CResListNode **outIter, CString *name, CResListNode *inIterNode, int direction); // 0x004B31B0
 static void ClassifyTemplateBody(int templateId); // 0x004B2873
 static void RegisterTemplateInRegion(uint16_t templateId, int regionIndex); // 0x004B277D
@@ -1611,7 +1610,7 @@ CResBankManager_CreateRegion(const char *name, int32_t x1, int32_t y1, int32_t x
 /*
  * 0x004AE55A - CResBankManager::SplitOverlappingRegions
  *
- * Removes each region overlapping newRegion (by area, the smaller
+ * Removes the first region overlapping newRegion (by area, the smaller
  * one is removed) and re-creates the non-overlapping margins as
  * sub-regions when they extend at least 8 tiles past the boundary.
  */
@@ -1675,8 +1674,7 @@ CResBankManager_SplitOverlappingRegions(CResBankRegion *newRegion)
 			CResBankManager_CreateRegion(smaller->name, smaller->x1, existing->y2 + 1, smaller->x2, smaller->y2);
 		}
 
-		CResBankRegion_Cleanup(smaller);
-		free(smaller);
+		CResBankRegion_ScalarDelete(smaller, 1);
 		break;
 	}
 }
@@ -1722,8 +1720,7 @@ CResBankManager_RemoveRegion(CResBankRegion *region, int freeMemory)
 	region->next = NULL;
 
 	if (freeMemory) {
-		CResBankRegion_Cleanup(region);
-		free(region);
+		CResBankRegion_ScalarDelete(region, 1);
 	}
 
 	// Binary (0x004AE9A2): clear slot at [this + regionCount*4 + 0xC].
@@ -3419,9 +3416,7 @@ ProcessStaticTiles(void)
 	int randCellX, randCellY;
 	int catCount;
 
-	loc.x = 0xFFFF;
-	loc.y = 0xFFFF;
-	loc.z = (int16_t)0xFFFF;
+	CLocation_Init(&loc);
 
 	for (blockCol = 0; blockCol < g_SpatialGrid.gridWidth; blockCol++) {
 		for (blockRow = 0; blockRow < g_SpatialGrid.gridHeight; blockRow++) {
@@ -4553,13 +4548,13 @@ RefreshResourceRegions(void)
  *
  * Scalar deleting destructor.
  */
-static __attribute__((unused)) void *
+void *
 CResBankRegion_ScalarDelete(CResBankRegion *region, int flags)
 {
 	CResBankRegion_Destructor(region);
 	if (flags & 1)
 		OperatorDelete(region);
-	return NULL;
+	return region;
 }
 
 /*

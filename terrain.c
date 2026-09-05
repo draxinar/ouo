@@ -663,7 +663,7 @@ CTerrainManager_GetStandableZ(int x, int y, int maxZ)
 	CItem *item;
 	int bestZ;
 	int topZ;
-	int flags, height;
+	int height;
 	int avgZ;
 
 	bestZ = -128;
@@ -681,12 +681,10 @@ CTerrainManager_GetStandableZ(int x, int y, int maxZ)
 			goto next_dynamic;
 
 		topZ = (int)(int16_t)item->resourceEntity.entity.location.z;
-		flags = LOS_GetFlags(item);
-
-		if (flags & 0x400) {
+		if (LOS_GetFlags(item) & 0x400) {
 			height = LOS_GetHeight(item);
 			topZ += height / 2;
-		} else if (flags & 0x200) {
+		} else if (LOS_GetFlags(item) & 0x200) {
 			height = LOS_GetHeight(item);
 			topZ += height;
 		} else {
@@ -710,12 +708,10 @@ next_dynamic:
 			goto next_static;
 
 		topZ = (int)(int16_t)item->resourceEntity.entity.location.z;
-		flags = LOS_GetFlags(item);
-
-		if (flags & 0x400) {
+		if (LOS_GetFlags(item) & 0x400) {
 			height = LOS_GetHeight(item);
 			topZ += height / 2;
-		} else if (flags & 0x200) {
+		} else if (LOS_GetFlags(item) & 0x200) {
 			height = LOS_GetHeight(item);
 			topZ += height;
 		} else {

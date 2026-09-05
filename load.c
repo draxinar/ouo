@@ -552,23 +552,20 @@ LoadResRegions(void)
 		int nParsed;
 
 		region = (CResBankRegion *)OperatorNew(sizeof(CResBankRegion));
-		if (region == NULL)
-			break;
-		CResBankRegion_Constructor(region);
+		if (region != NULL)
+			CResBankRegion_Constructor(region);
 
 		fgets_ServerSide(line, 0x1FF, f);
 		nParsed = sscanf(line, "Region Name: %s\n", region->name);
 		if (nParsed <= 0) {
-			CResBankRegion_Cleanup(region);
-			free(region);
+			CResBankRegion_ScalarDelete(region, 1);
 			break;
 		}
 
 		fgets_ServerSide(line, 0x1FF, f);
 		nParsed = sscanf(line, "Region Rect: %d %d %d %d\n", &region->x1, &region->y1, &region->x2, &region->y2);
 		if (nParsed <= 0) {
-			CResBankRegion_Cleanup(region);
-			free(region);
+			CResBankRegion_ScalarDelete(region, 1);
 			break;
 		}
 
@@ -578,8 +575,7 @@ LoadResRegions(void)
 		worldEndY = g_mapStartY + g_mapHeight;
 
 		if (!ValidateRegionBounds(region->x1, region->y1, region->x2, region->y2, worldX, worldY, worldEndX, worldEndY)) {
-			CResBankRegion_Cleanup(region);
-			free(region);
+			CResBankRegion_ScalarDelete(region, 1);
 			continue;
 		}
 
@@ -595,8 +591,7 @@ LoadResRegions(void)
 		if (region->x1 < region->x2 && region->y1 < region->y2) {
 			CResBankManager_AddRegion(region);
 		} else {
-			CResBankRegion_Cleanup(region);
-			free(region);
+			CResBankRegion_ScalarDelete(region, 1);
 		}
 	}
 

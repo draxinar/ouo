@@ -1184,6 +1184,14 @@ CMultiManager_SaveToMul(CResManager *this)
 	int padIdx;
 	uint32_t *keyAtPos;
 	CMultiDef *def;
+	uint16_t deadWord;
+	int deadCount;
+
+	// Two dead stores the binary makes at 0x00475370 and 0x004753AE.
+	deadWord = 6;
+	deadCount = 0xC;
+	USED(deadWord);
+	USED(deadCount);
 
 	emptyByte = 0;
 	count = 0;
@@ -1236,7 +1244,7 @@ CMultiManager_SaveToMul(CResManager *this)
 		extra = 0;
 
 		// Get component count
-		def = (CMultiDef *)CResManager_GetResultCtx(this, &searchCtx);
+		def = (CMultiDef *)CResManager_GetResult_Defines(this, &searchCtx);
 		numComponents = CVector_GetCount1C(&def->components);
 
 		dataSize = numComponents * 12;
@@ -1245,11 +1253,11 @@ CMultiManager_SaveToMul(CResManager *this)
 		i = 0;
 
 		// Get component data pointer
-		def = (CMultiDef *)CResManager_GetResultCtx(this, &searchCtx);
+		def = (CMultiDef *)CResManager_GetResult_Defines(this, &searchCtx);
 		comp = (CMultiComponentDef *)def->components.begin;
 
 		// Serialize each component
-		while (comp != (CMultiComponentDef *)((CMultiDef *)CResManager_GetResultCtx(this, &searchCtx))->components.end) {
+		while (comp != (CMultiComponentDef *)((CMultiDef *)CResManager_GetResult_Defines(this, &searchCtx))->components.end) {
 			offset = 0;
 
 			// itemId (2 bytes)
@@ -1881,7 +1889,7 @@ CMultiManager_Create(CResManager *this, int typeId, CLocation *loc, int flags, C
 	if (!CSearchCtx_Find(&ctx))
 		return NULL;
 
-	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &ctx);
 
 	firstIter = 1;
 	counter = 0;
@@ -2091,7 +2099,7 @@ CMultiManager_RecycleMulti(CResManager *this, int bodyType, CMultiSlave *slave, 
 		return 0;
 	}
 
-	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &ctx);
 
 	counter = 0;
 
@@ -2240,10 +2248,9 @@ CMultiManager_MoveMultiInternal(CResManager *this, uint16_t typeId, CMultiSlave 
 
 	CSearchCtx_Constructor(&ctx);
 
-	typeFlag = 0;
 	CVector_Constructor(&oldSerials, &typeFlag);
 
-	counter = 0;
+	oldBodyType = 0;
 
 	key = (uint32_t)typeId;
 	CResManager_FindByKey_A(this, &searchArea, &key, 1);
@@ -2254,7 +2261,7 @@ CMultiManager_MoveMultiInternal(CResManager *this, uint16_t typeId, CMultiSlave 
 		return 0;
 	}
 
-	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &ctx);
 
 	counter = 0;
 
@@ -2641,7 +2648,7 @@ CMultiManager_CanExistAt(CResManager *this, int typeId, CLocation *loc, int move
 	if (!CSearchCtx_Find(&searchArea))
 		return -2;
 
-	def = (CMultiDef *)CResManager_GetResultCtx(this, &searchArea);
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &searchArea);
 
 	ptr = (CMultiComponentDef *)def->components.begin;
 
@@ -3093,7 +3100,7 @@ CMultiManager_GetComponentsNetwork(CResManager *this, int typeId, int *outSize)
 		return NULL;
 	}
 
-	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &ctx);
 	count = CVector_GetCount1C(&def->components);
 
 	entrySize = 0x0C;
@@ -3101,9 +3108,9 @@ CMultiManager_GetComponentsNetwork(CResManager *this, int typeId, int *outSize)
 	buf = (uint8_t *)OperatorNew(totalSize);
 
 	i = 0;
-	def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
+	def = (CMultiDef *)CResManager_GetResult_Defines(this, &ctx);
 	iter = (CMultiComponentDef *)def->components.begin;
-	while (iter != (CMultiComponentDef *)((CMultiDef *)CResManager_GetResultCtx(this, &ctx))->components.end) {
+	while (iter != (CMultiComponentDef *)((CMultiDef *)CResManager_GetResult_Defines(this, &ctx))->components.end) {
 		offset = 0;
 
 		tmp16 = htons(iter->bodyType);

@@ -135,7 +135,6 @@ static int IsNameSeparator(char c); // 0x0049149F
 static int IsInvalidNameChar(char c); // 0x004914E6
 static int VT_GetFlags(CItem *ent);
 static int VT_GetEffectiveHeight(CItem *ent);
-static CLocation *VT_GetLocation(CItem *ent);
 static int check_IsGuard(CItem *ent);
 static int check_IsSpellbook(CItem *ent);
 static int check_IsRealContainer(CItem *ent);
@@ -4984,53 +4983,27 @@ VT_GetHeight(CItem *ent)
 }
 
 /*
- * VT_GetFlags - emulate vtable[0x30] dispatch.
- * CItem (0x004322C0): tiledata flags = g_ItemTileData[bodyType + doorOffset].flags
- * CMobile (0x0044A7D0): returns 0.
+ * VT_GetFlags - vtable[0x30] dispatch wrapper.
+ *
+ * Three overrides, not two: CItem adds the door offset to the tiledata
+ * row, StaticEntity (0x00491230) does not, and the mobile classes answer 0.
  */
 static int
 VT_GetFlags(CItem *ent)
 {
-	uint16_t bodyType;
-	int doorOffset;
-
-	if (VT_IsMobile(ent))
-		return 0;
-	bodyType = ent->resourceEntity.entity.bodyType;
-	doorOffset = (ent->itemFlags & ItemFlag_Open) ? 1 : 0;
-	return (int)g_ItemTileData[bodyType + doorOffset].flags;
+	return ((int (*)(void *))VT_FN(ent, VT_GET_FLAGS))(ent);
 }
 
 /*
- * VT_GetEffectiveHeight - emulate vtable[0x2C] dispatch.
- * CItem: height with bridge halving. Gets height via VT_GetHeight,
- * then if tiledata flags have bridge bit (0x400), divides by 2.
+ * VT_GetEffectiveHeight - vtable[0x2C] dispatch wrapper.
  */
 static int
 VT_GetEffectiveHeight(CItem *ent)
 {
-	int height;
-
-	height = VT_GetHeight(ent);
-	if (VT_GetFlags(ent) & 0x400)
-		height /= 2;
-	return height;
+	return ((int (*)(void *))VT_FN(ent, VT_GET_SURFACE_H))(ent);
 }
 
 // VT_IsHair is provided by vtable.h macro (dispatches vtable[0x38]).
-
-/*
- * VT_GetLocation - emulate vtable[0x80] dispatch.
- * CItem (0x0048A531): walks parent chain to root, returns &root.location.
- * If entity has no parent, returns &entity.location directly.
- */
-static CLocation *
-VT_GetLocation(CItem *ent)
-{
-	while (ent->parent != NULL)
-		ent = ent->parent;
-	return &ent->resourceEntity.entity.location;
-}
 
 /*
  * 0x0040FA16 - getCompileFlag
@@ -17280,20 +17253,15 @@ Script_setLoiterMode(uint32_t serial, int mode)
 }
 
 /*
- * VT_GetName - emulate vtable[0x4C] GetName dispatch.
+ * VT_GetName - vtable[0x4C] dispatch wrapper.
  *
- * Returns the entity's name: mob->name for mobiles, or the
- * tiledata-derived item name (formatted into g_ItemNameBuf via the
- * binary's CItem::GetName).
+ * Four overrides, not two: CEntity, CItem, CMobile and CPlayer, the last
+ * of which builds a titled name.
  */
 static const char *
 VT_GetName(CItem *ent)
 {
-	if (VT_IsMobile(ent)) {
-		CMobile *mob = (CMobile *)ent;
-		return (mob->name != NULL) ? mob->name : "";
-	}
-	return CItem_GetNameString_VT(ent, 1);
+	return ((const char *(*)(void *, int))VT_FN(ent, VT_SPEAK_SYS_MSG))(ent, 1);
 }
 
 /*

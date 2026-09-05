@@ -271,7 +271,7 @@ void NPC_RemoveFromHash(CNPC *npc); // 0x004813F0
 int CNPC_IsInLevelList(CNPC *npc); // 0x00481643
 void CNPC_AddToLevelList(CNPC *npc); // 0x004816A1
 void CNPC_RemoveFromLevelList(CNPC *npc); // 0x00481728
-int CMobile_GetWalkZ(CItem *mob, CLocation loc); // 0x004818AA
+int CMobile_GetWalkZ(CItem *mob, CLocation loc, int minZ, int maxZ); // 0x004818AA
 void CMobile_DoWalk(CItem *mob, int dir, int speed); // 0x00481B73
 void CMobile_NPC_RegenTick(CMobile *this); // 0x00482580
 int CNPC_Heartbeat(CNPC *npc); // 0x00482733

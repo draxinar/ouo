@@ -132,7 +132,7 @@ CItem_AddToContainerVT(CItem *item, CItem *container, CLocation *loc)
 	CItem *iter;
 	int dimX, dimY;
 	int boundsMinX, boundsMaxX, boundsMinY, boundsMaxY;
-	uint8_t pktBuf[0x18];
+	uint8_t pktBuf[0x14];
 	CTradeSession *secureCtx;
 	CItem *topMob;
 
@@ -3076,7 +3076,7 @@ CItem_HideVT(CItem *item)
 	CItem *savedParent;
 	CItem *topContainerMobile;
 	CLocation localLoc;
-	uint8_t buf[16];
+	uint8_t buf[8];
 	CTradeSession *securedObj;
 	CItem *parentMob;
 	int blockIdx;

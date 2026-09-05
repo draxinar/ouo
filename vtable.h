@@ -216,6 +216,12 @@ __extension__ typedef void (*vfunc_t)(void);
 #define VT_IsEquipped(e)  (((int (*)(void *))VT_FN(e, VT_IS_EQUIPPED_ITEM))(e))
 #define VT_IsHidden(e)    (((int (*)(void *))VT_FN(e, VT_IS_HIDDEN))(e))
 
+// Slot 0x80 has two implementations: CItem's (0x0048A531) walks the parent
+// chain, so a contained item answers its container's location, while the
+// classes above CItem answer this+0x0A. Reading the field directly picks the
+// second for every class.
+#define VT_GetLocation(e) (((CLocation * (*)(void *)) VT_FN(e, VT_GET_LOCATION))(e))
+
 // Extern vtable instances for each entity class.
 struct CEntity_vtable;
 __extension__ typedef struct CEntity_vtable CEntity_vtable;

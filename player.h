@@ -172,6 +172,7 @@ void CPlayer_AttachStartupScripts(CPlayer *this); // 0x00450A17
 CPlayer *NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *name, char *password, uint8_t genre, uint8_t strength, uint8_t dexterity,
         uint8_t intelligence, uint8_t skill1Number, uint8_t skill1Value, uint8_t skill2Number, uint8_t skill2Value, uint8_t skill3Number, uint8_t skill3Value, uint16_t skinColor,
         uint16_t hairStyle, uint16_t hairColor, uint16_t facialHairStyle, uint16_t facialHairColor, uint32_t clientIP, uint32_t colors); // 0x00450A2E
+CPlayer *CPlayer_FindByName(CPlayer *head, char *name); // 0x00450B20
 CPlayer *FindPlayer(CPlayer *head, char *characterName); // 0x00450B70
 void CPlayerList_CollectByAccountID(CVector *results, uint32_t accountId); // 0x00450BA5
 void CPlayer_Constructor(CPlayer *this); // 0x00450BFC

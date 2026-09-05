@@ -547,7 +547,6 @@ void
 CEScript_CmdNewObj(CEScript *ctx, char *line)
 {
 	char typeBuf[256];
-	char tokenBuf[256];
 	char delim;
 	CItem *obj = NULL;
 	int isDynamic = 0;
@@ -587,23 +586,23 @@ CEScript_CmdNewObj(CEScript *ctx, char *line)
 	}
 
 	// Parse bodyType
-	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
-	val = CEScript_EvalExpression(ctx, delim, tokenBuf);
+	line = CEScript_ParseToken(ctx, line, typeBuf, &delim);
+	val = CEScript_EvalExpression(ctx, delim, typeBuf);
 	CEntity_SetBodyType(obj, (uint16_t)val);
 
 	// Parse x
-	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
-	val = CEScript_EvalExpression(ctx, delim, tokenBuf);
+	line = CEScript_ParseToken(ctx, line, typeBuf, &delim);
+	val = CEScript_EvalExpression(ctx, delim, typeBuf);
 	obj->resourceEntity.entity.location.x = (int16_t)val;
 
 	// Parse y
-	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
-	val = CEScript_EvalExpression(ctx, delim, tokenBuf);
+	line = CEScript_ParseToken(ctx, line, typeBuf, &delim);
+	val = CEScript_EvalExpression(ctx, delim, typeBuf);
 	obj->resourceEntity.entity.location.y = (int16_t)val;
 
 	// Parse z
-	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
-	val = CEScript_EvalExpression(ctx, delim, tokenBuf);
+	line = CEScript_ParseToken(ctx, line, typeBuf, &delim);
+	val = CEScript_EvalExpression(ctx, delim, typeBuf);
 	obj->resourceEntity.entity.location.z = (int16_t)val;
 
 	((void (*)(void *, CLocation *))VT_FN(obj, VT_DROP_AT_FEET))(obj, &obj->resourceEntity.entity.location);

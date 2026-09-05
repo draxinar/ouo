@@ -1595,7 +1595,6 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 		GetByte(buf, &off, &slot);
 		GetDWord(buf, &off, &clientIP);
 		GetDWord(buf, &off, &colors);
-		colors = 0;
 	} else {
 		// 1.25.35+ uses 3 Words + 2 DWords tail.
 		// For 1.26.0+ this is a 104-byte packet; for 1.25.35-37
@@ -1610,6 +1609,7 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 			colors = 0;
 	}
 	addr = this->addr;
+	succeed = 0;
 	succeed = 1;
 	// Binary calls FindPlayer here and rejects with LOGIN_REJECT(0x02) if
 	// the name is taken. Removed: the demo used name as identity (no
@@ -1959,14 +1959,14 @@ HandlePacket_CHG_CHAR_PW(CUserSock *this, uint8_t *buf)
 void
 Handle_LookAt(CPlayer *this, uint32_t targetSerial)
 {
-	uint8_t obuf[0x834];
-	uint8_t obuf2[0x834];
+	uint8_t obuf[0x42C];
+	uint8_t obuf2[0x42C];
 	CItem *target;
 	uint16_t hue;
 	char *name;
 	uint32_t savedSerial;
 	char nameBuf[1024];
-	char countBuf[1024];
+	char countBuf[128];
 
 	target = CWorld_FindBySerial(g_World, targetSerial);
 	if (target == NULL)
@@ -2206,8 +2206,10 @@ PostLogin(CPlayer *player, uint32_t addr)
  * 16-phase login sequence fired when POSTLOGIN admits a player into
  * the world.
  *
- * MODIFIED: the sequence bails out when the loaded flag did not take,
- * closing the socket. The binary carries on regardless.
+ * MODIFIED: the binary closes the socket through this->usersock without a
+ * NULL check (0x0049278E). Our login flow can reach the sequence for a
+ * player whose socket has already gone, so the store is guarded. The
+ * bail-out itself is the binary's (0x00492789 JNZ).
  */
 void
 Player_LoginSequence(CPlayer *this, uint32_t addr)
@@ -2219,8 +2221,6 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 	// Phase 0 (0x00492776): SetIsLoaded via 0x0044FA4A
 	CPlayer_SetIsLoaded(this);
 
-	// Guard: if IsLoaded bit is NOT set, early exit (close socket).
-	// Binary has no NULL check; our code adds NULL guard for safety.
 	if (!(this->pflags & PlayerIsLoaded)) {
 		if (this->usersock)
 			this->usersock->socket.status = SocketClosing;
@@ -2848,6 +2848,10 @@ Speech_BroadcastAlive(CPlayer *speaker, uint8_t speechType, char *text, uint16_t
  * sub-functions with type-specific ranges.
  *
  * MODIFIED: logs every line.
+ *
+ * CUSTOM: under -test a non-GM's '.' or '=' line is routed to
+ * TC_CommandDispatch and consumed; the binary falls straight through to the
+ * uninvis check.
  */
 void
 HandlePacket_SPEECH(CPlayer *this, uint8_t *buf)
@@ -2891,12 +2895,10 @@ HandlePacket_SPEECH(CPlayer *this, uint8_t *buf)
 	if (!hasNonSpace)
 		return;
 
-#ifdef LOG_VERBOSE
 	if (CPlayer_IsCounselor(this)) {
 		EventLogger_Log(&g_EventLogger, this->accountNum, (uint32_t)(uint8_t)this->characterNum, CMobile_GetSerial(&this->mobile),
 		        ((const char *(*)(void *))VT_FN((CItem *)this, VT_GET_NAME))(this), "counselortext", "misc", text);
 	}
-#endif
 
 	if (CPlayer_IsCounselor(this) || CPlayer_IsGameMaster(this)) {
 		if (text[0] == '.' || text[0] == '=') {
@@ -8369,6 +8371,8 @@ static const uint16_t g_ScrollGraphics[30] = {
  * Opens a closed door: shifts its location by doorType (0-7),
  * relocates it if the target tile is valid, and plays the open sound
  * for its body range (wooden/metal/stone/gate).
+ *
+ * The binary recomputes CEntity_GetBodyType(door) on every range compare.
  */
 static void
 DoorOpen(CItem *door)
@@ -8386,7 +8390,7 @@ DoorOpen(CItem *door)
 
 	CLocation_SetLoc(&loc, &door->resourceEntity.entity.location);
 
-	doorType = CWorld_GetItemLayer(door->resourceEntity.entity.bodyType) & 0xFF;
+	doorType = CItem_GetLayerThiscall(door) & 0xFF;
 
 	switch (doorType) {
 	case 0:

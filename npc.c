@@ -334,11 +334,12 @@ CNPC_GetPackingTag(CItem *entity)
  * predator / aversion / pack target, then picks one and dispatches
  * combat, pack-merge, or flee.
  *
- * FIXED: the binary relied on C++ RAII to construct/destruct the local
- * CList. The C version must call CList_Constructor at entry and CList_Clear
- * on every return; without it the uninitialized CList.head crashed in
- * free(). Never noticed in the binary because this function was dead
- * code (IdleScan was never called).
+ * FIXED: the binary never gives its result list a value. [EBP-0x68] is a
+ * CList * that nothing in the function writes; 0x0043253C calls
+ * CList::Clear on that uninitialized slot and 0x00432558 hands the same
+ * garbage to the range queries. Here the list is a real object,
+ * constructed at entry and cleared on every return. Never noticed in the
+ * binary because this function was dead code (IdleScan was never called).
  *
  * FIXED: the binary dereferences the result of CWorld_FindBySerial
  * without a NULL check, so a stale serial in the spatial map crashes
@@ -1549,12 +1550,16 @@ CNPC_RemoveFromLevelList(CNPC *npc)
  * 0x004818AA - CMobile::GetWalkZ (vtable[0x218])
  *
  * Returns the walkable Z at loc: terrain Z + 10 for water mobiles,
- * otherwise loc.z.
+ * otherwise loc.z. minZ and maxZ are declared and purged (RET 0x10) but
+ * never read; all four call sites pass them.
  */
 int
-CMobile_GetWalkZ(CItem *mob, CLocation loc)
+CMobile_GetWalkZ(CItem *mob, CLocation loc, int minZ, int maxZ)
 {
 	int mt;
+
+	USED(minZ);
+	USED(maxZ);
 
 	mt = ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF;
 	if (mt == 2)
@@ -1580,9 +1585,8 @@ CMobile_DoWalk(CItem *mob, int dir, int speed)
 	int curDir;
 	int oldBlock, newBlock;
 	int minZ, maxZ;
-	int16_t resultZ;
 	int oldZ;
-	uint8_t destroyPkt[16];
+	uint8_t destroyPkt[8];
 	uint16_t pktOffset;
 	CVector removeList, insertList, overlapList;
 	uintptr_t *iter;
@@ -1601,8 +1605,8 @@ CMobile_DoWalk(CItem *mob, int dir, int speed)
 
 	CLocation_MoveDir(&newLoc, dir & 0x7f);
 
-	curDir = CItem_GetDirectionVT(mob);
-	if (dir != curDir)
+	curDir = ((uint32_t (*)(void *))VT_FN(mob, VT_GET_DIRECTION))(mob);
+	if (dir != (int)curDir)
 		CMobile_SetDirection(mob, dir);
 
 	locPtr = CEntity_GetLocation(&mob->resourceEntity.entity);
@@ -1611,23 +1615,20 @@ CMobile_DoWalk(CItem *mob, int dir, int speed)
 	oldBlock = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, locPtr, 0);
 	newBlock = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, &newLoc, 0);
 
-	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)newLoc.x, (int)(int16_t)newLoc.y))
-		return;
+	if (CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)newLoc.x, (int)(int16_t)newLoc.y)) {
+		if (speed == -128) {
+			GetMinMaxZForEntity(mob, oldLoc, m->direction, &minZ, &maxZ);
 
-	if (speed == -128) {
-		GetMinMaxZForEntity(mob, oldLoc, m->direction, &minZ, &maxZ);
+			newLoc.z = (int16_t)CMobile_GetWalkZ(mob, newLoc, minZ, maxZ);
 
-		resultZ = (int16_t)CMobile_GetWalkZ(mob, newLoc);
+			newLoc.z = CTerrainManager_CanWalkWrapper(newLoc, minZ, maxZ, VT_GetHeight(mob), ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF, mob, 0);
+		} else {
+			newLoc.z = (int16_t)speed;
+		}
 
-		resultZ = CTerrainManager_CanWalkWrapper(newLoc, minZ, maxZ, VT_GetHeight(mob), ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF, mob, 0);
-	} else {
-		resultZ = (int16_t)speed;
+		if ((int)(int16_t)newLoc.z == -128)
+			return;
 	}
-
-	if ((int)(int16_t)resultZ == -128)
-		return;
-
-	newLoc.z = resultZ;
 
 	if (!CheckWalkPassability(mob, &oldLoc, &newLoc))
 		return;
@@ -1725,21 +1726,28 @@ CNPC_WalkToPatrolTarget(CNPC *npc, int arg1, int arg2)
 	if (CLocation_IsInvalid(&npc->patrolTarget))
 		return 1;
 
-	npcLoc = CItem_GetLocationVT((CItem *)npc);
+	// The binary calls CEntity::GetLocation directly, not the virtual
+	// slot, and re-calls it at every use.
+	npcLoc = CEntity_GetLocation(&npc->mobile.container.item.resourceEntity.entity);
 
 	if (Location_WrappedChebyshevDistance(&npc->patrolTarget, npcLoc) <= 0)
 		return 1;
 
 	dx = 0;
 	dy = 0;
-	if ((int)npc->patrolTarget.x < (int)npcLoc->x)
+	npcLoc = CEntity_GetLocation(&npc->mobile.container.item.resourceEntity.entity);
+	if ((int)(int16_t)npc->patrolTarget.x < (int)(int16_t)npcLoc->x)
 		dx = -1;
-	if ((int)npc->patrolTarget.y < (int)npcLoc->y)
+	npcLoc = CEntity_GetLocation(&npc->mobile.container.item.resourceEntity.entity);
+	if ((int)(int16_t)npc->patrolTarget.y < (int)(int16_t)npcLoc->y)
 		dy = -1;
-	if ((int)npc->patrolTarget.x > (int)npcLoc->x)
+	npcLoc = CEntity_GetLocation(&npc->mobile.container.item.resourceEntity.entity);
+	if ((int)(int16_t)npc->patrolTarget.x > (int)(int16_t)npcLoc->x)
 		dx = 1;
-	if ((int)npc->patrolTarget.y > (int)npcLoc->y)
+	npcLoc = CEntity_GetLocation(&npc->mobile.container.item.resourceEntity.entity);
+	if ((int)(int16_t)npc->patrolTarget.y > (int)(int16_t)npcLoc->y)
 		dy = 1;
+	npcLoc = CEntity_GetLocation(&npc->mobile.container.item.resourceEntity.entity);
 
 	direction = DirFromDelta(dx, dy);
 
@@ -3400,6 +3408,7 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 {
 	CItem *mob = &npc->mobile.container.item;
 	SearchNode nodes[512];
+	PathNode seedTmp;
 	PathNode resultNode;
 	int count;
 	int maxDist;
@@ -3417,7 +3426,10 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 		npc->pathArray = 0;
 	}
 
-	PathNode_InitFromLoc((PathNode *)&nodes[0], &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
+	// The binary seeds a discarded temporary with InitFromLoc first
+	// (0x0049E184) and then nodes[0] with SetFromLoc (0x0049E1A9).
+	PathNode_InitFromLoc(&seedTmp, &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
+	PathNode_SetFromLoc((PathNode *)&nodes[0], &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
 
 	nodes[0].parentIdx = 0;
 	nodes[0].cost = 0;
@@ -6063,10 +6075,11 @@ CNPC_FollowerCombatHandler(CMobile *this)
 	}
 
 	{
-		CSerialNode *sentinel, *snode;
-		sentinel = this->attackerList.data;
-		for (snode = sentinel->next; snode != sentinel; snode = snode->next) {
-			ent = CWorld_FindBySerial(g_World, snode->serial);
+		StdPtrNode *atkIter, *atkBeginTemp, *atkEndTemp, *atkPostTemp;
+
+		StdPtrIter_CopyConstructor(&atkIter, StdPtrList_Begin((StdPtrList *)&this->attackerList, &atkBeginTemp));
+		for (; StdPtrIter_Neq(&atkIter, StdPtrList_End((StdPtrList *)&this->attackerList, &atkEndTemp)) & 0xFF; StdPtrIter_PostInc(&atkIter, &atkPostTemp, 0)) {
+			ent = CWorld_FindBySerial(g_World, (uint32_t)CSearchCtx_Find((CSearchCtx *)StdPtrIter_Deref(&atkIter)));
 			if (ent == NULL)
 				continue;
 			if (!VT_IsMobile(ent))
@@ -6098,7 +6111,7 @@ CNPC_FollowerCombatHandler(CMobile *this)
 		ptr = g_followerTargetArray;
 		for (i = 0; i < g_followerTargetCount; i++, ptr++) {
 			CLocation_SetLoc(&targetLoc, &(*ptr)->container.item.resourceEntity.entity.location);
-			dist = DistBetween(&entLoc, &targetLoc);
+			dist = DistBetween(&targetLoc, &entLoc);
 			if (dist >= bestDist)
 				continue;
 			if (g_followerBestEntity[i] >= 0 && bestDist >= g_followerBestDist[i])

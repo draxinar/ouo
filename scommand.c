@@ -202,8 +202,8 @@ SCommandManager_Execute(SCommandManager *mgr, CItem *mob, uint32_t serial, char 
 	CString_AppendCStr(&logStr, savedText);
 	if (mob != NULL) {
 		cmob = (CMobile *)mob;
-		EventLogger_Log(&g_EventLogger, ((CPlayer *)cmob)->accountNum, (uint32_t)(uint8_t)((CPlayer *)cmob)->characterNum, CMobile_GetSerial(cmob), CMobile_GetName_VT(mob),
-		        "godcommand", "misc", CString_GetBuffer(&logStr));
+		EventLogger_Log(&g_EventLogger, ((CPlayer *)cmob)->accountNum, (uint32_t)(uint8_t)((CPlayer *)cmob)->characterNum, CMobile_GetSerial(cmob),
+		        ((char *(*)(void *))VT_FN(mob, VT_GET_NAME))(mob), "godcommand", "misc", CString_GetBuffer(&logStr));
 	} else {
 		EventLogger_Log(&g_EventLogger, 0, 0, serial, "", "godcommand", "misc", CString_GetBuffer(&logStr));
 	}

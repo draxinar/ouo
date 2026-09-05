@@ -55,7 +55,6 @@ static void ValidateSkinColor(uint32_t *color); // 0x004503B6
 static void ValidateHairColor(uint32_t *color); // 0x004503DA
 static void GetHairInfo(uint32_t *style, int genre); // 0x004503FE
 static void GetBeardInfo(uint32_t *style, int genre); // 0x00450460
-static CPlayer *CPlayer_FindByName(CPlayer *head, char *name); // 0x00450B20
 static void CPlayer_RegenTick(CPlayer *this); // 0x0045119A
 static void CPlayer_EffectChecker(CPlayer *this); // 0x00451407
 static int CPlayer_ShouldDropOnDeath(CMobile *mob, CItem *item); // 0x00451882
@@ -953,7 +952,7 @@ NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *
 /*
  * 0x00450B20 - CPlayer::FindByName
  */
-static CPlayer *
+CPlayer *
 CPlayer_FindByName(CPlayer *head, char *name)
 {
 	CPlayer *p;
@@ -2777,7 +2776,7 @@ CMobile_DoWalkStep(CItem *mob, CLocation *result, CLocation start, int dir)
 
 	GetMinMaxZForEntity(mob, start, ((CMobile *)mob)->direction, &minZ, &maxZ);
 
-	movedLoc.z = (int16_t)CMobile_GetWalkZ(mob, movedLoc);
+	movedLoc.z = (int16_t)CMobile_GetWalkZ(mob, movedLoc, minZ, maxZ);
 
 	movedLoc.z = CTerrainManager_CanWalkWrapper(movedLoc, minZ, maxZ, VT_GetHeight(mob), ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF, mob, 0);
 
@@ -2949,7 +2948,7 @@ DoMove(CItem *this, int direction, int isPlayer, uint8_t sequence)
 		GetMinMaxZForEntity(this, oldLoc, ((CMobile *)this)->direction, &minZ, &maxZ);
 
 		// We call CMobile_GetWalkZ directly (same function at 0x004818AA).
-		newLoc.z = (int16_t)CMobile_GetWalkZ(this, newLoc);
+		newLoc.z = (int16_t)CMobile_GetWalkZ(this, newLoc, minZ, maxZ);
 
 		moveType = ((int (*)(void *))VT_FN(this, VT_GET_MOVEMENT_TYPE))(this) & 0xFF;
 		bodyFlags = ((int (*)(void *))VT_FN(this, VT_GET_HEIGHT))(this);
@@ -3249,7 +3248,7 @@ CPlayer_IsFriendAllowed(CPlayer *this, CPlayer *other)
 }
 
 /*
- * 0x00454905 - CPlayer::ToggleWarMode (inner, 230 bytes)
+ * 0x00454905 - CPlayer::ToggleWarMode (inner)
  *
  * Converts warFlag to boolean, stores in combatByte1 (0x33C).
  * Compares with current mobileFlags bit 0x40. If state changed:
@@ -3642,7 +3641,7 @@ CPlayer_ApplyResurrection(CPlayer *this, int flag)
 
 	CPlayer_SetBodyType(this, (uint16_t)(bt - 2));
 
-	savedLoc = this->mobile.container.item.resourceEntity.entity.location;
+	CLocation_SetLoc(&savedLoc, VT_GetLocation((CItem *)this));
 
 	if (this->mobile.container.item.resourceEntity.entity.removedFromWorld == 0)
 		((void (*)(void *))VT_FN((CItem *)this, VT_HIDE))(this);
@@ -4622,8 +4621,8 @@ CPlayerList_StatCheck(CPlayerList *this)
 			CString str;
 			CString_Constructor(&str, "stat combo is ");
 			CString_ConcatInt(&str, CPlayer_GetBugStat((CItem *)player));
-			EventLogger_Log(&g_EventLogger, player->accountNum, player->characterNum, CMobile_GetSerial(&player->mobile), CMobile_GetName_VT((CItem *)player),
-			        "statcheck", "error", CString_GetBuffer(&str));
+			EventLogger_Log(&g_EventLogger, player->accountNum, player->characterNum, CMobile_GetSerial(&player->mobile),
+			        ((char *(*)(void *))VT_FN((CItem *)player, VT_GET_NAME))(player), "statcheck", "error", CString_GetBuffer(&str));
 			CPlayer_CapBaseStats(player, 50);
 			CString_Destructor(&str);
 		}

@@ -2450,7 +2450,7 @@ CTemplateManager_SetupHumanNPC(CItem *npc, CLocation *loc)
 	CResList cityList, townList;
 	CResListNode *node;
 	char field[40];
-	char nameBuf[768];
+	char nameBuf[128];
 	CString titleStr;
 	CString tempStr;
 

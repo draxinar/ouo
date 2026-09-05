@@ -5069,7 +5069,8 @@ skip_init:
 	}
 
 skip_cleanup:
-	CExecThread_ScalarDelete(thread, 1);
+	if (thread != NULL)
+		CExecThread_ScalarDelete(thread, 1);
 
 	return result;
 }

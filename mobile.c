@@ -562,7 +562,7 @@ CMobile_CheckAllEquipmentWieldable(CMobile *this)
 }
 
 /*
- * 0x0046D1C8 - CMobile::AddMaxHP (vtable[0x1DC], 50 bytes)
+ * 0x0046D1C8 - CMobile::AddMaxHP (vtable[0x1DC])
  *
  * Called when STR changes. Gets current maxHP, adds delta,
  * sets new maxHP via vtable[0x1C4] (SetMaxHP). Returns actual change.
@@ -577,7 +577,7 @@ CMobile_AddMaxHP(CMobile *this, int delta)
 }
 
 /*
- * 0x0046D1FA - CMobile::AddMaxStamina (vtable[0x1E4], 50 bytes)
+ * 0x0046D1FA - CMobile::AddMaxStamina (vtable[0x1E4])
  *
  * Called when DEX changes. Gets current maxStamina, adds delta,
  * sets new maxStamina via vtable[0x1CC] (SetMaxStamina). Returns actual change.
@@ -592,7 +592,7 @@ CMobile_AddMaxStamina(CMobile *this, int delta)
 }
 
 /*
- * 0x0046D22C - CMobile::AddMaxMana (vtable[0x1EC], 50 bytes)
+ * 0x0046D22C - CMobile::AddMaxMana (vtable[0x1EC])
  *
  * Called when INT changes. Gets current maxMana, adds delta,
  * sets new maxMana via vtable[0x1D4] (SetMaxMana). Returns actual change.
@@ -607,7 +607,7 @@ CMobile_AddMaxMana(CMobile *this, int delta)
 }
 
 /*
- * 0x0046D25E - CMobile::AddHP (vtable[0x1DC+?], 78 bytes)
+ * 0x0046D25E - CMobile::AddHP (vtable[0x1DC+?])
  *
  * Adjusts current HP by delta. Gets current HP, calls SetHP via
  * vtable[0x1C0] with (oldHP + delta, 0). If actual change > 0,
@@ -626,7 +626,7 @@ CMobile_AddHP(CMobile *this, int delta)
 }
 
 /*
- * 0x0046D2AC - CMobile::AddStamina (vtable[0x1E0], 50 bytes)
+ * 0x0046D2AC - CMobile::AddStamina (vtable[0x1E0])
  *
  * Adjusts current stamina by delta. Gets current stamina, adds delta,
  * sets via vtable[0x1C8] (SetStamina). Returns actual change.
@@ -641,7 +641,7 @@ CMobile_AddStamina(CMobile *this, int delta)
 }
 
 /*
- * 0x0046D2DE - CMobile::AddMana (vtable[0x1E8], 50 bytes)
+ * 0x0046D2DE - CMobile::AddMana (vtable[0x1E8])
  *
  * Adjusts current mana by delta. Gets current mana, adds delta,
  * sets via vtable[0x1D0] (SetMana). Returns actual change.
@@ -3268,7 +3268,7 @@ CMobile_Constructor(CMobile *mob)
 
 	CDiceRoll_Constructor((CWeaponDice *)&mob->armorRating);
 
-	// Our code uses CEntity_SetType; callers override with final type.
+	mob->container.item.resourceEntity.entity.vtable = &g_vtable_CMobile;
 
 	g_MobileCount++;
 
@@ -3451,7 +3451,7 @@ CMobile_GetMaxWeight(CMobile *this)
 }
 
 /*
- * 0x0047100F - CMobile::GetStoredWeight (vtable[0x124], 22 bytes)
+ * 0x0047100F - CMobile::GetStoredWeight (vtable[0x124])
  *
  * Returns the mobile's stored weight unconditionally, skipping the
  * IsNonCountable filter that CContainer's override applies.
@@ -3472,7 +3472,7 @@ CMobile_GetRelativeWeight(CMobile *this)
 {
 	int maxWeight, hpPercent, relWeight;
 
-	maxWeight = (int)CMobile_GetMaxWeight(this);
+	maxWeight = ((int (*)(void *))VT_FN((CItem *)this, VT_GET_MAX_WEIGHT))(this);
 	hpPercent = CMobile_GetHPPercent(this);
 	relWeight = (hpPercent * maxWeight) / 100;
 	if (relWeight == 0)
@@ -3490,7 +3490,7 @@ CMobile_GetEncumbrancePercent(CMobile *this)
 {
 	int maxWeight;
 
-	maxWeight = (int)CMobile_GetMaxWeight(this);
+	maxWeight = ((int (*)(void *))VT_FN((CItem *)this, VT_GET_MAX_WEIGHT))(this);
 	if (maxWeight == 0)
 		maxWeight = 1;
 	return (int)CContainer_GetWeight((CItem *)this) * 100 / maxWeight;
@@ -3925,8 +3925,8 @@ CMobile_EquipmentDecayTick(CMobile *this)
 		item = this->equipment[i];
 		if (item == NULL)
 			continue;
-		if (CItem_IsContainer(item))
-			CMobile_DecayContainerContents(item);
+		if (((int (*)(void *))VT_FN(item, VT_IS_MOBILE2))(item))
+			((void (*)(void *))VT_FN(item, VT_EQUIP_DECAY_TICK))(item);
 		CItem_DecayProcess(item); /* 0x0048F13A */
 	}
 
@@ -5336,7 +5336,7 @@ CMobile_WalkCheck_VT(CItem *self, int direction, int *outZ)
 
 	// Terrain walk check
 	GetMinMaxZForEntity(self, *CEntity_GetLocation(&self->resourceEntity.entity), direction, &minZ, &maxZ);
-	resultZ = (int16_t)CMobile_GetWalkZ(self, curLoc);
+	resultZ = (int16_t)CMobile_GetWalkZ(self, curLoc, minZ, maxZ);
 	moveType = ((int (*)(CItem *))VT_FN(self, VT_GET_MOVEMENT_TYPE))(self) & 0xFF;
 	height = VT_GetHeight(self);
 	resultZ = CTerrainManager_CanWalkWrapper(curLoc, minZ, maxZ, height, moveType, self, 0);

@@ -709,7 +709,7 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 
 	// Find target: try by name first
 	// Binary calls CPlayer_FindByName (0x00450B20, static in player.c).
-	target = (CItem *)FindPlayer(g_PlayerList.head, targetNameBuf);
+	target = (CItem *)CPlayer_FindByName(g_PlayerList.head, targetNameBuf);
 	if (target != NULL) {
 		if (target->resourceEntity.entity.removedFromWorld)
 			target = NULL;
@@ -974,7 +974,7 @@ post_mobile:
 	CString_AppendCStr(&logStr, text);
 	if (player != NULL) {
 		EventLogger_Log(&g_EventLogger, player->accountNum, (uint32_t)(uint8_t)player->characterNum, CMobile_GetSerial((CMobile *)player),
-		        CMobile_GetName_VT((CItem *)player), "godcommand", "misc", CString_GetBuffer(&logStr));
+		        ((char *(*)(void *))VT_FN((CItem *)player, VT_GET_NAME))(player), "godcommand", "misc", CString_GetBuffer(&logStr));
 	}
 	CString_Destructor(&logStr);
 }
@@ -1010,7 +1010,7 @@ CWorld_SCommand_Query(CWorld *world, CPlayer *player, const char *text)
 		return;
 	}
 
-	target = (CMobile *)FindPlayer(g_PlayerList.head, targetNameBuf);
+	target = (CMobile *)CPlayer_FindByName(g_PlayerList.head, targetNameBuf);
 	if (target == NULL) {
 		if (strcmp(targetNameBuf, "me") == 0)
 			target = (CMobile *)player;
@@ -1100,7 +1100,7 @@ CWorld_SCommand_Add(CWorld *world, CPlayer *player, const char *text)
 		return;
 	}
 
-	target = (CMobile *)FindPlayer(g_PlayerList.head, targetNameBuf);
+	target = (CMobile *)CPlayer_FindByName(g_PlayerList.head, targetNameBuf);
 	if (target == NULL) {
 		if (strcmp(targetNameBuf, "me") == 0)
 			target = (CMobile *)player;
