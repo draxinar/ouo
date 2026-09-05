@@ -945,8 +945,8 @@ CMobile_PruneCombatLists(CMobile *mob)
 /*
  * 0x0046D839 - CMobileManager::CombatHeartBeat
  *
- * Runs SwingResolve on every live mobile each tick (skipping
- * multi-slaves and the all-frozen-NPC case), and prunes combat
+ * Runs SwingResolve on every live, uncontained mobile each tick
+ * (skipping ridden mobiles and the all-frozen-NPC case), and prunes combat
  * lists every fourth tick.
  */
 void
@@ -965,7 +965,7 @@ CMobileManager_CombatHeartBeat(uint32_t tickCount)
 		if (VT_IsRemoved((CItem *)mob))
 			continue;
 
-		if (CMultiSlave_GetTypeId((CMultiSlave *)mob))
+		if (mob->container.item.parent != NULL)
 			continue;
 
 		skipCombat = 0;
