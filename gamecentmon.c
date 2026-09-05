@@ -480,7 +480,7 @@ GameCentMon_BroadcastAll(char *data, int len)
 	char *cursor;
 	uint32_t serial;
 	int32_t eventType;
-	char buf[0x2020];
+	char buf[0x2000];
 	char *cursorOut;
 	char *cursorSave;
 	uint16_t flag;

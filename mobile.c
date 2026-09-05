@@ -5274,7 +5274,6 @@ CMobile_WalkCheck_VT(CItem *self, int direction, int *outZ)
 {
 	CLocation curLoc;
 	int minZ, maxZ;
-	int16_t resultZ;
 	int wasHidden;
 	int moveType;
 	int height;
@@ -5336,14 +5335,14 @@ CMobile_WalkCheck_VT(CItem *self, int direction, int *outZ)
 
 	// Terrain walk check
 	GetMinMaxZForEntity(self, *CEntity_GetLocation(&self->resourceEntity.entity), direction, &minZ, &maxZ);
-	resultZ = (int16_t)CMobile_GetWalkZ(self, curLoc, minZ, maxZ);
+	curLoc.z = (int16_t)CMobile_GetWalkZ(self, curLoc, minZ, maxZ);
 	moveType = ((int (*)(CItem *))VT_FN(self, VT_GET_MOVEMENT_TYPE))(self) & 0xFF;
 	height = VT_GetHeight(self);
-	resultZ = CTerrainManager_CanWalkWrapper(curLoc, minZ, maxZ, height, moveType, self, 0);
+	curLoc.z = CTerrainManager_CanWalkWrapper(curLoc, minZ, maxZ, height, moveType, self, 0);
 
 	if (outZ != NULL)
-		*outZ = (int)(int16_t)resultZ;
-	return ((int16_t)resultZ != (int16_t)-128) ? 1 : 0;
+		*outZ = (int)(int16_t)curLoc.z;
+	return ((int16_t)curLoc.z != (int16_t)-128) ? 1 : 0;
 }
 
 /*

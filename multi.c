@@ -2544,8 +2544,6 @@ CMultiManager_RecycleMultiCheckRotate(CResManager *this, int bodyType, CMultiSla
 	uintptr_t ctx;
 	uintptr_t restOutput;
 
-	USED(this);
-
 	typeFlag = 0;
 	CVector_Constructor(&itemList, &typeFlag);
 
@@ -2586,7 +2584,7 @@ CMultiManager_RecycleMultiCheckRotate(CResManager *this, int bodyType, CMultiSla
 	}
 
 	// Validate components
-	result = CMultiManager_ValidateComponents(&g_MultiManager, &itemList, rotation, NULL);
+	result = CMultiManager_ValidateComponents((CResManager *)this, &itemList, rotation, NULL);
 
 	// If valid, check if multi can exist at location
 	if (result > 0) {

@@ -91,7 +91,7 @@ CRegion *CRegion_Init(CRegion *this); // 0x004A3EC0
 CRegion *CRegion_Assign(CRegion *this, CRegion *src); // 0x004A3ED6
 int CRegion_isCoordInside(CRegion *r, CLocation *loc); // 0x004A3F8F
 void CRegion_CopyFrom(CRegion *this, CRegion *src); // 0x004A4021
-int CRegion_GetArea(CRegion *this); // 0x004A4103
+uint32_t CRegion_GetArea(CRegion *this); // 0x004A4103
 void CRegion_Destructor(CRegion *this); // 0x004A411F
 int CRegion_ValidateBounds(CRegion *this); // 0x004A412A
 void RegionManager_Constructor(void); // 0x004A42F0

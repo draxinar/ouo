@@ -46,6 +46,19 @@ uint16_t g_ServerPort = 2593;
  * Twofish, XOR auto-detect, GodClient plaintext) for clients >= 1.25.35
  * that send a 4-byte login seed. Packet type limit raised from 0xB6 to
  * 0xE3 for 1.26+ through 5.0.x.
+ *
+ * MODIFIED: the size lookup reads this->packetTable, where the binary
+ * reads the fixed table at 0x0061F138. The per-connection table is what
+ * carries the size differences between client versions.
+ *
+ * MODIFIED: seedConsumed occupies the slot the binary uses at +0x10034 as
+ * its logged-in flag, which only Player_LoginSequence sets (0x004927CB).
+ * Setting it as soon as the seed is read opens both pre-login gates for
+ * every connection, so the binary's pre-login whitelist no longer closes
+ * a socket that sends an unlisted type.
+ *
+ * MODIFIED: 0x91 goes to the custom HandlePacket_POSTLOGIN rather than
+ * the binary's 0x0047E768, which the account-scoped login flow replaces.
  */
 uint16_t
 UserSock_DoHandlePacket(CUserSock *this)

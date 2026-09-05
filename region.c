@@ -327,10 +327,10 @@ CRegion_CopyFrom(CRegion *this, CRegion *src)
  *
  * Returns the region's width * height.
  */
-int
+uint32_t
 CRegion_GetArea(CRegion *this)
 {
-	return (int)this->width * (int)this->height;
+	return (uint32_t)((int)this->width * (int)this->height);
 }
 
 /*

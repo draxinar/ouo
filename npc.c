@@ -6334,12 +6334,12 @@ CNPC_WalkAnimDispatch(CMobile *mob, int unused)
  * within 20 tiles of mob.
  */
 void
-BroadcastAnimation(CMobile *mob, uint16_t action, uint16_t frameCount, uint16_t repeatCount, uint8_t backward, uint8_t repeat, uint8_t delay)
+BroadcastAnimation(uint32_t serial, CLocation loc, uint16_t action, uint16_t frameCount, uint16_t repeatCount, uint8_t backward, uint8_t repeat, uint8_t delay)
 {
 	uint8_t pktBuf[16];
 
-	PacketManager_MakePacket_ANIM(pktBuf, mob->container.item.serial, action, frameCount, repeatCount, backward, repeat, delay);
-	BroadcastToNearby(pktBuf, &mob->container.item.resourceEntity.entity.location, 20);
+	PacketManager_MakePacket_ANIM(pktBuf, serial, action, frameCount, repeatCount, backward, repeat, delay);
+	BroadcastToNearby(pktBuf, &loc, 20);
 }
 
 /*
@@ -6360,7 +6360,7 @@ CNPC_SetRunState(CMobile *mob, int running)
 		bodyType = mob->container.item.resourceEntity.entity.bodyType;
 		if (bodyType >= 0x96)
 			goto end;
-		BroadcastAnimation(mob, 0x14, 3, 1, 0, 0, 1);
+		BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x14, 3, 1, 0, 0, 1);
 		goto end;
 	}
 	if (running == 1)
@@ -6370,7 +6370,7 @@ CNPC_SetRunState(CMobile *mob, int running)
 	bodyType = mob->container.item.resourceEntity.entity.bodyType;
 	if (bodyType >= 0x96)
 		goto end;
-	BroadcastAnimation(mob, 0x14, 3, 1, 1, 0, 1);
+	BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x14, 3, 1, 1, 0, 1);
 end:
 	npc->aiByte3 = (uint8_t)running;
 }
@@ -6402,17 +6402,17 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 		if (body < 150) {
 			if (body != 8 && body != 22) {
 				// Body 0x15: repeat=1 (binary special case)
-				BroadcastAnimation(mob, 0x0B, 5, 1, 0, (body == 0x15) ? 1 : 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x0B, 5, 1, 0, (body == 0x15) ? 1 : 0, 1);
 			}
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 200) {
-			BroadcastAnimation(mob, 5, 5, 1, 0, 0, 1);
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 5, 5, 1, 0, 0, 1);
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 400) {
-			BroadcastAnimation(mob, 3, 5, 1, 0, 0, 1);
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 5, 1, 0, 0, 1);
 			npc->aiDelayCounter = 0x0A;
 		} else {
-			BroadcastAnimation(mob, 0x22, 2, 1, 0, 0, 1); // human walk
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x22, 2, 1, 0, 0, 1); // human walk
 			npc->aiDelayCounter = 4;
 		}
 		PlaySoundAtEntity((CItem *)mob, mob->sfxNotice, 0);
@@ -6426,40 +6426,40 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 		if (body < 150) {
 			r = GetRandomRange(1, 2);
 			if (r == 1) {
-				BroadcastAnimation(mob, 0x11, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x11, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			} else if (body != 5) {
-				BroadcastAnimation(mob, 0x12, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x12, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			}
 		} else if (body < 200) {
 			r = GetRandomRange(1, 2);
 			if (r == 1) {
-				BroadcastAnimation(mob, 3, 15, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 15, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			} else {
-				BroadcastAnimation(mob, 4, 20, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 4, 20, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			}
 		} else if (body < 400) {
 			r = GetRandomRange(1, 3);
 			if (r == 1) {
-				BroadcastAnimation(mob, 9, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 9, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			} else if (r == 2) {
-				BroadcastAnimation(mob, 0x0A, 3, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x0A, 3, 1, 0, 0, 1);
 				npc->aiDelayCounter = 6;
 			} else {
-				BroadcastAnimation(mob, 3, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			}
 		} else {
 			r = GetRandomRange(1, 2);
 			if (r == 1) {
-				BroadcastAnimation(mob, 5, 5, 1, 0, 1, 1); // backward=1
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 5, 5, 1, 0, 1, 1); // backward=1
 				npc->aiDelayCounter = 4;
 			} else {
-				BroadcastAnimation(mob, 6, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 6, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 4;
 			}
 		}
@@ -6478,17 +6478,17 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 		if (body < 150) {
 			if (body != 8 && body != 22) {
 				// Body 0x15: repeat=1 (binary special case), others repeat=0
-				BroadcastAnimation(mob, 0x0B, 5, 1, 0, (body == 0x15) ? 1 : 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x0B, 5, 1, 0, (body == 0x15) ? 1 : 0, 1);
 			}
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 200) {
-			BroadcastAnimation(mob, 3, 15, 1, 0, 0, 1);
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 15, 1, 0, 0, 1);
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 400) {
 			// Large creatures skip combat-wander animation and fall
 			// through to the sound without resetting aiDelayCounter.
 		} else {
-			BroadcastAnimation(mob, 0x21, 5, 1, 0, 0, 1); // human combat walk
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x21, 5, 1, 0, 0, 1); // human combat walk
 			npc->aiDelayCounter = 4;
 		}
 		PlaySoundAtEntity((CItem *)mob, mob->sfxNotice, 0);

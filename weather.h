@@ -18,9 +18,9 @@ __extension__ typedef struct CLocation CLocation;
 /*
  * One circular weather zone (328 bytes) carrying precipitation
  * simulation state. Allocated at 0x004E0692, initialized by
- * CWeatherRegion_Init (0x004E0B18). Regions are linked in prepend order
- * off WeatherManager.first; iteration follows the prev pointer at
- * +0x144.
+ * CWeatherRegion_Init (0x004E0B18). Regions are appended to the tail of
+ * the list at WeatherManager.first through the pointer at +0x144, and
+ * iteration follows next at +0x140.
  */
 __extension__ typedef struct CWeatherRegion CWeatherRegion;
 struct CWeatherRegion {

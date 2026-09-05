@@ -867,7 +867,7 @@ CResList_InsertAfter_ByNameAll(CResList *list, CResListNode *position)
 }
 
 /*
- * 0x00430AD0 - std::sort insertion entry (location variant, 38 bytes)
+ * 0x00430AD0 - std::sort insertion entry (location variant)
  *
  * Calls GameCentMon_GetPlayerCount (returns 0, arg ignored),
  * then delegates to insertion sort with depth as 4th arg (unused).
@@ -921,7 +921,7 @@ SortByLocation_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth)
 }
 
 /*
- * 0x00430BD0 - std::sort unguarded linear insert (location variant, 78 bytes)
+ * 0x00430BD0 - std::sort unguarded linear insert (location variant)
  *
  * Inserts value at correct position by shifting elements right.
  * Walks backward from pos, comparing value against each element
@@ -977,7 +977,7 @@ CEntityMap_CompareLocation(CEntityMap *this, CItem *a, CItem *b)
 }
 
 /*
- * 0x00430CD0 - std::sort insertion entry (serial variant, 38 bytes)
+ * 0x00430CD0 - std::sort insertion entry (serial variant)
  *
  * Calls GameCentMon_GetPlayerCount (returns 0, arg ignored),
  * then delegates to insertion sort with depth as 4th arg (unused).
@@ -1028,7 +1028,7 @@ SortBySerial_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth)
 }
 
 /*
- * 0x00430DD0 - std::sort unguarded linear insert (serial variant, 78 bytes)
+ * 0x00430DD0 - std::sort unguarded linear insert (serial variant)
  *
  * Same as location variant but uses CompareBySerial comparator.
  */
@@ -1120,7 +1120,7 @@ SortByLocation_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp)
 }
 
 /*
- * 0x00430FE0 - std::sort partition (location variant, 125 bytes)
+ * 0x00430FE0 - std::sort partition (location variant)
  *
  * Hoare partition. Advances left while *left < pivot, decrements right
  * while pivot < *right. Swaps when both stop, returns partition point.
@@ -1142,7 +1142,7 @@ SortByLocation_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, cha
 }
 
 /*
- * 0x00431060 - std::sort insertion sort (serial variant, 131 bytes)
+ * 0x00431060 - std::sort insertion sort (serial variant)
  *
  * Same as location variant but uses CompareBySerial comparator.
  */
@@ -1194,7 +1194,7 @@ SortBySerial_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp)
 }
 
 /*
- * 0x004311C0 - std::sort partition (serial variant, 125 bytes)
+ * 0x004311C0 - std::sort partition (serial variant)
  *
  * Same as location variant but uses CompareBySerial comparator.
  */
@@ -1215,7 +1215,7 @@ SortBySerial_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, char 
 }
 
 /*
- * 0x0043D580 - CStringList::ScalarDelete (items variant, 46 bytes)
+ * 0x0043D580 - CStringList::ScalarDelete (items variant)
  *
  * Destroys the list and frees it when flags&1.
  */
@@ -1229,7 +1229,7 @@ CStringList_ScalarDelete(CStringList *sl, int flags)
 }
 
 /*
- * 0x0043D5B0 - CResList::~CResList (scalar deleting destructor) (key variant, 46 bytes)
+ * 0x0043D5B0 - CResList::~CResList (scalar deleting destructor) (key variant)
  *
  * Destroys the key-variant list and frees it when flags&1.
  */
@@ -1243,7 +1243,7 @@ CResList_ScalarDeleteA(CResList *list, int flags)
 }
 
 /*
- * 0x0043D5E0 - CStringList::ScalarDelete (effects variant, 46 bytes)
+ * 0x0043D5E0 - CStringList::ScalarDelete (effects variant)
  *
  * Destroys the effects list and frees it when flags&1.
  */
@@ -1377,7 +1377,7 @@ CStringList_AddWeighted(CStringList *sl, CResListNode **output, CString *str, in
 }
 
 /*
- * 0x0043D7D0 - CStringList::GetType (include variant, 28 bytes)
+ * 0x0043D7D0 - CStringList::GetType (include variant)
  *
  * Returns the entry's include-flag byte.
  */
@@ -1723,7 +1723,7 @@ CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, const char *key, 
 }
 
 /*
- * 0x0043E000 - CResManager::InsertValueAtCtxI (include variant, 63 bytes)
+ * 0x0043E000 - CResManager::InsertValueAtCtxI (include variant)
  *
  * Stores value on the val node pointed to by ctx.
  */
@@ -1740,7 +1740,7 @@ CResManager_InsertValueAtCtxI(CResManager *rm, CSearchCtx *ctx, void *value)
 }
 
 /*
- * 0x0043E040 - CResManager::BeginIter (include variant, 32 bytes)
+ * 0x0043E040 - CResManager::BeginIter (include variant)
  *
  * Delegates to BeginIterInternalA with forward direction.
  */
@@ -1751,7 +1751,7 @@ CResManager_BeginIterA(CResManager *rm, CSearchCtx *output)
 }
 
 /*
- * 0x0043E060 - CResManager::NextIter (include variant, 34 bytes)
+ * 0x0043E060 - CResManager::NextIter (include variant)
  *
  * Delegates to NextIterInternalA with forward direction.
  */
@@ -1762,7 +1762,7 @@ CResManager_NextIterA(CResManager *rm, CSearchCtx *output, CSearchCtx *current)
 }
 
 /*
- * 0x0043E090 - CResManager::FindEntry (include variant, 42 bytes)
+ * 0x0043E090 - CResManager::FindEntry (include variant)
  *
  * Looks up name and returns the stored value, or NULL.
  */
@@ -1799,7 +1799,7 @@ CResManagerS_ScalarDtor(CResManager *this)
 }
 
 /*
- * 0x0043E110 - CResManager::ClearS (keys variant, 213 bytes)
+ * 0x0043E110 - CResManager::ClearS (keys variant)
  *
  * Frees every key/val list across 66 buckets (val uses ScalarDeleteS)
  * and resets count.
@@ -1823,7 +1823,7 @@ CResManager_ClearS(CResManager *rm)
 }
 
 /*
- * 0x0043E1F0 - CResManager::FindOrInsert (second variant, 394 bytes)
+ * 0x0043E1F0 - CResManager::FindOrInsert (second variant)
  *
  * Returns a ctx for key in the keys-variant table, inserting a new
  * key+value pair when absent (value list uses AllocTailNodeS).
@@ -1904,7 +1904,7 @@ CResManager_FindByStrCtxD(CResManager *rm, CSearchCtx *output, const char *key, 
 }
 
 /*
- * 0x0043E440 - CResManager::InsertValueAtCtxS (second variant, 63 bytes)
+ * 0x0043E440 - CResManager::InsertValueAtCtxS (second variant)
  *
  * Stores value on the val node pointed to by ctx (keys variant).
  */
@@ -1932,7 +1932,7 @@ CResManagerC_ScalarDtor(CResManager *this)
 }
 
 /*
- * 0x0043E4A0 - CResManager::ClearC (props variant, 213 bytes)
+ * 0x0043E4A0 - CResManager::ClearC (props variant)
  *
  * Frees every key/val list across 66 buckets (val uses ScalarDeleteC)
  * and resets count.
@@ -2064,7 +2064,7 @@ CResManagerT_ScalarDtor(CResManager *this)
 }
 
 /*
- * 0x0043E8D0 - CResManager::ClearT (effectTbl variant, 213 bytes)
+ * 0x0043E8D0 - CResManager::ClearT (effectTbl variant)
  *
  * Frees every key/val list across 66 buckets (val uses ScalarDeleteT)
  * and resets count.
@@ -2088,7 +2088,7 @@ CResManager_ClearT(CResManager *rm)
 }
 
 /*
- * 0x0043EA30 - CResManager::FindOrInsert (effects variant, 394 bytes)
+ * 0x0043EA30 - CResManager::FindOrInsert (effects variant)
  *
  * Returns a ctx for key in the effects-variant table, inserting a new
  * key+value pair when absent (value list uses AllocTailNodeE).
@@ -2168,7 +2168,7 @@ CResManager_FindByStrCtxB(CResManager *rm, CSearchCtx *output, const char *key, 
 }
 
 /*
- * 0x0043ECC0 - CResManager::InsertValueAtCtx (effects variant, 63 bytes)
+ * 0x0043ECC0 - CResManager::InsertValueAtCtx (effects variant)
  *
  * Stores value on the val node pointed to by ctx (effects variant).
  */
@@ -2185,7 +2185,7 @@ CResManager_InsertValueAtCtxEffects(CResManager *rm, CSearchCtx *ctx, void *valu
 }
 
 /*
- * 0x0043ED00 - CResManager::BeginIter (magic variant, 32 bytes)
+ * 0x0043ED00 - CResManager::BeginIter (magic variant)
  *
  * Delegates to BeginIterInternalB with forward direction.
  */
@@ -2196,7 +2196,7 @@ CResManager_BeginIterB(CResManager *rm, CSearchCtx *output)
 }
 
 /*
- * 0x0043ED20 - CResManager::NextIter (magic variant, 34 bytes)
+ * 0x0043ED20 - CResManager::NextIter (magic variant)
  *
  * Delegates to NextIterInternalB with forward direction.
  */
@@ -2232,7 +2232,7 @@ CSearchCtx_Add(CSearchCtx *dst, CSearchCtx *src)
 }
 
 /*
- * 0x0043EDF0 - CStringList::~CStringList (effects variant, 19 bytes)
+ * 0x0043EDF0 - CStringList::~CStringList (effects variant)
  *
  * Destroys the effects list by freeing every CEffectTableEntry node.
  */
@@ -2243,7 +2243,7 @@ CStringList_DestructorEffects(CStringList *sl)
 }
 
 /*
- * 0x0043EE10 - CStringList::SetWeight (effects variant, 67 bytes)
+ * 0x0043EE10 - CStringList::SetWeight (effects variant)
  *
  * Updates the entry's weight and adjusts the list's totalWeight by the
  * difference.
@@ -2262,7 +2262,7 @@ CStringList_SetWeight(CStringList *sl, CResListNode **nodePtr, int weight)
 }
 
 /*
- * 0x0043EE60 - CStringList::GetType (effects variant, 30 bytes)
+ * 0x0043EE60 - CStringList::GetType (effects variant)
  *
  * Returns the entry's direction/type field.
  */
@@ -2274,7 +2274,7 @@ CStringList_GetTypeEffects(CStringList *sl, CResListNode **nodePtr)
 }
 
 /*
- * 0x0043EE80 - CStringList::SetType (effects variant, 123 bytes)
+ * 0x0043EE80 - CStringList::SetType (effects variant)
  *
  * Flips an effects entry's type, updating totalWeight as the include
  * flag (type==1) is gained or lost.
@@ -2301,7 +2301,7 @@ CStringList_SetTypeEffects(CStringList *sl, CResListNode **nodePtr, int newType)
 }
 
 /*
- * 0x0043EF00 - CStringList::SetAllTypes (effects variant, 168 bytes)
+ * 0x0043EF00 - CStringList::SetAllTypes (effects variant)
  *
  * Flips every effects entry's type, updating totalWeight as each entry
  * gains or loses the include (type==1) flag.
@@ -2332,7 +2332,7 @@ CStringList_SetAllTypesEffects(CStringList *sl, int newType)
 }
 
 /*
- * 0x0043EFB0 - CStringList::GetWeightedRandomEntry (effects, 341 bytes)
+ * 0x0043EFB0 - CStringList::GetWeightedRandomEntry (effects)
  *
  * Picks a type==1 effects entry by weight-proportional roulette; stores
  * the picked node (or a null ctx) into *output.
@@ -2432,7 +2432,7 @@ CStringListNode_Destructor(CStringListNode *node)
 }
 
 /*
- * 0x0043F210 - CResList::ScalarDelete (include variant, 46 bytes)
+ * 0x0043F210 - CResList::ScalarDelete (include variant)
  *
  * Destroys the include-variant list and frees it when flags&1.
  */
@@ -2446,7 +2446,7 @@ CResList_ScalarDeleteI(CResList *list, int flags)
 }
 
 /*
- * 0x0043F240 - CResList::ScalarDelete (keys variant, 46 bytes)
+ * 0x0043F240 - CResList::ScalarDelete (keys variant)
  *
  * Destroys the keys-variant list and frees it when flags&1.
  */
@@ -2460,7 +2460,7 @@ CResList_ScalarDeleteS(CResList *list, int flags)
 }
 
 /*
- * 0x0043F270 - CResList::ScalarDelete (props variant, 46 bytes)
+ * 0x0043F270 - CResList::ScalarDelete (props variant)
  *
  * Destroys the props-variant list and frees it when flags&1.
  */
@@ -2474,7 +2474,7 @@ CResList_ScalarDeleteC(CResList *list, int flags)
 }
 
 /*
- * 0x0043F2A0 - CResList::ScalarDelete (effectTbl variant, 46 bytes)
+ * 0x0043F2A0 - CResList::ScalarDelete (effectTbl variant)
  *
  * Destroys the effectTbl-variant list and frees it when flags&1.
  */
@@ -2503,7 +2503,7 @@ CStringListEntry_Constructor(CStringListNode *this, CString *name, int weight)
 }
 
 /*
- * 0x0043F390 - CStringList::GetValue (effects variant, 30 bytes)
+ * 0x0043F390 - CStringList::GetValue (effects variant)
  *
  * Returns a pointer to the entry's weight/value field.
  */
@@ -2515,7 +2515,7 @@ CStringList_GetValueEffects(CStringList *sl, CResListNode **nodePtr)
 }
 
 /*
- * 0x0043F3B0 - CResList::~CResList (CStringListNode variant, 19 bytes)
+ * 0x0043F3B0 - CResList::~CResList (CStringListNode variant)
  *
  * Frees every node via CResList_EraseAllSLN.
  */
@@ -2717,7 +2717,7 @@ CResListNode_InsertDataB(CResListNode *node, void *srcData)
 }
 
 /*
- * 0x0043F840 - CResManager::SearchBucket (include variant, 176 bytes)
+ * 0x0043F840 - CResManager::SearchBucket (include variant)
  *
  * Walks the bucket from startCtx looking for key; writes the matching
  * ctx or an empty ctx into *output.
@@ -2750,7 +2750,7 @@ CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, const char *key, 
 }
 
 /*
- * 0x0043F8F0 - CResManager::BeginIterInternal (include variant, 243 bytes)
+ * 0x0043F8F0 - CResManager::BeginIterInternal (include variant)
  *
  * Scans buckets from startBucket to find the first non-empty one and
  * writes its head ctx into *output.
@@ -2797,7 +2797,7 @@ CResManager_BeginIterInternalA(CResManager *rm, CSearchCtx *output, int startBuc
 }
 
 /*
- * 0x0043F9F0 - CResManager::NextIterInternal (include variant, 330 bytes)
+ * 0x0043F9F0 - CResManager::NextIterInternal (include variant)
  *
  * Advances the ctx to the next entry; crosses bucket boundaries via
  * BeginIterInternalA when the current bucket is exhausted.
@@ -2855,7 +2855,7 @@ CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 }
 
 /*
- * 0x0043FB40 - CResList::AllocTailNodeI (include variant, 170 bytes)
+ * 0x0043FB40 - CResList::AllocTailNodeI (include variant)
  *
  * If tail exists, inserts new node after tail via RecycleNodeI.
  * Otherwise allocates fresh CResListNode, sets as head and tail.
@@ -2879,7 +2879,7 @@ CResList_AllocTailNodeI(CResList *list)
 }
 
 /*
- * 0x0043FBF0 - CResList::SetValueOnNodeI (include variant, 31 bytes)
+ * 0x0043FBF0 - CResList::SetValueOnNodeI (include variant)
  *
  * If node is non-null, delegates to CResListNode_ReplaceDataI.
  */
@@ -2892,7 +2892,7 @@ CResList_SetValueOnNodeI(CResList *list, CResListNode *node, void *value)
 }
 
 /*
- * 0x0043FC10 - CResList::~CResList (include variant, 19 bytes)
+ * 0x0043FC10 - CResList::~CResList (include variant)
  *
  * Destroys the include-variant list by delegating to ClearInternalI.
  */
@@ -2915,7 +2915,7 @@ CResManager_CreateBucket(CSearchCtx *dst, CSearchCtx *src)
 }
 
 /*
- * 0x0043FC50 - CResManager::SearchBucket (keys variant, 176 bytes)
+ * 0x0043FC50 - CResManager::SearchBucket (keys variant)
  *
  * Linear scan of the bucket for key, advancing via NextEntryD.
  */
@@ -2947,7 +2947,7 @@ CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, const char *key, 
 }
 
 /*
- * 0x0043FD00 - CResList::AllocTailNodeS (second variant, 170 bytes)
+ * 0x0043FD00 - CResList::AllocTailNodeS (second variant)
  *
  * If tail exists, inserts new node after tail via RecycleNodeS.
  * Otherwise allocates fresh CResListNode, sets as head and tail.
@@ -2971,7 +2971,7 @@ CResList_AllocTailNodeS(CResList *list)
 }
 
 /*
- * 0x0043FDB0 - CResList::SetValueOnNodeS (second variant, 31 bytes)
+ * 0x0043FDB0 - CResList::SetValueOnNodeS (second variant)
  *
  * If node is non-null, delegates to CResListNode_ReplaceDataS.
  */
@@ -2984,7 +2984,7 @@ CResList_SetValueOnNodeS(CResList *list, CResListNode *node, void *value)
 }
 
 /*
- * 0x0043FDD0 - CResList::~CResList (keys variant, 19 bytes)
+ * 0x0043FDD0 - CResList::~CResList (keys variant)
  *
  * Destroys the keys-variant list by delegating to ClearInternalS.
  */
@@ -2995,7 +2995,7 @@ CResList_DestructorS(CResList *list)
 }
 
 /*
- * 0x0043FDF0 - CResManager::SearchBucket (props variant, 176 bytes)
+ * 0x0043FDF0 - CResManager::SearchBucket (props variant)
  *
  * Linear scan of the bucket for key, advancing via NextEntryC.
  */
@@ -3051,7 +3051,7 @@ CResList_AllocTailNodeC(CResList *list)
 }
 
 /*
- * 0x0043FF50 - CResList::SetValueOnNodeC (props variant, 31 bytes)
+ * 0x0043FF50 - CResList::SetValueOnNodeC (props variant)
  *
  * If node is non-null, delegates to CResListNode_ReplaceData.
  */
@@ -3064,7 +3064,7 @@ CResList_SetValueOnNodeC(CResList *list, CResListNode *node, void *value)
 }
 
 /*
- * 0x0043FF70 - CResList::~CResList (props variant, 19 bytes)
+ * 0x0043FF70 - CResList::~CResList (props variant)
  *
  * Destroys the props-variant list by delegating to ClearInternalC.
  */
@@ -3075,7 +3075,7 @@ CResList_DestructorC(CResList *list)
 }
 
 /*
- * 0x0043FF90 - CResManager::SearchBucket (magic variant, 176 bytes)
+ * 0x0043FF90 - CResManager::SearchBucket (magic variant)
  *
  * Linear scan of the bucket for key, advancing via NextEntryB.
  */
@@ -3107,7 +3107,7 @@ CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, const char *key, 
 }
 
 /*
- * 0x00440040 - CResManager::BeginIterInternal (magic variant, 243 bytes)
+ * 0x00440040 - CResManager::BeginIterInternal (magic variant)
  *
  * Identical to include variant (0x0043F8F0).
  */
@@ -3118,7 +3118,7 @@ CResManager_BeginIterInternalB(CResManager *rm, CSearchCtx *output, int startBuc
 }
 
 /*
- * 0x00440140 - CResManager::NextIterInternal (magic variant, 330 bytes)
+ * 0x00440140 - CResManager::NextIterInternal (magic variant)
  *
  * Advances ctx to the next entry, scanning buckets via BeginIterInternalB
  * when the current bucket is exhausted.
@@ -3200,7 +3200,7 @@ CResList_AllocTailNodeE(CResList *list)
 }
 
 /*
- * 0x00440340 - CResList::SetValueOnNodeEffects (effectTbl variant, 31 bytes)
+ * 0x00440340 - CResList::SetValueOnNodeEffects (effectTbl variant)
  *
  * If node is non-NULL, calls CResListNode_SetDataSLE to set data.
  */
@@ -3213,7 +3213,7 @@ CResList_SetValueOnNodeEffects(CResList *list, CResListNode *node, void *srcData
 }
 
 /*
- * 0x00440360 - CResList::~CResList (effectTbl variant, 19 bytes)
+ * 0x00440360 - CResList::~CResList (effectTbl variant)
  *
  * Destroys the effectTbl-variant list by delegating to ClearInternalT.
  */
@@ -3237,7 +3237,7 @@ CResList_DirectionBegin(CResList *list, int direction)
 }
 
 /*
- * 0x004403B0 - CStringList::GetWeight (effects variant, 30 bytes)
+ * 0x004403B0 - CStringList::GetWeight (effects variant)
  *
  * Returns a pointer to the entry's weight field.
  */
@@ -3273,7 +3273,7 @@ CResList_InsertDirectionE(CResList *list, void *srcData, int direction)
 }
 
 /*
- * 0x00440450 - CResList::EraseAll (CStringListNode variant, 59 bytes)
+ * 0x00440450 - CResList::EraseAll (CStringListNode variant)
  *
  * Iterates from head, freeing every node via FreeNodeSLN.
  */
@@ -3499,7 +3499,7 @@ CResManager_GetKeyAtPos(CResManager *rm, CSearchCtx *ctx)
 }
 
 /*
- * 0x00440900 - CResManager::NextEntry (include variant, 212 bytes)
+ * 0x00440900 - CResManager::NextEntry (include variant)
  *
  * Advances key and val node pointers via DirectionNext and populates
  * output CSearchCtx with the new node positions.
@@ -3536,7 +3536,7 @@ CResManager_NextEntryA(CResManager *rm, CSearchCtx *output, CSearchCtx *current,
 }
 
 /*
- * 0x004409E0 - CResList::RecycleNodeI (include variant, 234 bytes)
+ * 0x004409E0 - CResList::RecycleNodeI (include variant)
  *
  * Allocates a new CResListNode and inserts it after afterNode.
  * Uses CResListNode_SetNext/SetPrev helpers and CResList_Begin
@@ -3572,7 +3572,7 @@ CResList_RecycleNodeI(CResList *list, CResListNode *afterNode)
 }
 
 /*
- * 0x00440AD0 - CResList::ClearInternal (include variant, 59 bytes)
+ * 0x00440AD0 - CResList::ClearInternal (include variant)
  *
  * Iterates Begin/IsValid/FreeNodeI to free every node.
  */
@@ -3599,7 +3599,7 @@ CResListNode_Constructor_bin(CResListNode *node)
 }
 
 /*
- * 0x00440B40 - CResListNode::ReplaceData (include variant, 86 bytes)
+ * 0x00440B40 - CResListNode::ReplaceData (include variant)
  *
  * Frees existing CStringList data (if any) before storing newData.
  */
@@ -3614,7 +3614,7 @@ CResListNode_ReplaceDataI(CResListNode *node, void *newData)
 }
 
 /*
- * 0x00440BA0 - CResManager::NextEntry (keys variant, 212 bytes)
+ * 0x00440BA0 - CResManager::NextEntry (keys variant)
  *
  * Identical to include variant (0x00440900). Used by SearchBucketD.
  */
@@ -3625,7 +3625,7 @@ CResManager_NextEntryD(CResManager *rm, CSearchCtx *output, CSearchCtx *current,
 }
 
 /*
- * 0x00440C80 - CResList::RecycleNodeS (second variant, 234 bytes)
+ * 0x00440C80 - CResList::RecycleNodeS (second variant)
  *
  * Allocates a new CResListNode and inserts it after afterNode.
  * Uses CResListNode_SetNext/SetPrev helpers and CResList_Begin
@@ -3661,7 +3661,7 @@ CResList_RecycleNodeS(CResList *list, CResListNode *afterNode)
 }
 
 /*
- * 0x00440D70 - CResList::ClearInternal (keys variant, 59 bytes)
+ * 0x00440D70 - CResList::ClearInternal (keys variant)
  *
  * Iterates Begin/IsValid/FreeNodeS to free every node.
  */
@@ -3674,7 +3674,7 @@ CResList_ClearInternalS(CResList *list)
 }
 
 /*
- * 0x00440DB0 - CResListNode::ReplaceData (second variant, 86 bytes)
+ * 0x00440DB0 - CResListNode::ReplaceData (second variant)
  *
  * Frees existing CResList data (if any) before storing newData.
  */
@@ -3689,7 +3689,7 @@ CResListNode_ReplaceDataS(CResListNode *node, void *newData)
 }
 
 /*
- * 0x00440E10 - CResManager::NextEntry (props variant, 212 bytes)
+ * 0x00440E10 - CResManager::NextEntry (props variant)
  *
  * Identical to include variant (0x00440900). Used by SearchBucketC.
  */
@@ -3734,7 +3734,7 @@ CResList_RecycleNodeD(CResList *list, CResListNode *afterNode)
 }
 
 /*
- * 0x00440FE0 - CResList::ClearInternal (props variant, 59 bytes)
+ * 0x00440FE0 - CResList::ClearInternal (props variant)
  *
  * Iterates Begin/IsValid/FreeNodeC to free every node.
  */
@@ -3762,7 +3762,7 @@ CResListNode_ReplaceData(CResListNode *node, void *newData)
 }
 
 /*
- * 0x00441080 - CResManager::NextEntry (magic variant, 212 bytes)
+ * 0x00441080 - CResManager::NextEntry (magic variant)
  *
  * Identical to include variant (0x00440900).
  */
@@ -3807,7 +3807,7 @@ CResList_RecycleNodeE(CResList *list, CResListNode *afterNode)
 }
 
 /*
- * 0x00441250 - CResList::ClearInternal (effectTbl variant, 59 bytes)
+ * 0x00441250 - CResList::ClearInternal (effectTbl variant)
  *
  * Iterates Begin/IsValid/FreeNodeT to free every node.
  */
@@ -3882,7 +3882,7 @@ CResList_AllocBackwardE(CResList *list, void *srcData)
 }
 
 /*
- * 0x00441390 - CResListNode::ScalarDelete (CString* data variant, 46 bytes)
+ * 0x00441390 - CResListNode::ScalarDelete (CString* data variant)
  *
  * Destroys the node and frees it when flags&1.
  */
@@ -3896,7 +3896,7 @@ CResListNode_ScalarDeleteStr(CResListNode *node, int flags)
 }
 
 /*
- * 0x004413C0 - CResList::GetOrAllocHead (NamedProperty variant, 166 bytes)
+ * 0x004413C0 - CResList::GetOrAllocHead (NamedProperty variant)
  *
  * If head exists, inserts a new node before it via InsertAfterTailNP.
  * Otherwise allocates a fresh CResListNode and sets it as sole head+tail.
@@ -3920,7 +3920,7 @@ CResList_GetOrAllocHeadNP(CResList *list)
 }
 
 /*
- * 0x00441470 - CResList::GetOrAllocTail (NamedProperty variant, 170 bytes)
+ * 0x00441470 - CResList::GetOrAllocTail (NamedProperty variant)
  *
  * If tail exists, inserts a new node after it via InsertBeforeHeadNP.
  * Otherwise allocates a fresh CResListNode and sets it as sole head+tail.
@@ -3944,7 +3944,7 @@ CResList_GetOrAllocTailNP(CResList *list)
 }
 
 /*
- * 0x00441520 - CResList::FreeNode (CStringListNode variant, 87 bytes)
+ * 0x00441520 - CResList::FreeNode (CStringListNode variant)
  *
  * Unlinks node and destroys the extracted CStringListNode data.
  */
@@ -3961,7 +3961,7 @@ CResList_FreeNodeSLN(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x00441580 - CResListNode::SetDataNP (NamedProperty data setter, 144 bytes)
+ * 0x00441580 - CResListNode::SetDataNP (NamedProperty data setter)
  *
  * Updates existing CNamedProperty data via Copy, or allocates and
  * constructs a fresh one when node->data is NULL.
@@ -4081,7 +4081,7 @@ CResList_AppendStr(CResList *list, void *data)
 }
 
 /*
- * 0x004417E0 - CResListNode::~CResListNode (CString* data variant, 75 bytes)
+ * 0x004417E0 - CResListNode::~CResListNode (CString* data variant)
  *
  * Destroys the node's CString payload if present.
  */
@@ -4109,7 +4109,7 @@ CResList_Prev(CResList *list, CResListNode *node)
 }
 
 /*
- * 0x00441850 - CResList::FreeNode (include variant, 87 bytes)
+ * 0x00441850 - CResList::FreeNode (include variant)
  *
  * Unlinks node and destroys the extracted CStringList data.
  */
@@ -4126,7 +4126,7 @@ CResList_FreeNodeI(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x004418B0 - CResList::FreeNode (keys variant, 87 bytes)
+ * 0x004418B0 - CResList::FreeNode (keys variant)
  *
  * Unlinks node and destroys the extracted CResList data.
  */
@@ -4143,7 +4143,7 @@ CResList_FreeNodeS(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x00441910 - CResList::FreeNode (props variant, 87 bytes)
+ * 0x00441910 - CResList::FreeNode (props variant)
  *
  * Unlinks node and destroys the extracted CItemEffectDef data.
  */
@@ -4160,7 +4160,7 @@ CResList_FreeNodeC(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x00441970 - CResList::FreeNode (effectTbl variant, 87 bytes)
+ * 0x00441970 - CResList::FreeNode (effectTbl variant)
  *
  * Unlinks node and destroys the extracted CStringList data.
  */
@@ -4300,7 +4300,7 @@ CNamedProperty_Copy(CNamedProperty *this, CNamedProperty *src)
 }
 
 /*
- * 0x00441D60 - CResList::InsertAfterTailNP (NamedProperty variant, 235 bytes)
+ * 0x00441D60 - CResList::InsertAfterTailNP (NamedProperty variant)
  *
  * Allocates a new CResListNode and inserts it before headNode
  * (i.e. after its tail/prev).
@@ -4335,7 +4335,7 @@ CResList_InsertAfterTailNP(CResList *list, CResListNode *headNode)
 }
 
 /*
- * 0x00441E50 - CResList::InsertBeforeHeadNP (NamedProperty variant, 234 bytes)
+ * 0x00441E50 - CResList::InsertBeforeHeadNP (NamedProperty variant)
  *
  * Allocates a new CResListNode and inserts it after tailNode
  * (i.e. before its head/next).
@@ -4370,7 +4370,7 @@ CResList_InsertBeforeHeadNP(CResList *list, CResListNode *tailNode)
 }
 
 /*
- * 0x00441F40 - CResList::UnlinkNode (CStringListNode variant, 200 bytes)
+ * 0x00441F40 - CResList::UnlinkNode (CStringListNode variant)
  *
  * Unlinks node from the doubly-linked list, extracts data into *outData,
  * frees the node wrapper, and returns the neighbor in the given direction.
@@ -4425,7 +4425,7 @@ CResListNode_SetDataStr(CResListNode *node, void *srcData)
 }
 
 /*
- * 0x00442070 - CResList::UnlinkNode (include variant, 200 bytes)
+ * 0x00442070 - CResList::UnlinkNode (include variant)
  *
  * Unlinks node from the doubly-linked list, extracts data into *outData,
  * frees the node wrapper, and returns the neighbor in the given direction.
@@ -4465,7 +4465,7 @@ CResList_UnlinkNodeI(CResList *list, CResListNode *node, void **outData, int dir
 }
 
 /*
- * 0x00442140 - CResList::UnlinkNode (keys variant, 200 bytes)
+ * 0x00442140 - CResList::UnlinkNode (keys variant)
  *
  * Unlinks node from the doubly-linked list, extracts data into *outData,
  * frees the node wrapper, and returns the neighbor in the given direction.
@@ -4505,7 +4505,7 @@ CResList_UnlinkNodeS(CResList *list, CResListNode *node, void **outData, int dir
 }
 
 /*
- * 0x00442210 - CResList::UnlinkNode (props variant, 200 bytes)
+ * 0x00442210 - CResList::UnlinkNode (props variant)
  *
  * Unlinks node from the doubly-linked list, extracts data into *outData,
  * frees the node wrapper, and returns the neighbor in the given direction.
@@ -4545,7 +4545,7 @@ CResList_UnlinkNodeC(CResList *list, CResListNode *node, void **outData, int dir
 }
 
 /*
- * 0x004422E0 - CResList::UnlinkNode (effectTbl variant, 200 bytes)
+ * 0x004422E0 - CResList::UnlinkNode (effectTbl variant)
  *
  * Unlinks node from the doubly-linked list, extracts data into *outData,
  * frees the node wrapper, and returns the neighbor in the given direction.
@@ -4696,7 +4696,7 @@ CResList_UnlinkNodeE(CResList *list, CResListNode *node, void **outData, int dir
 }
 
 /*
- * 0x00442660 - CResListNodeSLN::ScalarDelete (CStringListNode variant, 46 bytes)
+ * 0x00442660 - CResListNodeSLN::ScalarDelete (CStringListNode variant)
  *
  * Destroys the node and frees it when flags&1.
  */
@@ -4710,7 +4710,7 @@ CResListNodeSLN_ScalarDelete(CResListNode *node, int flags)
 }
 
 /*
- * 0x00442690 - CResListNodeI::ScalarDelete (include variant, 46 bytes)
+ * 0x00442690 - CResListNodeI::ScalarDelete (include variant)
  *
  * Destroys the node and frees it when flags&1.
  */
@@ -4724,7 +4724,7 @@ CResListNodeI_ScalarDelete(CResListNode *node, int flags)
 }
 
 /*
- * 0x004426C0 - CResListNodeS::ScalarDelete (keys variant, 46 bytes)
+ * 0x004426C0 - CResListNodeS::ScalarDelete (keys variant)
  *
  * Destroys the node and frees it when flags&1.
  */
@@ -4738,7 +4738,7 @@ CResListNodeS_ScalarDelete(CResListNode *node, int flags)
 }
 
 /*
- * 0x004426F0 - CResListNodeC::ScalarDelete (props variant, 46 bytes)
+ * 0x004426F0 - CResListNodeC::ScalarDelete (props variant)
  *
  * Destroys the node and frees it when flags&1.
  */
@@ -4752,7 +4752,7 @@ CResListNodeC_ScalarDelete(CResListNode *node, int flags)
 }
 
 /*
- * 0x00442720 - CResListNodeT::ScalarDelete (effectTbl variant, 46 bytes)
+ * 0x00442720 - CResListNodeT::ScalarDelete (effectTbl variant)
  *
  * Destroys the node and frees it when flags&1.
  */
@@ -4780,7 +4780,7 @@ CResListNodeE_ScalarDelete(CResListNode *node, int flags)
 }
 
 /*
- * 0x00442780 - CResListNodeSLN::~CResListNodeSLN (CStringListNode variant, 75 bytes)
+ * 0x00442780 - CResListNodeSLN::~CResListNodeSLN (CStringListNode variant)
  *
  * Destroys the node's CStringListNode payload if present.
  */
@@ -4794,7 +4794,7 @@ CResListNodeSLN_Destructor(CResListNode *node)
 }
 
 /*
- * 0x004427D0 - CResListNodeI::~CResListNodeI (include variant, 75 bytes)
+ * 0x004427D0 - CResListNodeI::~CResListNodeI (include variant)
  *
  * Destroys the node's CStringList payload if present.
  */
@@ -4808,7 +4808,7 @@ CResListNodeI_Destructor(CResListNode *node)
 }
 
 /*
- * 0x00442820 - CResListNodeS::~CResListNodeS (keys variant, 75 bytes)
+ * 0x00442820 - CResListNodeS::~CResListNodeS (keys variant)
  *
  * Destroys the node's CResList payload if present.
  */
@@ -4822,7 +4822,7 @@ CResListNodeS_Destructor(CResListNode *node)
 }
 
 /*
- * 0x00442870 - CResListNodeC::~CResListNodeC (props variant, 75 bytes)
+ * 0x00442870 - CResListNodeC::~CResListNodeC (props variant)
  *
  * Destroys the node's CItemEffectDef payload if present.
  */
@@ -4836,7 +4836,7 @@ CResListNodeC_Destructor(CResListNode *node)
 }
 
 /*
- * 0x004428C0 - CResListNodeT::~CResListNodeT (effectTbl variant, 75 bytes)
+ * 0x004428C0 - CResListNodeT::~CResListNodeT (effectTbl variant)
  *
  * Destroys the node's CStringList payload if present.
  */
@@ -5676,7 +5676,7 @@ CResList_PushFront_ResManager(CResList *list, CResListNode *position)
 }
 
 /*
- * 0x004651C0 - CResList::Erase (hint key variant, 200 bytes)
+ * 0x004651C0 - CResList::Erase (hint key variant)
  *
  * Unlinks node, extracts its data into *outData, destroys the node,
  * decrements count, and returns the next or prev neighbor per direction.
@@ -5788,7 +5788,7 @@ CResList_ClearAll_HintVal(CResList *this)
 }
 
 /*
- * 0x00465400 - CResList val node dtor (hint variant, 75 bytes)
+ * 0x00465400 - CResList val node dtor (hint variant)
  *
  * Destroys the node's CHintItem payload if present.
  */
@@ -5823,7 +5823,7 @@ CResListNode_ScalarDelete(CResListNode *node, int flags)
 }
 
 /*
- * 0x00465480 - CResList::EraseAndFree (hint/CResManager variant, 87 bytes)
+ * 0x00465480 - CResList::EraseAndFree (hint/CResManager variant)
  *
  * Erases node from the list and destroys its extracted CHintItem data.
  */
@@ -5873,7 +5873,7 @@ CResList_ClearInternal_MagicItemList_rb(CResList *this)
 }
 
 /*
- * 0x00466CE0 - CResList::~CResList (MagicItemList variant, 19 bytes)
+ * 0x00466CE0 - CResList::~CResList (MagicItemList variant)
  *
  * Destroys the list by freeing every node via ClearInternal_MagicItemList.
  */
@@ -5884,7 +5884,7 @@ CResList_Destructor_MagicItemList(CResList *this)
 }
 
 /*
- * 0x00466DD0 - CResList::EraseAndFree (MagicItemFactory CString variant, 87 bytes)
+ * 0x00466DD0 - CResList::EraseAndFree (MagicItemFactory CString variant)
  *
  * Erases node from the list and destroys its extracted CString data.
  */
@@ -5918,7 +5918,7 @@ CResList_GetHeadIfNotNull(CResList *this, CResListNode *list)
 }
 
 /*
- * 0x00466ED0 - CResList::Erase (region/MagicItemFactory variant, 200 bytes)
+ * 0x00466ED0 - CResList::Erase (region/MagicItemFactory variant)
  *
  * Unlinks node, extracts its data into *outData, destroys the node via
  * SmartPtr_CString_ScalarDelete, and returns the next/prev neighbor.
@@ -6432,7 +6432,7 @@ CResManager_FindOrInsert_B(CResManager *this, CSearchCtx *output, void *keyPtr, 
 }
 
 /*
- * 0x0047AB40 - CResManager::Erase template (variant B, 372 bytes)
+ * 0x0047AB40 - CResManager::Erase template (variant B)
  *
  * Erases the key/val pair at current, dropping the owning bucket lists
  * when they become empty, and writes the successor ctx to *output.
@@ -6714,7 +6714,7 @@ CResList_PrependInt_A(CResList *this, uint32_t *valuePtr)
 }
 
 /*
- * 0x0047BA50 - CResList::~CResList template (multi key variant B, 19 bytes)
+ * 0x0047BA50 - CResList::~CResList template (multi key variant B)
  *
  * Destroys the list by freeing every node via ClearAll_MultiB.
  */
@@ -8587,7 +8587,7 @@ CResManager_HasByInt(CResManager *rm, uint32_t key)
 }
 
 /*
- * 0x004C06B0 - CResManager::CResManager (templates variant, 37 bytes)
+ * 0x004C06B0 - CResManager::CResManager (templates variant)
  *
  * Constructs the three contiguous CResLists of a CNameEntry
  * (male/female/other name lists).
@@ -9314,7 +9314,7 @@ CResManager_FindOrInsertH(CResManager *rm, CSearchCtx *output, CString *key)
 }
 
 /*
- * 0x004C19D0 - CResManager::SearchBucket (defines str variant B, 176 bytes)
+ * 0x004C19D0 - CResManager::SearchBucket (defines str variant B)
  *
  * Same as CResManager_SearchBucket_DefinesStr but advances via
  * CResManager_NextIterInternal_Labels.

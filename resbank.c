@@ -1269,9 +1269,15 @@ CResBankManager_WriteByte(CResBankManager *this, char **destPtr, int32_t *sizePt
  * Serializes the resbank into the caller's buffer: magic, g_SpawnEnabled,
  * then per-region records (0x7F marker, bounds, respawn timers, nospawn
  * byte, 102 template quantity/maxSpawn pairs), terminated by 0x00.
- * *destPtr is advanced past every byte written.
+ * Returns the number of bytes written.
+ *
+ * MODIFIED: the binary takes its destination by value (0x004ADEB7 hands
+ * the helpers the address of its own copy), so the caller's pointer is not
+ * advanced, and purges a second stack argument it never reads. Ours takes
+ * the destination by reference, which is what the custom writer above
+ * needs.
  */
-void
+int
 CResBankManager_SaveResBank(CResBankManager *this, char **destPtr)
 {
 	int32_t size;
@@ -1334,6 +1340,8 @@ CResBankManager_SaveResBank(CResBankManager *this, char **destPtr)
 
 	recordType = 0;
 	CResBankManager_WriteByte(this, destPtr, &size, recordType);
+
+	return size;
 }
 
 /*

@@ -9359,7 +9359,7 @@ Script_getNaturalAC(uint32_t serial)
 }
 
 /*
- * 0x00414362 - doDamageCore (internal, 573 bytes)
+ * 0x00414362 - doDamageCore (internal)
  *
  * Shared body for the doDamage* script handlers. Resolves attacker
  * and defender, tracks aggression, fires the washit (type 7) event,
@@ -13519,7 +13519,7 @@ Script_canSeeLoc(uint32_t serial, CLocation *loc)
 	if (ent == NULL)
 		return 0;
 
-	CLocation_SetLoc(&localLoc, CEntity_GetLocation(&ent->resourceEntity.entity));
+	CLocation_SetLoc(&localLoc, VT_GetLocation(ent));
 
 	halfHeight = VT_GetHeight(ent) / 2;
 	localLoc.z += (int16_t)halfHeight;
@@ -14744,7 +14744,7 @@ Script_getResource(int *outAmount, uint32_t serial, CString *resName, int resTyp
 		return 0;
 	if (flags == 0) {
 		slot = (CItem *)&g_ResEntitySlots[CEntity_GetBodyType(ent) & 0xFFFF];
-		*outAmount = CItem_GetResourceAmount(slot, (uint16_t)resDef->typeId);
+		*outAmount = ((int (*)(void *, uint16_t))VT_FN(slot, VT_GET_RESOURCE_AMT))(slot, (uint16_t)resDef->typeId);
 	} else if (flags == 2) {
 		*outAmount = 0;
 		CItem_GetObjVarResTypeInner(ent, outAmount, resDef, 3, 2);
@@ -18525,7 +18525,7 @@ Script_isGeneric(uint32_t serial)
 	ent = FindEntityValidated(serial, "isGeneric");
 	if (ent == NULL)
 		return 0;
-	if (CItem_HasResourceFlag(ent))
+	if (((int (*)(void *))VT_FN(ent, VT_HAS_RESOURCE_FLAG))(ent))
 		return 1;
 	return 0;
 }

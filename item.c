@@ -47,7 +47,6 @@ static int Item_IsSpecialBodyType(CItem *item); // 0x00487A09
 static void CItem_ClearCampfireNearby(CItem *item); // 0x00487BF5
 static void CItem_ScanNearbyCampfire(CItem *item); // 0x00488FFE
 static int CItem_MultiContainerCheck(CItem *this, CItem *container); // 0x004891A5
-static int CItem_GetSortKeyQty(CItem *item); // 0x00490DB7
 static int CItem_GetSortKey(CItem *item); // 0x00490C6D
 static int Hint_WakeCarriedMagic(CItem *item); // Custom (FEAT_HINT_RUMORS)
 
@@ -1592,14 +1591,14 @@ CItem_GetItemAmount(CItem *item)
 /*
  * 0x004854F2 - CItem::IsMovable (vtable[0x98])
  *
- * Direct-call alias of GetItemAmount used by wombat scripts. Returns 1
- * for non-resource items, otherwise the minimum resource ratio (0 when
- * under-stocked).
+ * Identical-code-folded twin of GetItemAmount, used by wombat scripts.
+ * Returns 1 for non-resource items, otherwise the minimum resource ratio
+ * (0 when under-stocked).
  */
 int
 CItem_IsMovable(CItem *item)
 {
-	if (!CItem_HasResourceFlag(item))
+	if (!((int (*)(void *))VT_FN(item, VT_HAS_RESOURCE_FLAG))(item))
 		return 1;
 	return CItem_GetMinResourceRatio(item);
 }
@@ -2578,11 +2577,10 @@ do_name:
 				src++;
 				while (*src != '\0' && *src != '/' && *src != '%')
 					src++;
-				if (*src == '/') {
+				if (*src == '/')
 					src++;
-					while (*src != '\0' && *src != '%')
-						*dst++ = *src++;
-				}
+				while (*src != '\0' && *src != '%')
+					*dst++ = *src++;
 				if (*src == '%')
 					src++;
 			}
@@ -5958,7 +5956,7 @@ CItem_GetSpellId(CItem *item)
  *
  * Duplicate of CItem_GetSpellId at a distinct binary address.
  */
-static __attribute__((unused)) int
+int
 CItem_GetSortKeyQty(CItem *item)
 {
 	return CItem_GetSortKey(item);

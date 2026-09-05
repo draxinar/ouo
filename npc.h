@@ -326,7 +326,7 @@ void CNPC_Loiter(CNPC *npc, int range, CLocation loc); // 0x004AB82F
 void CNPC_StartWander(CNPC *npc, int steps, int returnState); // 0x004AB889
 void CNPC_FollowerCombatHandler(CMobile *this); // 0x004AC2B8
 void ResourceQuery_Stub(void); // 0x004AC7B7
-void BroadcastAnimation(CMobile *mob, uint16_t action, uint16_t frameCount, uint16_t repeatCount, uint8_t backward, uint8_t repeat, uint8_t delay); // 0x004AC9F5
+void BroadcastAnimation(uint32_t serial, CLocation loc, uint16_t action, uint16_t frameCount, uint16_t repeatCount, uint8_t backward, uint8_t repeat, uint8_t delay); // 0x004AC9F5
 void CNPC_SetRunState(CMobile *mob, int running); // 0x004ACA3C
 void CMobile_NPC_SetAIState(CMobile *mob, int state); // 0x004ACB07
 int NPC_CalcDirectionSimple(CItem *target, CItem *source); // 0x004D7405

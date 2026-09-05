@@ -248,7 +248,7 @@ StdNilRef(void)
 }
 
 /*
- * 0x004019C0 - CVector::GetCount (16-byte elements, 52 bytes)
+ * 0x004019C0 - CVector::GetCount (16-byte elements)
  *
  * Returns element count: (end - begin) / 16, or 0 if begin is NULL.
  */
@@ -518,7 +518,7 @@ StdPtrIter_Constructor(StdPtrNode **iter)
 }
 
 /*
- * 0x00406A00 - std::fill (forward fill, 36 bytes)
+ * 0x00406A00 - std::fill (forward fill)
  *
  * Fills [first, last) with the element pointed to by value.
  *
@@ -1818,7 +1818,7 @@ StdMap_LboundWrapper(void *iter)
 }
 
 /*
- * 0x00423640 - std::_Tree::_Dec (iterator decrement, 264 bytes)
+ * 0x00423640 - std::_Tree::_Dec (iterator decrement)
  *
  * Moves the iterator to the predecessor node in the red-black tree. MSVC
  * STL _Dec logic: handles three cases: 1. If node has color==0 and
@@ -1870,7 +1870,7 @@ StdMap_TreeDec(void *iter)
 }
 
 /*
- * 0x00423750 - std::_Ucopy range (std::_Tree instantiation 2, 62 bytes)
+ * 0x00423750 - std::_Ucopy range (std::_Tree instantiation 2)
  *
  * Copies 4-byte elements from [first, last) to dest by calling construct
  * (0x00424FC0) per element. Returns pointer past the last written
@@ -2629,7 +2629,7 @@ CVector_Destructor(CVector *list)
 }
 
 /*
- * 0x004267A0 - std::_Ucopy range (CVector, 62 bytes)
+ * 0x004267A0 - std::_Ucopy range (CVector)
  *
  * Copies 4-byte elements from [first, last) to dest by calling construct
  * (0x00424FC0) per element. Returns pointer past the last written
@@ -2651,7 +2651,7 @@ CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004267E0 - std::_Ufill_n (CVector, 57 bytes)
+ * 0x004267E0 - std::_Ufill_n (CVector)
  *
  * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
  * per element with the value pointed to by valuePtr. Returns void (no
@@ -2670,7 +2670,7 @@ CVector_UfillN_67E0(CVector *this, void *dest, uint32_t count, void *valuePtr)
 }
 
 /*
- * 0x00426820 - std::copy_backward (uint32_t, 46 bytes)
+ * 0x00426820 - std::copy_backward (uint32_t)
  *
  * Copies [first, last) backward into memory ending at dest_end. Returns
  * pointer to the first copied destination element (dest_end - (last -
@@ -3739,7 +3739,7 @@ CFileEntry_ScalarDelete(CFileEntry *self, int flags)
 }
 
 /*
- * 0x0045AAB0 - std::list<void*>::_Init (login script list, 54 bytes)
+ * 0x0045AAB0 - std::list<void*>::_Init (login script list)
  *
  * Copies byte from *arg to this[0], calls _Buynode(0, 0) to create
  * self-referencing sentinel at this+4, sets this+8 (count) = 0. Template
@@ -3755,7 +3755,7 @@ StdPtrList_InitLogin(StdPtrList *this, const void *init)
 }
 
 /*
- * 0x0045AAF0 - std::list<void*>::~list (login script list, 90 bytes)
+ * 0x0045AAF0 - std::list<void*>::~list (login script list)
  *
  * Gets begin and end iterators, erases the entire range, frees the
  * sentinel node, and zeroes head and size.
@@ -3774,7 +3774,7 @@ StdPtrList_DestructorLogin(StdPtrList *list)
 }
 
 /*
- * 0x0045AC30 - std::list<void*>::erase range (login script list, 78 bytes)
+ * 0x0045AC30 - std::list<void*>::erase range (login script list)
  *
  * While first != last: post-increments first (0x00484990), erases old
  * position via StdPtrList_Erase. Stores final iterator to *result.
@@ -3851,7 +3851,7 @@ StdPtrList_End(StdPtrList *list, StdPtrNode **outIter)
 }
 
 /*
- * 0x00462070 - std::list<void*>::push_back (grid variant, 46 bytes)
+ * 0x00462070 - std::list<void*>::push_back (grid variant)
  *
  * Template instantiation of push_back for CEntityMap grid blocks. Called
  * from CEntityMap_GridInsert (0x00461F10). Identical logic to
@@ -3868,7 +3868,7 @@ StdPtrList_PushBackGrid(StdPtrList *list, void *value)
 }
 
 /*
- * 0x004620A0 - std::list<void*>::_Insert (grid variant, 171 bytes)
+ * 0x004620A0 - std::list<void*>::_Insert (grid variant)
  *
  * Template instantiation of _Insert for CEntityMap grid blocks. Called
  * from StdPtrList_PushBackGrid (0x00462070). Identical logic to
@@ -3893,7 +3893,7 @@ StdPtrList_DoInsertGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, 
 }
 
 /*
- * 0x00462150 - std::list<void*>::erase range (grid variant, 78 bytes)
+ * 0x00462150 - std::list<void*>::erase range (grid variant)
  *
  * Template instantiation of erase range for CEntityMap grid blocks. While
  * first != last: post-increments first (0x00484990), erases old position
@@ -3954,7 +3954,7 @@ StdPtrIter_Deref(StdPtrNode **iter)
 }
 
 /*
- * 0x00462BA0 - std::_Ucopy (CVector instantiation 6, 62 bytes)
+ * 0x00462BA0 - std::_Ucopy (CVector instantiation 6)
  *
  * Copies 4-byte elements from [first, last) to dest via construct
  * callback. Returns pointer past last written element.
@@ -3975,7 +3975,7 @@ CVector_Ucopy_BA0(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x00462BE0 - std::_Ufill_n (CVector instantiation 6, 57 bytes)
+ * 0x00462BE0 - std::_Ufill_n (CVector instantiation 6)
  *
  * Fills count 4-byte elements at dest by calling construct per element
  * with the value pointed to by valuePtr.
@@ -3993,7 +3993,7 @@ CVector_UfillN_BE0(CVector *this, void *dest, uint32_t count, void *valuePtr)
 }
 
 /*
- * 0x00462C20 - std::_Ucopy (CVector instantiation 7, 62 bytes)
+ * 0x00462C20 - std::_Ucopy (CVector instantiation 7)
  *
  * Copies 4-byte elements from [first, last) to dest via construct
  * callback. Returns pointer past last written element.
@@ -4014,7 +4014,7 @@ CVector_Ucopy_C20(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x00462C60 - std::_Ufill_n (CVector instantiation 7, 57 bytes)
+ * 0x00462C60 - std::_Ufill_n (CVector instantiation 7)
  *
  * Fills count 4-byte elements at dest by calling construct per element
  * with the value pointed to by valuePtr.
@@ -4418,7 +4418,7 @@ StdPtrList_Destructor_HelpQueue(StdPtrList *this)
 }
 
 /*
- * 0x0046BA10 - CVector destructor (SurfaceInfo variant, 99 bytes)
+ * 0x0046BA10 - CVector destructor (SurfaceInfo variant)
  *
  * Calls CVector_DestroyRangeSI on [begin, end], then computes (capacity -
  * begin) / 12 and deallocates via StdDeque_Dealloc (which is just free).
@@ -4440,7 +4440,7 @@ CVector_DestructorSI(CVector *this)
 }
 
 /*
- * 0x0046BA80 - CVector::push_back (SurfaceInfo variant, 34 bytes)
+ * 0x0046BA80 - CVector::push_back (SurfaceInfo variant)
  *
  * Calls StdList_GetSize (returns end offset) then CVector_InsertAt.
  */
@@ -4452,7 +4452,7 @@ CVector_PushBackSI(CVector *this, SurfaceInfo *value)
 }
 
 /*
- * 0x0046BB00 - CVector::InsertAt (SurfaceInfo variant, 75 bytes)
+ * 0x0046BB00 - CVector::InsertAt (SurfaceInfo variant)
  *
  * Computes offset from CSearchCtx_GetBucket, calls _Insert with count=1,
  * then recomputes offset from bucket base.
@@ -4475,7 +4475,7 @@ CVector_InsertAtSI(CVector *this, uintptr_t index, SurfaceInfo *value)
 }
 
 /*
- * 0x0046BB50 - Destroy range (SurfaceInfo variant, 46 bytes)
+ * 0x0046BB50 - Destroy range (SurfaceInfo variant)
  *
  * Iterates from first to last stepping by 12, calling
  * CVector_Destroy6_Single on each.
@@ -4557,7 +4557,7 @@ CVector_InsertSI(CVector *this, SurfaceInfo *pos, uint32_t count, SurfaceInfo *v
 }
 
 /*
- * 0x0046BDC0 - CVector::GetCount (SurfaceInfo variant, 57 bytes)
+ * 0x0046BDC0 - CVector::GetCount (SurfaceInfo variant)
  *
  * Returns element count for 0x0C-byte (12 byte) elements: (end - begin) /
  * 12. Returns 0 if begin is NULL.
@@ -4571,7 +4571,7 @@ CVector_GetCountC(CVector *list)
 }
 
 /*
- * 0x0046BE00 - std::_Ucopy (SurfaceInfo variant, 62 bytes)
+ * 0x0046BE00 - std::_Ucopy (SurfaceInfo variant)
  *
  * Copies SurfaceInfo elements from [first, last) to dest via
  * SurfaceInfo_ConstructorAlloc per element. Returns pointer past last written
@@ -4589,7 +4589,7 @@ CVector_UcopySI(CVector *this, SurfaceInfo *first, SurfaceInfo *last, SurfaceInf
 }
 
 /*
- * 0x0046BE40 - std::_Ufill_n (SurfaceInfo variant, 57 bytes)
+ * 0x0046BE40 - std::_Ufill_n (SurfaceInfo variant)
  *
  * Fills count SurfaceInfo elements at dest by calling
  * SurfaceInfo_ConstructorAlloc per element with the value from src.
@@ -4605,7 +4605,7 @@ CVector_UfillNSI(CVector *this, SurfaceInfo *dest, uint32_t count, SurfaceInfo *
 }
 
 /*
- * 0x0046BEA0 - std::sort entry (SurfaceInfo, 38 bytes)
+ * 0x0046BEA0 - std::sort entry (SurfaceInfo)
  *
  * Computes depth from GameCentMon_GetPlayerCount, then calls sort main.
  */
@@ -4617,7 +4617,7 @@ SortSurface_Entry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag)
 }
 
 /*
- * 0x0046C170 - std::sort main (SurfaceInfo, 192 bytes)
+ * 0x0046C170 - std::sort main (SurfaceInfo)
  *
  * If range <= 16 elements, calls insertion sort. Otherwise calls
  * quicksort, then insertion sort on the first 16, then unguarded insertion
@@ -4652,7 +4652,7 @@ SortSurface_Main(SurfaceInfo *begin, SurfaceInfo *end, char typeTag, int depth)
 }
 
 /*
- * 0x0046C230 - std::sort insertion entry (SurfaceInfo, 38 bytes)
+ * 0x0046C230 - std::sort insertion entry (SurfaceInfo)
  *
  * Computes depth from GameCentMon_GetPlayerCount, then calls insertion
  * sort.
@@ -4665,7 +4665,7 @@ SortSurface_InsertionEntry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag)
 }
 
 /*
- * 0x0046C260 - std::sort quicksort (SurfaceInfo, 364 bytes)
+ * 0x0046C260 - std::sort quicksort (SurfaceInfo)
  *
  * Quicksort loop: while range > 16, choose median-of-3 pivot, partition,
  * recurse on smaller half. Falls through to insertion sort entry when
@@ -4719,7 +4719,7 @@ SortSurface_Quicksort(SurfaceInfo *begin, SurfaceInfo *end, char typeTag, int de
 }
 
 /*
- * 0x0046C3D0 - Unguarded linear insert (SurfaceInfo, 82 bytes)
+ * 0x0046C3D0 - Unguarded linear insert (SurfaceInfo)
  *
  * Shifts elements right until insertion point found. Compares value < prev
  * (not prev < value) per binary.
@@ -4757,7 +4757,7 @@ SortSurface_Compare(SurfaceInfo *a, SurfaceInfo *b)
 }
 
 /*
- * 0x0046C490 - Insertion sort (SurfaceInfo, 170 bytes)
+ * 0x0046C490 - Insertion sort (SurfaceInfo)
  *
  * Standard insertion sort: for each element after begin, if it's less than
  * first, copy backward and insert at front; otherwise do unguarded insert.
@@ -4793,7 +4793,7 @@ SortSurface_Insertion(SurfaceInfo *begin, SurfaceInfo *end, char typeTag, int de
 }
 
 /*
- * 0x0046C540 - Median of three (SurfaceInfo, 267 bytes)
+ * 0x0046C540 - Median of three (SurfaceInfo)
  *
  * Returns median of three SurfaceInfo values by comparing with
  * SortSurface_Compare.
@@ -4841,7 +4841,7 @@ SortSurface_Median3(SurfaceInfo *result, SurfaceInfo *a, SurfaceInfo *b, Surface
 }
 
 /*
- * 0x0046C650 - Partition (SurfaceInfo, 121 bytes)
+ * 0x0046C650 - Partition (SurfaceInfo)
  *
  * Hoare-like partition. Advances begin while pivot < end[--]; if lo >= hi,
  * return lo; otherwise swap and continue.
@@ -4872,7 +4872,7 @@ SortSurface_Partition(SurfaceInfo *begin, SurfaceInfo *end, SurfaceInfo *pivot, 
 }
 
 /*
- * 0x0046C6D0 - Swap with depth wrapper (SurfaceInfo, 34 bytes)
+ * 0x0046C6D0 - Swap with depth wrapper (SurfaceInfo)
  *
  * Computes depth via GameCentMon_GetPlayerCount, then calls
  * SortSurface_SwapImpl.
@@ -4886,7 +4886,7 @@ SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b)
 }
 
 /*
- * 0x0046C700 - Swap implementation (SurfaceInfo, 54 bytes)
+ * 0x0046C700 - Swap implementation (SurfaceInfo)
  *
  * Swaps two SurfaceInfo values using a local temp.
  */
@@ -4926,7 +4926,7 @@ CCriticalSection_Lock(uint32_t *this)
 }
 
 /*
- * 0x0046C960 - CVector::push_back (uint32_t variant, 34 bytes)
+ * 0x0046C960 - CVector::push_back (uint32_t variant)
  *
  * Calls StdList_GetSize (returns end offset) then CVector_Insert_C990.
  */
@@ -4938,7 +4938,7 @@ CVector_PushBack_C960(CVector *this, uintptr_t *value)
 }
 
 /*
- * 0x0046C990 - CVector::Insert (uint32_t variant, 66 bytes)
+ * 0x0046C990 - CVector::Insert (uint32_t variant)
  *
  * Computes offset from CSearchCtx_GetBucket, calls _Insert with count=1,
  * then recomputes offset from bucket base.
@@ -5035,7 +5035,7 @@ CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 }
 
 /*
- * 0x0046CC20 - std::_Ucopy (uint32_t variant, 62 bytes)
+ * 0x0046CC20 - std::_Ucopy (uint32_t variant)
  *
  * Copies 4-byte elements from [first, last) to dest via construct callback
  * (0x00424FC0) per element. Returns pointer past last written element.
@@ -5053,7 +5053,7 @@ CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *
 }
 
 /*
- * 0x0046CC60 - std::_Ufill_n (uint32_t variant, 57 bytes)
+ * 0x0046CC60 - std::_Ufill_n (uint32_t variant)
  *
  * Fills count 4-byte elements at dest via construct callback (0x00424FC0)
  * per element with the value pointed to by src.
@@ -5295,7 +5295,7 @@ CVector_ClearAndFree1C(CVector *vec)
 }
 
 /*
- * 0x00478BA0 - CVector::GetCount (CMultiComponent variant, 57 bytes)
+ * 0x00478BA0 - CVector::GetCount (CMultiComponent variant)
  *
  * Returns element count for 0x1C-byte (28 byte) elements: (end - begin) /
  * 28. Returns 0 if begin is NULL.
@@ -5396,7 +5396,7 @@ CVector_AssignOp4(CVector *this, CVector *src)
 }
 
 /*
- * 0x00479380 - CVector::GetCapacity (4-byte elements, 52 bytes)
+ * 0x00479380 - CVector::GetCapacity (4-byte elements)
  *
  * Returns allocated capacity: (capacity - begin) / 4, or 0 if begin is
  * NULL.
@@ -5410,7 +5410,7 @@ CVector_GetCapacity(CVector *list)
 }
 
 /*
- * 0x004793C0 - CVector::GetCapacity (16-byte elements, 52 bytes)
+ * 0x004793C0 - CVector::GetCapacity (16-byte elements)
  *
  * Returns allocated capacity: (capacity - begin) / 16, or 0 if begin is
  * NULL.
@@ -5485,7 +5485,7 @@ Destroy1C_Range2(CVector *this, int count, int unused_arg)
 }
 
 /*
- * 0x0047A350 - CVector::Allocate (4-byte elements, 27 bytes)
+ * 0x0047A350 - CVector::Allocate (4-byte elements)
  *
  * Thiscall wrapper that forwards to Vector_AllocElements(count, 0),
  * which saturates count to zero and allocates count*4 bytes via
@@ -6418,7 +6418,7 @@ UninitFillN_CRegionPtr(void **first, uint32_t count, void **value)
 }
 
 /*
- * 0x004CF490 - std::_Ucopy (AnimSequence CVector variant A, 62 bytes)
+ * 0x004CF490 - std::_Ucopy (AnimSequence CVector variant A)
  *
  * Copies 4-byte elements from [first, last) to dest via construct
  * (0x00424FC0). Returns pointer past last dest element.
@@ -6439,7 +6439,7 @@ CVector_Ucopy_F490(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004CF4D0 - std::_Ufill_n (AnimSequence CVector variant A, 57 bytes)
+ * 0x004CF4D0 - std::_Ufill_n (AnimSequence CVector variant A)
  *
  * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
  * per element.
@@ -6457,7 +6457,7 @@ CVector_UfillN_F4D0(CVector *this, void *dest, uint32_t count, void *valuePtr)
 }
 
 /*
- * 0x004CF510 - std::_Ucopy (AnimSequence CVector variant B, 62 bytes)
+ * 0x004CF510 - std::_Ucopy (AnimSequence CVector variant B)
  *
  * Identical to 0x004CF490.
  */
@@ -6477,7 +6477,7 @@ CVector_Ucopy_F510(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004CF550 - std::_Ufill_n (AnimSequence CVector variant B, 57 bytes)
+ * 0x004CF550 - std::_Ufill_n (AnimSequence CVector variant B)
  *
  * Identical to 0x004CF4D0.
  */
@@ -6494,7 +6494,7 @@ CVector_UfillN_F550(CVector *this, void *dest, uint32_t count, void *valuePtr)
 }
 
 /*
- * 0x004CF590 - std::_Ucopy (AnimSequence CVector variant C, 62 bytes)
+ * 0x004CF590 - std::_Ucopy (AnimSequence CVector variant C)
  *
  * Identical to 0x004CF490.
  */
@@ -6514,7 +6514,7 @@ CVector_Ucopy_F590(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004CF5D0 - std::_Ufill_n (AnimSequence CVector variant C, 57 bytes)
+ * 0x004CF5D0 - std::_Ufill_n (AnimSequence CVector variant C)
  *
  * Identical to 0x004CF4D0.
  */
@@ -6608,7 +6608,7 @@ StdTreeNode_KeyValuePtr(StdTreeNode *node)
 }
 
 /*
- * 0x004E3500 - std::_Tree iterator copy (MSVC CRT, 32 bytes)
+ * 0x004E3500 - std::_Tree iterator copy (MSVC CRT)
  *
  * Copies iterator value from src to dest. MSVC CRT internal - stub for
  * compilation.
@@ -6703,7 +6703,7 @@ StdTree_Insert(StdMapTree *tree, uintptr_t key, uintptr_t value)
 }
 
 /*
- * 0x004E6500 - std::_Tree::erase (RB delete with fixup, 1321 bytes)
+ * 0x004E6500 - std::_Tree::erase (RB delete with fixup)
  *
  * Erases a single node from the tree. Handles all red-black rebalancing
  * cases. Updates head's leftmost/rightmost. Decrements size. Frees node.
@@ -7012,10 +7012,19 @@ StdTree_EraseSubtree(StdMapTree *tree, StdTreeNode *node)
 }
 
 /*
- * 0x004E6CD0 - std::_Tree::_Insert (RB insert with fixup, 789 bytes)
+ * 0x004E6CD0 - std::_Tree::_Insert (RB insert with fixup)
  *
  * Allocates a new 0x18-byte node, links it as a child of parent, and
  * performs red-black rebalancing. Updates head's leftmost/rightmost/root.
+ *
+ * MODIFIED: the binary decides the side with
+ * `parent == head || _X != _Nil || key < parent->key` (0x004E6D44 through
+ * 0x004E6D66), taking a node pointer where this takes a boolean. Its only
+ * caller passes _Nil for that pointer at all three sites, so the live
+ * decision is the first and third terms, and StdTree_Insert hoists the
+ * third into `addLeft`. The composition matches; this function on its own
+ * does not, and would attach right where the binary attaches left if it
+ * were ever called with addLeft = 0 and key < parent->key.
  */
 static StdTreeNode *
 StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t key, uintptr_t value)
@@ -7189,7 +7198,7 @@ StdTree_LowerBound(StdMapTree *tree, uintptr_t key)
 }
 
 /*
- * 0x004E7040 - std::_Tree::_Dec (predecessor, 181 bytes)
+ * 0x004E7040 - std::_Tree::_Dec (predecessor)
  *
  * Moves to the previous node in key order. Head detection: if node[0x14]
  * == 0 and node->parent->parent == node, this is the head node (end
@@ -7232,7 +7241,7 @@ StdTree_Dec(StdTreeNode **iter)
 }
 
 /*
- * 0x004E7100 - std::_Tree::_Inc (successor, 167 bytes)
+ * 0x004E7100 - std::_Tree::_Inc (successor)
  *
  * Advances to the next node in key order. If right child exists, finds
  * leftmost in right subtree. Otherwise walks up until we're no longer a

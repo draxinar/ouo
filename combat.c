@@ -560,13 +560,13 @@ part2:
 		return;
 
 	if (bodyType == 0x15) {
-		BroadcastAnimation((CMobile *)target, (rand2 >= 0x11) ? 16 : 15, 3, 1, 0, 1, 0);
+		BroadcastAnimation(((CMobile *)(CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)(CMobile *)target), (rand2 >= 0x11) ? 16 : 15, 3, 1, 0, 1, 0);
 	} else if (bodyType < 0x96) {
-		BroadcastAnimation((CMobile *)target, (rand2 >= 0x11) ? 16 : 15, 3, 1, 0, 0, 0);
+		BroadcastAnimation(((CMobile *)(CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)(CMobile *)target), (rand2 >= 0x11) ? 16 : 15, 3, 1, 0, 0, 0);
 	} else {
 		if (VT_IsPlayer(target) && CMobile_IsMounted((CMobile *)target))
 			return;
-		BroadcastAnimation((CMobile *)target, 30, 5, 1, 0, 0, 0);
+		BroadcastAnimation(((CMobile *)(CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)(CMobile *)target), 30, 5, 1, 0, 0, 0);
 	}
 }
 
@@ -580,29 +580,24 @@ part2:
 static void
 Combat_HitEffects(CMobile *attacker, CMobile *target, CItem *weapon)
 {
-	CLocation *targetLoc;
 	CLocation splatLoc;
 	uint16_t tgtBody;
 	CItem *blood;
 	int dir;
 
 	if (VT_IsNPC((CItem *)target) && target->sfxWasHit != 0) {
-		targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)target, VT_GET_LOCATION))(target);
-		PlaySoundAtLocation(targetLoc, target->sfxWasHit, 0);
+		PlaySoundAtLocation(VT_GetLocation((CItem *)target), target->sfxWasHit, 0);
 	}
 
 	if (VT_IsNPC((CItem *)attacker) && attacker->sfxWasHit != 0) {
-		CLocation *attackerLoc;
-		attackerLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)attacker, VT_GET_LOCATION))(attacker);
-		PlaySoundAtLocation(attackerLoc, attacker->sfxHit, 0);
+		PlaySoundAtLocation(VT_GetLocation((CItem *)attacker), attacker->sfxHit, 0);
 	}
 
 	if (weapon != NULL && CItem_IsRangedWeapon(weapon) && !VT_IsPlayer((CItem *)target) && GetRandomRange(0, 100) < 25) {
 		CItem *ammo;
 		CLocation tempLoc;
 		ammo = CWorld_CreateItem(g_World, CItem_GetAmmoType(weapon));
-		targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)target, VT_GET_LOCATION))(target);
-		CItem_Setup(ammo, 0, targetLoc, 0, 1);
+		CItem_Setup(ammo, 0, VT_GetLocation((CItem *)target), 0, 1);
 		CLocation_Constructor3D(&tempLoc, -1, -1, 0);
 		((void (*)(void *, CItem *, CLocation *))VT_FN(ammo, 0xB4))(ammo, (CItem *)target, &tempLoc);
 	}
@@ -611,33 +606,32 @@ Combat_HitEffects(CMobile *attacker, CMobile *target, CItem *weapon)
 
 	if (tgtBody < 0x96) {
 		if (VT_IsNPC((CItem *)target) && ((CNPC *)target)->aiByte3 == 1) {
-			BroadcastAnimation(target, 0x15, 7, 1, 0, 0, 0);
+			BroadcastAnimation(((CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)target), 0x15, 7, 1, 0, 0, 0);
 		} else if ((CEntity_GetBodyType((CItem *)target) & 0xFFFF) == 0x15) {
-			BroadcastAnimation(target, 0x0A, 4, 1, 0, 1, 0);
+			BroadcastAnimation(((CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)target), 0x0A, 4, 1, 0, 1, 0);
 		} else if ((CEntity_GetBodyType((CItem *)target) & 0xFFFF) == 0x06) {
 			// body 0x06 has no get-hit animation
 		} else if ((CEntity_GetBodyType((CItem *)target) & 0xFFFF) == 0x16) {
 			// body 0x16 has no get-hit animation
 		} else {
-			BroadcastAnimation(target, 0x0A, 4, 1, 0, 0, 0);
+			BroadcastAnimation(((CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)target), 0x0A, 4, 1, 0, 0, 0);
 		}
 	} else if (tgtBody < 0xC8) {
-		BroadcastAnimation(target, 0x07, 5, 1, 0, 0, 0);
+		BroadcastAnimation(((CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)target), 0x07, 5, 1, 0, 0, 0);
 	} else if (tgtBody < 0x190) {
-		BroadcastAnimation(target, 0x07, 5, 1, 0, 0, 0);
+		BroadcastAnimation(((CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)target), 0x07, 5, 1, 0, 0, 0);
 	} else {
 		if (VT_IsPlayer((CItem *)target) && CMobile_IsMounted(target))
 			goto blood_item;
-		BroadcastAnimation(target, 0x14, 5, 1, 0, 0, 0);
+		BroadcastAnimation(((CMobile *)target)->container.item.serial, *VT_GetLocation((CItem *)target), 0x14, 5, 1, 0, 0, 0);
 	}
 
 blood_item:
 	blood = CWorld_CreateItem(g_World, 0x1645);
 	if (blood != NULL) {
-		targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)target, VT_GET_LOCATION))(target);
-		((void (*)(void *, CLocation *))VT_FN(blood, VT_DROP_AT_FEET))(blood, targetLoc);
+		((void (*)(void *, CLocation *))VT_FN(blood, VT_DROP_AT_FEET))(blood, VT_GetLocation((CItem *)target));
 		blood->itemFlags |= ItemFlag_Poisoned;
-		CItem_Setup(blood, 0, targetLoc, 0, 1);
+		CItem_Setup(blood, 0, VT_GetLocation((CItem *)target), 0, 1);
 		if (!ValidateInWorld(blood))
 			blood = NULL;
 		if (blood != NULL)
@@ -647,8 +641,7 @@ blood_item:
 	if (GetRandomRange(0, 2) != 1)
 		return;
 	dir = GetRandomRange(0, 7);
-	targetLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)target, VT_GET_LOCATION))(target);
-	splatLoc = *targetLoc;
+	splatLoc = *VT_GetLocation((CItem *)target);
 	splatLoc.x += g_DirDeltaX[dir];
 	splatLoc.y += g_DirDeltaY[dir];
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)splatLoc.x, (int16_t)splatLoc.y))

@@ -896,9 +896,9 @@ PacketManager_MakePacket_MULTI_OBJ_TO_OBJ(uint8_t *buf, CContainer *cont, int fi
 	while (cur != NULL) {
 		// Compute amount (3-way dispatch)
 		if (((int (*)(void *))VT_FN(&cont->item, VT_EXCLUDED_AMOUNT))(&cont->item))
-			amount = (uint16_t)CItem_GetTiledataQuantity(cur);
+			amount = (uint16_t)CItem_GetSortKeyQty(cur);
 		else if (sellMode)
-			amount = (uint16_t)CItem_GetMinResourceRatio(cur);
+			amount = (uint16_t)Vendor_GetItemPrice(cur);
 		else
 			amount = (uint16_t)((int (*)(void *))VT_FN(cur, VT_GET_ITEM_AMOUNT))(cur);
 
@@ -929,9 +929,9 @@ PacketManager_MakePacket_MULTI_OBJ_TO_OBJ(uint8_t *buf, CContainer *cont, int fi
 	while (cur != NULL) {
 		// Compute amount (same 3-way dispatch)
 		if (((int (*)(void *))VT_FN(&cont->item, VT_EXCLUDED_AMOUNT))(&cont->item))
-			amount = (uint16_t)CItem_GetTiledataQuantity(cur);
+			amount = (uint16_t)CItem_GetSortKeyQty(cur);
 		else if (sellMode)
-			amount = (uint16_t)CItem_GetMinResourceRatio(cur);
+			amount = (uint16_t)Vendor_GetItemPrice(cur);
 		else
 			amount = (uint16_t)((int (*)(void *))VT_FN(cur, VT_GET_ITEM_AMOUNT))(cur);
 
@@ -943,7 +943,7 @@ PacketManager_MakePacket_MULTI_OBJ_TO_OBJ(uint8_t *buf, CContainer *cont, int fi
 
 		// Write item
 		PutDWord(buf, cur->serial);
-		PutWord(buf, cur->resourceEntity.entity.bodyType);
+		PutWord(buf, CEntity_GetBodyType(cur));
 		PutByte(buf, CItem_IsStackable(cur));
 
 		// Amount for packet: isPlayer uses pre-computed amount,
@@ -951,7 +951,7 @@ PacketManager_MakePacket_MULTI_OBJ_TO_OBJ(uint8_t *buf, CContainer *cont, int fi
 		if (isPlayer) {
 			PutWord(buf, amount);
 		} else {
-			if (g_ItemTileData[cur->resourceEntity.entity.bodyType].flags & TF_STACKABLE)
+			if (g_ItemTileData[CEntity_GetBodyType(cur) & 0xFFFF].flags & TF_STACKABLE)
 				PutWord(buf, (uint16_t)CItem_GetMinResourceRatio(cur));
 			else
 				PutWord(buf, (uint16_t)((int (*)(void *))VT_FN(cur, VT_GET_AMOUNT))(cur));

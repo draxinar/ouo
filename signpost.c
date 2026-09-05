@@ -352,7 +352,7 @@ CSignpost_GetValue_VT(CItem *self, int useResource, int normalize)
 }
 
 /*
- * 0x004912F0 - CSignpost scalar deleting destructor (vtable[0], 44 bytes)
+ * 0x004912F0 - CSignpost scalar deleting destructor (vtable[0])
  *
  * Destroys the signpost and frees it when flags&1.
  */

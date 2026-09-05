@@ -285,7 +285,8 @@ CShopkeeper_OpenBuyWindow(CPlayer *player, CMobile *vendor)
 	CItem *item;
 	int markupPercent;
 
-	Vendor_SayTo(player, vendor, "Greetings.  Have a look around.");
+	((void (*)(void *, CItem *, uint32_t, const char *))VT_FN((CItem *)vendor, VT_SAY_TO_ENTITY))(
+	        vendor, (CItem *)player, player->mobile.container.item.serial, "Greetings.  Have a look around.");
 
 	markupPercent = Vendor_GetMarkupPercent(vendor, player);
 
@@ -946,9 +947,11 @@ check_count:
 		PacketManager_MakePacket_SHOP_SELL(obuf, vendor, (uint16_t)count, sellBuf);
 		SendToClient((CItem *)player, obuf, -1);
 	} else if (g_VendorSawMatch) {
-		Vendor_SayTo(player, vendor, "I can't afford any more of that right now.  You might try other adventurers.");
+		((void (*)(void *, CItem *, uint32_t, const char *))VT_FN((CItem *)vendor, VT_SAY_TO_ENTITY))(
+		        vendor, (CItem *)player, player->mobile.container.item.serial, "I can't afford any more of that right now.  You might try other adventurers.");
 	} else {
-		Vendor_SayTo(player, vendor, "You have nothing I would be interested in.");
+		((void (*)(void *, CItem *, uint32_t, const char *))VT_FN((CItem *)vendor, VT_SAY_TO_ENTITY))(
+		        vendor, (CItem *)player, player->mobile.container.item.serial, "You have nothing I would be interested in.");
 	}
 
 	OperatorDelete(sellBuf);

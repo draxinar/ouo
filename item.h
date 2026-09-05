@@ -360,6 +360,7 @@ void TemplateChain_Insert(CItem *item); // 0x00490973
 void TemplateChain_Remove(CItem *item); // 0x004909FB
 int CItem_GetWordProp(CItem *item); // 0x00490AB0
 uint8_t CItem_GetLayerThiscall(CItem *entity); // 0x00490AD6
+int CItem_GetSortKeyQty(CItem *item); // 0x00490DB7
 uint8_t CWorld_GetItemLayer(uint16_t bodyType); // 0x00490AF4
 uint8_t CItem_GetEquipSlot(CItem *item); // 0x00490B24
 void CItem_SetBookStatus(CItem *item, int status); // 0x00490B37

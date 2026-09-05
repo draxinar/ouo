@@ -267,7 +267,7 @@ void CResBankManager_PrintSpawnStatistics(void); // 0x004AD38C
 void CResBankManager_ClearAllRegions(void); // 0x004AD55E
 void CResBankManager_LoadResBank(void); // 0x004AD8EC
 void CResBankManager_NoOp(CResBankManager *this); // 0x004ADDD0
-void CResBankManager_SaveResBank(CResBankManager *this, char **destPtr); // 0x004ADE8C
+int CResBankManager_SaveResBank(CResBankManager *this, char **destPtr); // 0x004ADE8C
 void ResBank_SaveToFile(void);
 int CResBankRegion_SpawnAttempt(CResBankRegion *region, int spawnFilter); // 0x004AE153
 void CResBankManager_SpawnTick(int arg1, int spawnFilter); // 0x004AE1D5

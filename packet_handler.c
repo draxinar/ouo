@@ -8884,7 +8884,7 @@ DispatchDoubleClickMobile(CPlayer *player, uint32_t serial, CLocation *loc, CIte
 	if (entity->parent != NULL)
 		return;
 
-	CLocation_SetLoc(&entityLoc, CEntity_GetLocation(&entity->resourceEntity.entity));
+	CLocation_SetLoc(&entityLoc, VT_GetLocation(entity));
 
 	if (entity == (CItem *)player || (CResourceEntity_GetBodyType(entity) & 0xFFFF) > 0x18F) {
 		if (player != NULL && (CItem *)player == entity && CMobile_IsMounted(&player->mobile) && !isPaperdoll) {
@@ -8909,7 +8909,7 @@ DispatchDoubleClickMobile(CPlayer *player, uint32_t serial, CLocation *loc, CIte
 		return;
 	}
 
-	if (Location_DistanceTo2D(CEntity_GetLocation(&player->mobile.container.item.resourceEntity.entity), CEntity_GetLocation(&entity->resourceEntity.entity)) >= 2) {
+	if (Location_DistanceTo2D(VT_GetLocation((CItem *)player), VT_GetLocation(entity)) >= 2) {
 		CPlayer_SystemMessage(player, "That is too far away to ride.");
 		return;
 	}
@@ -9578,19 +9578,6 @@ LightToggleLookup(uint16_t graphic)
 		}
 	}
 	return 0;
-}
-
-/*
- * Helper - Vendor_SayTo
- *
- * Vendor NPC says a message to a specific player (binary: vtable[0x6C]).
- */
-void
-Vendor_SayTo(CPlayer *player, CMobile *vendor, char *text)
-{
-	uint8_t sbuf[512];
-	PacketManager_MakePacket_TEXT(sbuf, (CItem *)&vendor->container.item, (CItem *)&vendor->container.item, 0, text, 0x0035, 3);
-	SendPacketToPlayer(player, sbuf, -1);
 }
 
 /*

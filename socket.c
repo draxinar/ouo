@@ -102,7 +102,7 @@ Socket_CountPacket(uint32_t type, uint32_t size)
 }
 
 /*
- * 0x0047E018 - (unknown, 5 bytes, no-op)
+ * 0x0047E018 - (unknown, no-op)
  *
  * Empty stub called from Server_Select.
  */

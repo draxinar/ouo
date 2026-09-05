@@ -61,7 +61,7 @@ CEScript_ReadLine(CEScript *ctx)
 	return ptr;
 }
 /*
- * 0x0045B977 - CEScriptVar::CEScriptVar (base constructor, 30 bytes)
+ * 0x0045B977 - CEScriptVar::CEScriptVar (base constructor)
  *
  * Thiscall. Sets vtable to base, zeroes name[0].
  */
