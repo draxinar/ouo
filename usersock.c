@@ -37,6 +37,36 @@ uint8_t g_ServerAddr[4];
 uint16_t g_ServerPort = 2593;
 
 /*
+ * Unlink a specific socket/player pair without disturbing a newer
+ * association installed on either object.
+ */
+void
+CUserSock_DetachPlayer(CUserSock *this, CPlayer *player)
+{
+	if (this == NULL || player == NULL)
+		return;
+	if (this->player == player)
+		this->player = NULL;
+	if (player->usersock == this)
+		player->usersock = NULL;
+}
+
+/*
+ * Close a live player connection, then sever the bidirectional link.
+ * SocketDestroyed means the socket pump is already running its destructor;
+ * do not move that socket backward to SocketClosing during nested logout.
+ */
+void
+CUserSock_CloseAndDetachPlayer(CUserSock *this, CPlayer *player)
+{
+	if (this == NULL || player == NULL)
+		return;
+	if (this->player == player && this->socket.status != SocketDestroyed)
+		this->socket.status = SocketClosing;
+	CUserSock_DetachPlayer(this, player);
+}
+
+/*
  * 0x0047EB43 - UserSock_DoHandlePacket
  *
  * Packet dispatch loop: reads packet type, validates pre-login gate,
@@ -401,16 +431,19 @@ CUserSock_Constructor(CUserSock *this, int s, int addr)
 CSocket *
 CUserSock_Delete(CUserSock *this)
 {
+	CPlayer *player;
+
 	this->socket.vtable = (CSocket_vtable *)&VTABLE_CUserSock;
 	if (GLOBAL_CUserSock == this)
 		GLOBAL_CUserSock = 0;
-	if (this->player) {
+	player = this->player;
+	if (player != NULL) {
 		// Custom: log disconnect before logout
 		if (this->account)
-			Log_Game(this->addr, "'%s' disconnected as '%s'", this->account->login, CMobile_GetName_VT((CItem *)this->player));
-		if (CPlayer_IsPlayerOnline(this->player))
-			CPlayer_LogOut(this->player, 1);
-		this->player->usersock = 0;
+			Log_Game(this->addr, "'%s' disconnected as '%s'", this->account->login, CMobile_GetName_VT((CItem *)player));
+		if (CPlayer_IsPlayerOnline(player))
+			CPlayer_LogOut(player, 1);
+		CUserSock_DetachPlayer(this, player);
 	}
 	if (this->gameCrypt) {
 		free(this->gameCrypt);

@@ -3917,6 +3917,9 @@ CPlayer_Disconnect(CPlayer *this)
 
 	BroadcastDestroyAndRemove(&this->mobile.container.item);
 
+	// Flush the queued destroy packet and close server-initiated logouts.
+	CUserSock_CloseAndDetachPlayer(this->usersock, this);
+
 	CVector_Destructor(&scriptVec);
 }
 
