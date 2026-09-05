@@ -5907,7 +5907,7 @@ HandlePacket_HUEPICKER(CPlayer *this, uint8_t *buf)
 void
 HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf)
 {
-	uint8_t obuf[0x23];
+	uint8_t obuf[0x25];
 	uint32_t off;
 	uint32_t serial;
 

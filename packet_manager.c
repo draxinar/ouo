@@ -2356,14 +2356,15 @@ PacketManager_MakePacket_MOBNAME(uint8_t *buf, CPlayer *viewer, uint32_t serial)
 
 	memset(nameBuf, 0, sizeof(nameBuf));
 
-	PutPacketType(buf, PacketType_MOBNAME, 0x23);
+	PutPacketType(buf, PacketType_MOBNAME, 0x25);
 	PutDWord(buf, serial);
 
 	entity = CWorld_FindEntityInRange(g_World, &viewer->mobile.container.item.resourceEntity.entity, serial, 18);
 	if (entity != NULL) {
 		if (VT_IsMobile(entity)) {
 			char *name = ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity);
-			strcpy(nameBuf, name);
+			strncpy(nameBuf, name, sizeof(nameBuf) - 1);
+			nameBuf[sizeof(nameBuf) - 1] = '\0';
 		}
 	}
 
