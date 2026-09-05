@@ -1865,9 +1865,11 @@ HandlePacket_ACCT_LOGIN_REQ(CUserSock *this, uint8_t *buf)
  * not implemented in UoDemo.exe.
  *
  * MODIFIED: actually deletes the character. Finds the player by slot
- * index in the global player list, verifies not logged in, removes
- * from the list, deletes the entity via vtable, and sends updated
- * character list (0x86 ALL_CHARACTERS) back to client.
+ * index in the global player list, verifies not logged in and not still
+ * in the world during delayed logout, removes from the list, deletes the
+ * entity via vtable, and sends updated character list (0x86
+ * ALL_CHARACTERS) back to client. The slot is compared unsigned so a
+ * large index cannot walk off the vector.
  */
 void
 HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
@@ -1905,7 +1907,13 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	CVector_Constructor(&charVec, &typeFlag);
 	CPlayerList_CollectByAccountIDSorted(&charVec, this->account->accountNum);
 	numCharacters = CVector_GetCount(&charVec);
-	target = ((int)characterSlot < numCharacters) ? (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot] : NULL;
+	// characterSlot is unsigned off the wire; a signed compare let a large
+	// value pass and index the vector out of bounds, then delete through a
+	// fabricated pointer. Compare unsigned.
+	if (numCharacters < 0 || characterSlot >= (uint32_t)numCharacters)
+		target = NULL;
+	else
+		target = (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot];
 	CVector_Destructor(&charVec);
 
 	memset(obuf, 0, sizeof(obuf));
@@ -1917,8 +1925,8 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 		return;
 	}
 
-	if (target->usersock != NULL) {
-		// Character is currently logged in
+	if (target->usersock != NULL || World_IsEntityInHash((CItem *)target)) {
+		// Currently logged in, or still in the world during delayed logout
 		PacketManager_MakePacket_CHG_CHAR_RESULT(obuf, 2);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		return;
