@@ -1133,7 +1133,7 @@ CWeatherRegion_tick(CWeatherRegion *r)
 	int temp;
 	int shouldBroadcast;
 	int numEffects;
-	uint8_t obuf[8];
+	uint8_t obuf[4];
 	CLocation loc;
 
 	if (!r->isPrecipitating) {

@@ -1035,6 +1035,8 @@ RegionManager_GetLocalizedDesc(CString *outStr, int16_t *outLoc, CLocation *inLo
 		pOut[2] = (int16_t)((region->zMin + region->zMax) / 2);
 	}
 
+	region = *(CRegion **)CResList_GetData(&sortedList, node);
+
 	if (CRegion_isCoordInside(region, inLoc2)) {
 		if (hasCoords)
 			result = 4;
@@ -1071,7 +1073,7 @@ CRegion_ScalarDtor(CRegion *this)
  * (case-insensitive) to outList.
  */
 void
-RegionManager_SearchByPrefix(CResList *outList, CLocation *loc, const char *prefix)
+RegionManager_SearchByPrefix(CLocation *loc, CString prefix, CResList *outList)
 {
 	CVector localVec;
 	char typeFlag;
@@ -1083,20 +1085,21 @@ RegionManager_SearchByPrefix(CResList *outList, CLocation *loc, const char *pref
 
 	CRegionGrid_Populate(g_RegionGrid, &localVec, loc);
 
-	prefixLen = (int)strlen(prefix);
+	prefixLen = (int)strlen(CString_GetBuffer(&prefix));
 
 	iter = (uintptr_t *)localVec.begin;
 	end = (uintptr_t *)localVec.end;
 	while (iter != end) {
 		char *regionName = ((CRegion *)(*iter))->name;
 
-		if (strncasecmp(regionName, prefix, prefixLen) == 0) {
+		if (strncasecmp(regionName, CString_GetBuffer(&prefix), prefixLen) == 0) {
 			CResList_AppendAndStore_ByNameAll(outList, (uint32_t *)iter);
 		}
 		iter++;
 	}
 
 	CVector_Destructor(&localVec);
+	CString_Destructor(&prefix);
 }
 
 /*
@@ -1130,21 +1133,16 @@ RegionGrid_SearchTag(CVector *list, const char *tag)
  * Returns 1 if the location lies in a "justice" or "city" region.
  */
 int
-RegionManager_inJusticeRegion(int16_t x, int16_t y, int16_t z)
+RegionManager_inJusticeRegion(CLocation *loc)
 {
 	CVector localVec;
 	char typeFlag;
 	uintptr_t *result;
-	CLocation loc;
-
-	loc.x = (uint16_t)x;
-	loc.y = (uint16_t)y;
-	loc.z = z;
 
 	typeFlag = 0;
 	CVector_Constructor(&localVec, &typeFlag);
 
-	CRegionGrid_Populate(g_RegionGrid, &localVec, &loc);
+	CRegionGrid_Populate(g_RegionGrid, &localVec, loc);
 
 	result = RegionGrid_SearchTag(&localVec, "justice");
 	if (result != (uintptr_t *)localVec.end) {
@@ -1168,21 +1166,16 @@ RegionManager_inJusticeRegion(int16_t x, int16_t y, int16_t z)
  * Returns 1 if the location lies in a "no_guard" region.
  */
 int
-RegionManager_isGuardedRegion(int16_t x, int16_t y, int16_t z)
+RegionManager_isGuardedRegion(CLocation *loc)
 {
 	CVector localVec;
 	char typeFlag;
 	uintptr_t *result;
-	CLocation loc;
-
-	loc.x = (uint16_t)x;
-	loc.y = (uint16_t)y;
-	loc.z = z;
 
 	typeFlag = 0;
 	CVector_Constructor(&localVec, &typeFlag);
 
-	CRegionGrid_Populate(g_RegionGrid, &localVec, &loc);
+	CRegionGrid_Populate(g_RegionGrid, &localVec, loc);
 
 	result = RegionGrid_SearchTag(&localVec, "no_guard");
 	if (result != (uintptr_t *)localVec.end) {
@@ -1228,21 +1221,16 @@ RegionManager_IsInRegion(CLocation *loc, const char *prefix)
  * Returns 1 if the location lies in a "city" region.
  */
 int
-RegionManager_isInCityRegion(int16_t x, int16_t y, int16_t z)
+RegionManager_isInCityRegion(CLocation *loc)
 {
 	CVector localVec;
 	char typeFlag;
 	uintptr_t *result;
-	CLocation loc;
-
-	loc.x = (uint16_t)x;
-	loc.y = (uint16_t)y;
-	loc.z = z;
 
 	typeFlag = 0;
 	CVector_Constructor(&localVec, &typeFlag);
 
-	CRegionGrid_Populate(g_RegionGrid, &localVec, &loc);
+	CRegionGrid_Populate(g_RegionGrid, &localVec, loc);
 
 	result = RegionGrid_SearchTag(&localVec, "city");
 	if (result != (uintptr_t *)localVec.end) {
@@ -1310,17 +1298,12 @@ next:
  * wins.
  */
 int
-RegionManager_isHousingOkay(int16_t x, int16_t y, int16_t z, int flag)
+RegionManager_isHousingOkay(CLocation *loc, int flag)
 {
 	CVector localVec;
 	char typeFlag;
 	uintptr_t *result;
 	int deny, allow;
-	CLocation loc;
-
-	loc.x = (uint16_t)x;
-	loc.y = (uint16_t)y;
-	loc.z = z;
 
 	deny = 0;
 	allow = 0;
@@ -1328,7 +1311,7 @@ RegionManager_isHousingOkay(int16_t x, int16_t y, int16_t z, int flag)
 	typeFlag = 0;
 	CVector_Constructor(&localVec, &typeFlag);
 
-	CRegionGrid_Populate(g_RegionGrid, &localVec, &loc);
+	CRegionGrid_Populate(g_RegionGrid, &localVec, loc);
 
 	result = RegionGrid_SearchTag(&localVec, "dungeon");
 	if (result != (uintptr_t *)localVec.end)
@@ -1381,21 +1364,16 @@ RegionManager_isHousingOkay(int16_t x, int16_t y, int16_t z, int flag)
  * Returns 0 if the location lies in a "nospell" region, 1 otherwise.
  */
 int
-RegionManager_areSpellsOkay(int16_t x, int16_t y, int16_t z)
+RegionManager_areSpellsOkay(CLocation *loc)
 {
 	CVector localVec;
 	char typeFlag;
 	uintptr_t *result;
-	CLocation loc;
-
-	loc.x = (uint16_t)x;
-	loc.y = (uint16_t)y;
-	loc.z = z;
 
 	typeFlag = 0;
 	CVector_Constructor(&localVec, &typeFlag);
 
-	CRegionGrid_Populate(g_RegionGrid, &localVec, &loc);
+	CRegionGrid_Populate(g_RegionGrid, &localVec, loc);
 
 	result = RegionGrid_SearchTag(&localVec, "nospell");
 	if (result != (uintptr_t *)localVec.end) {

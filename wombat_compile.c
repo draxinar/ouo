@@ -1361,7 +1361,7 @@ ParseScriptInner(const char *bytecode, const char *name)
 {
 	CScriptCompiler *compiler;
 	CScript *script;
-	char tokenBuf[400];
+	char tokenBuf[384];
 
 	compiler = (CScriptCompiler *)OperatorNew(sizeof(CScriptCompiler));
 	if (compiler != NULL)
@@ -1614,7 +1614,7 @@ ParseMember(const char *stream, int isForwardDecl)
 static const char *
 ParseInherits(const char *stream)
 {
-	char parentName[256];
+	char parentName[128];
 	char semiBuf[128];
 	CScript *parent;
 	CScript *current;
@@ -4520,11 +4520,14 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		return 1;
 
 	if (g_ScriptRecursionDepth > 0x40) {
-		char buf[792];
+		char buf[512];
 		const char *str1 = "";
 		const char *str2 = "";
-		if (g_CurrentExecCtx != NULL) {
-			CExecThread *cur = (CExecThread *)(void *)g_CurrentExecCtx;
+		// The binary dereferences the list head unguarded; a
+		// recursion depth above 0x40 means there is a thread there.
+		CExecThread *cur = g_activeThreadList.head;
+
+		if (cur != NULL) {
 			if (cur->scriptRef != NULL) {
 				const char **pp = (const char **)cur->scriptRef;
 				if (*pp != NULL)
@@ -5175,9 +5178,12 @@ EventParamBlock_AddParam(EventParamBlock *pb, int type, uintptr_t value)
 		break;
 	}
 	default:
-		// Generic: use type descriptor table for size
+		// Generic: use type descriptor table for size. Here value is
+		// a pointer to the bytes to copy, not the value itself as in
+		// the INT/OBJ arm. WTYPE_LOC (6 bytes) is the only type the
+		// jump table routes here with a nonzero size.
 		size = g_WombatTypeSizes[type];
-		memcpy(pb->data + pb->byteCount, &value, size);
+		memcpy(pb->data + pb->byteCount, (const void *)value, (size_t)size);
 		pb->byteCount += (size + 3) & ~3;
 		break;
 	}

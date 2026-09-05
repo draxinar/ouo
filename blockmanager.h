@@ -95,7 +95,7 @@ int CBlockManager_IsValidCoordAbsolute(CBlockManager *this, int x, int y); // 0x
 int CBlockManager_IsValidCoord(CBlockManager *this, int x, int y); // 0x0042F43F
 int Terrain_InBounds(int x, int y); // 0x0042F43F
 int CBlockManager_IsNearBorder(CBlockManager *this, int x, int y); // 0x0042F48C
-int CBlockManager_WrapCoord(CBlockManager *this, CLocation *loc); // 0x0042F522
+int CBlockManager_WrapCoord(CBlockManager *this, CLocation loc); // 0x0042F522
 void CBlockManager_GetItemsAtLocationXY(CBlockManager *this, CVector *list, CLocation *loc); // 0x0042F53D
 void CBlockManager_GetItemsAtLocationXYZ(CBlockManager *this, CVector *list, CLocation *loc); // 0x0042F5CB
 void CBlockManager_GetItemsAtLocation(CBlockManager *this, CVector *list, CLocation *loc); // 0x0042F670

@@ -68,6 +68,10 @@ static void parseargs(int argc, char **argv);
 // Shutdown flag set by signal handler.
 volatile sig_atomic_t g_shutdown; // 0x006999E0
 
+// 0x006999E4 - gates the tick block below. Nothing in the binary
+// writes it, so the block always runs.
+uint32_t g_LoopFlag9E4;
+
 // Custom - SIGHUP reload flag consumed by the main loop
 static volatile sig_atomic_t g_reloadAccounts;
 
@@ -199,16 +203,16 @@ Server_Loop(void)
 
 	lastPeriodicTime = GetTickCount_UO();
 
-	// 0x00468051: while ([0x6efec0]==0) Sleep(0) - Win32 dialog HWND wait.
+	// 0x00468050: while ([0x6efec0]==0) Sleep(0) - Win32 dialog HWND wait.
 	// CUSTOM: skipped - no debug dialog on Linux.
 
-	// 0x00468064: FindClientDataPath(&localBuf) - Win32 registry read.
+	// 0x00468063: FindClientDataPath(&localBuf) - Win32 registry read.
 	// CUSTOM: skipped - no registry on Linux.
 
-	// 0x00468073: [0x8ce228] = 0x7f000001 - localhost literal for Win32
+	// 0x0046806E: [0x8ce228] = 0x7f000001 - localhost literal for Win32
 	// client launcher. CUSTOM: skipped.
 
-	// 0x0046807D / 0x00468088: operator new(32) + CCriticalSection_Constructor
+	// 0x00468078 / 0x004680D4: operator new(32) + CCriticalSection_Constructor
 	// into [0x701658] and [0x70165c]. CUSTOM: skipped - single-threaded
 	// Linux; CCriticalSection_Lock/Unlock stubs in stl.c are no-ops.
 
@@ -239,12 +243,19 @@ Server_Loop(void)
 	lastPeriodicTime = GetTickCount_UO();
 	lastTickTime = GetTickCount_UO();
 
-	// 0x004680CB: SpawnClientThread(&localBuf) - Win32-only. CUSTOM: skipped.
-	// 0x004680DA: ShowWindow(SW_HIDE)          - Win32-only. CUSTOM: skipped.
+	// 0x004681A8: SpawnClientThread(&localBuf) - Win32-only. CUSTOM: skipped.
+	// 0x004681B3: ShowWindow(hwnd, SW_HIDE)    - Win32-only. CUSTOM: skipped.
+	// 0x004681C2: GetDlgItem(hwnd, 2) and, when it resolves, a second
+	// ShowWindow(SW_HIDE)                      - Win32-only. CUSTOM: skipped.
 
 	while (!g_shutdown) {
+		// 0x004681F2: ClientWindowPoll(&localBuf), which sets the
+		// shutdown flag when the Win32 client window is gone.
+		// CUSTOM: skipped - no client window on Linux.
+
 		g_GameTick = GetTickCount_UO();
 
+		// CUSTOM: SIGHUP account reload; no binary equivalent.
 		if (g_reloadAccounts) {
 			g_reloadAccounts = 0;
 			Account_ReloadAll();
@@ -252,6 +263,7 @@ Server_Loop(void)
 
 		if (g_GameTick - lastPeriodicTime >= 0x258) {
 			lastPeriodicTime = g_GameTick;
+			Noop_467FEB();
 		}
 
 		// MODIFIED: binary (0x00468242) polls g_SocketManager's vtable;
@@ -259,24 +271,26 @@ Server_Loop(void)
 		// POSIX), called with a 0 timeout here for a non-blocking check.
 		Server_Select(0);
 
-		now = GetTickCount_UO();
-		if (lastTickTime + TICK_INTERVAL_MS <= now) {
-			RecordTickTiming(lastTickTime);
-			AccumulateTimingStats();
-			lastTickTime = now;
+		if (g_LoopFlag9E4 == 0) {
+			now = GetTickCount_UO();
+			if (lastTickTime + TICK_INTERVAL_MS <= now) {
+				RecordTickTiming(lastTickTime);
+				AccumulateTimingStats();
+				lastTickTime = now;
 
-			beforeTick = GetTickCount_UO();
-			CTimeManager_Update();
-			afterTick = GetTickCount_UO();
+				beforeTick = GetTickCount_UO();
+				CTimeManager_Update();
+				afterTick = GetTickCount_UO();
 
-			// CUSTOM: watchdog heartbeat - one volatile store telling
-			// the watchdog thread the main loop is still ticking.
-			Watchdog_Heartbeat();
+				// CUSTOM: watchdog heartbeat - one volatile store telling
+				// the watchdog thread the main loop is still ticking.
+				Watchdog_Heartbeat();
 
-			// FIXED: binary has > 0xA (10ms) but logs "> 10 seconds".
-			// Wrong constant - should be 10000 (10s) to match message.
-			if (afterTick - beforeTick > 10000) {
-				EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "timing", "error", "CTimeManager::Update() took > 10 seconds.");
+				// FIXED: binary has > 0xA (10ms) but logs "> 10 seconds".
+				// Wrong constant - should be 10000 (10s) to match message.
+				if (afterTick - beforeTick > 10000) {
+					EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "timing", "error", "CTimeManager::Update() took > 10 seconds.");
+				}
 			}
 		}
 

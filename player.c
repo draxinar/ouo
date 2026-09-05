@@ -234,14 +234,17 @@ CPlayerList_DestructorEmpty(CPlayerList *this)
 }
 
 /*
- * 0x0044FA4A - CPlayer::SetIsLoaded
+ * 0x0044FA4A - CPlayerList::SetIsLoaded
  *
- * Sets PlayerIsLoaded bit in pflags.
+ * Sets PlayerIsLoaded bit in the player's pflags. The binary is a
+ * CPlayerList method called on g_PlayerList, which our C models as a
+ * global, and purges a second stack argument its body never reads.
  */
 void
-CPlayer_SetIsLoaded(CPlayer *this)
+CPlayer_SetIsLoaded(CPlayer *player, uint32_t unused)
 {
-	this->pflags |= PlayerIsLoaded;
+	USED(unused);
+	player->pflags |= PlayerIsLoaded;
 }
 
 /*
@@ -456,7 +459,7 @@ BroadcastToNearbyWithLOS(uint8_t *buf, CLocation *loc, int range)
 		CLocation_SetLoc(&locCopy, loc);
 		CLocation_Constructor3D(&delta, 0, 0, 8);
 		CLocation_AddWrapped(CEntity_GetLocation((CEntity *)(uintptr_t)*iter), &eyeLoc, &delta);
-		if (CTerrainManager_LOSRaycast(&eyeLoc, &locCopy, 1))
+		if (CTerrainManager_LOSRaycast(eyeLoc, locCopy, 1))
 			CVector_PushBack(&filtered, *iter);
 		iter++;
 	}
@@ -508,7 +511,7 @@ CPlayerList_BroadcastInRange(uint8_t *buf, CLocation *loc, int range, CPlayer *e
 	char typeFlag = '\x01';
 
 	CVector_Constructor(&list, &typeFlag);
-	GetNearbyPlayersExclude(&list, loc, range, (CItem *)excludePlayer);
+	CEntityMap_RangeQueryExclude(g_ItemMap, &list, loc->x, loc->y, range, (CItem *)excludePlayer);
 
 	SendToClientList(&list, buf);
 	CVector_Destructor(&list);
@@ -531,8 +534,8 @@ CPlayerList_BroadcastToTwoLocs(uint8_t *buf, CLocation *loc1, CLocation *loc2, i
 	CVector_Constructor(&list1, typeFlag1);
 	CVector_Constructor(&list2, typeFlag2);
 
-	GetNearbyPlayersExclude(&list1, loc1, range, exclude);
-	GetNearbyPlayersExclude(&list2, loc2, range, exclude);
+	CEntityMap_RangeQueryExclude(g_ItemMap, &list1, loc1->x, loc1->y, range, exclude);
+	CEntityMap_RangeQueryExclude(g_ItemMap, &list2, loc2->x, loc2->y, range, exclude);
 
 	Vector_SortRaw(list1.begin, list1.end);
 	Vector_SortRaw(list2.begin, list2.end);
@@ -2163,7 +2166,7 @@ common_end:
 }
 
 /*
- * 0x00452B0A - SavePlayerToFile (binary name)
+ * 0x00452B0A - CPlayer::LogOut
  *
  * Player logout handler. Iterates all players to send FRIENDNOTIFY for snoop
  * cleanup, cancels trade sessions, clears the online flag, restores the
@@ -2174,8 +2177,9 @@ void
 CPlayer_LogOut(CPlayer *this, int save)
 {
 	CPlayer *p;
-	uint32_t i;
+	int i;
 	uint32_t serial;
+	int deadLocal; // Written but never read.
 
 	serial = this->mobile.container.item.serial;
 
@@ -2183,10 +2187,10 @@ CPlayer_LogOut(CPlayer *this, int save)
 	// whose friendList contains this player's serial, if this player allows
 	// that observer. Binary: 0x00452B13-0x00452B9D.
 	for (p = g_PlayerList.head; p != NULL; p = p->next) {
-		for (i = 0; i < p->friendCount; i++) {
+		for (i = 0; i < (int)p->friendCount; i++) {
 			if (p->friendList[i] == serial) {
 				if (CPlayer_IsFriendAllowed(this, p)) {
-					uint8_t obuf[16];
+					uint8_t obuf[4];
 					PacketManager_MakePacket_FRIENDNOTIFY(obuf, (uint8_t)i, 0);
 					SendToClient((CItem *)p, obuf, -1);
 				}
@@ -2240,6 +2244,9 @@ CPlayer_LogOut(CPlayer *this, int save)
 		CPlayer_DisableEditing(this);
 		save = 0;
 	}
+
+	deadLocal = 0;
+	USED(deadLocal);
 
 	if (save == 1) {
 		if (CPlayer_ShouldLogOut(this)) {
@@ -2737,28 +2744,28 @@ CMobile_DoWalkStep(CItem *mob, CLocation *result, CLocation start, int dir)
 	// Check IsGhost - frozen ghosts can't move
 	if (CPlayer_IsGhost((CPlayer *)mob)) {
 		CPlayer_SystemMessage((CPlayer *)mob, "You are frozen and can not move.");
-		CLocation_CopyFrom(result, &start);
+		CLocation_SetLoc(result, &start);
 		return result;
 	}
 
 	// Check IsDead (vtable[0xF4]) and frozen (vtable[0x21C])
 	if (!VT_IsDead(mob)) {
 		if (((int (*)(void *))VT_FN(mob, VT_GET_STAMINA))(mob)) {
-			CLocation_CopyFrom(result, &start);
+			CLocation_SetLoc(result, &start);
 			return result;
 		}
 	}
 
-	CLocation_CopyFrom(&movedLoc, &start);
+	CLocation_SetLoc(&movedLoc, &start);
 	CLocation_MoveDir(&movedLoc, dir & 7);
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)movedLoc.x, (int)(int16_t)movedLoc.y)) {
 		// Invalid coords: try WrapCoord (always returns 0)
-		if (CBlockManager_WrapCoord(&g_SpatialGrid, &movedLoc)) {
-			CLocation_CopyFrom(result, &movedLoc);
+		if (CBlockManager_WrapCoord(&g_SpatialGrid, movedLoc)) {
+			CLocation_SetLoc(result, &movedLoc);
 			return result;
 		}
-		CLocation_CopyFrom(result, &start);
+		CLocation_SetLoc(result, &start);
 		return result;
 	}
 
@@ -2768,7 +2775,7 @@ CMobile_DoWalkStep(CItem *mob, CLocation *result, CLocation start, int dir)
 		if (CLocation_IsEqualXYZ(&start, &tempResult1)) {
 			CMobile_DoWalkStep(mob, &tempResult2, start, (dir + 1) & 7);
 			if (CLocation_IsEqualXYZ(&start, &tempResult2)) {
-				CLocation_CopyFrom(result, &start);
+				CLocation_SetLoc(result, &start);
 				return result;
 			}
 		}
@@ -2776,16 +2783,17 @@ CMobile_DoWalkStep(CItem *mob, CLocation *result, CLocation start, int dir)
 
 	GetMinMaxZForEntity(mob, start, ((CMobile *)mob)->direction, &minZ, &maxZ);
 
+	// We call CMobile_GetWalkZ directly (same function at 0x004818AA).
 	movedLoc.z = (int16_t)CMobile_GetWalkZ(mob, movedLoc, minZ, maxZ);
 
 	movedLoc.z = CTerrainManager_CanWalkWrapper(movedLoc, minZ, maxZ, VT_GetHeight(mob), ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF, mob, 0);
 
 	if ((int)(int16_t)movedLoc.z == -128) {
-		CLocation_CopyFrom(result, &start);
+		CLocation_SetLoc(result, &start);
 		return result;
 	}
 
-	CLocation_CopyFrom(result, &movedLoc);
+	CLocation_SetLoc(result, &movedLoc);
 	return result;
 }
 
@@ -2874,10 +2882,10 @@ CPlayer_CheckGuardZone(CPlayer *this)
 
 	loc = &this->mobile.container.item.resourceEntity.entity.location;
 
-	result = (uint32_t)RegionManager_isInCityRegion(loc->x, loc->y, loc->z);
+	result = (uint32_t)RegionManager_isInCityRegion(loc);
 
 	if (result == 0)
-		result = (uint32_t)RegionManager_inJusticeRegion(loc->x, loc->y, loc->z);
+		result = (uint32_t)RegionManager_inJusticeRegion(loc);
 
 	if (result != this->guardZoneSerial) {
 		this->guardZoneSerial = result;
@@ -2933,8 +2941,8 @@ DoMove(CItem *this, int direction, int isPlayer, uint8_t sequence)
 
 	g_DoMoveEntity = this;
 
-	CLocation_CopyFrom(&newLoc, CEntity_GetLocation(&this->resourceEntity.entity));
-	CLocation_CopyFrom(&oldLoc, &newLoc);
+	CLocation_SetLoc(&newLoc, CEntity_GetLocation(&this->resourceEntity.entity));
+	CLocation_SetLoc(&oldLoc, &newLoc);
 
 	CLocation_MoveDir(&newLoc, direction & 7);
 
@@ -5382,7 +5390,7 @@ CEntityMap_CountInRange(CEntityMap *this, int16_t x, int16_t y, int range)
  * Like RangeQuery but skips exclude.
  */
 void
-CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range, CItem *exclude)
+CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int x, int y, int range, CItem *exclude)
 {
 	int startBlockX, endBlockX, startBlockY, endBlockY;
 	int blockIdx, rowWidth;
@@ -5680,7 +5688,7 @@ CEntityMap_GetBlockIdx(CEntityMap *this, int x, int y)
  * to list.
  */
 void
-CEntityMap_RangeQuery(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range)
+CEntityMap_RangeQuery(CEntityMap *this, CVector *list, int x, int y, int range)
 {
 	int startBlockX, endBlockX, startBlockY, endBlockY;
 	int blockIdx, rowWidth;
@@ -5909,7 +5917,7 @@ static __attribute__((unused)) void
 CPlayerList_BroadcastAssistanceRequest(CResList *list, uint8_t *buf, int unused)
 {
 	CAssistance rec;
-	uint8_t obuf[0x1FC];
+	uint8_t obuf[0x138];
 
 	CAssistance_Constructor(&rec);
 
@@ -5932,7 +5940,7 @@ static __attribute__((unused)) void
 CPlayerList_SendAssistanceRequestToPlayer(CResList *list, uint8_t *buf, int unused)
 {
 	CAssistance rec;
-	uint8_t obuf[0x1FC];
+	uint8_t obuf[0x138];
 	uint32_t serial;
 	CPlayer *target;
 

@@ -228,7 +228,7 @@ void PendingNPCRespawn_Enqueue(uint16_t templateId, int16_t x, int16_t y, int8_t
 void PendingNPCRespawn_Tick(void);
 extern uint32_t g_HarvestableBodyTypes[]; // 0x00621A20
 extern uint32_t g_ValidateInWorldBitmap[512]; // 0x0063D8F8
-extern uint32_t g_BodyTypeSerials[13]; // 0x0064B36C
+extern uint32_t g_BodyTypeSerials[13]; // 0x006213A0
 extern ResEntitySlot *g_ResEntitySlots; // 0x0064B36C
 extern int g_NPCSubCount1; // 0x0068B388
 extern int g_NPCSubCount2; // 0x0068B38C

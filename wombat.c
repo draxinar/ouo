@@ -37,7 +37,6 @@ static void StaticInit_ScriptManager(void); // 0x004678D2
 CScriptStringDB g_ScriptStringDB;
 
 /* Binary: 0x006482A0 - g_ScriptExecContext */
-WombatExecCtx *g_CurrentExecCtx;
 
 /*
  * Global scratch: 0x0063D828 in binary.
@@ -195,7 +194,6 @@ char g_ConvoReturnStr[256];
  *
  * Binary uses a linked list with hash lookup; we use a simple array.
  */
-CHintEntry *g_HintEntries;
 int g_NumHints;
 int g_HintCapacity;
 
@@ -435,7 +433,7 @@ CFuncList_AddEntry(CFuncList *list, const char *name, const char *sig)
 		entry = &funcs[i];
 		if (strcmp(sig, entry->sig) != 0) {
 			// Signature mismatch - overload error
-			char buf[264];
+			char buf[256];
 			sprintf(buf, "overloaded function '%s' first seen as '%s', now seen as '%s'.", name, entry->sig, sig);
 			return NULL;
 		}
@@ -446,7 +444,7 @@ CFuncList_AddEntry(CFuncList *list, const char *name, const char *sig)
 	{
 		void *newArr = OperatorNew((size_t)(list->count + 1) * sizeof(CFunction));
 
-		if (list->count > 0) {
+		if (list->count != 0) {
 			memcpy(newArr, list->array, (size_t)list->count * sizeof(CFunction));
 			OperatorDelete(list->array);
 		}

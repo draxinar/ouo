@@ -102,15 +102,15 @@ int RegionManager_PopulateByLocation(CResList *outList, CLocation *loc); // 0x00
 int RegionManager_PopulateFromRM(CResList *outList, CLocation *loc, CResManager *rm); // 0x004A4E53
 void RegionManager_LoadRegions(void); // 0x004A4EEC
 int RegionManager_GetLocalizedDesc(CString *outStr, int16_t *outLoc, CLocation *inLoc1, CLocation *inLoc2); // 0x004A5164
-void RegionManager_SearchByPrefix(CResList *outList, CLocation *loc, const char *prefix); // 0x004A5620
+void RegionManager_SearchByPrefix(CLocation *loc, CString prefix, CResList *outList); // 0x004A5620
 uintptr_t *RegionGrid_SearchTag(CVector *list, const char *tag); // 0x004A56FD
-int RegionManager_inJusticeRegion(int16_t x, int16_t y, int16_t z); // 0x004A5762
-int RegionManager_isGuardedRegion(int16_t x, int16_t y, int16_t z); // 0x004A5848
+int RegionManager_inJusticeRegion(CLocation *loc); // 0x004A5762
+int RegionManager_isGuardedRegion(CLocation *loc); // 0x004A5848
 int RegionManager_IsInRegion(CLocation *loc, const char *prefix); // 0x004A58F4
-int RegionManager_isInCityRegion(int16_t x, int16_t y, int16_t z); // 0x004A599F
+int RegionManager_isInCityRegion(CLocation *loc); // 0x004A599F
 void RegionManager_FindLVNRegion(CResManager *rm, int startX, int startY, int endX, int endY, char *outBuf, int maxLen); // 0x004A5A4B
-int RegionManager_isHousingOkay(int16_t x, int16_t y, int16_t z, int flag); // 0x004A5BBA
-int RegionManager_areSpellsOkay(int16_t x, int16_t y, int16_t z); // 0x004A5DF4
+int RegionManager_isHousingOkay(CLocation *loc, int flag); // 0x004A5BBA
+int RegionManager_areSpellsOkay(CLocation *loc); // 0x004A5DF4
 int RegionManager_IsInSpecialArea(CLocation *loc); // 0x004A5EA0
 void RegionManager_AllocGrid(void); // 0x004A5FC3
 CRegion *CRegion_ScalarDelete(CRegion *this, int flag); // 0x004A6140

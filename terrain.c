@@ -613,7 +613,7 @@ CTerrainManager_GetMinMaxZ(int *outMinZ, int *outMaxZ, CLocation loc, int direct
 			topZ = SurfaceInfo_GetTopZ(s);
 			if (topZ <= z) {
 				if (useInterpolatedZ)
-					landZ = Terrain_GetInterpolatedZ(x, y, direction);
+					landZ = Terrain_GetInterpolatedZ(x, y, direction & 7);
 				else
 					landZ = Terrain_GetAvgLandZ(x, y);
 				if (*outMinZ < landZ)
@@ -656,9 +656,8 @@ CTerrainManager_GetMinMaxZ(int *outMinZ, int *outMaxZ, CLocation loc, int direct
  * taller non-surfaces are ignored. Falls back to avgLandZ.
  */
 int
-CTerrainManager_GetStandableZ(int x, int y, int maxZ)
+CTerrainManager_GetStandableZ(CLocation loc)
 {
-	CLocation loc;
 	int blockIdx;
 	CItem *item;
 	int bestZ;
@@ -667,10 +666,6 @@ CTerrainManager_GetStandableZ(int x, int y, int maxZ)
 	int avgZ;
 
 	bestZ = -128;
-
-	loc.x = (uint16_t)x;
-	loc.y = (uint16_t)y;
-	loc.z = 0;
 
 	blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, &loc, 0);
 
@@ -688,13 +683,12 @@ CTerrainManager_GetStandableZ(int x, int y, int maxZ)
 			height = LOS_GetHeight(item);
 			topZ += height;
 		} else {
-			height = LOS_GetHeight(item);
-			if (height >= 2)
+			if (LOS_GetHeight(item) >= 2)
 				goto next_dynamic;
-			topZ += height;
+			topZ += LOS_GetHeight(item);
 		}
 
-		if (topZ > bestZ && topZ <= maxZ)
+		if (topZ > bestZ && topZ <= (int)(int16_t)loc.z)
 			bestZ = topZ;
 
 next_dynamic:
@@ -715,21 +709,20 @@ next_dynamic:
 			height = LOS_GetHeight(item);
 			topZ += height;
 		} else {
-			height = LOS_GetHeight(item);
-			if (height >= 2)
+			if (LOS_GetHeight(item) >= 2)
 				goto next_static;
-			topZ += height;
+			topZ += LOS_GetHeight(item);
 		}
 
-		if (topZ > bestZ && topZ <= maxZ)
+		if (topZ > bestZ && topZ <= (int)(int16_t)loc.z)
 			bestZ = topZ;
 
 next_static:
 		item = (CItem *)item->resourceEntity.nextInContainer;
 	}
 
-	avgZ = Terrain_GetAvgLandZ(x, y);
-	if (bestZ == -128 || (avgZ > bestZ && avgZ <= maxZ))
+	avgZ = Terrain_GetAvgLandZ((int)(int16_t)loc.x, (int)(int16_t)loc.y);
+	if (bestZ == -128 || (avgZ > bestZ && avgZ <= (int)(int16_t)loc.z))
 		bestZ = avgZ;
 
 	return bestZ;
@@ -926,12 +919,10 @@ IsWaterTile(int id)
  * Returns the land Z at (x,y) interpolated by direction: one corner
  * for diagonals, average of two adjacent corners for cardinals.
  *
- * FIXED: Binary computes cornerIdx = direction / 2 at 0x0046A70C
- * with no follow-up mask, then indexes the 4-entry corner tables.
- * With the 0x80 running bit set (e.g. 0x86 = running west) cornerIdx
- * is 67 and the read returns garbage. prevIdx at 0x0046A744 uses
- * ((direction - 1) / 2) & 3, confirming 0..3 is the intended
- * domain. Fix: mask cornerIdx.
+ * cornerIdx is unmasked (0x0046A70C is a bare SAR) and prevIdx masks
+ * with 3 (0x0046A744). Both are safe because the sole caller,
+ * CTerrainManager::GetMinMaxZ, masks the direction with 7 first
+ * (0x00469F24).
  */
 int
 Terrain_GetInterpolatedZ(int x, int y, int direction)
@@ -942,13 +933,13 @@ Terrain_GetInterpolatedZ(int x, int y, int direction)
 	if (!Terrain_InBounds(x + 1, y + 1))
 		return Terrain_GetLandZ(x, y);
 
-	cornerIdx = (direction / 2) & 3;
+	cornerIdx = direction >> 1;
 	corner1 = Terrain_GetLandZ(x + g_TerrainCorner[cornerIdx][0], y + g_TerrainCorner[cornerIdx][1]);
 
 	if (direction & 1)
 		return corner1;
 
-	prevIdx = ((direction - 1) / 2) & 3;
+	prevIdx = ((direction - 1) >> 1) & 3;
 	corner2 = Terrain_GetLandZ(x + g_TerrainCorner[prevIdx][0], y + g_TerrainCorner[prevIdx][1]);
 	return (corner1 + corner2) / 2;
 }
@@ -1211,9 +1202,8 @@ CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc
  * 0x3000 (walls/roofs), bit 1 adds 0x40 (impassable) to blockers.
  */
 int
-CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
+CTerrainManager_LOSRaycast(CLocation src, CLocation dst, int flags)
 {
-	CLocation src, dst;
 	int srcHeight, dstHeight;
 	int srcAbove, dstAbove;
 	int dx, dy, dz;
@@ -1225,9 +1215,6 @@ CTerrainManager_LOSRaycast(CLocation *srcArg, CLocation *dstArg, int flags)
 	int x1_fp, y1_fp, x2_fp, y2_fp;
 	int ray_alive[2];
 	int i, j;
-
-	src = *srcArg;
-	dst = *dstArg;
 
 	srcHeight = Terrain_GetAvgLandZ((int)(int16_t)src.x, (int)(int16_t)src.y);
 	dstHeight = Terrain_GetAvgLandZ((int)(int16_t)dst.x, (int)(int16_t)dst.y);
@@ -1410,7 +1397,7 @@ CEntity_CanSee(CItem *entityA, CItem *entityB, int flags)
 	entLoc = ((CLocation * (*)(void *)) VT_FN(entityA, VT_GET_LOCATION))(entityA);
 	CLocation_AddWrapped(entLoc, &srcLoc, &delta);
 
-	return CTerrainManager_LOSRaycast(&srcLoc, &dstLoc, flags);
+	return CTerrainManager_LOSRaycast(srcLoc, dstLoc, flags);
 }
 
 /*
@@ -1490,10 +1477,11 @@ CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin
  * an optional callback.
  */
 int
-FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, int16_t maxX, int16_t maxY, int16_t maxZ, int factor, int height, int moveType, CItem *mob,
-        int (*callback)(CLocation *))
+FindSpawnSpotInBox(CLocation *result, CLocation minLoc, CLocation maxLoc, int factor, int height, int moveType, CItem *mob, int (*callback)(CLocation *))
 {
 	int dx, dy, attempts;
+	int16_t minX = (int16_t)minLoc.x, minY = (int16_t)minLoc.y, minZ = minLoc.z;
+	int16_t maxX = (int16_t)maxLoc.x, maxY = (int16_t)maxLoc.y, maxZ = maxLoc.z;
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)minX, (int)minY))
 		return 0;
@@ -1511,9 +1499,9 @@ FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, 
 	dy = (int)maxY - (int)minY + 1;
 	attempts = ((dx * dy * factor) >> 8) + 1;
 
-	while (attempts > 0) {
+	while (attempts != 0) {
 		int ry, rx, z;
-		CLocation minLoc, delta, candidate, temp;
+		CLocation base, delta, candidate, temp;
 
 		attempts--;
 
@@ -1521,10 +1509,10 @@ FindSpawnSpotInBox(CLocation *result, int16_t minX, int16_t minY, int16_t minZ, 
 		ry = GetRandom(dy);
 		rx = GetRandom(dx);
 		CLocation_Constructor3D(&delta, (int16_t)rx, (int16_t)ry, 0);
-		minLoc.x = (uint16_t)minX;
-		minLoc.y = (uint16_t)minY;
-		minLoc.z = minZ;
-		CLocation_AddWrapped(&minLoc, &candidate, &delta);
+		base.x = (uint16_t)minX;
+		base.y = (uint16_t)minY;
+		base.z = minZ;
+		CLocation_AddWrapped(&base, &candidate, &delta);
 
 		z = CTerrainManager_CanWalkWrapper(candidate, (int)minZ, (int)maxZ, height, moveType, mob, 0);
 
@@ -1914,22 +1902,6 @@ CVector g_arenaPageVec;
 
 __extension__ typedef struct CDequeBlock CDequeBlock;
 
-/*
- * 0x0047A350 - CVector::Allocate4 (uint32_t allocator)
- *
- * Thiscall wrapper that forwards to Vector_AllocElements(count, 0),
- * which saturates count to zero and allocates count*4 bytes via
- * OperatorNew.
- */
-void *
-CVector_Allocate4_Terrain(CVector *self, uint32_t count, int unused)
-{
-	USED(self);
-	USED(unused);
-	if ((int32_t)count < 0)
-		count = 0;
-	return malloc(count * sizeof(uintptr_t));
-}
 /*
  * 0x004866FC - Static_Unlock
  *

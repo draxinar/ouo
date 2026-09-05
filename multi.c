@@ -669,11 +669,13 @@ CMultiSlave_UpdateComponents(CMultiSlave *slave, CLocation *loc, int flag)
  * component (other than the owner) and popping it off the vector.
  */
 void
-CMultiSlave_RemoveAllComponents(CMultiSlave *slave)
+CMultiSlave_RemoveAllComponents(CMultiSlave *slave, uint32_t unused)
 {
 	uintptr_t *iter;
 	CItem *comp;
 	uint32_t serial;
+
+	USED(unused);
 
 	iter = (uintptr_t *)slave->components.end;
 
@@ -704,7 +706,8 @@ CMultiSlave_RemoveAllComponents(CMultiSlave *slave)
  *
  * Collects items resting on the multi's component tiles into outList,
  * skipping the multi's own components and items above the tile height.
- * Early-out when carry is 0.
+ * Each component's query starts at its top surface (component z plus
+ * CItem::GetSurfaceHeight). Early-out when carry is 0.
  */
 void
 CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
@@ -712,7 +715,7 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 	uintptr_t *iter;
 	CItem *compItem;
 	CLocation compLoc;
-	int16_t maxZ;
+	int maxZ;
 	CVector tmpList;
 	char typeFlag;
 	uintptr_t *tp;
@@ -726,6 +729,8 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 	CVector_Constructor(&tmpList, &typeFlag);
 
 	maxZ = 0;
+	CLocation_Init(&compLoc);
+
 	iter = (uintptr_t *)slave->components.begin;
 
 	for (;;) {
@@ -737,11 +742,13 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 			goto next_comp;
 
 		// Get component item's location
-		CLocation_CopyFrom(&compLoc, &compItem->resourceEntity.entity.location);
+		CLocation_SetLoc(&compLoc, &compItem->resourceEntity.entity.location);
 
-		// Get surface height via vtable[0x2C]
+		// Raise compLoc.z to the component's top surface, so the
+		// query below starts there.
 		surfaceH = ((int (*)(void *))VT_FN(compItem, VT_GET_SURFACE_H))(compItem);
-		maxZ = compLoc.z + (int16_t)surfaceH;
+		compLoc.z = (int16_t)(compLoc.z + (int16_t)surfaceH);
+		maxZ = (int)(int16_t)compLoc.z;
 
 		// Validate coordinates
 		if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)compLoc.x, (int)compLoc.y)) {
@@ -786,7 +793,7 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 
 			// Update maxZ with this item's surface height
 			surfaceH = ((int (*)(void *))VT_FN(found, VT_GET_SURFACE_H))(found);
-			maxZ = foundZ + (int16_t)surfaceH;
+			maxZ = foundZ + surfaceH;
 
 			// Check if already in output list
 			findResult = Vector_Find(outList->begin, outList->end, tp);
@@ -860,7 +867,7 @@ CMultiSlave_Move(CMultiSlave *slave, CLocation *loc)
 	HideItemsInVector(&itemList);
 
 	ownerItem = (CItem *)slave->base.ownerItem;
-	CLocation_CopyFrom(&savedLoc, &ownerItem->resourceEntity.entity.location);
+	CLocation_SetLoc(&savedLoc, &ownerItem->resourceEntity.entity.location);
 
 	ownerItem = (CItem *)slave->base.ownerItem;
 	if (!ownerItem->resourceEntity.entity.removedFromWorld) {
@@ -936,7 +943,7 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 	HideItemsInVector(&itemList);
 
 	ownerItem = (CItem *)slave->base.ownerItem;
-	CLocation_CopyFrom(&savedLoc, &ownerItem->resourceEntity.entity.location);
+	CLocation_SetLoc(&savedLoc, &ownerItem->resourceEntity.entity.location);
 
 	ownerItem = (CItem *)slave->base.ownerItem;
 	if (!ownerItem->resourceEntity.entity.removedFromWorld) {
@@ -1038,7 +1045,7 @@ CMultiSlave_CanExistAt(CMultiSlave *ms, CLocation *loc, int moveType, int unused
 	USED(unused);
 	USED(item);
 
-	CLocation_CopyFrom(&ownerLoc, &((CItem *)ms->base.ownerItem)->resourceEntity.entity.location);
+	CLocation_SetLoc(&ownerLoc, &((CItem *)ms->base.ownerItem)->resourceEntity.entity.location);
 
 	iter = (uintptr_t *)ms->components.begin;
 
@@ -1056,7 +1063,7 @@ CMultiSlave_CanExistAt(CMultiSlave *ms, CLocation *loc, int moveType, int unused
 		if (!CItem_HasMulti_Filter(compItem))
 			goto next;
 
-		CLocation_CopyFrom(&compLoc, loc);
+		CLocation_SetLoc(&compLoc, loc);
 
 		multi = CItem_GetMulti(compItem);
 		offset = CMulti_GetOffset(multi);
@@ -1093,7 +1100,7 @@ CMultiSlave_CheckCarriedItemMoves(CMultiSlave *slave, CVector *itemList, CLocati
 	uintptr_t *iter;
 	int height;
 
-	CLocation_CopyFrom(&savedLoc, &((CItem *)slave->base.ownerItem)->resourceEntity.entity.location);
+	CLocation_SetLoc(&savedLoc, &((CItem *)slave->base.ownerItem)->resourceEntity.entity.location);
 
 	iter = (uintptr_t *)itemList->begin;
 
@@ -1107,7 +1114,7 @@ CMultiSlave_CheckCarriedItemMoves(CMultiSlave *slave, CVector *itemList, CLocati
 
 		item = (CItem *)*iter;
 
-		CLocation_CopyFrom(&compLoc, &item->resourceEntity.entity.location);
+		CLocation_SetLoc(&compLoc, &item->resourceEntity.entity.location);
 
 		CLocation_ComputeDelta(&compLoc, &compLoc, &savedLoc);
 
@@ -2713,7 +2720,7 @@ CMultiManager_AreMobilesInArea(CResManager *this, int typeId, CLocation *loc)
 	for (i = 0; i < componentCount; i++) {
 		comp = &compBase[i];
 
-		CLocation_CopyFrom(&compLoc, loc);
+		CLocation_SetLoc(&compLoc, loc);
 		CLocation_Add(&compLoc, &comp->offset);
 
 		CVector_Constructor(&found, &vecType);
@@ -3760,7 +3767,7 @@ CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element)
 		curCount = CVector_GetCount16(this);
 		newTotal = (count >= curCount) ? count : curCount;
 		newTotal += curCount;
-		newBuf = CVector_Allocate16(NULL, newTotal);
+		newBuf = CVector_Allocate16(NULL, newTotal, 0);
 		mid = CVector_Uninit_Copy16_Fwd2(this, this->begin, pos, newBuf);
 		Uninit_FillN_16(this, mid, count, element);
 		mid = (char *)mid + (count * sizeof(CString));
@@ -3833,13 +3840,13 @@ CDeque1C_Insert(CVector *this, void *pos, uint32_t count, void *element)
 		curCount = CVector_GetCount1C(this);
 		newTotal = (count >= curCount) ? count : curCount;
 		newTotal += curCount;
-		newBuf = Allocate1C(newTotal);
+		newBuf = CVector_Allocate1C(this, newTotal, 0);
 		mid = CVector_Uninit_Copy1C_Fwd2(this, this->begin, pos, newBuf);
 		Uninit_FillN_1C(this, mid, count, element);
 		mid = (char *)mid + count * sizeof(CMultiComponentDef);
 		CVector_Uninit_Copy1C_Fwd2(this, pos, this->end, mid);
 		Destroy1C_Range(this, this->begin, this->end);
-		CVector_ClearFreeRaw(this->begin, (int32_t)((char *)this->capacity - (char *)this->begin) / sizeof(CMultiComponentDef));
+		StdDeque_DeallocSI(this, this->begin, (int32_t)((char *)this->capacity - (char *)this->begin) / sizeof(CMultiComponentDef));
 		this->capacity = (char *)newBuf + newTotal * sizeof(CMultiComponentDef);
 		this->end = (char *)newBuf + CVector_GetCount1C(this) * sizeof(CMultiComponentDef) + count * sizeof(CMultiComponentDef);
 		this->begin = newBuf;

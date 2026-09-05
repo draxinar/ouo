@@ -520,6 +520,9 @@ next_ent:
  * FIXED: the binary incorrectly writes patrolTarget from the entity's
  * offset 0x10 (nextInContainer) instead of 0x0A (location). Subsequent
  * code in the same function uses the correct offsets.
+ *
+ * The binary's NPC_DebugState call at 0x0043305E is compiled out unless
+ * CUSTOM_ECOLOGY_DEBUG is defined; see the call site.
  */
 static void
 CNPC_IdleScan(CItem *self)
@@ -753,7 +756,7 @@ CGuard_Constructor(CNPC *npc)
  * list, sets state=IDLE, npcSfx=0xFFFF, then places the body at loc.
  */
 void
-CNPC_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc)
+CNPC_Constructor(CNPC *npc, uint16_t bodyType, uint8_t flag, CLocation loc)
 {
 	CMobile *mob = &npc->mobile;
 
@@ -771,7 +774,7 @@ CNPC_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc)
 
 	npc->npcSfx = 0xFFFF;
 	g_NPCSubCount1++;
-	CResourceMobile_SetBodyAndPlace(mob, bodyType, loc);
+	CResourceMobile_SetBodyAndPlace(mob, bodyType, flag, loc);
 }
 
 /*
@@ -1068,6 +1071,11 @@ NPC_FindBySerial(uint32_t serial)
  * goes into a local the function never reads and it always returns 0,
  * so the mobile is created and leaked. The binary's RET declares 0x24
  * bytes of arguments while only the first two words are ever read.
+ *
+ * It allocates a whole CNPC where 0x00480B15 asks for 0x474 - the
+ * CResourceMobile subobject. Our C models the whole hierarchy with one
+ * struct, so the base size cannot be expressed on its own; the function
+ * is dead either way.
  */
 static __attribute__((unused)) int
 CNPCManager_CreateMobileAt(int16_t x, int16_t y)
@@ -1080,7 +1088,7 @@ CNPCManager_CreateMobileAt(int16_t x, int16_t y)
 
 	npc = (CNPC *)OperatorNew(sizeof(CNPC));
 	if (npc != NULL)
-		CResourceMobile_Constructor(&npc->mobile, 1, &loc);
+		CResourceMobile_Constructor(&npc->mobile, 1, 0, loc);
 
 	return 0;
 }
@@ -1152,10 +1160,11 @@ CNPCHash_RegenMoveTick(void)
  * mobile at loc.
  */
 void
-CResourceMobile_SetBodyAndPlace(CMobile *mob, uint16_t bodyType, CLocation *loc)
+CResourceMobile_SetBodyAndPlace(CMobile *mob, uint16_t bodyType, uint8_t flag, CLocation loc)
 {
+	USED(flag);
 	CPlayer_SetBodyType((CPlayer *)mob, bodyType);
-	((void (*)(void *, CLocation *))VT_FN(&mob->container.item, VT_DROP_AT_FEET))(&mob->container.item, loc);
+	((void (*)(void *, CLocation *))VT_FN(&mob->container.item, VT_DROP_AT_FEET))(&mob->container.item, &loc);
 }
 
 /*
@@ -1175,7 +1184,17 @@ CNPC_InitFields(CNPC *npc)
 	npc->isWalking = 0;
 	mob->container.item.itemFlags = 0;
 	npc->_npc_unk45C = 0;
-	NPC_AddToHash(npc);
+
+	// Insert at the head of the serial bucket.
+	{
+		uint32_t bucket = npc->mobile.container.item.serial & 0x3F;
+
+		npc->npcHashNext = g_NPCHash[bucket];
+		if (npc->npcHashNext != NULL)
+			npc->npcHashNext->npcHashPrev = npc;
+		npc->npcHashPrev = NULL;
+		g_NPCHash[bucket] = npc;
+	}
 	CLocation_Invalidate(&npc->patrolTarget);
 	CNPC_SetState(npc, NPC_STATE_IDLE);
 	npc->prevAIState = NPC_STATE_IDLE;
@@ -1214,12 +1233,8 @@ CNPC_InitFields(CNPC *npc)
 
 	npc->tickCount = 0;
 	npc->npcInfo1_3 = GetRandomRange(1, 5);
-	npc->desireLoc.x = 0xFFFF;
-	npc->desireLoc.y = 0xFFFF;
-	npc->desireLoc.z = 0;
-	npc->lastDesireLoc.x = 0xFFFF;
-	npc->lastDesireLoc.y = 0xFFFF;
-	npc->lastDesireLoc.z = 0;
+	CLocation_Set(&npc->desireLoc, -1, -1, 0);
+	CLocation_Set(&npc->lastDesireLoc, -1, -1, 0);
 	npc->npcCombatTarget = 0;
 	npc->speechCounter = 0;
 	npc->aiByte2 = 0;
@@ -1286,7 +1301,7 @@ CResourceMobile_Init(CMobile *mob)
  * waypoints, places the body at loc, then runs CNPC_InitFields.
  */
 void
-CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, CLocation *loc)
+CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, uint8_t flag, CLocation loc)
 {
 	CNPC *npc = (CNPC *)mob;
 
@@ -1314,7 +1329,7 @@ CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, CLocation *loc)
 	npc->pathSpeed = -1;
 	npc->pathStepsRemaining = 0;
 	CEntity_SetType(&mob->container.item.resourceEntity.entity, ETYPE_NPC);
-	CResourceMobile_SetBodyAndPlace(mob, bodyType, loc);
+	CResourceMobile_SetBodyAndPlace(mob, bodyType, flag, loc);
 	CNPC_InitFields(npc);
 }
 
@@ -1563,7 +1578,7 @@ CMobile_GetWalkZ(CItem *mob, CLocation loc, int minZ, int maxZ)
 
 	mt = ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF;
 	if (mt == 2)
-		return CTerrainManager_GetStandableZ((int)(int16_t)loc.x, (int)(int16_t)loc.y, (int)(int16_t)loc.z) + 10;
+		return CTerrainManager_GetStandableZ(loc) + 10;
 	return (int)(int16_t)loc.z;
 }
 
@@ -2130,7 +2145,7 @@ CNPC_WalkToward(CNPC *npc, CLocation *loc)
 	if (npc->aiState != 9)
 		return 0;
 
-	CLocation_CopyFrom(&localLoc, loc);
+	CLocation_SetLoc(&localLoc, loc);
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)localLoc.x, (int)localLoc.y))
 		return 0;
@@ -2139,7 +2154,7 @@ CNPC_WalkToward(CNPC *npc, CLocation *loc)
 	            ((int (*)(void *))VT_FN((CItem *)npc, VT_GET_MOVEMENT_TYPE))(npc) & 0xFF, (CItem *)npc))
 		return 0;
 
-	CLocation_CopyFrom(&prevLoc, ((CLocation * (*)(void *)) VT_FN((CItem *)npc, VT_GET_LOCATION))(npc));
+	CLocation_SetLoc(&prevLoc, ((CLocation * (*)(void *)) VT_FN((CItem *)npc, VT_GET_LOCATION))(npc));
 
 	((void (*)(void *))VT_FN((CItem *)npc, VT_HIDE))(npc);
 	((void (*)(void *, CLocation *))VT_FN((CItem *)npc, VT_DROP_AT_FEET))(npc, &localLoc);
@@ -4461,7 +4476,7 @@ CNPC_CombatChase(CNPC *npc)
 		if (VT_IsHidden(target)) {
 			CNPC_ClearCombatTarget(&npc->mobile, 0);
 			loc = ((CLocation * (*)(void *)) VT_FN((CItem *)npc, VT_GET_LOCATION))(npc);
-			CLocation_CopyFrom(&npc->patrolTarget, loc);
+			CLocation_SetLoc(&npc->patrolTarget, loc);
 			return;
 		}
 	}
@@ -4495,7 +4510,7 @@ CNPC_CombatChase(CNPC *npc)
 	}
 
 	loc = ((CLocation * (*)(void *)) VT_FN(target, VT_GET_LOCATION))(target);
-	CLocation_CopyFrom(&npc->patrolTarget, loc);
+	CLocation_SetLoc(&npc->patrolTarget, loc);
 	npc->ltype = NPC_STATE_ATTACK_TARGET;
 	npc->stateInfo2 = NPC_STATE_ATTACK_TARGET;
 	npc->isWalking = 1;
@@ -5647,10 +5662,12 @@ CNPC_WanderCountdown(CNPC *npc)
 /*
  * 0x004AB938 - CNPC::ResourceWander
  *
- * Resource-NPC wander tick: non-resource NPCs fall through to a plain
- * random wander; resource NPCs pick a new patrolTarget within +/-10
- * tiles of loiterLoc (avoiding the opposite quadrant and capped at
- * dist < 49, 30 retries), with occasional idle/vendor poses.
+ * Resource-NPC wander tick: an NPC without behavior flag 0x20000
+ * counts loiterData down and, on the tick it reaches zero, starts a
+ * plain random wander and stops there; otherwise it runs the body with
+ * the resource NPCs, which pick a new patrolTarget within +/-10 tiles
+ * of loiterLoc (avoiding the opposite quadrant and capped at dist < 49,
+ * 30 retries), with occasional idle/vendor poses.
  */
 static void
 CNPC_ResourceWander(CNPC *npc)
@@ -5663,9 +5680,10 @@ CNPC_ResourceWander(CNPC *npc)
 
 	if (!(npc->behaviorFlags & 0x20000)) {
 		npc->loiterData--;
-		if ((int32_t)npc->loiterData < 1)
+		if ((int32_t)npc->loiterData < 1) {
 			CNPC_StartWander(npc, GetRandomRange(15, 30), 10);
-		return;
+			return;
+		}
 	}
 
 	if ((int16_t)npc->loiterLoc.x < 0 || (int16_t)npc->loiterLoc.y < 0)
@@ -6360,7 +6378,7 @@ CNPC_SetRunState(CMobile *mob, int running)
 		bodyType = mob->container.item.resourceEntity.entity.bodyType;
 		if (bodyType >= 0x96)
 			goto end;
-		BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x14, 3, 1, 0, 0, 1);
+		BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x14, 3, 1, 0, 0, 1);
 		goto end;
 	}
 	if (running == 1)
@@ -6370,7 +6388,7 @@ CNPC_SetRunState(CMobile *mob, int running)
 	bodyType = mob->container.item.resourceEntity.entity.bodyType;
 	if (bodyType >= 0x96)
 		goto end;
-	BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x14, 3, 1, 1, 0, 1);
+	BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x14, 3, 1, 1, 0, 1);
 end:
 	npc->aiByte3 = (uint8_t)running;
 }
@@ -6402,17 +6420,19 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 		if (body < 150) {
 			if (body != 8 && body != 22) {
 				// Body 0x15: repeat=1 (binary special case)
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x0B, 5, 1, 0, (body == 0x15) ? 1 : 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x0B, 5, 1, 0,
+				        (body == 0x15) ? 1 : 0, 1);
 			}
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 200) {
-			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 5, 5, 1, 0, 0, 1);
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 5, 5, 1, 0, 0, 1);
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 400) {
-			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 5, 1, 0, 0, 1);
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 3, 5, 1, 0, 0, 1);
 			npc->aiDelayCounter = 0x0A;
 		} else {
-			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x22, 2, 1, 0, 0, 1); // human walk
+			BroadcastAnimation(
+			        ((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x22, 2, 1, 0, 0, 1); // human walk
 			npc->aiDelayCounter = 4;
 		}
 		PlaySoundAtEntity((CItem *)mob, mob->sfxNotice, 0);
@@ -6426,40 +6446,41 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 		if (body < 150) {
 			r = GetRandomRange(1, 2);
 			if (r == 1) {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x11, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x11, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			} else if (body != 5) {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x12, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x12, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			}
 		} else if (body < 200) {
 			r = GetRandomRange(1, 2);
 			if (r == 1) {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 15, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 3, 15, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			} else {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 4, 20, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 4, 20, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			}
 		} else if (body < 400) {
 			r = GetRandomRange(1, 3);
 			if (r == 1) {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 9, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 9, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			} else if (r == 2) {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x0A, 3, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x0A, 3, 1, 0, 0, 1);
 				npc->aiDelayCounter = 6;
 			} else {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 3, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 0x0A;
 			}
 		} else {
 			r = GetRandomRange(1, 2);
 			if (r == 1) {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 5, 5, 1, 0, 1, 1); // backward=1
+				BroadcastAnimation(
+				        ((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 5, 5, 1, 0, 1, 1); // repeat=1
 				npc->aiDelayCounter = 4;
 			} else {
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 6, 5, 1, 0, 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 6, 5, 1, 0, 0, 1);
 				npc->aiDelayCounter = 4;
 			}
 		}
@@ -6478,17 +6499,19 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 		if (body < 150) {
 			if (body != 8 && body != 22) {
 				// Body 0x15: repeat=1 (binary special case), others repeat=0
-				BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x0B, 5, 1, 0, (body == 0x15) ? 1 : 0, 1);
+				BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x0B, 5, 1, 0,
+				        (body == 0x15) ? 1 : 0, 1);
 			}
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 200) {
-			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 3, 15, 1, 0, 0, 1);
+			BroadcastAnimation(((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 3, 15, 1, 0, 0, 1);
 			npc->aiDelayCounter = 0x0A;
 		} else if (body < 400) {
 			// Large creatures skip combat-wander animation and fall
 			// through to the sound without resetting aiDelayCounter.
 		} else {
-			BroadcastAnimation(((CMobile *)mob)->container.item.serial, *VT_GetLocation((CItem *)mob), 0x21, 5, 1, 0, 0, 1); // human combat walk
+			BroadcastAnimation(
+			        ((CMobile *)mob)->container.item.serial, ((CMobile *)mob)->container.item.resourceEntity.entity.location, 0x21, 5, 1, 0, 0, 1); // human combat walk
 			npc->aiDelayCounter = 4;
 		}
 		PlaySoundAtEntity((CItem *)mob, mob->sfxNotice, 0);
@@ -8271,28 +8294,4 @@ CNPC_ForageLeash(CNPC *npc)
 	npc->stateInfo2 = NPC_STATE_IDLE;
 	CNPC_SetState(npc, NPC_STATE_IDLE);
 	return 1;
-}
-
-/*
- * Helper - NPC_AddToHash
- *
- * Inserts npc at the head of its serial bucket in g_NPCHash.
- *
- * The binary has no such function: CNPC::InitFields writes the insert
- * inline, twice, and both copies are visible in its disassembly as the
- * `AND EAX,0x3f` bucket computations at 0x00480D44 and 0x00480D88. This
- * was annotated 0x00480D3F, which lands mid-instruction inside InitFields
- * and gave the row a size of 845 bytes - InitFields' own.
- */
-void
-NPC_AddToHash(CNPC *npc)
-{
-	uint32_t bucket;
-
-	bucket = npc->mobile.container.item.serial & 0x3F;
-	npc->npcHashNext = g_NPCHash[bucket];
-	if (npc->npcHashNext != NULL)
-		npc->npcHashNext->npcHashPrev = npc;
-	npc->npcHashPrev = NULL;
-	g_NPCHash[bucket] = npc;
 }

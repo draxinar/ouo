@@ -2406,7 +2406,7 @@ CResBankManager_RequestCreateNPC(CLocation *loc, int maxDistance, uint32_t templ
 	xStep = 0;
 	yStep = 0;
 
-	height = GetCreatureHeight((uint16_t)templateId);
+	height = GetCreatureHeight(templateId);
 
 	for (;;) {
 		CLocation_Init(&tmpLoc);
@@ -2566,6 +2566,7 @@ CResBankRegion_SpawnAtPointInBox(CResBankRegion *region, uint16_t templateId, Su
 {
 	CItem *result;
 	CLocation resultLoc;
+	CLocation boxMin, boxMax;
 	int height;
 	int canCreate;
 
@@ -2588,7 +2589,10 @@ CResBankRegion_SpawnAtPointInBox(CResBankRegion *region, uint16_t templateId, Su
 
 	height = GetCreatureHeight(templateId);
 
-	if (!FindSpawnSpotInBox(&resultLoc, (int16_t)sub->x1, (int16_t)sub->y1, sub->z1, (int16_t)sub->x2, (int16_t)sub->y2, sub->z2, 10, 16, height, 0, CanSpawnHere)) {
+	CLocation_Set(&boxMin, (int16_t)sub->x1, (int16_t)sub->y1, sub->z1);
+	CLocation_Set(&boxMax, (int16_t)sub->x2, (int16_t)sub->y2, sub->z2);
+
+	if (!FindSpawnSpotInBox(&resultLoc, boxMin, boxMax, 10, 16, height, 0, CanSpawnHere)) {
 		goto done;
 	}
 
@@ -3177,7 +3181,7 @@ CResBankManager_DeleteTemplateData(CResBankManager *self, int templateId)
  * Aggregates entity's template-level resource nodes into the block's
  * chunkEgg: allocates the chunkEgg on first use, merges each type==3
  * node into any existing matching node (summing value1/value2 and
- * resetting value3), or adds a new one. Wraps with PreModify /
+ * accumulating value3), or adds a new one. Wraps with PreModify /
  * PostModify / PostModifyIfActive notifications.
  */
 void
@@ -4220,6 +4224,10 @@ FinalizeClassification(void)
 
 				region = region->next;
 			}
+
+			// 0x004B26B9 leaves the tag loop rather than advancing ni:
+			// only the first matching tag builds a sub-region.
+			break;
 		}
 	}
 }

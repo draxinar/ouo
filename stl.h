@@ -237,7 +237,7 @@ void Destroy_Range16(StdAllocator *this, void *first, void *last); // 0x00403340
 void CVector16_Insert(CVector *this, void *pos, uint32_t count, void *val); // 0x00403A70
 uintptr_t StdKfn_Identity(uintptr_t unused, uintptr_t key); // 0x00403DA0
 void *Construct_Range16(CVector *this, void *dest, void *end, void *src); // 0x00404210
-void *CVector_Allocate16(CVector *this, uint32_t count); // 0x00404290
+void *CVector_Allocate16(CVector *this, uint32_t count, int unused); // 0x00404290
 uint32_t CIosBase_Width(CIosBase *this); // 0x00404610
 void *Construct_RangeCopy16(void *first, void *last, void *dest); // 0x004046E0
 uint8_t StdGetByte(uint32_t val); // 0x00404720
@@ -270,6 +270,7 @@ void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x004227
 void CVector_Constructor(CVector *list, const char *typeFlag); // 0x00426460
 void CVector_Destructor(CVector *list); // 0x004264A0
 void *vector_CopyBackward(void *first, void *last, void *dest_end); // 0x00426820
+void *CVector_Allocate1C(CVector *this, int count, int unused_arg); // 0x00479B50
 StdPtrNode **StdPtrList_Begin(StdPtrList *list, StdPtrNode **outIter); // 0x00426CA0
 void StdPtrList_PushBack(StdPtrList *list, void *value); // 0x00426CD0
 void StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00426D00

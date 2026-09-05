@@ -1331,11 +1331,16 @@ CSkillManager_RegisterUsage(int8_t skillId)
  * 100 on success, 50 on failure (harder to gain from failure).
  */
 int
-CMobile_DirectUse(CMobile *mob, int8_t skillId)
+CMobile_DirectUse(CMobile *mob, int8_t skillId, void *target, int difficulty)
 {
 	int effectiveSkill;
 	int result;
 	int gainFactor;
+
+	// The binary purges 12 bytes and every call site pushes target and
+	// 100, but the body reads neither.
+	USED(target);
+	USED(difficulty);
 
 	if (!CSkillManager_HasSkill(&g_SkillManager, skillId))
 		return 0;

@@ -1286,7 +1286,7 @@ CMobile_GetBaseSkill(CMobile *this, int8_t skillId)
  * g_TemplateFlags bits (0/1/2 -> 1/3/5). Returns 1 for 0xFFFF.
  */
 int
-GetCreatureHeight(uint16_t templateId)
+GetCreatureHeight(uint32_t templateId)
 {
 	NPCTemplate *tmpl;
 	int height;
@@ -3995,7 +3995,7 @@ CMobile_BroadcastStatUpdate(CMobile *this, int statType)
 		iter++;
 	}
 
-	count = filteredList.begin ? (int)(((char *)filteredList.end - (char *)filteredList.begin) / (ptrdiff_t)sizeof(uintptr_t)) : 0;
+	count = (int)CVector_GetCount(&filteredList);
 	if (count == 0)
 		goto cleanup;
 
@@ -5316,7 +5316,7 @@ CMobile_WalkCheck_VT(CItem *self, int direction, int *outZ)
 
 	// Valid coordinate check
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)curLoc.x, (int)(int16_t)curLoc.y)) {
-		if (CBlockManager_WrapCoord(&g_SpatialGrid, &curLoc)) {
+		if (CBlockManager_WrapCoord(&g_SpatialGrid, curLoc)) {
 			if (outZ != NULL)
 				*outZ = -128;
 			return 1;
@@ -5335,6 +5335,7 @@ CMobile_WalkCheck_VT(CItem *self, int direction, int *outZ)
 
 	// Terrain walk check
 	GetMinMaxZForEntity(self, *CEntity_GetLocation(&self->resourceEntity.entity), direction, &minZ, &maxZ);
+	// We call CMobile_GetWalkZ directly (same function at 0x004818AA).
 	curLoc.z = (int16_t)CMobile_GetWalkZ(self, curLoc, minZ, maxZ);
 	moveType = ((int (*)(CItem *))VT_FN(self, VT_GET_MOVEMENT_TYPE))(self) & 0xFF;
 	height = VT_GetHeight(self);
@@ -5672,7 +5673,7 @@ CMobile_SetCriminalPunishable(CMobile *mob, CLocation *crimeLoc, int duration)
 
 	mobLoc = &mob->container.item.resourceEntity.entity.location;
 
-	if (RegionManager_inJusticeRegion(mobLoc->x, mobLoc->y, mobLoc->z) || RegionManager_inJusticeRegion(crimeLoc->x, crimeLoc->y, crimeLoc->z)) {
+	if (RegionManager_inJusticeRegion(mobLoc) || RegionManager_inJusticeRegion(crimeLoc)) {
 		Entity_AttachScript((CItem *)mob, "punishable", 1);
 		Entity_ExecuteEvent(&mob->container.item.resourceEntity.entity, 0x16, 0, "punishableReset", "v");
 	}

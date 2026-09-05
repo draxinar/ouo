@@ -194,6 +194,21 @@ CList_Destructor(CList *list)
 }
 
 /*
+ * 0x00425462 - CListIterator::CListIterator
+ *
+ * Empty in the binary: MSVC emits the iterator constructor as a
+ * prologue and epilogue with no body. Nineteen call sites across
+ * list.c, objvar.c, dynamic.c and taglist.c invoke it on the list
+ * before walking it; our C reads list->head instead, so none of them
+ * calls this.
+ */
+void
+CListIterator_Constructor(CList *list)
+{
+	(void)list;
+}
+
+/*
  * 0x0042546D - CList::Clear
  *
  * Destroys every node and resets head/tail/count.

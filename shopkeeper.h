@@ -29,7 +29,7 @@ typedef struct {
 int Vendor_GetItemPrice(CItem *item); // 0x004D0780
 void Vendor_MergeItemIntoMatch(CItem *srcItem, CItem *dstItem, int multiplier); // 0x004D078D
 void CShopkeeper_ConstructorNoArgs(CNPC *npc); // 0x004D0889
-void CShopkeeper_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc); // 0x004D0913
+void CShopkeeper_Constructor(CNPC *npc, uint16_t bodyType, uint8_t flag, CLocation loc); // 0x004D0913
 void CShopkeeper_UnlinkFromVendorList(CNPC *npc); // 0x004D09BB
 void CShopkeeper_LinkToVendorList(CNPC *npc); // 0x004D0A43
 void CShopkeeper_InitContainers(CNPC *npc); // 0x004D0AAF

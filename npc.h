@@ -236,7 +236,7 @@ extern uint32_t g_NPCHashCursor; // 0x0069A790
 extern CNPC *g_NPCLevelList[4]; // 0x0069A794
 extern CNPC *g_currentNPC; // 0x0069A7A4
 extern uint32_t g_npcProcessFilter; // 0x006E7650
-extern CNPC *g_NPCHashIterNext;
+extern CNPC *g_NPCHashIterNext; // 0x00698970 (CNPCManager+0x108)
 extern CVector g_NPCActiveList;
 
 int CNPC_GetScavengerTag(CItem *entity); // 0x00432438
@@ -245,7 +245,7 @@ int CNPC_GetFlyingTag(CItem *entity); // 0x004324AE
 int CNPC_GetPackingTag(CItem *entity); // 0x004324E9
 void CNPC_DoWalk(CNPC *this, int mode, CLocation *loc); // 0x0045E4D7
 void CGuard_Constructor(CNPC *npc); // 0x00461700
-void CNPC_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc); // 0x004617B4
+void CNPC_Constructor(CNPC *npc, uint16_t bodyType, uint8_t flag, CLocation loc); // 0x004617B4
 void CNPC_Destructor(CNPC *npc); // 0x0046188E
 void CNPC_DropAtFeet_VT(CItem *self, CLocation *loc); // 0x0046197C
 void CNPC_SetLocation_VT(CItem *self, CLocation *loc); // 0x00461A9C
@@ -261,11 +261,10 @@ void CNPCManager_Destructor(void); // 0x00480A25
 CNPC *NPC_FindBySerial(uint32_t serial); // 0x00480A9B
 void CNPCHash_HeartbeatTick(void); // 0x00480B7A
 void CNPCHash_RegenMoveTick(void); // 0x00480C34
-void CResourceMobile_SetBodyAndPlace(CMobile *mob, uint16_t bodyType, CLocation *loc); // 0x00480CD6
+void CResourceMobile_SetBodyAndPlace(CMobile *mob, uint16_t bodyType, uint8_t flag, CLocation loc); // 0x00480CD6
 void CNPC_InitFields(CNPC *npc); // 0x00480CFF
-void NPC_AddToHash(CNPC *npc); // Helper
 void CResourceMobile_Init(CMobile *mob); // 0x0048104C
-void CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, CLocation *loc); // 0x00481127
+void CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, uint8_t flag, CLocation loc); // 0x00481127
 void CResourceMobile_Destructor(CNPC *npc); // 0x00481228
 void NPC_RemoveFromHash(CNPC *npc); // 0x004813F0
 int CNPC_IsInLevelList(CNPC *npc); // 0x00481643

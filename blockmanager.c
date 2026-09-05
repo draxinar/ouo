@@ -160,6 +160,12 @@ Block_RemoveTrackingNode(CItem *entity)
  * Collects the tracking nodes within range 7 of oldLoc, then for each
  * nearby entity fires Entity_ExecuteEvent; returns 0 if any event blocks
  * the walk or if mob disappears mid-scan.
+ *
+ * MODIFIED: blockBuf holds 0x400 ints where the binary's frame slot is
+ * 0x400 bytes - 256 ints - while 0x0042EDF6 passes 0x400 as the element
+ * capacity, which CBlockManager::GetNearbyBlocks treats as a count. Range
+ * 7 never yields more than a handful of blocks, so the binary's mismatch
+ * is unreachable, but our buffer is sized to the capacity it declares.
  */
 int
 CheckWalkPassability(CItem *mob, CLocation *oldLoc, CLocation *newLoc)
@@ -514,10 +520,10 @@ CBlockManager_IsNearBorder(CBlockManager *this, int x, int y)
  * No-op stub; copies loc to itself and returns 0.
  */
 int
-CBlockManager_WrapCoord(CBlockManager *this, CLocation *loc)
+CBlockManager_WrapCoord(CBlockManager *this, CLocation loc)
 {
 	USED(this);
-	CLocation_SetLoc(loc, loc);
+	CLocation_SetLoc(&loc, &loc);
 	return 0;
 }
 

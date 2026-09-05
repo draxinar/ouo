@@ -1811,7 +1811,7 @@ Allocator_CopyConstruct16(StdAllocator *this, void *dest, void *src)
  * zero once the insertion completes, and the accumulated state is applied
  * through setstate before returning the stream.
  *
- * ORPHANED: the only caller is CScriptStringDB_Dump, itself uncalled.
+ * The only caller is CScriptStringDB_Dump, itself uncalled.
  */
 void *
 OStream_InsertCStr(CBasicFstream *os, const char *str)
@@ -1839,9 +1839,11 @@ OStream_InsertCStr(CBasicFstream *os, const char *str)
 	if (CWeaponDef_GetId((CWeaponDef *)sentry) == 0) {
 		state |= IOS_BADBIT;
 	} else {
-		rdbuf = (CStreamBuf *)ios->streambuf;
+		// rdbuf (ios+0x28) and flags (ios+0x0C) are read through the
+		// COMDAT-folded getters these two names belong to.
+		rdbuf = (CStreamBuf *)(intptr_t)CMultiSlave_GetTypeId((CMultiSlave *)ios);
 
-		if ((ios->flags & IOS_ADJUSTFIELD) != IOS_LEFT) {
+		if ((CSearchCtx_GetValNode((CSearchCtx *)ios) & IOS_ADJUSTFIELD) != IOS_LEFT) {
 			for (; pad > 0; pad--) {
 				int result = CStreamBuf_sputc(rdbuf, CBasicIos_Fill(ios));
 				int eof = StdNilRef();

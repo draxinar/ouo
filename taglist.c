@@ -47,7 +47,7 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 	inst->entity = NULL;
 	inst->next = NULL;
 
-	if (scriptClass->namedScope.count > 0) {
+	if (scriptClass->namedScope.count != 0) {
 		int totalSize = scriptClass->namedScope.totalSize;
 		inst->memberScope = OperatorNew((uint32_t)totalSize);
 		// The binary zeroes the block explicitly through memset
@@ -55,8 +55,7 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 		// zeroing is load-bearing: a script member the loop below does
 		// not construct - anything that is not a string, ustring or
 		// list - is read as whatever the block held.
-		if (inst->memberScope != NULL)
-			memset(inst->memberScope, 0, (size_t)totalSize);
+		memset(inst->memberScope, 0, (size_t)totalSize);
 
 		entries = (CNamedScopeEntry *)scriptClass->namedScope.entries;
 		for (i = 0; i < scriptClass->namedScope.count; i++) {
@@ -70,7 +69,7 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 			} else if (typeId == WTYPE_USTRING) {
 				CUString *cus = (CUString *)OperatorNew(sizeof(CUString));
 				if (cus != NULL)
-					CUString_Constructor(cus, NULL);
+					CUString_Constructor(cus, (const void *)L"");
 				*(void **)((char *)inst->memberScope + offset) = cus;
 			} else if (typeId == WTYPE_LIST) {
 				CList *lst = (CList *)OperatorNew(sizeof(CList));

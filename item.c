@@ -2365,6 +2365,11 @@ CItem_Destructor(CItem *item)
 	CMultiComponent *mc;
 	uint16_t hashIdx;
 
+	// Restore CItem's vtable before anything else, so the virtual
+	// dispatches below - CItem::Hide's vtable[0xD4] among them -
+	// answer as a CItem and not as the derived class being destroyed.
+	item->resourceEntity.entity.vtable = &g_vtable_CItem;
+
 	CVector_Constructor(&serialsVec, &typeFlag1);
 
 	wasContained = (item->parent != NULL) ? 1 : 0;
@@ -2384,11 +2389,10 @@ CItem_Destructor(CItem *item)
 			CVector_Destructor(&tempVec);
 		}
 
-		if (CMultiComponent_IsOwner(mc)) {
-			CMultiSlave_RemoveAllComponents((CMultiSlave *)mc);
-		} else {
-			CMultiComponent_NotifyOwnerRemoval(mc, item->serial);
-		}
+		// Multi slot 2 takes the item's serial:
+		// CMultiSlave::RemoveAllComponents ignores it,
+		// CMultiComponent::NotifyOwnerRemoval uses it.
+		CMultiComponent_Cleanup(mc, item->serial);
 
 		if (CMultiComponent_IsOwner(mc)) {
 			CMulti_Free(mc);
@@ -2745,9 +2749,9 @@ CEntity_IsAtHome(CItem *item)
 	if ((int16_t)curLoc.z != (int16_t)homeLoc.z)
 		return 0;
 
-	if (RegionManager_isInCityRegion(curLoc.x, curLoc.y, curLoc.z))
+	if (RegionManager_isInCityRegion(&curLoc))
 		return 1;
-	if (RegionManager_inJusticeRegion(curLoc.x, curLoc.y, curLoc.z))
+	if (RegionManager_inJusticeRegion(&curLoc))
 		return 1;
 
 	return 0;
@@ -4968,11 +4972,11 @@ CItem_EmoteHuedCUString_VT(CItem *self, CItem *target, uint32_t serial, uint16_t
  * Returns 0 once a handler consumes the event (text starting with '@'
  * is also consumed up front).
  *
- * FIXED: The binary breaks out of the collection loop when the 251-slot
- * buffer fills, so scripted items in later-scanned blocks are dropped
- * even when they are closer than items already collected. Replaced the
- * overflow break with a K-nearest replacement: when full, swap the
- * farthest entry for the incoming item if it is closer.
+ * MODIFIED: the binary stops scanning when the 251-slot buffer fills
+ * (0x0048D897), so scripted items in later-scanned blocks are dropped
+ * even when they are closer than items already collected. The array is
+ * not overrun; the policy is first-come. We keep the same budget and
+ * swap the farthest entry for the incoming item when it is closer.
  */
 int
 Convo_NotifyNearbyNPCs(uint32_t speakerSerial, CLocation *loc, const char *text, int range)

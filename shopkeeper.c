@@ -124,11 +124,11 @@ CShopkeeper_ConstructorNoArgs(CNPC *npc)
  * clears vendor fields, links into vendor list, increments g_NPCSubCount2.
  */
 void
-CShopkeeper_Constructor(CNPC *npc, uint16_t bodyType, CLocation *loc)
+CShopkeeper_Constructor(CNPC *npc, uint16_t bodyType, uint8_t flag, CLocation loc)
 {
 	CMobile *mob = &npc->mobile;
 
-	CResourceMobile_Constructor(mob, bodyType, loc);
+	CResourceMobile_Constructor(mob, bodyType, flag, loc);
 
 	CEntity_SetType(&mob->container.item.resourceEntity.entity, ETYPE_SHOPKEEPER);
 
@@ -279,7 +279,7 @@ Vendor_GetMarkupPercent(CMobile *vendor, CPlayer *player)
 void
 CShopkeeper_OpenBuyWindow(CPlayer *player, CMobile *vendor)
 {
-	uint8_t obuf[25012];
+	uint8_t obuf[25008];
 	CContainer *stockCont;
 	CContainer *offeredCont;
 	CItem *item;

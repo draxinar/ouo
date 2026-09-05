@@ -3965,7 +3965,7 @@ static CListNode *
 List_GetAt_Typed(CList *list, int index, int expectedType)
 {
 	CListNode *cur;
-	char buf[512];
+	char buf[256];
 	int i;
 
 	cur = list->head;
@@ -7403,7 +7403,7 @@ Script_animateMobile(uint32_t serial, int animType, int action, int frameCount, 
 
 	if (g_AnimSequence.state) {
 		CLocation_SetLoc(&tmpLoc, CEntity_GetLocation(&mob->resourceEntity.entity));
-		AnimSequence_AddLocation(&tmpLoc);
+		AnimSequence_AddLocation(tmpLoc);
 		ptr = seqData;
 		memcpy(ptr, &serial, 4);
 		ptr += 4;
@@ -7445,7 +7445,7 @@ Script_sfx(CLocation *loc, int soundID, int volume)
 
 	if (g_AnimSequence.state) {
 		tmpLoc = *loc;
-		AnimSequence_AddLocation(&tmpLoc);
+		AnimSequence_AddLocation(tmpLoc);
 		memcpy(seqData, loc, 6);
 		memcpy(seqData + 6, &soundID, 4);
 		memcpy(seqData + 10, &volume, 4);
@@ -7476,7 +7476,7 @@ Script_sfxTo(uint32_t serial, int soundID, int volume)
 
 	if (g_AnimSequence.state) {
 		CLocation_SetLoc(&tmpLoc, CEntity_GetLocation(&ent->resourceEntity.entity));
-		AnimSequence_AddLocation(&tmpLoc);
+		AnimSequence_AddLocation(tmpLoc);
 		memcpy(seqData, &ent, 4);
 		memcpy(seqData + 4, &soundID, 4);
 		memcpy(seqData + 8, &volume, 4);
@@ -10272,7 +10272,7 @@ Script_testSkillReal(uint32_t serial, int skillId)
 	ent = FindMobileValidated(serial, "testSkill");
 	if (ent == NULL)
 		return 0;
-	return CMobile_DirectUse((CMobile *)ent, (int8_t)skillId);
+	return CMobile_DirectUse((CMobile *)ent, (int8_t)skillId, NULL, 0x64);
 }
 
 /*
@@ -10290,7 +10290,7 @@ Script_testSkill(uint32_t serial, int skillId)
 	ent = FindMobileValidated(serial, "testSkill");
 	if (ent == NULL)
 		return 0;
-	result = CMobile_DirectUse((CMobile *)ent, (int8_t)skillId);
+	result = CMobile_DirectUse((CMobile *)ent, (int8_t)skillId, NULL, 0x64);
 	return result > 0 ? 1 : 0;
 }
 
@@ -12858,8 +12858,8 @@ Script_doMissile_Loc2Loc(CLocation *srcLoc, CLocation *dstLoc, int effectId, int
 	uint8_t *ptr;
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(srcLoc);
-		AnimSequence_AddLocation(dstLoc);
+		AnimSequence_AddLocation(*srcLoc);
+		AnimSequence_AddLocation(*dstLoc);
 		ptr = seqData;
 		memcpy(ptr, srcLoc, 6);
 		ptr += 6;
@@ -12900,11 +12900,11 @@ Script_doMissile_Loc2Mob(CLocation *srcLoc, uint32_t dstSerial, int effectId, in
 	mob = FindMobileValidated(dstSerial, "doMissile_Loc2Mob");
 	if (mob == NULL)
 		return;
-	CLocation_SetLoc(&dstLoc, VT_GetLocation(mob));
+	CLocation_SetLoc(&dstLoc, CEntity_GetLocation(&mob->resourceEntity.entity));
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(srcLoc);
-		AnimSequence_AddLocation(&dstLoc);
+		AnimSequence_AddLocation(*srcLoc);
+		AnimSequence_AddLocation(dstLoc);
 		ptr = seqData;
 		memcpy(ptr, &dstSerial, 4);
 		ptr += 4;
@@ -12947,11 +12947,11 @@ Script_doMissile_Mob2Loc(uint32_t srcSerial, CLocation *dstLoc, int effectId, in
 	mob = FindMobileValidated(srcSerial, "doMissile_Mob2Loc");
 	if (mob == NULL)
 		return;
-	CLocation_SetLoc(&srcLoc, VT_GetLocation(mob));
+	CLocation_SetLoc(&srcLoc, CEntity_GetLocation(&mob->resourceEntity.entity));
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(&srcLoc);
-		AnimSequence_AddLocation(dstLoc);
+		AnimSequence_AddLocation(srcLoc);
+		AnimSequence_AddLocation(*dstLoc);
 		ptr = seqData;
 		memcpy(ptr, &srcSerial, 4);
 		ptr += 4;
@@ -12998,12 +12998,12 @@ Script_doMissile_Mob2Mob(uint32_t srcSerial, uint32_t dstSerial, int effectId, i
 	mob2 = FindMobileValidated(dstSerial, "doMissile_Mob2Mob (mobile 2)");
 	if (mob2 == NULL)
 		return;
-	CLocation_SetLoc(&srcLoc, VT_GetLocation(mob1));
-	CLocation_SetLoc(&dstLoc, VT_GetLocation(mob2));
+	CLocation_SetLoc(&srcLoc, CEntity_GetLocation(&mob1->resourceEntity.entity));
+	CLocation_SetLoc(&dstLoc, CEntity_GetLocation(&mob2->resourceEntity.entity));
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(&srcLoc);
-		AnimSequence_AddLocation(&dstLoc);
+		AnimSequence_AddLocation(srcLoc);
+		AnimSequence_AddLocation(dstLoc);
 		ptr = seqData;
 		memcpy(ptr, &srcSerial, 4);
 		ptr += 4;
@@ -13043,7 +13043,7 @@ Script_doLocAnimation(CLocation *loc, int effectId, int speed, int duration, int
 	uint8_t *ptr;
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(loc);
+		AnimSequence_AddLocation(*loc);
 		ptr = seqData;
 		memcpy(ptr, &effectId, 4);
 		ptr += 4;
@@ -13084,10 +13084,10 @@ Script_doMobAnimation(uint32_t serial, int effectId, int speed, int duration, in
 	mob = FindMobileValidated(serial, "doMobAnimation");
 	if (mob == NULL)
 		return;
-	CLocation_SetLoc(&mobLoc, VT_GetLocation(mob));
+	CLocation_SetLoc(&mobLoc, CEntity_GetLocation(&mob->resourceEntity.entity));
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(&mobLoc);
+		AnimSequence_AddLocation(mobLoc);
 		ptr = seqData;
 		memcpy(ptr, &serial, 4);
 		ptr += 4;
@@ -13129,10 +13129,10 @@ Script_doLightning(uint32_t serial)
 	mob = FindMobileValidated(serial, "doLighting");
 	if (mob == NULL)
 		return;
-	CLocation_SetLoc(&mobLoc, VT_GetLocation(mob));
+	CLocation_SetLoc(&mobLoc, CEntity_GetLocation(&mob->resourceEntity.entity));
 
 	if (g_AnimSequence.state) {
-		AnimSequence_AddLocation(&mobLoc);
+		AnimSequence_AddLocation(mobLoc);
 		memcpy(seqData, &serial, 4);
 		memcpy(seqData + 4, &mobLoc, 6);
 		AnimSequence_AddCommand(2, seqData, 10);
@@ -13524,7 +13524,7 @@ Script_canSeeLoc(uint32_t serial, CLocation *loc)
 	halfHeight = VT_GetHeight(ent) / 2;
 	localLoc.z += (int16_t)halfHeight;
 
-	return CTerrainManager_LOSRaycast(&localLoc, loc, 1);
+	return CTerrainManager_LOSRaycast(localLoc, *loc, 1);
 }
 
 /*
@@ -16412,7 +16412,7 @@ Script_isHousingOkay(CLocation *loc, int arg)
 {
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)loc->x, (int16_t)loc->y))
 		return 0;
-	return RegionManager_isHousingOkay((int16_t)loc->x, (int16_t)loc->y, (int16_t)loc->z, arg) == 1;
+	return RegionManager_isHousingOkay(loc, arg) == 1;
 }
 
 /*
@@ -16425,7 +16425,7 @@ Script_areSpellsOkay(CLocation *loc)
 {
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)loc->x, (int16_t)loc->y))
 		return 0;
-	return RegionManager_areSpellsOkay((int16_t)loc->x, (int16_t)loc->y, (int16_t)loc->z) == 1;
+	return RegionManager_areSpellsOkay(loc) == 1;
 }
 
 /*
@@ -16436,7 +16436,7 @@ Script_areSpellsOkay(CLocation *loc)
 int
 Script_inJusticeRegion(CLocation *loc)
 {
-	return RegionManager_inJusticeRegion((int16_t)loc->x, (int16_t)loc->y, (int16_t)loc->z) == 1;
+	return RegionManager_inJusticeRegion(loc) == 1;
 }
 
 /*
@@ -16449,7 +16449,7 @@ Script_isInCityRegion(CLocation *loc)
 {
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)loc->x, (int16_t)loc->y))
 		return 0;
-	return RegionManager_isInCityRegion((int16_t)loc->x, (int16_t)loc->y, (int16_t)loc->z) == 1;
+	return RegionManager_isInCityRegion(loc) == 1;
 }
 
 /*
@@ -18434,7 +18434,7 @@ Script_witnessCrime(CLocation *loc, uint32_t criminalSerial, uint32_t victimSeri
 		return 0;
 	victim = (CMobile *)FindMobileValidated(victimSerial, NULL);
 	CLocation_SetLoc(&crimeLoc, loc);
-	return ProcessCrimeWitness(&crimeLoc, criminal, victim, CString_GetData(str), delay, priority, crimeType);
+	return ProcessCrimeWitness(crimeLoc, criminal, victim, CString_GetData(str), delay, priority, crimeType);
 }
 
 static int
@@ -21760,7 +21760,7 @@ VT_FindItemByName(CItem *mob, CString *name, uint32_t containerSerial)
  * CUString is identical but stores unsigned short (wchar16) data.
  *
  * Binary helper addresses:
- *   0x004D3397 - CString::GetBuffer()       returns *(char **)this
+ *   0x004D3397 - CString::GetData()         returns *(char **)this
  *   0x00401450 - CString::GetLength()       returns this->length
  *   0x004D33A7 - CString::Assign(const char *)   CString_AssignInternal
  *   0x004D3481 - CString::operator+=(const CString &)

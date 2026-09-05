@@ -175,8 +175,6 @@ ContainerHandle_InitMap(void)
 	head->color = 0;
 	head->left = head;
 	head->right = head;
-	head->key = 0;
-	head->value = 0;
 
 	tree->head = head;
 	tree->multi = 0;

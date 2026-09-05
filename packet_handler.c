@@ -1472,7 +1472,7 @@ BroadcastToRangeWithLOS(uint8_t *buf, CLocation *loc, int maxCount, int range)
 		CLocation_SetLoc(&locCopy, loc);
 		CLocation_Constructor3D(&delta, 0, 0, 8);
 		CLocation_AddWrapped(CEntity_GetLocation((CEntity *)*iter), &eyeLoc, &delta);
-		if (CTerrainManager_LOSRaycast(&eyeLoc, &locCopy, 1))
+		if (CTerrainManager_LOSRaycast(eyeLoc, locCopy, 1))
 			CVector_PushBack(&filtered, *iter);
 		iter++;
 	}
@@ -2216,10 +2216,8 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 {
 	uint8_t obuf[0x4C0];
 
-	USED(addr);
-
 	// Phase 0 (0x00492776): SetIsLoaded via 0x0044FA4A
-	CPlayer_SetIsLoaded(this);
+	CPlayer_SetIsLoaded(this, addr);
 
 	if (!(this->pflags & PlayerIsLoaded)) {
 		if (this->usersock)
@@ -2613,7 +2611,8 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 	uint32_t buttonID;
 	uint32_t switchCount;
 	uint32_t textEntryCount;
-	uint32_t i, j;
+	int i;
+	uint32_t j;
 	uint32_t switchVal;
 	uint16_t textLen;
 	uint16_t textEntryId;
@@ -2625,8 +2624,11 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 	uint16_t packetLen;
 	uint32_t payloadLen;
 
-	// Read packet length from dynamic-size header (buf[1-2], host order).
+	// Read packet length from the dynamic-size header. The receive path
+	// leaves buf[1-2] big-endian and byte-swaps a copy into g_PacketSize,
+	// so this read has to swap too.
 	memcpy(&packetLen, &buf[1], 2);
+	ntohs_inplace(&packetLen);
 	payloadLen = (packetLen > 3) ? packetLen - 3 : 0;
 
 	CList_Constructor(&switchList);
@@ -2648,7 +2650,7 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 
 	GetDWord(buf, &off, &switchCount);
 
-	for (i = 0; i < switchCount && off + 4 <= payloadLen; i++) {
+	for (i = 0; i < (int)switchCount && off + 4 <= payloadLen; i++) {
 		GetDWord(buf, &off, &switchVal);
 		CList_Append(&switchList, 0, switchVal);
 	}
@@ -2656,7 +2658,7 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 	if (off + 4 > payloadLen)
 		goto done;
 	GetDWord(buf, &off, &textEntryCount);
-	for (i = 0; i < textEntryCount && off + 4 <= payloadLen; i++) {
+	for (i = 0; i < (int)textEntryCount && off + 4 <= payloadLen; i++) {
 		GetWord(buf, &off, &textEntryId);
 		GetWord(buf, &off, &textLen);
 
@@ -3116,7 +3118,7 @@ Steal_CheckAndResolve(CItem *item, CPlayer *player, CItem *owner)
 		CriminalAct_Notify(&player->mobile, (CMobile *)owner, 1, 7, 0x50, 0);
 
 	if (!CPlayer_IsEditing(player)) {
-		roll = CMobile_DirectUse(&player->mobile, 0x21);
+		roll = CMobile_DirectUse(&player->mobile, 0x21, item, 0x64);
 		roll -= ((int (*)(void *))VT_FN(item, VT_GET_WEIGHT))(item) * 3;
 		roll -= ((int (*)(void *, int, int))VT_FN(item, VT_GET_VALUE))(item, 0, 1) / 4;
 		roll -= 250;
@@ -3266,7 +3268,7 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 		CLocation_Init(&eyeLoc);
 		CLocation_CopyFrom(&eyeLoc, &this->mobile.container.item.resourceEntity.entity.location);
 		eyeLoc.z += 8;
-		if (!CTerrainManager_LOSRaycast(&locE8, &eyeLoc, 2)) {
+		if (!CTerrainManager_LOSRaycast(locE8, eyeLoc, 2)) {
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x02);
 			SendToClient((CItem *)this, obuf, -1);
 			return;
@@ -3675,7 +3677,7 @@ HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf)
 			CLocation_Init(&playerEyeLoc);
 			CLocation_CopyFrom(&playerEyeLoc, &this->mobile.container.item.resourceEntity.entity.location);
 			playerEyeLoc.z += 8;
-			if (!CTerrainManager_LOSRaycast(&playerEyeLoc, &targetLoc, 2)) {
+			if (!CTerrainManager_LOSRaycast(playerEyeLoc, targetLoc, 2)) {
 				DropObj_Bounce((CItem *)this, item, &dropLoc);
 				return;
 			}
@@ -4669,6 +4671,11 @@ SendEntityResourceNodes(CItem *entity, CItem *player, uint32_t unused, uint32_t 
  * single skill (0x06), or resource nodes (0xFD). Requires the sentinel
  * serial 0xEDEDEDED.
  *
+ * MODIFIED: 1.26.2+ clients get the extended skill formats, 7 bytes
+ * per entry against the binary's 6. Both skill buffers keep the
+ * binary's 0x404 bytes, which the extended full list fills to
+ * 4 + 7 * maxSkills + 2.
+ *
  * CUSTOM (FEAT_SKILL_LOCK): the single-skill reply carries the player's
  * lock state; zero otherwise.
  */
@@ -4733,7 +4740,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 	case 0x05: {
 		// Full skill list (0x004966EA)
 		// MODIFIED: Extended format for 1.26.2+ clients.
-		uint8_t obuf[0x820];
+		uint8_t obuf[0x404];
 		int numSkills;
 
 		numSkills = CSkillManager_GetMaxSkills(&g_SkillManager);
@@ -4748,7 +4755,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 	case 0x06: {
 		// Single skill update (0x0049669F)
 		// MODIFIED: Extended format for 1.26.2+ clients.
-		uint8_t obuf[0x41C];
+		uint8_t obuf[0x404];
 		int ver06 = Version_GetConnVer(this->usersock, CLIENT_12602);
 
 		if (param >= (uint32_t)CSkillManager_GetMaxSkills(&g_SkillManager))
@@ -5122,6 +5129,7 @@ HandlePacket_NEW_REGION(CPlayer *this, uint8_t *buf)
 	char *name2Ptr;
 
 	CRegion_Init(&region);
+	region.name[0] = '\0';
 	off = 0;
 	GetString(buf, &off, &namePtr, 0x28);
 	strncpy(region.name, namePtr, 0x28);
@@ -6832,7 +6840,12 @@ TriggerEdit_Op546F(const char *scriptName)
 
 		// Compare script name: CScript->name at offset 0x00
 		if (strcmp(*(char **)node->scriptClassPtr, scriptName) == 0) {
-			CVector_PushBack(&vec, (uintptr_t)&node->entity);
+			// push_back takes a const T & and copies through it, so
+			// what lands in the vector is the entity pointer. Taking
+			// the address here would leave the vector pointing into a
+			// node CResourceEntity_RemoveScriptNode frees on the next
+			// line.
+			CVector_PushBack(&vec, (uintptr_t)node->entity);
 			CResourceEntity_RemoveScriptNode((CItem *)node->entity, node);
 		}
 
@@ -6874,7 +6887,7 @@ advance:
 	// Phase 4: re-attach script to all entities that had it
 	p = (uintptr_t *)vec.begin;
 	while (p < (uintptr_t *)vec.end) {
-		Entity_AttachScript(*(CItem **)p, scriptName, 1);
+		Entity_AttachScript((CItem *)*p, scriptName, 1);
 		p++;
 	}
 
@@ -9272,9 +9285,9 @@ event_0x17:
 
 		snoopDifficulty = (1000 - CMobile_GetSkillValue(&this->mobile, 0x1C, 0)) / 50;
 
-		ProcessCrimeWitness(playerLoc, &this->mobile, snoopTarget, "", snoopDifficulty, 0, 2);
+		ProcessCrimeWitness(*playerLoc, &this->mobile, snoopTarget, "", snoopDifficulty, 0, 2);
 
-		if (CMobile_DirectUse(&this->mobile, 0x1C) < 0) {
+		if (CMobile_DirectUse(&this->mobile, 0x1C, snoopTarget, 0x64) < 0) {
 			CPlayer_SystemMessage(this, "You failed to peek into the container.");
 			return;
 		}

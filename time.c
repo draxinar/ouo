@@ -394,8 +394,13 @@ CTimeManager_LogEntityStats(int arg)
  *
  * Main game tick. Runs every subsystem heartbeat (decay, NPC AI, combat,
  * spawn, weather, timers, player, clock, events, light) in the binary's
- * exact order. CUSTOM additions: auto initial-spawn deadline, periodic
- * world save.
+ * exact order.
+ *
+ * MODIFIED: carries an ungated periodic world save every 4096 ticks -
+ * Account_SaveAll plus a fork()ed snapshot - which the binary does not
+ * have. The auto initial-spawn deadline, resource regrowth and -dumpbank
+ * diagnostics are the other CUSTOM additions, and those are flag- or
+ * feature-gated.
  */
 void
 CTimeManager_Update(void)
@@ -606,9 +611,9 @@ TimeManager_MatchTimePattern(const char *pattern, int value)
 void
 CTimeManager_RegisterTimedEvent(ScriptAttachNode *id, const char *expression)
 {
-	char buf[256];
+	char buf[128];
 	char token[128];
-	char unitBuf[256];
+	char unitBuf[128];
 	char *pos;
 	int i, unitIndex, count;
 	CTimeEventNode **eventArray;
@@ -659,9 +664,9 @@ CTimeManager_RegisterTimedEvent(ScriptAttachNode *id, const char *expression)
 void
 CTimeManager_UnregisterTimedEvent(ScriptAttachNode *id, const char *expression)
 {
-	char buf[256];
+	char buf[128];
 	char token[128];
-	char unitBuf[256];
+	char unitBuf[128];
 	char *pos;
 	int i, unitIndex, count;
 	CTimeEventNode **eventArray;

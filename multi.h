@@ -140,7 +140,8 @@ void CRotationTable_Constructor(CRotationTable *this);  // 0x00478610
 
 // Helper - CMultiComponent_IsOwner: vtable[1] IsOwner dispatch.
 // Returns 0 for CMultiComponent (non-owner), 1 for CMultiSlave (owner).
-#define CMultiComponent_IsOwner(mc) ((int (*)(CMultiComponent *))(uintptr_t)(mc)->vtable[MC_VT_IS_OWNER])((mc))
+#define CMultiComponent_IsOwner(mc)         ((int (*)(CMultiComponent *))(uintptr_t)(mc)->vtable[MC_VT_IS_OWNER])((mc))
+#define CMultiComponent_Cleanup(mc, serial) ((void (*)(CMultiComponent *, uint32_t))(uintptr_t)(mc)->vtable[MC_VT_CLEANUP])((mc), (serial))
 
 /*
  * 0x004212E0 - CItem::GetMulti
@@ -287,7 +288,7 @@ void CMultiSlave_RemoveComponents(CMultiSlave *ms, int skipOwnerSerial); // 0x00
 void CMultiSlave_IterateComponents(CMultiSlave *ms, int hideFlag, int skipOwnerSerial); // 0x004747D4
 void CMultiSlave_AddComponentItems(CMultiSlave *slave, CItem *container, int flag); // 0x00474864
 void CMultiSlave_UpdateComponents(CMultiSlave *slave, CLocation *loc, int flag); // 0x00474914
-void CMultiSlave_RemoveAllComponents(CMultiSlave *slave); // 0x004749BC
+void CMultiSlave_RemoveAllComponents(CMultiSlave *slave, uint32_t unused); // 0x004749BC
 void CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList); // 0x00474A69
 void CMultiSlave_CollectItemSerials(CMultiSlave *slave, CVector *outSerials); // 0x00474CD4
 int CMultiSlave_Move(CMultiSlave *slave, CLocation *loc); // 0x00474D6E

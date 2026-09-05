@@ -155,7 +155,7 @@ extern CPlayer *g_LastCreatedPlayer; // 0x00699B6C
 int CPlayer_IsPlayer(CPlayer *this); // 0x004243C0
 void CPlayer_SetColors(CPlayer *this, uint32_t colors); // 0x0044F986
 CPlayer *CPlayerList_FindBySerial(uint32_t serial); // 0x0044F9AF
-void CPlayer_SetIsLoaded(CPlayer *this); // 0x0044FA4A
+void CPlayer_SetIsLoaded(CPlayer *player, uint32_t unused); // 0x0044FA4A
 void CPlayerList_Heartbeat(void); // 0x0044FA6C
 int CPlayerList_GetCount(void); // 0x0044FB0B
 int16_t CPlayerList_CountNearBorder(void); // 0x0044FB3F
@@ -290,7 +290,7 @@ CEntityMap *CEntityMap_Constructor(CEntityMap *this, int startX, int startY, int
 void CEntityMap_Insert(CEntityMap *this, CItem *entity, int x, int y); // 0x004571B0
 void CEntityMap_Remove(CEntityMap *this, CItem *entity, int x, int y); // 0x004571F0
 int CEntityMap_CountInRange(CEntityMap *this, int16_t x, int16_t y, int range); // 0x004572B0
-void CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range, CItem *exclude); // 0x00457480
+void CEntityMap_RangeQueryExclude(CEntityMap *this, CVector *list, int x, int y, int range, CItem *exclude); // 0x00457480
 void CEntityMap_CollectMovementVisibilityExclude(
         CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range, CItem *exclude); // 0x00457920
 
@@ -298,7 +298,7 @@ void CEntityMap_CollectMovementVisibility(
         CEntityMap *this, CVector *removeList, CVector *insertList, CVector *overlapList, int newX, int newY, int oldX, int oldY, int range); // 0x00457660
 int ChebyshevDistXY(int x1, int y1, int x2, int y2); // 0x004578B0
 int CEntityMap_GetBlockIdx(CEntityMap *this, int x, int y); // 0x00457C80
-void CEntityMap_RangeQuery(CEntityMap *this, CVector *list, int16_t x, int16_t y, int range); // 0x00457DC0
+void CEntityMap_RangeQuery(CEntityMap *this, CVector *list, int x, int y, int range); // 0x00457DC0
 void LoadAll_LoginScriptEntries(void); // 0x0045A76A
 void Player_AttachStartupScripts_Inner(CItem *item); // 0x0045A8B3
 void CPlayerList_DisconnectAll(CResList *list); // 0x0045F520

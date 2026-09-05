@@ -206,7 +206,7 @@ int16_t CMobile_SetSkillBonus(CMobile *this, int8_t skillId, int16_t value); // 
 int CMobile_GetSkillBonus(CMobile *this, int8_t skillId); // 0x0046DD88
 int CMobile_GetTotalSkill(CMobile *this, int8_t skillId); // 0x0046DDBD
 int CMobile_GetBaseSkill(CMobile *this, int8_t skillId); // 0x0046DE28
-int GetCreatureHeight(uint16_t templateId); // 0x0046DE5B
+int GetCreatureHeight(uint32_t templateId); // 0x0046DE5B
 void CMobile_InitMovementTypeFromTemplate(CMobile *this); // 0x0046DEED
 CItem *CMobile_FindInTagList_VT(CMobile *self, CString *name, uint32_t value); // 0x0046DF17
 int CMobile_CheckWalkDir(CNPC *npc, int dir); // 0x0046E1F4

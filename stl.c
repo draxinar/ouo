@@ -171,8 +171,7 @@ static void CVector_InsertSI(CVector *this, SurfaceInfo *pos, uint32_t count, Su
 static void *CVector_Insert_FF30(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x0042FF30
 static void CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x0042FF80
 static void *CVector_InsertAtSI(CVector *this, uintptr_t index, SurfaceInfo *value); // 0x0046BB00
-static void *CVector_Allocate4(CVector *this, uint32_t count); // 0x0047A350
-static void *Destroy1C_Range2(CVector *this, int count, int unused_arg); // 0x00479B50
+static void *CVector_Allocate4(CVector *this, uint32_t count, int unused); // 0x0047A350
 static CVector *CVector_AssignOp4(CVector *this, CVector *src); // 0x004791F0
 static CVector *CVector_CopyConstruct4(CVector *this, CVector *src); // 0x00479180
 static void *SortMultiDist_Partition(void *first, void *last, uintptr_t pivot, CLocation cmpLoc); // 0x0047D3E0
@@ -309,7 +308,7 @@ CVector16_Insert(CVector *this, void *pos, uint32_t count, void *val)
 			needed = existing;
 		uint32_t total = CVector_GetCount16(this) + needed;
 
-		void *newbuf = malloc(total * sizeof(CString));
+		void *newbuf = CVector_Allocate16(this, total, 0);
 
 		// Copy [begin, pos) to newbuf
 		void *newpos = Construct_Range16(this, this->begin, pos, newbuf);
@@ -323,8 +322,8 @@ CVector16_Insert(CVector *this, void *pos, uint32_t count, void *val)
 		// Destroy old elements
 		Destroy_Range16((StdAllocator *)this, this->begin, this->end);
 
-		// Free old buffer (binary: 0x0046c9e0 deallocator)
-		free(this->begin);
+		// Free old buffer
+		StdDeque_DeallocSI(this, this->begin, (int)(((char *)this->capacity - (char *)this->begin) / sizeof(CString)));
 
 		// Update pointers
 		this->capacity = (char *)newbuf + total * sizeof(CString);
@@ -406,10 +405,11 @@ Construct_Range16(CVector *this, void *dest, void *end, void *src)
  * Allocates buffer for 16-byte elements. Returns pointer to buffer.
  */
 void *
-CVector_Allocate16(CVector *this, uint32_t count)
+CVector_Allocate16(CVector *this, uint32_t count, int unused)
 {
 	USED(this);
-	return Allocate16_Inner(count);
+	USED(unused);
+	return Allocate16_Inner((int)count);
 }
 
 /*
@@ -2584,7 +2584,9 @@ StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source)
  * 0x00426440 - CVector::CVector wrapper
  *
  * Wrapper that passes a local (uninitialized) type byte pointer to
- * CVector_Constructor and returns this.
+ * CVector_Constructor and returns this. MSVC emitted a byte-identical
+ * twin at 0x004A6470, which CMobile::SendUpdateToList hands to the
+ * array-constructor iterator.
  */
 static __attribute__((unused)) void *
 CVector_ConstructorWrapper(CVector *this)
@@ -3009,7 +3011,7 @@ CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 
 		totalCapacity = curCount + growTo;
 
-		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity);
+		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity, 0);
 
 		newEnd = (uintptr_t *)CVector_Ucopy((StdAllocator *)this, this->begin, pos, newBuf);
 
@@ -4984,7 +4986,7 @@ CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 		totalCapacity = curCount + growTo;
 
 		// CVector_Allocate4 (0x0047A350)
-		newBuf = (uintptr_t *)CVector_Allocate4_Terrain(this, totalCapacity, 0);
+		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity, 0);
 
 		// Copy elements before pos
 		newEnd = CVector_Ucopy_CC20(this, (uintptr_t *)this->begin, pos, newBuf);
@@ -5248,7 +5250,7 @@ CVector_AssignOp16(CVector *this, CVector *src)
 			// Realloc: destroy, free, allocate, copy.
 			Destroy16_Range(this, this->begin, this->end);
 			CVector_ClearFreeRaw(this->begin, ((char *)this->capacity - (char *)this->begin) / sizeof(CString));
-			this->begin = CVector_Allocate16(this, srcCount);
+			this->begin = CVector_Allocate16(this, srcCount, 0);
 			CVector_Uninit_Copy16_Fwd2(this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 			this->end = this->begin ? (void *)((char *)this->begin + srcCount * sizeof(CString)) : NULL;
 			this->capacity = this->end;
@@ -5348,7 +5350,7 @@ static CVector *
 CVector_CopyConstruct4(CVector *this, CVector *src)
 {
 	this->type = src->type;
-	this->begin = CVector_Allocate4(this, CVector_GetCount(src));
+	this->begin = CVector_Allocate4(this, CVector_GetCount(src), 0);
 	this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 	this->capacity = this->end;
 	return this;
@@ -5387,7 +5389,7 @@ CVector_AssignOp4(CVector *this, CVector *src)
 		} else {
 			CVector_Destroy4_Range(this, this->begin, this->end);
 			CVector_ClearFreeRaw(this->begin, (uint32_t)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(uintptr_t)));
-			this->begin = CVector_Allocate4(this, srcCount);
+			this->begin = CVector_Allocate4(this, srcCount, 0);
 			this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 			this->capacity = this->end;
 		}
@@ -5472,12 +5474,13 @@ Destroy6_Range(CVector *this, void *first, void *last)
 }
 
 /*
- * 0x00479B50 - Destroy1C_Range2
+ * 0x00479B50 - CVector<CMultiComponentDef>::Allocate
  *
- * Calls Allocate1C (0x0047B1D0) with (count) to allocate new buffer.
+ * Thiscall wrapper forwarding to Allocate1C (0x0047B1D0) with (count, 0);
+ * the second stack argument is declared and never read.
  */
-static __attribute__((unused)) void *
-Destroy1C_Range2(CVector *this, int count, int unused_arg)
+void *
+CVector_Allocate1C(CVector *this, int count, int unused_arg)
 {
 	USED(this);
 	USED(unused_arg);
@@ -5492,9 +5495,10 @@ Destroy1C_Range2(CVector *this, int count, int unused_arg)
  * OperatorNew.
  */
 static void *
-CVector_Allocate4(CVector *this, uint32_t count)
+CVector_Allocate4(CVector *this, uint32_t count, int unused)
 {
 	USED(this);
+	USED(unused);
 	return Vector_AllocElements((int)count);
 }
 

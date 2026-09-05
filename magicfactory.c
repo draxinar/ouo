@@ -1862,13 +1862,14 @@ CMagicItemFactory_ProcessPropsA(CMagicItemFactory *factory, CResManager *eRM, CR
 	int changed = 0;
 	CSearchCtx iter;
 	CSearchCtx tempCtx;
-	CResListNode *magicCtx;
+	CResListNode *magicCtx = NULL;
 	CResListNode *tempNode;
 	CStringList *val;
 	CEffectTableEntry *data;
 	CResListNode *innerNode;
 
 	CSearchCtx_Constructor(&iter);
+	CResBankMagicCtx_DefaultConstructor(&magicCtx);
 
 	CResManager_BeginIterB(eRM, &tempCtx);
 	CSearchCtx_Add(&iter, &tempCtx);
@@ -1878,10 +1879,13 @@ CMagicItemFactory_ProcessPropsA(CMagicItemFactory *factory, CResManager *eRM, CR
 		if (val->totalWeight == 0)
 			goto next_outer;
 
+		val = (CStringList *)CResManager_GetResultCtx(eRM, &iter);
 		CStringList_BeginIter(val, &tempNode);
-		magicCtx = tempNode;
+		CResBankMagicCtx_CopyConstructor(&magicCtx, &tempNode);
+		CResBankMagicCtx_PostInit(&tempNode);
 
-		while (magicCtx != NULL) {
+		while (CStringList_HasEntries((CStringList *)&magicCtx)) {
+			val = (CStringList *)CResManager_GetResultCtx(eRM, &iter);
 			int type = CStringList_GetTypeEffects(val, &magicCtx);
 			if (type != 1)
 				goto advance_entry;
@@ -1904,7 +1908,8 @@ CMagicItemFactory_ProcessPropsA(CMagicItemFactory *factory, CResManager *eRM, CR
 
 advance_entry:
 			CStringList_AdvanceIter(val, &tempNode, &magicCtx);
-			magicCtx = tempNode;
+			CResBankMagicCtx_CopyConstructor(&magicCtx, &tempNode);
+			CResBankMagicCtx_PostInit(&tempNode);
 		}
 
 next_outer:
@@ -1912,6 +1917,7 @@ next_outer:
 		CSearchCtx_Add(&iter, &tempCtx);
 	}
 
+	CResBankMagicCtx_PostInit(&magicCtx);
 	return changed;
 }
 
@@ -1930,13 +1936,14 @@ CMagicItemFactory_ProcessPropsB(CMagicItemFactory *factory, CResManager *eRM, CR
 	CSearchCtx outerIter;
 	CSearchCtx innerCtx;
 	CSearchCtx tempCtx;
-	CResListNode *magicCtx;
+	CResListNode *magicCtx = NULL;
 	CResListNode *tempNode;
 	CStringList *val;
 	CEffectTableEntry *data;
 	CResListNode *node;
 
 	CSearchCtx_Constructor(&outerIter);
+	CResBankMagicCtx_DefaultConstructor(&magicCtx);
 	CSearchCtx_Constructor(&innerCtx);
 
 	CResManager_BeginIterB(eRM, &tempCtx);
@@ -1947,46 +1954,50 @@ CMagicItemFactory_ProcessPropsB(CMagicItemFactory *factory, CResManager *eRM, CR
 		if (val->totalWeight == 0)
 			goto next_outer;
 
-		CStringList_BeginIter(val, &tempNode);
-		magicCtx = tempNode;
+		CStringList_BeginIter((CStringList *)CResManager_GetResultCtx(eRM, &outerIter), &tempNode);
+		CResBankMagicCtx_CopyConstructor(&magicCtx, &tempNode);
+		CResBankMagicCtx_PostInit(&tempNode);
 
-		while (magicCtx != NULL) {
-			int type = CStringList_GetTypeEffects(val, &magicCtx);
-			if (type != 1)
+		while (CStringList_HasEntries((CStringList *)&magicCtx)) {
+			val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
+			if (CStringList_GetTypeEffects(val, &magicCtx) != 1)
 				goto advance_entry;
 
+			val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
 			data = (CEffectTableEntry *)CStringList_GetNodeData(val, &magicCtx);
 			if (data->type != 2)
 				goto advance_entry;
 
+			val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
 			data = (CEffectTableEntry *)CStringList_GetNodeData(val, &magicCtx);
 			CResManager_FindByStrCtxC(pRM, &tempCtx, (const char *)&data->name, 1);
 			CSearchCtx_Add(&innerCtx, &tempCtx);
 
 			if (!CSearchCtx_Find(&innerCtx)) {
+				val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
 				CStringList_SetTypeEffects(val, &magicCtx, 0);
 				changed = 1;
 				goto advance_entry;
 			}
 
-			{
-				CItemEffectDef *propsResult = (CItemEffectDef *)CResManager_GetResultCtx(pRM, &innerCtx);
-				CResList *propsStr = &propsResult->sublist1;
+			node = CResList_Begin(effList);
+			while (CResList_IsValid(effList, node)) {
+				CResList *propsStr = CItemEffectDef_GetList1((CItemEffectDef *)CResManager_GetResultCtx(pRM, &innerCtx));
 
-				node = CResList_Begin(effList);
-				while (CResList_IsValid(effList, node)) {
-					if (CMagicItemFactory_FindNameInKeys(factory, (CString *)CResList_GetData(effList, node), propsStr)) {
-						CStringList_SetTypeEffects(val, &magicCtx, 0);
-						changed = 1;
-						goto advance_entry;
-					}
-					node = CResList_Next(effList, node);
+				if (CMagicItemFactory_FindNameInKeys(factory, (CString *)CResList_GetData(effList, node), propsStr)) {
+					val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
+					CStringList_SetTypeEffects(val, &magicCtx, 0);
+					changed = 1;
+					goto advance_entry;
 				}
+				node = CResList_Next(effList, node);
 			}
 
 advance_entry:
+			val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
 			CStringList_AdvanceIter(val, &tempNode, &magicCtx);
-			magicCtx = tempNode;
+			CResBankMagicCtx_CopyConstructor(&magicCtx, &tempNode);
+			CResBankMagicCtx_PostInit(&tempNode);
 		}
 
 next_outer:
@@ -1994,6 +2005,7 @@ next_outer:
 		CSearchCtx_Add(&outerIter, &tempCtx);
 	}
 
+	CResBankMagicCtx_PostInit(&magicCtx);
 	return changed;
 }
 
@@ -2020,6 +2032,7 @@ CMagicItemFactory_DeepResolve(CMagicItemFactory *factory, CResManager *eRM, int 
 	int lo, hi;
 
 	CSearchCtx_Constructor(&outerIter);
+	CResBankMagicCtx_DefaultConstructor(&magicCtx);
 	CSearchCtx_Constructor(&innerCtx);
 
 	CResManager_BeginIterB(eRM, &tempCtx);
@@ -2113,6 +2126,7 @@ CMagicItemFactory_CountRemovalsInternal(CMagicItemFactory *factory, CResManager 
 		if (val->totalWeight == 0)
 			goto next_outer;
 
+		val = (CStringList *)CResManager_GetResultCtx(effectsMap, &outerCtx);
 		CStringList_BeginIter(val, &tempNode);
 		CResBankMagicCtx_CopyConstructor(&magicCtx, &tempNode);
 		CResBankMagicCtx_PostInit(&tempNode);

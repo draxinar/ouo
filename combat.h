@@ -111,7 +111,7 @@ int CCombatEventNode_RemoveSub(CCombatEventNode *node, CMobile *mob); // 0x00460
 void CDataBuffer_Constructor(CDataBuffer *b); // 0x004609A0
 void CDataBuffer_Destructor(CDataBuffer *b); // 0x004609D4
 void CDataBuffer_Append(CDataBuffer *b, const void *src, int srcLen); // 0x004609F5
-int ProcessCrimeWitness(CLocation *crimeLoc, CMobile *criminal, CMobile *victim, const char *callbackName, int delay, int priority, int crimeType); // 0x00460C62
+int ProcessCrimeWitness(CLocation crimeLoc, CMobile *criminal, CMobile *victim, const char *callbackName, int delay, int priority, int crimeType); // 0x00460C62
 int CombatManager_InitiateCombat(CMobile *attacker, CMobile *target); // 0x0046121C
 int CombatManager_CallGuards(CItem *mob, CLocation *loc, CItem *target, int range); // 0x004613E6
 int CMobile_CanBeFreelyAggressedBy(CMobile *victim, CMobile *attacker); // 0x0048F6D6

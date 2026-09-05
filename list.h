@@ -50,6 +50,7 @@ void CListNode_Destructor(CListNode *node); // 0x00425280
 int CListNode_Match(CListNode *a, CListNode *b); // 0x00425363
 CList *CList_Constructor(CList *list); // 0x00425424
 void CList_Destructor(CList *list); // 0x0042544F
+void CListIterator_Constructor(CList *list); // 0x00425462
 void CList_Clear(CList *list); // 0x0042546D
 void CList_Append(CList *list, uint32_t typeTag, uintptr_t value); // 0x004254E5
 void CList_Prepend(CList *list, uint32_t typeTag, uintptr_t value); // 0x004255AF

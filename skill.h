@@ -93,7 +93,7 @@ const char *CSkillManager_GetSkillName(CSkillManager *mgr, int8_t skillId); // 0
 const char *CSkillManager_GetSkillHandler(CSkillManager *mgr, int8_t skillId); // 0x004D5DBA
 void CSkillManager_RegisterUsage(int8_t skillId); // 0x004D5DF5
 void CMobile_TestSkillInternal(CMobile *mob, int8_t skillId, int gainFactor, int isUsingSkill); // 0x004D567D
-int CMobile_DirectUse(CMobile *mob, int8_t skillId); // 0x004D5F09
+int CMobile_DirectUse(CMobile *mob, int8_t skillId, void *target, int difficulty); // 0x004D5F09
 int CMobile_GetSkillValue(CMobile *this, int8_t skillId, int useBaseOnly); // 0x004D5FBB
 int CMobile_PostSkillGain(CMobile *mob, int gained); // 0x004D60E7
 int CMobile_StatDecayCheck(CMobile *this, int chance); // 0x004D62FD

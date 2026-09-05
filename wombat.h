@@ -331,8 +331,6 @@ struct OperatorEntry {
 	int oprId;        // +0x08 (1-18, 0 for oprlist)
 };
 
-__extension__ typedef struct WombatExecCtx WombatExecCtx;
-
 #define RNODE_LOC_RESULT 10
 #define RNODE_OBJ_RESULT 11
 
@@ -722,56 +720,6 @@ struct WombatScope {
 #define STMT_GOTO         10        /* TK_GOTO label */
 #define STMT_UNKNOWN      11     /* unrecognized */
 
-#define MAX_HANDLER_DEPTH 32
-
-/*
- * One active control-flow block on the parser's handler stack. We store
- * a typed record; the binary stored BuiltinHandlerEntry pointers.
- */
-__extension__ typedef struct HandlerStackEntry HandlerStackEntry;
-struct HandlerStackEntry {
-	int handlerType;       // TK_IF, TK_ELSE, TK_WHILE, TK_FOR, TK_SWITCH
-	int condResult;        // condition truthiness
-	const char *loopStart; // saved stream for while/for loopback
-	const char *incrStart; // for-loop: start of increment expr
-	const char *incrEnd;   // for-loop: end of increment expr (body start)
-	int switchValue;       // switch: expression value to match
-	int caseMatched;       // switch: 1 once a case has matched (fall-through)
-};
-
-/*
- * Handler-stack backing the ParseStatementBlock (0x00429340) loop.
- * While depth > 1, SM_RBRACE folds into STMT_BUILTIN_CALL (pop) rather
- * than closing the outer block.
- */
-__extension__ typedef struct HandlerStack HandlerStack;
-struct HandlerStack {
-	HandlerStackEntry entries[MAX_HANDLER_DEPTH];
-	int count;
-};
-
-/*
- * Our trigger-body execution context. Functionally redundant with
- * CExecThread (the binary's 0x6C-byte thread record) and currently
- * dead code - retained because downstream code still references the type.
- */
-struct WombatExecCtx {
-	const char *stream;
-	const char *bytecodeBase;
-	void *script;
-	uint32_t entitySerial;
-	WombatScope localScope;
-	WombatScope trigScope;   // set by DispatchEvent
-	WombatScope memberScope;
-	int returnVal;
-	int defaultReturn;       // 1 = not consumed
-	int done;                // 1 once a return has fired
-#if __SIZEOF_POINTER__ == 8
-	int _pad64;              // 64-bit alignment pad
-#endif
-	HandlerStack hstack;
-};
-
 /*
  * 0x00429F46 - EvaluateExpression
  *
@@ -1034,12 +982,10 @@ extern int g_SdbLoaded; // 0x0063E104
 extern CScriptCompiler *g_ScriptCompiler; // 0x0063E128
 extern NodePool g_NodePool; // 0x0063E150
 extern char g_ConvoReturnStr[256]; // 0x00644998
-extern WombatExecCtx *g_CurrentExecCtx; // 0x006482A0
 extern ThreadList g_activeThreadList; // 0x006482A0
 extern int g_ScriptRecursionDepth; // 0x006482A4
 extern AnimSequence g_AnimSequence; // 0x00698840
 extern CScriptManager g_ScriptManager; // 0x00698988
-extern CHintEntry *g_HintEntries; // 0x00698E90
 extern int g_GMCallStatus; // 0x006999AC
 extern CScriptStringDB g_ScriptStringDB;
 extern const TriggerParamTableEntry g_TriggerParamTable[TRIGGER_EVENT_COUNT];
@@ -1136,14 +1082,25 @@ void FreeResultChain(ResultNode *chain);
  */
 
 /*
- * 0x005EE1EC - g_TypeTable
+ * 0x005EE0A8 - g_TypeTable
  *
  * Type table: 8 entries x 20 bytes. Columns:
- *   tokenType (+0x00) -> g_TypeTokenIds[]
- *   name      (+0x04) -> entries point into g_womTypeNames
- *   code      (+0x08) -> g_WombatTypeCodes[]
- *   size      (+0x0C) -> g_WombatTypeSizes[]
- *   index     (+0x10) -> implicit (0..7)
+ *   index     (+0x00) -> 0..7
+ *   tokenType (+0x04) -> g_TypeTokenIds[]
+ *   name      (+0x08) -> entries point into g_womTypeNames
+ *   code      (+0x0C) -> g_WombatTypeCodes[]
+ *   size      (+0x10) -> g_WombatTypeSizes[]
+ *
+ * CFuncList::AddEntry (0x00407C7A) and 0x00408034 read the size column
+ * as [typeId*0x14 + 0x005EE0B8].
+ */
+
+/*
+ * 0x005EE1E8 - g_TypeTable2
+ *
+ * A second copy of g_TypeTable with the same 20-byte layout, its name
+ * column pointing into 0x006109D0 rather than 0x00606A10. The compiler
+ * reads this one (0x00427EEF, 0x0042912B, 0x00429340, 0x0042A5E0).
  */
 
 /*

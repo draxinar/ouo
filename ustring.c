@@ -1043,6 +1043,7 @@ CIntArray_ExtractToken(CIntArray *text, int *pos, int *lineNo, CUString *out, CI
 		if (ch == '"') {
 			if (inQuote) {
 				*pos += step;
+				inQuote = 0; // Dead store: never read.
 				return !leading;
 			}
 			inQuote = 1;

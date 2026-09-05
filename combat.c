@@ -55,7 +55,7 @@ static CMobile *CCombatEventList_FindSubByMob(CCombatEventNode *node, CMobile *m
 static int CCombatEventNode_AddSub(CCombatEventNode *node, CMobile *mob); // 0x004607EB
 static CCombatSubNode *CCombatSubNode_Constructor(CCombatSubNode *node); // 0x00460934
 static void *CCombatEventNode_ScalarDelete(CCombatEventNode *node, int flags); // 0x00460970
-static int ScoreWitness(CMobile *witness, CLocation *crimeLoc, CMobile *criminal, CMobile *victim, int range); // 0x00460BD4
+static int ScoreWitness(CMobile *witness, CLocation crimeLoc, CMobile *criminal, CMobile *victim, int range); // 0x00460BD4
 static int CombatManager_SpawnGuards(CItem *mob, int count, int range); // 0x00461568
 static int CombatManager_RecruitGuard(CMobile *guard, CItem *mob, int range); // 0x004616C6
 static int CombatManager_SpawnGuardsAtLoc(CLocation *loc, int count, int range, CItem *mob, int flag); // 0x00461B7B
@@ -2812,7 +2812,7 @@ CTerrainLookup_Destructor(CTerrainLookup *this)
  * CanSee(witness, criminal, 1) returns true (LOS check at 0x0046B1E7).
  */
 static int
-ScoreWitness(CMobile *witness, CLocation *crimeLoc, CMobile *criminal, CMobile *victim, int range)
+ScoreWitness(CMobile *witness, CLocation crimeLoc, CMobile *criminal, CMobile *victim, int range)
 {
 	int dist, score;
 
@@ -2824,7 +2824,7 @@ ScoreWitness(CMobile *witness, CLocation *crimeLoc, CMobile *criminal, CMobile *
 	if (witness == victim)
 		return 10;
 
-	dist = Location_WrappedChebyshevDistance(crimeLoc, CEntity_GetLocation(&witness->container.item.resourceEntity.entity));
+	dist = Location_WrappedChebyshevDistance(&crimeLoc, CEntity_GetLocation(&witness->container.item.resourceEntity.entity));
 
 	score = range / 3 + 1 - dist / 3;
 
@@ -2843,7 +2843,7 @@ ScoreWitness(CMobile *witness, CLocation *crimeLoc, CMobile *criminal, CMobile *
  * any witness detected the act. Returns the accumulated witness score.
  */
 int
-ProcessCrimeWitness(CLocation *crimeLoc, CMobile *criminal, CMobile *victim, const char *callbackName, int delay, int priority, int crimeType)
+ProcessCrimeWitness(CLocation crimeLoc, CMobile *criminal, CMobile *victim, const char *callbackName, int delay, int priority, int crimeType)
 {
 	const struct CrimeType *ct;
 	int inGuardZone;
@@ -2876,7 +2876,7 @@ ProcessCrimeWitness(CLocation *crimeLoc, CMobile *criminal, CMobile *victim, con
 	if (!CItem_GetTagInt((CItem *)criminal, "npcAwareness", &npcAwareness))
 		npcAwareness = 100;
 
-	inGuardZone = !IsInDungeonRange(crimeLoc);
+	inGuardZone = !IsInDungeonRange(&crimeLoc);
 
 	chance = delay * npcAwareness / 100;
 	if (chance < 1)
@@ -2890,9 +2890,9 @@ ProcessCrimeWitness(CLocation *crimeLoc, CMobile *criminal, CMobile *victim, con
 		npcTypeFlag = 0;
 		CVector_Constructor(&npcList, &npcTypeFlag);
 
-		CEntityMap_RangeQuery(g_NPCMap, &npcList, crimeLoc->x, crimeLoc->y, ct->range);
+		CEntityMap_RangeQuery(g_NPCMap, &npcList, crimeLoc.x, crimeLoc.y, ct->range);
 
-		Vector_SortByDistPair((uintptr_t *)npcList.begin, (uintptr_t *)npcList.end, *crimeLoc);
+		Vector_SortByDistPair((uintptr_t *)npcList.begin, (uintptr_t *)npcList.end, crimeLoc);
 
 		for (iter = (uintptr_t *)npcList.begin; iter != (uintptr_t *)npcList.end; iter++) {
 			witness = (CMobile *)*iter;
@@ -2927,7 +2927,7 @@ ProcessCrimeWitness(CLocation *crimeLoc, CMobile *criminal, CMobile *victim, con
 	playerTypeFlag = 1;
 	CVector_Constructor(&playerList, &playerTypeFlag);
 
-	CEntityMap_RangeQuery(g_ItemMap, &playerList, crimeLoc->x, crimeLoc->y, ct->range);
+	CEntityMap_RangeQuery(g_ItemMap, &playerList, crimeLoc.x, crimeLoc.y, ct->range);
 
 	for (iter = (uintptr_t *)playerList.begin; iter != (uintptr_t *)playerList.end; iter++) {
 		playerEnt = (CItem *)*iter;
@@ -2973,17 +2973,17 @@ no_victim_msg:
 	}
 
 	if (calledGuards & 0xFF) {
-		CMobile_SetCriminalPunishable(criminal, crimeLoc, 480);
+		CMobile_SetCriminalPunishable(criminal, &crimeLoc, 480);
 	}
 
 	if (inGuardZone && (criedOut & 0xFF)) {
-		CombatManager_CallGuards((CItem *)criminal, crimeLoc, (CItem *)victim, priority);
+		CombatManager_CallGuards((CItem *)criminal, &crimeLoc, (CItem *)victim, priority);
 
 		AggroInfo_Constructor(&aggroInfo);
 		((void (*)(void *, void *))VT_FN((CItem *)criminal, VT_FILL_AGGRO_INFO))(criminal, &aggroInfo);
 
 		if (aggroInfo.entity != NULL) {
-			CombatManager_CallGuards(aggroInfo.entity, crimeLoc, (CItem *)victim, priority);
+			CombatManager_CallGuards(aggroInfo.entity, &crimeLoc, (CItem *)victim, priority);
 		}
 		AggroInfo_Destructor(&aggroInfo);
 	}
@@ -3015,7 +3015,6 @@ int
 CombatManager_InitiateCombat(CMobile *attacker, CMobile *target)
 {
 	int isHostile;
-	uint8_t obuf[512];
 	char buf[256];
 
 	if (attacker == target)
@@ -3045,13 +3044,13 @@ CombatManager_InitiateCombat(CMobile *attacker, CMobile *target)
 
 		name = ((char *(*)(void *))VT_FN((CItem *)attacker, VT_GET_NAME))(attacker);
 		sprintf(buf, "%s is attacking you!", name);
-		PacketManager_MakePacket_TEXT(obuf, (CItem *)target, (CItem *)target, 0, buf, 0x22, 3);
-		SendToClient((CItem *)target, obuf, -1);
+		((void (*)(void *, CItem *, uint32_t, char *, uint16_t))VT_FN((CItem *)target, VT_SAY_HUED_CSTRING))(
+		        target, (CItem *)target, target->container.item.serial, buf, 0x22);
 
 		name = ((char *(*)(void *))VT_FN((CItem *)target, VT_GET_NAME))(target);
 		sprintf(buf, "You are attacking %s!", name);
-		PacketManager_MakePacket_TEXT(obuf, (CItem *)attacker, (CItem *)attacker, 0, buf, 0x22, 3);
-		SendToClient((CItem *)attacker, obuf, -1);
+		((void (*)(void *, CItem *, uint32_t, char *, uint16_t))VT_FN((CItem *)attacker, VT_SAY_HUED_CSTRING))(
+		        attacker, (CItem *)attacker, attacker->container.item.serial, buf, 0x22);
 	}
 
 	{
@@ -3060,7 +3059,7 @@ CombatManager_InitiateCombat(CMobile *attacker, CMobile *target)
 			pcwDelay = 0;
 		else
 			pcwDelay = 1000;
-		return ProcessCrimeWitness(&attacker->container.item.resourceEntity.entity.location, attacker, target, "", pcwDelay, 10, 0);
+		return ProcessCrimeWitness(attacker->container.item.resourceEntity.entity.location, attacker, target, "", pcwDelay, 10, 0);
 	}
 }
 
@@ -3108,8 +3107,8 @@ CombatManager_CallGuards(CItem *mob, CLocation *loc, CItem *target, int range)
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, localLoc.x, localLoc.y))
 		return 0;
 
-	if (RegionManager_isGuardedRegion(mob->resourceEntity.entity.location.x, mob->resourceEntity.entity.location.y, mob->resourceEntity.entity.location.z)) {
-		if (RegionManager_isGuardedRegion(localLoc.x, localLoc.y, localLoc.z))
+	if (RegionManager_isGuardedRegion(&mob->resourceEntity.entity.location)) {
+		if (RegionManager_isGuardedRegion(&localLoc))
 			return 0;
 	}
 
@@ -3121,8 +3120,8 @@ CombatManager_CallGuards(CItem *mob, CLocation *loc, CItem *target, int range)
 
 	spawned = CombatManager_SpawnGuards(mob, guardCount, range);
 
-	if (!RegionManager_inJusticeRegion(mob->resourceEntity.entity.location.x, mob->resourceEntity.entity.location.y, mob->resourceEntity.entity.location.z)) {
-		if (!RegionManager_inJusticeRegion(localLoc.x, localLoc.y, localLoc.z))
+	if (!RegionManager_inJusticeRegion(&mob->resourceEntity.entity.location)) {
+		if (!RegionManager_inJusticeRegion(&localLoc))
 			return 0;
 	}
 

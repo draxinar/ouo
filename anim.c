@@ -291,18 +291,18 @@ AnimSequence_Clear(void)
  * Appends loc to locList if not already present.
  */
 void
-AnimSequence_AddLocation(CLocation *loc)
+AnimSequence_AddLocation(CLocation loc)
 {
 	SeqLocNode *cur, *node, *tail;
 
 	for (cur = g_AnimSequence.locList; cur != NULL; cur = cur->next) {
-		if (cur->loc.x == loc->x && cur->loc.y == loc->y && cur->loc.z == loc->z)
+		if (cur->loc.x == loc.x && cur->loc.y == loc.y && cur->loc.z == loc.z)
 			return; /* already have this location */
 	}
 	node = (SeqLocNode *)OperatorNew(sizeof(SeqLocNode));
 	if (node != NULL)
 		CLocation_Constructor(&node->loc);
-	CLocation_CopyFrom(&node->loc, loc);
+	CLocation_CopyFrom(&node->loc, &loc);
 	node->next = NULL;
 	if (g_AnimSequence.locList == NULL) {
 		g_AnimSequence.locList = node;

@@ -159,7 +159,7 @@ CTemplateManager_LoadNameTable(void)
 	FILE *currentFile;
 	char *line;
 	char buf[128];
-	char filename[256];
+	char filename[128];
 	int isMultiFile;
 	int nameTableIdx;
 	int maxEntries;
@@ -176,7 +176,11 @@ CTemplateManager_LoadNameTable(void)
 	maxEntries = 0x1000;
 	currentFile = mainFile;
 
-	while (nameTableIdx < maxEntries) {
+	// The binary falls straight into the body and tests at the bottom on
+	// the pre-increment value (0x004B9FA3 saves idx, 0x004B9FB5 bumps it,
+	// 0x004B9FBE compares the saved copy), so the body runs for
+	// idx = 0 through maxEntries inclusive.
+	for (;;) {
 		if (isMultiFile) {
 			sprintf(filename, "names.%d", nameTableIdx);
 			currentFile = FileManager_OpenByType(0x32, filename, "r");
@@ -233,7 +237,8 @@ CTemplateManager_LoadNameTable(void)
 		}
 
 advance:
-		nameTableIdx++;
+		if (nameTableIdx++ >= maxEntries)
+			break;
 	}
 
 	fclose_ServerSide(mainFile);
@@ -294,7 +299,10 @@ CTemplateManager_SetRealNameFromTemplate(CItem *entity, char *dataCursor)
 		CSearchCtx ctx, found;
 		uint32_t key = (uint32_t)nameTableIdx;
 
-		CSearchCtx_Constructor(&ctx);
+		// The binary constructs the destination and hands the find an
+		// unconstructed temp; FindByInt writes all four fields on
+		// every path, so the roles are interchangeable.
+		CSearchCtx_Constructor(&found);
 		CSearchCtx_Add(&found, (CSearchCtx *)CResManager_FindByInt_Templates(&g_NameTableRM, &ctx, &key, 1));
 		if (!CSearchCtx_Find(&found)) {
 			CMobile_SetName(mob, "error");
@@ -354,7 +362,7 @@ CTemplateManager_LoadDefines(void)
 {
 	FILE *fp;
 	char lineBuf[1024];
-	char tokenBuf[2056];
+	char tokenBuf[1024];
 	char valueBuf[1024];
 	char *cursor;
 	int len;
@@ -1408,6 +1416,12 @@ CTemplateManager_SetTypeOnEntity(CItem *entity, const char *subtypeBuf, uint16_t
  * MODIFIED: the ITEM branch sets itemFlags |= 0x08 to mark spawner items
  * as transient (not saved to dynamic0.mul), preventing ITEM group NPC
  * accumulation across server restarts.
+ *
+ * MODIFIED: the "normal" branch allocates a whole CNPC where 0x004BD1A8
+ * asks for 0x474 - the CResourceMobile subobject, without the CNPC
+ * fields our struct places above it. Our C models the whole hierarchy
+ * with one struct, so the size cannot be expressed as the base alone,
+ * and the extra bytes are the safe direction.
  */
 static int
 CTemplateManager_CreateMobOrItem(CItem **out, const char *subtypeBuf, uint16_t bodyType, CLocation *loc)
@@ -1417,17 +1431,17 @@ CTemplateManager_CreateMobOrItem(CItem **out, const char *subtypeBuf, uint16_t b
 	if (strcasecmp(subtypeBuf, "normal") == 0) {
 		CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 		if (npc != NULL)
-			CResourceMobile_Constructor(&npc->mobile, bodyType, loc);
+			CResourceMobile_Constructor(&npc->mobile, bodyType, 0, *loc);
 		*out = (CItem *)npc;
 	} else if (strcasecmp(subtypeBuf, "guard") == 0) {
 		CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 		if (npc != NULL)
-			CNPC_Constructor(npc, bodyType, loc);
+			CNPC_Constructor(npc, bodyType, 0, *loc);
 		*out = (CItem *)npc;
 	} else if (strcasecmp(subtypeBuf, "shopkeeper") == 0) {
 		CNPC *npc = (CNPC *)OperatorNew(sizeof(CNPC));
 		if (npc != NULL) {
-			CShopkeeper_Constructor(npc, bodyType, loc);
+			CShopkeeper_Constructor(npc, bodyType, 0, *loc);
 			*out = (CItem *)npc;
 			if (*out != NULL)
 				CShopkeeper_InitContainers(npc);
@@ -2453,15 +2467,18 @@ CTemplateManager_SetupHumanNPC(CItem *npc, CLocation *loc)
 	char nameBuf[128];
 	CString titleStr;
 	CString tempStr;
+	CString prefixStr;
 
 	CResListNode_Constructor_bin((CResListNode *)&cityList);
 	CResListNode_Constructor_bin((CResListNode *)&townList);
 
 	CResManager_Constructor(&tempRM, 1);
 
-	RegionManager_SearchByPrefix(&cityList, loc, "CITY_");
+	CString_Constructor(&prefixStr, "CITY_");
+	RegionManager_SearchByPrefix(loc, prefixStr, &cityList);
 
-	RegionManager_SearchByPrefix(&townList, loc, "TOWN_");
+	CString_Constructor(&prefixStr, "TOWN_");
+	RegionManager_SearchByPrefix(loc, prefixStr, &townList);
 
 	node = CResList_Begin(&cityList);
 	while (CResList_IsValid(&cityList, node)) {

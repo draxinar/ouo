@@ -148,6 +148,10 @@ BookManager_GetTitle(int index)
  *
  * Clears and repopulates g_BookTable from books.idx (0x34) and books.mul
  * (0x35). Entries with offset 0xFFFFFFFF stay NULL.
+ *
+ * The binary passes a zeroed global scratch buffer as
+ * FileManager::OpenByType's prefix argument; both categories have
+ * hasPrefix clear, so the argument is never read and we pass NULL.
  */
 void
 BookContent_loadAll(void)

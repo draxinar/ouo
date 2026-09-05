@@ -2571,7 +2571,7 @@ PacketManager_MakePacket_GUMP_GENERIC(uint8_t *buf, uint32_t serial, int gumpId,
 	iter = cmdList->head;
 	while (iter != NULL) {
 		if (iter->typeTag == WTYPE_STRING)
-			strcat(cmdBuf, CString_GetBuffer((void *)(uintptr_t)iter->value));
+			strcat(cmdBuf, CString_GetData((void *)(uintptr_t)iter->value));
 		iter = iter->next;
 	}
 	cmdLen = (int)strlen(cmdBuf) + 1;

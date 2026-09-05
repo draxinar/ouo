@@ -48,7 +48,7 @@ struct AnimSequence {
 
 void AnimSequence_Process(uint8_t actionId); // 0x004CF68E
 void AnimSequence_Clear(void); // 0x004D0099
-void AnimSequence_AddLocation(CLocation *loc); // 0x004D013D
+void AnimSequence_AddLocation(CLocation loc); // 0x004D013D
 void AnimSequence_AddCommand(uint8_t type, const uint8_t *data, uint32_t dataSize); // 0x004D024D
 
 #endif /* ANIM_H_ */

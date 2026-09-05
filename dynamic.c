@@ -945,7 +945,7 @@ SerialList_Save(CSerialList *list, char *buf, char *name, CDataBuffer *b)
 void
 CMobile_Save(CMobile *mob, CDataBuffer *b, int writeMarker)
 {
-	char buf[256];
+	char buf[128];
 	int len, i;
 
 	if (writeMarker)
