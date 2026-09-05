@@ -4999,22 +4999,29 @@ HandlePacket_GROUPS(CPlayer *this, uint8_t *buf)
  * vendor.
  */
 void
-HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
+HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t vendorSerial;
 	uint8_t flag;
 	CItem *vendor;
 	int numItems;
 	int i;
+	PacketReader reader;
 	// Binary: 0xC-byte padded struct array on stack (0xBCC bytes total).
 	// GetByte writes layer at base + i*0xC + 0, GetDWord writes
 	// serial at base + i*0xC + 4, GetWord writes qty at base + i*0xC + 8.
 	BuyEntry entries[250];
 
-	off = 0;
-	GetDWord(buf, &off, &vendorSerial);
-	GetByte(buf, &off, &flag);
+	if (!PacketSecurity_ValidateVendorBuy(packetLen, &numItems)) {
+		PacketSecurity_ClosePlayer(this, PacketType_OFFERACCEPT, "HandlePacket_OFFERACCEPT", "invalid buy item count or length");
+		return;
+	}
+
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &vendorSerial) || !PacketReader_ReadU8(&reader, &flag)) {
+		PacketSecurity_ClosePlayer(this, PacketType_OFFERACCEPT, "HandlePacket_OFFERACCEPT", "truncated vendor header");
+		return;
+	}
 
 	vendor = CWorld_FindEntityInRange(g_World, (CEntity *)this, vendorSerial, 0x12);
 	if (vendor == NULL)
@@ -5026,12 +5033,11 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
 	if ((flag & 0xFF) != 2)
 		return;
 
-	numItems = ((int)(GetPacketOffset(buf) & 0xFFFF) - 8) / 7;
-
 	for (i = 0; i < numItems; i++) {
-		GetByte(buf, &off, &entries[i].layer);
-		GetDWord(buf, &off, &entries[i].serial);
-		GetWord(buf, &off, &entries[i].qty);
+		if (!PacketReader_ReadU8(&reader, &entries[i].layer) || !PacketReader_ReadU32(&reader, &entries[i].serial) || !PacketReader_ReadU16(&reader, &entries[i].qty)) {
+			PacketSecurity_ClosePlayer(this, PacketType_OFFERACCEPT, "HandlePacket_OFFERACCEPT", "truncated buy entry");
+			return;
+		}
 	}
 
 	CMobile_ProcessBuyList((CMobile *)vendor, this, numItems, entries);
@@ -5044,25 +5050,34 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
  * forwards it to the targeted vendor via CMobile_ProcessSellOffer.
  */
 void
-HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf)
+HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t vendorSerial;
 	uint16_t itemCount;
 	int i;
 	CItem *vendor;
+	PacketReader reader;
 	// Binary: 0xC-byte padded struct array on stack (0xBCC bytes total).
 	// GetDWord writes serial at base + i*0xC + 4, GetWord writes
 	// amount at base + i*0xC + 8. ProcessSellOffer reads same offsets.
 	SellEntry entries[252];
 
-	off = 0;
-	GetDWord(buf, &off, &vendorSerial);
-	GetWord(buf, &off, &itemCount);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &vendorSerial) || !PacketReader_ReadU16(&reader, &itemCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SHOP_OFFER, "HandlePacket_SHOP_OFFER", "truncated sell header");
+		return;
+	}
+
+	if (!PacketSecurity_ValidateVendorSell(packetLen, itemCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SHOP_OFFER, "HandlePacket_SHOP_OFFER", "invalid sell item count or length");
+		return;
+	}
 
 	for (i = 0; i < (int)(itemCount & 0xFFFF); i++) {
-		GetDWord(buf, &off, &entries[i].serial);
-		GetWord(buf, &off, &entries[i].amount);
+		if (!PacketReader_ReadU32(&reader, &entries[i].serial) || !PacketReader_ReadU16(&reader, &entries[i].amount)) {
+			PacketSecurity_ClosePlayer(this, PacketType_SHOP_OFFER, "HandlePacket_SHOP_OFFER", "truncated sell entry");
+			return;
+		}
 	}
 
 	vendor = CWorld_FindEntityInRange(g_World, (CEntity *)this, vendorSerial, 0x12);
@@ -6450,7 +6465,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 		HandlePacket_GROUPS(this, buf);
 		break;
 	case PacketType_OFFERACCEPT:
-		HandlePacket_OFFERACCEPT(this, buf);
+		HandlePacket_OFFERACCEPT(this, buf, packetLen);
 		break;
 	case PacketType_CHECK_VER:
 		HandlePacket_CHECK_VER(this, buf);
@@ -6526,7 +6541,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 		HandlePacket_REQUEST_ASSIST(this, buf);
 		break;
 	case PacketType_SHOP_OFFER:
-		HandlePacket_SHOP_OFFER(this, buf);
+		HandlePacket_SHOP_OFFER(this, buf, packetLen);
 		break;
 	case PacketType_HARDWARE_INFO:
 		HandlePacket_HARDWARE_INFO(this, buf);

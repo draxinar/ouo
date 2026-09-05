@@ -216,8 +216,8 @@ void HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf); // 0x004964CA
 void HandlePacket_ELEVCHANGE(CPlayer *this, uint8_t *buf); // 0x00496A03
 void HandlePacket_MOVEOBJECT(CPlayer *this, uint8_t *buf); // 0x00496AF7
 void HandlePacket_GROUPS(CPlayer *this, uint8_t *buf); // 0x00496BD6
-void HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf); // 0x00496C0F
-void HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf); // 0x00496D55
+void HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00496C0F
+void HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00496D55
 void HandlePacket_DESTROY_OBJECT(CPlayer *this, uint8_t *buf); // 0x00496E7D
 void HandlePacket_MAP_COMMAND(CPlayer *this, uint8_t *buf); // 0x0049743B
 void HandlePacket_DEATH(CPlayer *this, uint8_t *buf); // 0x004976D3

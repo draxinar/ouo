@@ -71,3 +71,37 @@ PacketSecurity_TextLengthFromPacket(uint16_t packetLen, uint16_t headerLen, uint
 	*textLen = (uint16_t)len;
 	return 1;
 }
+
+int
+PacketSecurity_ValidateVendorSell(uint16_t packetLen, uint16_t itemCount)
+{
+	uint32_t expectedLen;
+
+	if (itemCount > 252)
+		return 0;
+
+	expectedLen = 9u + (uint32_t)itemCount * 6u;
+	if (expectedLen > 0xFFFFu)
+		return 0;
+
+	return packetLen == (uint16_t)expectedLen;
+}
+
+int
+PacketSecurity_ValidateVendorBuy(uint16_t packetLen, int *numItems)
+{
+	uint16_t payloadLen;
+
+	if (packetLen < 8)
+		return 0;
+
+	payloadLen = (uint16_t)(packetLen - 8);
+	if ((payloadLen % 7) != 0)
+		return 0;
+
+	*numItems = payloadLen / 7;
+	if (*numItems > 250)
+		return 0;
+
+	return 1;
+}

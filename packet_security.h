@@ -12,4 +12,7 @@ enum {
 int PacketSecurity_DecodePacketSize(const uint16_t *packetTable, const uint8_t *buf, int buffered, uint16_t *packetLen, const char **reason);
 int PacketSecurity_TextLengthFromPacket(uint16_t packetLen, uint16_t headerLen, uint16_t payloadOffset, uint16_t maxLen, uint16_t *textLen);
 
+int PacketSecurity_ValidateVendorSell(uint16_t packetLen, uint16_t itemCount);
+int PacketSecurity_ValidateVendorBuy(uint16_t packetLen, int *numItems);
+
 #endif /* PACKET_SECURITY_H_ */
