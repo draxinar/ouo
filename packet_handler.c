@@ -37,6 +37,8 @@
 #include "npc.h"
 #include "packet_handler.h"
 #include "packet_manager.h"
+#include "packet_reader.h"
+#include "packet_security.h"
 #include "packet_utils.h"
 #include "pending_auth.h"
 #include "player.h"
@@ -83,7 +85,7 @@ static int ValidateSerials(CItem *expectedPlayer, uint32_t playerSerial, CItem *
 static void DropObj_Bounce(CItem *source, CItem *item, CLocation *loc); // 0x00494CAE
 static const char *GetCanHoldFailReason(int code); // 0x00494D33
 static void SendEntityResourceNodes(CItem *entity, CItem *player, uint32_t unused, uint32_t serial); // 0x00496430
-static void BBoard_BroadcastWrapper(uint8_t *buf); // 0x00497AF4
+static void BBoard_BroadcastWrapper(uint8_t *buf, uint16_t packetLen); // 0x00497AF4
 static void BuildGodViewPacket(uint8_t *buf, uint8_t type, uint16_t count, int dataLen, uint8_t *data); // 0x004B4C97
 static void TriggerEdit_Op545E(CItem *ent, const char *data); // 0x004B545E
 static void TriggerEdit_Op546F(const char *scriptName); // 0x004B546F
@@ -116,6 +118,31 @@ static int g_PendingReleaseLocSet;
 
 // Custom - shared outbound packet buffer size
 static int bufSize = 8192;
+
+enum {
+	kPacketSecurityMaxText = 4096,
+};
+
+void
+PacketSecurity_ClosePlayer(CPlayer *this, uint8_t packetType, const char *handler, const char *reason)
+{
+	if (this == NULL || this->usersock == NULL)
+		return;
+
+	Log_Game(this->usersock->addr, "closing packet 0x%02X in %s: %s", packetType, handler, reason);
+	this->usersock->socket.status = SocketClosing;
+}
+
+static int
+PacketSecurity_CopyBytesAsCString(const uint8_t *src, uint16_t len, char *dst, size_t dstSize)
+{
+	if (dstSize == 0 || len >= dstSize)
+		return 0;
+
+	memcpy(dst, src, len);
+	dst[len] = '\0';
+	return 1;
+}
 
 // GameCentMon globals (binary: 0x006E7658, 0x006E765C, 0x006E7660)
 uint32_t g_gcmState;              // 0x006E7658: monitor state (0=idle, 1=active, 2=broadcast)
@@ -2606,9 +2633,8 @@ HandlePacket_CHECK_VER(CPlayer *this, uint8_t *buf)
  * Binary uses CList for switch/text lists and CUString for text content.
  */
 void
-HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
+HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t serial;
 	uint32_t gumpID;
 	uint32_t buttonID;
@@ -2623,52 +2649,53 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 	CList switchList;
 	CList textList;
 	CUString tempString;
-	uint16_t packetLen;
-	uint32_t payloadLen;
+	PacketReader reader;
 
-	// Read packet length from dynamic-size header (buf[1-2], host order).
-	memcpy(&packetLen, &buf[1], 2);
-	payloadLen = (packetLen > 3) ? packetLen - 3 : 0;
+	PacketReader_Init(&reader, buf, packetLen, 3);
 
 	CList_Constructor(&switchList);
 	CList_Constructor(&textList);
 	CUString_DefaultConstructor(&tempString);
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetDWord(buf, &off, &gumpID);
-	GetDWord(buf, &off, &buttonID);
+	if (!PacketReader_ReadU32(&reader, &serial) || !PacketReader_ReadU32(&reader, &gumpID) || !PacketReader_ReadU32(&reader, &buttonID) ||
+	        !PacketReader_ReadU32(&reader, &switchCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated fixed fields");
+		goto done;
+	}
 
 	entity = CWorld_FindBySerial(g_World, serial);
 	if (entity == NULL) {
-		CUString_Destructor(&tempString);
-		CList_Destructor(&textList);
-		CList_Destructor(&switchList);
-		return;
+		goto done;
 	}
 
-	GetDWord(buf, &off, &switchCount);
-
-	for (i = 0; i < switchCount && off + 4 <= payloadLen; i++) {
-		GetDWord(buf, &off, &switchVal);
+	for (i = 0; i < switchCount; i++) {
+		if (!PacketReader_ReadU32(&reader, &switchVal)) {
+			PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated switch list");
+			goto done;
+		}
 		CList_Append(&switchList, 0, switchVal);
 	}
 
-	if (off + 4 > payloadLen)
+	if (!PacketReader_ReadU32(&reader, &textEntryCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "missing text entry count");
 		goto done;
-	GetDWord(buf, &off, &textEntryCount);
-	for (i = 0; i < textEntryCount && off + 4 <= payloadLen; i++) {
-		GetWord(buf, &off, &textEntryId);
-		GetWord(buf, &off, &textLen);
+	}
+	for (i = 0; i < textEntryCount; i++) {
+		if (!PacketReader_ReadU16(&reader, &textEntryId) || !PacketReader_ReadU16(&reader, &textLen)) {
+			PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated text entry header");
+			goto done;
+		}
 
 		CList_Append(&textList, 0, (uint32_t)textEntryId);
 
 		CUString_AssignCStr(&tempString, (const void *)L"");
-		for (j = 0; j < textLen && j < 0xEF; j++) {
-			if (off + 2 > payloadLen)
-				break;
-			GetWord(buf, &off, &unicodeChar);
-			CUString_ConcatChar(&tempString, unicodeChar);
+		for (j = 0; j < textLen; j++) {
+			if (!PacketReader_ReadU16(&reader, &unicodeChar)) {
+				PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated text entry data");
+				goto done;
+			}
+			if (j < 0xEF)
+				CUString_ConcatChar(&tempString, unicodeChar);
 		}
 
 		CList_Append(&textList, 2, (uintptr_t)&tempString);
@@ -2851,30 +2878,47 @@ Speech_BroadcastAlive(CPlayer *speaker, uint8_t speechType, char *text, uint16_t
  * MODIFIED: logs every line.
  */
 void
-HandlePacket_SPEECH(CPlayer *this, uint8_t *buf)
+HandlePacket_SPEECH(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint8_t obuf[0x42C];
-	uint32_t off;
 	uint8_t speechType;
 	uint16_t hue;
 	uint16_t font;
 	char *text;
+	char textBuf[241];
+	const uint8_t *textPtr;
+	uint16_t remaining;
 	CPlayer *p;
 	int hasNonSpace;
 	int i;
+	PacketReader reader;
 
 	p = NULL;
-	off = 0;
+	PacketReader_Init(&reader, buf, packetLen, 3);
+
+	if (!PacketReader_ReadU8(&reader, &speechType) || !PacketReader_ReadU16(&reader, &hue) || !PacketReader_ReadU16(&reader, &font)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SPEECH, "HandlePacket_SPEECH", "truncated speech header");
+		return;
+	}
+
+	textPtr = reader.buf + reader.off;
+	remaining = PacketReader_Remaining(&reader);
+	for (i = 0; i < (int)remaining && i < (int)sizeof(textBuf); i++) {
+		if (textPtr[i] == '\0')
+			break;
+	}
+	if (i >= (int)remaining || i >= (int)sizeof(textBuf)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SPEECH, "HandlePacket_SPEECH", "speech text missing bounded terminator");
+		return;
+	}
+	memcpy(textBuf, textPtr, (size_t)i);
+	textBuf[i] = '\0';
+	text = textBuf;
 
 	if (CMobile_IsSquelched(&this->mobile)) {
 		CPlayer_SystemMessage(this, "You can not say anything, you have been squelched.");
 		return;
 	}
-
-	GetByte(buf, &off, &speechType);
-	GetWord(buf, &off, &hue);
-	GetWord(buf, &off, &font);
-	GetString(buf, &off, &text, 241);
 
 	if (!CPlayer_IsEditing(this)) {
 		font = 3;
@@ -4091,15 +4135,23 @@ HandlePacket_ATTACK(CPlayer *this, uint8_t *buf)
  * keeps the player hidden instead of revealing on use.
  */
 void
-HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
+HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t subcommand;
+	char textBuf[0xF2];
 	char *text;
+	PacketReader reader;
 
-	off = 0;
-	GetByte(buf, &off, &subcommand);
-	GetString(buf, &off, &text, 0xF1);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &subcommand)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "truncated subcommand");
+		return;
+	}
+	if (!PacketReader_ReadCStringCopy(&reader, textBuf, sizeof(textBuf), 0xF1)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "macro text missing bounded terminator");
+		return;
+	}
+	text = textBuf;
 
 	switch (subcommand) {
 	case 0x07: // Action (stub - immediate ret in binary)
@@ -4108,7 +4160,8 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 		break;
 	case 0x24: {
 		// 0x00448372 - UseSkillByMacro
-		int skillId, skillArg;
+		int skillId = 0;
+		int skillArg = 0;
 		const char *handler;
 		const char *attachResult;
 
@@ -4165,14 +4218,34 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 		uint8_t obuf[0x42C];
 		int outIdx = 0;
 		int needHyphen = 0;
+		size_t textLen;
+
+		textLen = strlen(text);
+		if (textLen > 240) {
+			PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell macro text too long");
+			return;
+		}
 
 		while (*text != '\0') {
 			if (*text == ' ') {
+				if (outIdx >= (int)sizeof(incantation) - 1) {
+					PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell incantation too long");
+					return;
+				}
 				incantation[outIdx++] = ' ';
 				needHyphen = 0;
 			} else {
-				if (needHyphen)
+				if (needHyphen) {
+					if (outIdx >= (int)sizeof(incantation) - 1) {
+						PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell incantation too long");
+						return;
+					}
 					incantation[outIdx++] = '-';
+				}
+				if (outIdx >= (int)sizeof(incantation) - 1) {
+					PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell incantation too long");
+					return;
+				}
 				if (*text >= 'a' && *text <= 'z')
 					incantation[outIdx++] = *text - 0x20;
 				else
@@ -5578,10 +5651,10 @@ HandlePacket_TRADE(CPlayer *this, uint8_t *buf)
  * so the bulletin-board posting is broadcast rather than replied to.
  */
 void
-BBoard_EnableBroadcastMode(uint8_t *buf)
+BBoard_EnableBroadcastMode(uint8_t *buf, uint16_t packetLen)
 {
 	g_BBoardBroadcastMode = 1;
-	HandlePacket_BBOARD(NULL, buf);
+	HandlePacket_BBOARD(NULL, buf, packetLen);
 	g_BBoardBroadcastMode = 0;
 }
 
@@ -5591,9 +5664,9 @@ BBoard_EnableBroadcastMode(uint8_t *buf)
  * Trampoline to BBoard_EnableBroadcastMode.
  */
 static void
-BBoard_BroadcastWrapper(uint8_t *buf)
+BBoard_BroadcastWrapper(uint8_t *buf, uint16_t packetLen)
 {
-	BBoard_EnableBroadcastMode(buf);
+	BBoard_EnableBroadcastMode(buf, packetLen);
 }
 
 /*
@@ -5614,9 +5687,8 @@ BBoard_BroadcastWrapper(uint8_t *buf)
  * with proper bounds for subject, allocate tempByte+1 for lines.
  */
 void
-HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
+HandlePacket_BBOARD(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t subCmd;
 	uint32_t boardSerial;
 	uint32_t postSerial;
@@ -5625,20 +5697,26 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 	CItem *post;
 	int i;
 	uint8_t tempByte;
-	char *tempStr;
+	const uint8_t *tempStr;
 	char subject[80];
 	uint8_t numLines;
 	uintptr_t lines[256];
 	CBulletinBoard *bb;
+	PacketReader reader;
 
-	off = 0;
-	GetByte(buf, &off, &subCmd);
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU8(&reader, &subCmd)) {
+		PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "missing sub-command");
+		return;
+	}
 
 	switch (subCmd & 0xFF) {
 	case 3: {
 		// Request post body
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &postSerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &postSerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated post-body request");
+			return;
+		}
 
 		board = CWorld_FindEntityInRange(g_World, (CEntity *)this, boardSerial, 0x12);
 		post = CWorld_FindEntityInRange(g_World, (CEntity *)this, postSerial, 0x12);
@@ -5651,8 +5729,10 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 
 	case 4: {
 		// Request board summary
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &postSerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &postSerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated summary request");
+			return;
+		}
 
 		board = CWorld_FindEntityInRange(g_World, (CEntity *)this, boardSerial, 0x12);
 		post = CWorld_FindEntityInRange(g_World, (CEntity *)this, postSerial, 0x12);
@@ -5664,27 +5744,54 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 	}
 
 	case 5: {
+		int lineCountRead;
+		uint32_t totalBodyLen;
+
 		// Post new message
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &replySerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &replySerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated post header");
+			return;
+		}
 
 		// Read subject
 		// FIXED: binary uses strcpy (0x00497CE3) - overflow if tempByte > 0x4F
-		GetByte(buf, &off, &tempByte);
-		GetString(buf, &off, &tempStr, tempByte & 0xFF);
-		strncpy(subject, tempStr, sizeof(subject) - 1);
-		subject[sizeof(subject) - 1] = '\0';
+		if (!PacketReader_ReadU8(&reader, &tempByte) || !PacketReader_ReadBytesPtr(&reader, &tempStr, tempByte)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated subject");
+			return;
+		}
+		{
+			size_t copyLen = tempByte < sizeof(subject) ? tempByte : sizeof(subject) - 1;
+			memcpy(subject, tempStr, copyLen);
+			subject[copyLen] = '\0';
+		}
 
 		// Read lines
 		// FIXED: binary allocates tempByte bytes (0x00497D6C) then strcpy
 		// (0x00497D90) - heap overflow if string lacks NUL within allocation
-		GetByte(buf, &off, &numLines);
+		if (!PacketReader_ReadU8(&reader, &numLines)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "missing line count");
+			return;
+		}
+		lineCountRead = 0;
+		totalBodyLen = 0;
 		for (i = 0; i < (numLines & 0xFF); i++) {
-			GetByte(buf, &off, &tempByte);
-			GetString(buf, &off, &tempStr, tempByte & 0xFF);
+			if (!PacketReader_ReadU8(&reader, &tempByte) || !PacketReader_ReadBytesPtr(&reader, &tempStr, tempByte)) {
+				PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated line");
+				goto cleanup_lines;
+			}
+			totalBodyLen += tempByte;
+			if (totalBodyLen > kPacketSecurityMaxText) {
+				PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "post body too large");
+				goto cleanup_lines;
+			}
 			lines[i] = (uintptr_t)OperatorNew((tempByte & 0xFF) + 1);
-			strncpy((char *)lines[i], tempStr, tempByte & 0xFF);
+			if (lines[i] == 0) {
+				PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "line allocation failed");
+				goto cleanup_lines;
+			}
+			memcpy((char *)lines[i], tempStr, tempByte & 0xFF);
 			((char *)lines[i])[tempByte & 0xFF] = '\0';
+			lineCountRead++;
 		}
 
 		if (g_BBoardBroadcastMode == 0 && boardSerial != 0) {
@@ -5695,14 +5802,15 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 				CBulletinBoard_PostMessage((CBulletinBoard *)board, this, post, subject, numLines, lines);
 			}
 		} else if (boardSerial == 0 && this != NULL && CPlayer_IsEditing(this)) {
-			BBoard_BroadcastWrapper(buf);
+			BBoard_BroadcastWrapper(buf, packetLen);
 		} else if (g_BBoardBroadcastMode != 0) {
 			for (bb = g_BBoardHead; bb != NULL; bb = bb->bbNext) {
 				CBulletinBoard_PostMessage(bb, NULL, NULL, subject, numLines, lines);
 			}
 		}
 
-		for (i = 0; i < (numLines & 0xFF); i++) {
+cleanup_lines:
+		for (i = 0; i < lineCountRead; i++) {
 			OperatorDelete((void *)lines[i]);
 		}
 		break;
@@ -5710,8 +5818,10 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 
 	case 6: {
 		// Remove post
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &postSerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &postSerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated remove request");
+			return;
+		}
 
 		board = CWorld_FindEntityInRange(g_World, (CEntity *)this, boardSerial, 0x12);
 		post = CWorld_FindEntityInRange(g_World, (CEntity *)this, postSerial, 0x12);
@@ -5911,14 +6021,17 @@ HandlePacket_HUEPICKER(CPlayer *this, uint8_t *buf)
  * Replies to the client with the name of the given mobile serial.
  */
 void
-HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf)
+HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint8_t obuf[0x25];
-	uint32_t off;
+	PacketReader reader;
 	uint32_t serial;
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU32(&reader, &serial)) {
+		PacketSecurity_ClosePlayer(this, PacketType_MOBNAME, "HandlePacket_MOBNAME", "truncated serial");
+		return;
+	}
 
 	PacketManager_MakePacket_MOBNAME(obuf, this, serial);
 
@@ -6004,31 +6117,43 @@ HandlePacket_BRITANNIA_SELECT(CUserSock *this, uint8_t *buf)
  * Frees textBuf. Verified exact match with binary.
  */
 void
-HandlePacket_TEXT_ENTRY(CPlayer *this, uint8_t *buf)
+HandlePacket_TEXT_ENTRY(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t serial;
 	uint32_t promptID;
 	uint32_t promptType;
 	CItem *entity;
+	PacketReader reader;
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetDWord(buf, &off, &promptID);
-	GetDWord(buf, &off, &promptType);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &serial) || !PacketReader_ReadU32(&reader, &promptID) || !PacketReader_ReadU32(&reader, &promptType)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "truncated fixed fields");
+		return;
+	}
 
 	{
-		int textLen;
-		char *text;
+		uint16_t textLen;
+		const uint8_t *text;
 		char *textBuf;
 
-		textLen = (int)(GetPacketOffset(buf) & 0xFFFF) - (int)off;
+		if (!PacketSecurity_TextLengthFromPacket(packetLen, 3, PacketReader_Offset(&reader), kPacketSecurityMaxText, &textLen)) {
+			PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "invalid text length");
+			return;
+		}
 		if (textLen <= 1)
 			return;
 
 		textBuf = OperatorNew(textLen);
-		GetString(buf, &off, &text, textLen);
-		strncpy(textBuf, text, textLen);
+		if (textBuf == NULL) {
+			PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "text allocation failed");
+			return;
+		}
+		if (!PacketReader_ReadBytesPtr(&reader, &text, textLen)) {
+			OperatorDelete(textBuf);
+			PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "truncated text");
+			return;
+		}
+		memcpy(textBuf, text, textLen);
 		textBuf[textLen - 1] = '\0';
 
 		entity = CWorld_FindBySerial(g_World, serial);
@@ -6170,28 +6295,34 @@ HandlePacket_REQ_TIP(CPlayer *this, uint8_t *buf)
  * StringResponse (0x3A).
  */
 void
-HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf)
+HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t serial;
 	uint16_t promptType;
 	uint8_t responseType;
 	uint16_t textLength;
-	char *text;
+	const uint8_t *text;
+	char textBuf[kPacketSecurityMaxText + 1];
 	CItem *entity;
+	PacketReader reader;
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetWord(buf, &off, &promptType);
-	GetByte(buf, &off, &responseType);
-	GetWord(buf, &off, &textLength);
-	GetString(buf, &off, &text, textLength);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &serial) || !PacketReader_ReadU16(&reader, &promptType) || !PacketReader_ReadU8(&reader, &responseType) ||
+	        !PacketReader_ReadU16(&reader, &textLength)) {
+		PacketSecurity_ClosePlayer(this, PacketType_STRING_RESPONSE, "HandlePacket_STRING_RESPONSE", "truncated fixed fields");
+		return;
+	}
+	if (textLength > kPacketSecurityMaxText || !PacketReader_ReadBytesPtr(&reader, &text, textLength) ||
+	        !PacketSecurity_CopyBytesAsCString(text, textLength, textBuf, sizeof(textBuf))) {
+		PacketSecurity_ClosePlayer(this, PacketType_STRING_RESPONSE, "HandlePacket_STRING_RESPONSE", "invalid text length");
+		return;
+	}
 
 	entity = CWorld_FindBySerial(g_World, serial);
 	if (entity == NULL)
 		return;
 
-	Entity_ExecuteEvent(&entity->resourceEntity.entity, StringResponse, (uintptr_t)promptType, (uintptr_t)this->mobile.container.item.serial, (int)responseType, text);
+	Entity_ExecuteEvent(&entity->resourceEntity.entity, StringResponse, (uintptr_t)promptType, (uintptr_t)this->mobile.container.item.serial, (int)responseType, textBuf);
 }
 
 /*
@@ -6270,14 +6401,14 @@ HandlePacket_GMSingle(CPlayer *this, uint8_t *buf)
  * packets are only dispatched when their flag is on.
  */
 void
-DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
+DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 {
 	switch (type) {
 	case PacketType_REQ_MOVE:
 		HandlePacket_REQ_MOVE(this, buf);
 		break;
 	case PacketType_SPEECH:
-		HandlePacket_SPEECH(this, buf);
+		HandlePacket_SPEECH(this, buf, packetLen);
 		break;
 	case PacketType_GODMODE_TOGGLE:
 		HandlePacket_GODMODE_TOGGLE(this, buf);
@@ -6298,7 +6429,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_REQ_LOOK(this, buf);
 		break;
 	case PacketType_GODCOMMAND:
-		HandlePacket_GODCOMMAND(this, buf);
+		HandlePacket_GODCOMMAND(this, buf, packetLen);
 		break;
 	case PacketType_REQ_OBJEQUIP:
 		HandlePacket_REQ_OBJEQUIP(this, buf);
@@ -6346,7 +6477,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_TRADE(this, buf);
 		break;
 	case PacketType_BBOARD:
-		HandlePacket_BBOARD(this, buf);
+		HandlePacket_BBOARD(this, buf, packetLen);
 		break;
 	case PacketType_COMBAT:
 		HandlePacket_COMBAT(this, buf);
@@ -6386,10 +6517,10 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_GameCentMon(this, buf);
 		break;
 	case PacketType_MOBNAME:
-		HandlePacket_MOBNAME(this, buf);
+		HandlePacket_MOBNAME(this, buf, packetLen);
 		break;
 	case PacketType_TEXT_ENTRY:
-		HandlePacket_TEXT_ENTRY(this, buf);
+		HandlePacket_TEXT_ENTRY(this, buf, packetLen);
 		break;
 	case PacketType_REQUEST_ASSIST:
 		HandlePacket_REQUEST_ASSIST(this, buf);
@@ -6404,13 +6535,13 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_REQ_TIP(this, buf);
 		break;
 	case PacketType_STRING_RESPONSE:
-		HandlePacket_STRING_RESPONSE(this, buf);
+		HandlePacket_STRING_RESPONSE(this, buf, packetLen);
 		break;
 	case PacketType_SPEECH_UNICODE:
-		HandlePacket_SPEECH_UNICODE(this, buf);
+		HandlePacket_SPEECH_UNICODE(this, buf, packetLen);
 		break;
 	case PacketType_GumpMenuSelection:
-		HandlePacket_GumpMenuSelection(this, buf);
+		HandlePacket_GumpMenuSelection(this, buf, packetLen);
 		break;
 	case PacketType_CHAT_TEXT:
 		if (feat(FEAT_CHAT))
@@ -8199,57 +8330,74 @@ BroadcastUnicodeSpeechAtEye(CItem *entity, uint8_t speechType, uint16_t *text, u
  * clients can talk.
  */
 void
-HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf)
+HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint8_t synthBuf[8192];
-	uint32_t off;
 	uint8_t speechType;
 	uint16_t hue, font;
-	int textOff;
 	char asciiText[241];
 	int i, textLen, pktLen;
 	uint16_t ch;
+	PacketReader reader;
 
-	// Parse fields using Get functions (they skip the 3-byte header
-	// for variable-size packets via GetSizeLength).
-	off = 0;
-	GetByte(buf, &off, &speechType); // byte 3: speech type
-	GetWord(buf, &off, &hue);        // bytes 4-5: hue
-	GetWord(buf, &off, &font);       // bytes 6-7: font
-
-	// Data starts at absolute offset 12 (3-byte header + 5 fields + 4 lang)
-	textOff = 12;
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &speechType) || !PacketReader_ReadU16(&reader, &hue) || !PacketReader_ReadU16(&reader, &font) || !PacketReader_Skip(&reader, 4)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "truncated unicode speech header");
+		return;
+	}
 
 	if (speechType & 0xC0) {
 		// Keyword-encoded mode: 12-bit packed keyword data before ASCII text.
 		// First 12-bit value = keyword count, read from big-endian uint16.
 		uint16_t w;
 		int count, kwBytes;
+		uint16_t kwStart;
+		const uint8_t *textPtr;
+		uint16_t remaining;
 
-		memcpy(&w, &buf[textOff], 2);
-		w = (uint16_t)((w >> 8) | (w << 8)); // ntohs
+		kwStart = reader.off;
+		if (!PacketReader_ReadU16(&reader, &w)) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "truncated keyword count");
+			return;
+		}
 		count = (w & 0xFFF0) >> 4;
 
 		// Total keyword section bytes: (count+1) 12-bit values, packed
 		kwBytes = (((count + 1) * 3) / 2) + ((count + 1) % 2);
-		textOff += kwBytes;
+		if (kwBytes < 2 || PacketReader_Remaining(&reader) + 2 < (uint16_t)kwBytes) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "keyword data exceeds packet");
+			return;
+		}
+		reader.off = (uint16_t)(kwStart + kwBytes);
 
 		// Strip keyword flag to get actual speech type
 		speechType &= ~0xC0;
 
 		// Text is null-terminated ASCII
-		for (i = 0; i < 240 && buf[textOff + i] != '\0'; i++)
-			asciiText[i] = (char)buf[textOff + i];
+		textPtr = reader.buf + reader.off;
+		remaining = PacketReader_Remaining(&reader);
+		for (i = 0; i < (int)remaining && i < 240 && textPtr[i] != '\0'; i++)
+			asciiText[i] = (char)textPtr[i];
+		if (i >= (int)remaining || i >= 240) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "keyword speech text missing terminator");
+			return;
+		}
 		asciiText[i] = '\0';
 		textLen = i;
 	} else {
 		// Normal mode: UTF-16BE text at offset 12
 		for (i = 0; i < 240; i++) {
-			memcpy(&ch, &buf[textOff + i * 2], 2);
-			ch = (uint16_t)((ch >> 8) | (ch << 8)); // ntohs
+			if (!PacketReader_ReadU16(&reader, &ch)) {
+				PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "unicode speech text missing terminator");
+				return;
+			}
 			if (ch == 0)
 				break;
 			asciiText[i] = (char)(ch & 0xFF);
+		}
+		if (i >= 240) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "unicode speech text exceeds cap");
+			return;
 		}
 		asciiText[i] = '\0';
 		textLen = i;
@@ -8269,7 +8417,7 @@ HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf)
 	synthBuf[7] = (uint8_t)(font & 0xFF);
 	memcpy(&synthBuf[8], asciiText, textLen + 1);
 
-	HandlePacket_SPEECH(this, synthBuf);
+	HandlePacket_SPEECH(this, synthBuf, (uint16_t)pktLen);
 }
 
 /*

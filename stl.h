@@ -334,7 +334,7 @@ void SortInt_Dispatch(void *first, void *last, uint8_t cmpVal, int unused); // 0
 void SortDist_Dispatch(void *first, void *last, CLocation cmpLoc); // 0x0047BF30
 void Vector_SortByDist(void *begin, void *end, CLocation refLoc); // 0x0047F2B0
 void *PacketGetDynamicSize(uint8_t *buf); // 0x0047F350
-int PacketIsEDEDEDED(uint8_t *buf); // 0x0047F3A0
+int PacketIsEDEDEDED(uint8_t *buf, uint16_t packetLen); // 0x0047F3A0
 void *StdPtrList16_Constructor(StdPtrList *this, const void *init); // 0x004845E0
 void StdPtrList_Destructor_NPC(StdPtrList *list); // 0x00484620
 void StdPtrList16_InsertEnd(StdPtrList *list, void *value); // 0x00484680

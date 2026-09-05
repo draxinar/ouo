@@ -5838,14 +5838,16 @@ PacketGetDynamicSize(uint8_t *buf)
  * the 0xEDEDEDED client sentinel.
  */
 int
-PacketIsEDEDEDED(uint8_t *buf)
+PacketIsEDEDEDED(uint8_t *buf, uint16_t packetLen)
 {
 	uint32_t v;
+	uint16_t off;
 
-	if (PacketIsDynamicSize(buf))
-		memcpy(&v, buf + 3, 4);
-	else
-		memcpy(&v, buf + 1, 4);
+	off = PacketIsDynamicSize(buf) ? 3 : 1;
+	if ((uint32_t)off + 4u > packetLen)
+		return 0;
+
+	memcpy(&v, buf + off, 4);
 	return (v == 0xEDEDEDED);
 }
 
