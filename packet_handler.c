@@ -6340,6 +6340,12 @@ HandlePacket_GMSingle(CPlayer *this, uint8_t *buf)
  *
  * CUSTOM (FEAT_CHAT, FEAT_SKILL_LOCK): the chat text/open and skill-lock
  * packets are only dispatched when their flag is on.
+ *
+ * MODIFIED: the resource, GodView, resource-definition, trigger-edit and
+ * monitor packets are dispatched from the main switch, so any logged-in
+ * client could reach the world editor. They are gated on
+ * CPlayer_IsGameMaster here, matching the plevel gate GODMODE_TOGGLE
+ * uses to enable editing.
  */
 void
 DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
@@ -6431,19 +6437,23 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_RENAME_MOB(this, buf);
 		break;
 	case PacketType_ResourceQuery:
-		HandlePacket_ResourceQuery(this, buf);
+		if (CPlayer_IsGameMaster(this))
+			HandlePacket_ResourceQuery(this, buf);
 		break;
 	case PacketType_PICKEDOBJ:
 		HandlePacket_PICKEDOBJ(this, buf);
 		break;
 	case PacketType_GodViewQuery:
-		HandlePacket_GodViewQuery(this, buf);
+		if (CPlayer_IsGameMaster(this))
+			HandlePacket_GodViewQuery(this, buf);
 		break;
 	case PacketType_SendResources:
-		HandlePacket_SendResources(this, buf);
+		if (CPlayer_IsGameMaster(this))
+			HandlePacket_SendResources(this, buf);
 		break;
 	case PacketType_TriggerEdit:
-		HandlePacket_TriggerEdit(this, buf);
+		if (CPlayer_IsGameMaster(this))
+			HandlePacket_TriggerEdit(this, buf);
 		break;
 	case PacketType_POSTLOGIN:
 		HandlePacket_POSTLOGIN_Player(this, buf);
@@ -6455,7 +6465,8 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_HUEPICKER(this, buf);
 		break;
 	case PacketType_GameCentMon:
-		HandlePacket_GameCentMon(this, buf);
+		if (CPlayer_IsGameMaster(this))
+			HandlePacket_GameCentMon(this, buf);
 		break;
 	case PacketType_MOBNAME:
 		HandlePacket_MOBNAME(this, buf);
