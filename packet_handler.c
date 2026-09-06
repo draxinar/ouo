@@ -37,6 +37,8 @@
 #include "npc.h"
 #include "packet_handler.h"
 #include "packet_manager.h"
+#include "packet_reader.h"
+#include "packet_security.h"
 #include "packet_utils.h"
 #include "pending_auth.h"
 #include "player.h"
@@ -83,7 +85,7 @@ static int ValidateSerials(CItem *expectedPlayer, uint32_t playerSerial, CItem *
 static void DropObj_Bounce(CItem *source, CItem *item, CLocation *loc); // 0x00494CAE
 static const char *GetCanHoldFailReason(int code); // 0x00494D33
 static void SendEntityResourceNodes(CItem *entity, CItem *player, uint32_t unused, uint32_t serial); // 0x00496430
-static void BBoard_BroadcastWrapper(uint8_t *buf); // 0x00497AF4
+static void BBoard_BroadcastWrapper(uint8_t *buf, uint16_t packetLen); // 0x00497AF4
 static void BuildGodViewPacket(uint8_t *buf, uint8_t type, uint16_t count, int dataLen, uint8_t *data); // 0x004B4C97
 static void TriggerEdit_Op545E(CItem *ent, const char *data); // 0x004B545E
 static void TriggerEdit_Op546F(const char *scriptName); // 0x004B546F
@@ -116,6 +118,91 @@ static int g_PendingReleaseLocSet;
 
 // Custom - shared outbound packet buffer size
 static int bufSize = 8192;
+
+static int
+TriggerEdit_CStringFits(const char *str, const char *end)
+{
+	if (str == NULL || str > end)
+		return 0;
+	return memchr(str, '\0', (size_t)(end - str)) != NULL;
+}
+
+static int
+TriggerEdit_CopyNextCString(char **cursor, const char *end, char *dst, size_t dstSize)
+{
+	char *nul;
+	size_t len;
+
+	if (cursor == NULL || *cursor == NULL || *cursor > end || dstSize == 0)
+		return 0;
+
+	nul = memchr(*cursor, '\0', (size_t)(end - *cursor));
+	if (nul == NULL)
+		return 0;
+
+	len = (size_t)(nul - *cursor);
+	if (len >= dstSize)
+		return 0;
+
+	memcpy(dst, *cursor, len);
+	dst[len] = '\0';
+	*cursor = nul + 1;
+	return 1;
+}
+
+static int
+TriggerEdit_WriteBytesBounded(char **cursor, char *start, size_t cap, const void *src, size_t len)
+{
+	if (*cursor < start || (size_t)(*cursor - start) > cap)
+		return 0;
+	if (len > cap - (size_t)(*cursor - start))
+		return 0;
+
+	memcpy(*cursor, src, len);
+	*cursor += len;
+	return 1;
+}
+
+static int
+TriggerEdit_WriteCStringBounded(char **cursor, char *start, size_t cap, const char *src)
+{
+	return TriggerEdit_WriteBytesBounded(cursor, start, cap, src, strlen(src) + 1);
+}
+
+int
+PacketSecurity_RequireGM(CPlayer *this, uint8_t packetType, const char *handler)
+{
+	if (this != NULL && CPlayer_IsGameMaster(this))
+		return 1;
+
+	PacketSecurity_ClosePlayer(this, packetType, handler, "GM account required");
+	return 0;
+}
+
+enum {
+	kPacketSecurityMaxText = 4096,
+};
+
+void
+PacketSecurity_ClosePlayer(CPlayer *this, uint8_t packetType, const char *handler, const char *reason)
+{
+	if (this == NULL || this->usersock == NULL)
+		return;
+
+	Log_Game(this->usersock->addr, "closing packet 0x%02X in %s: %s", packetType, handler, reason);
+	this->usersock->socket.status = SocketClosing;
+}
+
+static int
+PacketSecurity_CopyBytesAsCString(const uint8_t *src, uint16_t len, char *dst, size_t dstSize)
+{
+	if (dstSize == 0 || len >= dstSize)
+		return 0;
+
+	memcpy(dst, src, len);
+	dst[len] = '\0';
+	return 1;
+}
 
 // GameCentMon globals (binary: 0x006E7658, 0x006E765C, 0x006E7660)
 uint32_t g_gcmState;              // 0x006E7658: monitor state (0=idle, 1=active, 2=broadcast)
@@ -856,11 +943,11 @@ static const uint16_t g_CheckerGraphics[32] = {
 // clang-format on
 
 /*
- * Not present on UoDemo, but required on clients >= 1.25.35.
+ * Not present on UoDemo, but required on clients >= 1.25.30.
  * The order should match the hardcoded list in clients >= 1.26.0.
  */
 PlaceName g_PlaceNameList[] = {
-	{ "Ocllo", "Bountiful Harvest", 341, 316, 0 },
+	{ "Ocllo", "Bountiful Harvest", 3668, 2626, 0 },
 	{ "Minoc", "Tavern", 2477, 411, 15 },
 	{ "Britain", "Sweet Dreams Inn", 1495, 1629, 10 },
 	{ "Moonglow", "Docks", 4406, 1045, 0 },
@@ -1516,6 +1603,8 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	uint16_t pattern1, pattern2;
 	uint8_t pattern3;
 	char *characterName, *characterPassword;
+	char characterNameBuf[31];
+	char characterPasswordBuf[31];
 	uint8_t genre, strength, dexterity, intelligence;
 	uint8_t skill1Number, skill2Number, skill3Number;
 	uint8_t skill1Value, skill2Value, skill3Value;
@@ -1524,7 +1613,7 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	uint16_t hairColor;
 	uint16_t facialHairStyle;
 	uint16_t facialHairColor;
-	uint8_t unknown, slot;
+	uint8_t legacyAuxByte, legacyCityByte;
 	uint16_t unknownD, slotD;
 	uint32_t clientIP;
 	uint32_t colors;
@@ -1563,6 +1652,10 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	GetByte(buf, &off, &pattern3);
 	GetString(buf, &off, &characterName, 30);
 	GetString(buf, &off, &characterPassword, 30);
+	memcpy(characterNameBuf, characterName, 30);
+	characterNameBuf[30] = '\0';
+	memcpy(characterPasswordBuf, characterPassword, 30);
+	characterPasswordBuf[30] = '\0';
 	GetByte(buf, &off, &genre);
 	GetByte(buf, &off, &strength);
 	GetByte(buf, &off, &dexterity);
@@ -1585,9 +1678,11 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	if (connVer < 0)
 		connVer = CLIENT_12600;
 	if (connVer < CLIENT_12535) {
-		startLocation = -1;
-		GetByte(buf, &off, &unknown);
-		GetByte(buf, &off, &slot);
+		// 1.25.32 client tracing shows the second tail byte carries the chosen
+		// city index; the first byte is some other character-creation selector.
+		GetByte(buf, &off, &legacyAuxByte);
+		GetByte(buf, &off, &legacyCityByte);
+		startLocation = legacyCityByte;
 		GetDWord(buf, &off, &clientIP);
 		GetDWord(buf, &off, &colors);
 		colors = 0;
@@ -1611,14 +1706,14 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	// accounts), but with account-scoped slot-based selection (0x5D) names
 	// don't need to be unique.
 	if (succeed) {
-		if (startLocation > 0 && startLocation < nelem(g_PlaceNameList)) {
+		if (startLocation < nelem(g_PlaceNameList)) {
 			locX = g_PlaceNameList[startLocation].x;
 			locY = g_PlaceNameList[startLocation].y;
 			locZ = g_PlaceNameList[startLocation].z;
 		}
-		player = NewCharacter(this, locX, locY, locZ, characterName, characterPassword, genre, strength, dexterity, intelligence, skill1Number, skill1Value, skill2Number,
-		        skill2Value, skill3Number, skill3Value, skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
-		Log_Game(this->addr, "'%s' created character '%s'", this->account->login, characterName);
+		player = NewCharacter(this, locX, locY, locZ, characterNameBuf, characterPasswordBuf, genre, strength, dexterity, intelligence, skill1Number, skill1Value,
+		        skill2Number, skill2Value, skill3Number, skill3Value, skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
+		Log_Game(this->addr, "'%s' created character '%s'", this->account->login, characterNameBuf);
 		Player_Login(player, addr);
 	} else {
 		PacketManager_MakePacket_LOGIN_REJECT(&obuf[0], 0x00);
@@ -1843,10 +1938,8 @@ HandlePacket_ACCT_LOGIN_REQ(CUserSock *this, uint8_t *buf)
  * character list (0x86 ALL_CHARACTERS) back to client.
  */
 void
-HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
+HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf, uint16_t packetLen)
 {
-	char *characterPassword;
-	uint32_t off;
 	uint32_t characterSlot;
 	uint32_t clientIP;
 	uint8_t obuf[bufSize];
@@ -1857,13 +1950,30 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	int numCharacters;
 	CVector charVec;
 	char typeFlag;
+	PacketReader reader;
+	const uint8_t *characterPassword;
 
-	off = 0;
-	GetString(buf, &off, &characterPassword, 30);
-	GetDWord(buf, &off, &characterSlot);
-	GetDWord(buf, &off, &clientIP);
+	if (packetLen != 39) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_ACCT_DEL_CHAR: invalid packet length", PacketType_ACCT_DEL_CHAR);
+		this->socket.status = SocketClosing;
+		return;
+	}
+
+	if (this->player != NULL) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_ACCT_DEL_CHAR: character delete after game login", PacketType_ACCT_DEL_CHAR);
+		this->socket.status = SocketClosing;
+		return;
+	}
+
+	PacketReader_Init(&reader, buf, packetLen, 1);
+	if (!PacketReader_ReadBytesPtr(&reader, &characterPassword, 30) || !PacketReader_ReadU32(&reader, &characterSlot) || !PacketReader_ReadU32(&reader, &clientIP)) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_ACCT_DEL_CHAR: truncated fixed fields", PacketType_ACCT_DEL_CHAR);
+		this->socket.status = SocketClosing;
+		return;
+	}
 
 	USED(clientIP);
+	USED(characterPassword);
 
 	// Custom: reject if no account
 	if (this->account == NULL) {
@@ -1878,7 +1988,10 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	CVector_Constructor(&charVec, &typeFlag);
 	CPlayerList_CollectByAccountIDSorted(&charVec, this->account->accountNum);
 	numCharacters = CVector_GetCount(&charVec);
-	target = ((int)characterSlot < numCharacters) ? (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot] : NULL;
+	if (numCharacters < 0 || characterSlot >= (uint32_t)numCharacters)
+		target = NULL;
+	else
+		target = (CPlayer *)((uintptr_t *)charVec.begin)[characterSlot];
 	CVector_Destructor(&charVec);
 
 	memset(obuf, 0, sizeof(obuf));
@@ -1890,8 +2003,8 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 		return;
 	}
 
-	if (target->usersock != NULL) {
-		// Character is currently logged in
+	if (target->usersock != NULL || World_IsEntityInHash((CItem *)target)) {
+		// Character is currently logged in or waiting for delayed logout
 		PacketManager_MakePacket_CHG_CHAR_RESULT(obuf, 2);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		return;
@@ -1920,7 +2033,7 @@ HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf)
 	}
 	CVector_Destructor(&charVec);
 
-	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
+	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0], Version_GetConnVer(this, CLIENT_12600) < CLIENT_12535);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 
@@ -2600,9 +2713,8 @@ HandlePacket_CHECK_VER(CPlayer *this, uint8_t *buf)
  * Binary uses CList for switch/text lists and CUString for text content.
  */
 void
-HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
+HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t serial;
 	uint32_t gumpID;
 	uint32_t buttonID;
@@ -2617,52 +2729,53 @@ HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf)
 	CList switchList;
 	CList textList;
 	CUString tempString;
-	uint16_t packetLen;
-	uint32_t payloadLen;
+	PacketReader reader;
 
-	// Read packet length from dynamic-size header (buf[1-2], host order).
-	memcpy(&packetLen, &buf[1], 2);
-	payloadLen = (packetLen > 3) ? packetLen - 3 : 0;
+	PacketReader_Init(&reader, buf, packetLen, 3);
 
 	CList_Constructor(&switchList);
 	CList_Constructor(&textList);
 	CUString_DefaultConstructor(&tempString);
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetDWord(buf, &off, &gumpID);
-	GetDWord(buf, &off, &buttonID);
+	if (!PacketReader_ReadU32(&reader, &serial) || !PacketReader_ReadU32(&reader, &gumpID) || !PacketReader_ReadU32(&reader, &buttonID) ||
+	        !PacketReader_ReadU32(&reader, &switchCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated fixed fields");
+		goto done;
+	}
 
 	entity = CWorld_FindBySerial(g_World, serial);
 	if (entity == NULL) {
-		CUString_Destructor(&tempString);
-		CList_Destructor(&textList);
-		CList_Destructor(&switchList);
-		return;
+		goto done;
 	}
 
-	GetDWord(buf, &off, &switchCount);
-
-	for (i = 0; i < switchCount && off + 4 <= payloadLen; i++) {
-		GetDWord(buf, &off, &switchVal);
+	for (i = 0; i < switchCount; i++) {
+		if (!PacketReader_ReadU32(&reader, &switchVal)) {
+			PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated switch list");
+			goto done;
+		}
 		CList_Append(&switchList, 0, switchVal);
 	}
 
-	if (off + 4 > payloadLen)
+	if (!PacketReader_ReadU32(&reader, &textEntryCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "missing text entry count");
 		goto done;
-	GetDWord(buf, &off, &textEntryCount);
-	for (i = 0; i < textEntryCount && off + 4 <= payloadLen; i++) {
-		GetWord(buf, &off, &textEntryId);
-		GetWord(buf, &off, &textLen);
+	}
+	for (i = 0; i < textEntryCount; i++) {
+		if (!PacketReader_ReadU16(&reader, &textEntryId) || !PacketReader_ReadU16(&reader, &textLen)) {
+			PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated text entry header");
+			goto done;
+		}
 
 		CList_Append(&textList, 0, (uint32_t)textEntryId);
 
 		CUString_AssignCStr(&tempString, (const void *)L"");
-		for (j = 0; j < textLen && j < 0xEF; j++) {
-			if (off + 2 > payloadLen)
-				break;
-			GetWord(buf, &off, &unicodeChar);
-			CUString_ConcatChar(&tempString, unicodeChar);
+		for (j = 0; j < textLen; j++) {
+			if (!PacketReader_ReadU16(&reader, &unicodeChar)) {
+				PacketSecurity_ClosePlayer(this, PacketType_GumpMenuSelection, "HandlePacket_GumpMenuSelection", "truncated text entry data");
+				goto done;
+			}
+			if (j < 0xEF)
+				CUString_ConcatChar(&tempString, unicodeChar);
 		}
 
 		CList_Append(&textList, 2, (uintptr_t)&tempString);
@@ -2845,30 +2958,47 @@ Speech_BroadcastAlive(CPlayer *speaker, uint8_t speechType, char *text, uint16_t
  * MODIFIED: logs every line.
  */
 void
-HandlePacket_SPEECH(CPlayer *this, uint8_t *buf)
+HandlePacket_SPEECH(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint8_t obuf[0x42C];
-	uint32_t off;
 	uint8_t speechType;
 	uint16_t hue;
 	uint16_t font;
 	char *text;
+	char textBuf[241];
+	const uint8_t *textPtr;
+	uint16_t remaining;
 	CPlayer *p;
 	int hasNonSpace;
 	int i;
+	PacketReader reader;
 
 	p = NULL;
-	off = 0;
+	PacketReader_Init(&reader, buf, packetLen, 3);
+
+	if (!PacketReader_ReadU8(&reader, &speechType) || !PacketReader_ReadU16(&reader, &hue) || !PacketReader_ReadU16(&reader, &font)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SPEECH, "HandlePacket_SPEECH", "truncated speech header");
+		return;
+	}
+
+	textPtr = reader.buf + reader.off;
+	remaining = PacketReader_Remaining(&reader);
+	for (i = 0; i < (int)remaining && i < (int)sizeof(textBuf); i++) {
+		if (textPtr[i] == '\0')
+			break;
+	}
+	if (i >= (int)remaining || i >= (int)sizeof(textBuf)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SPEECH, "HandlePacket_SPEECH", "speech text missing bounded terminator");
+		return;
+	}
+	memcpy(textBuf, textPtr, (size_t)i);
+	textBuf[i] = '\0';
+	text = textBuf;
 
 	if (CMobile_IsSquelched(&this->mobile)) {
 		CPlayer_SystemMessage(this, "You can not say anything, you have been squelched.");
 		return;
 	}
-
-	GetByte(buf, &off, &speechType);
-	GetWord(buf, &off, &hue);
-	GetWord(buf, &off, &font);
-	GetString(buf, &off, &text, 241);
 
 	if (!CPlayer_IsEditing(this)) {
 		font = 3;
@@ -3337,7 +3467,9 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 
 	if (isStealing != 0 && !CPlayer_IsEditing(this)) {
 		int acc = (int)(intptr_t)Entity_ExecuteEvent((CEntity *)topContainer, 0x3D, 5, CMobile_GetSerial(mob), item->serial);
-		if (acc == 0) {
+		/* Pickup access filters return 0 to authorize the move and nonzero
+		 * to reject it. An unhandled mobile filter defaults to rejection. */
+		if (!PacketHandler_IsPickupAccessAuthorized(acc)) {
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x00);
 			SendToClient((CItem *)this, obuf, -1);
 			return;
@@ -4085,15 +4217,23 @@ HandlePacket_ATTACK(CPlayer *this, uint8_t *buf)
  * keeps the player hidden instead of revealing on use.
  */
 void
-HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
+HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t subcommand;
+	char textBuf[0xF2];
 	char *text;
+	PacketReader reader;
 
-	off = 0;
-	GetByte(buf, &off, &subcommand);
-	GetString(buf, &off, &text, 0xF1);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &subcommand)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "truncated subcommand");
+		return;
+	}
+	if (!PacketReader_ReadCStringCopy(&reader, textBuf, sizeof(textBuf), 0xF1)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "macro text missing bounded terminator");
+		return;
+	}
+	text = textBuf;
 
 	switch (subcommand) {
 	case 0x07: // Action (stub - immediate ret in binary)
@@ -4102,7 +4242,8 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 		break;
 	case 0x24: {
 		// 0x00448372 - UseSkillByMacro
-		int skillId, skillArg;
+		int skillId = 0;
+		int skillArg = 0;
 		const char *handler;
 		const char *attachResult;
 
@@ -4159,14 +4300,34 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 		uint8_t obuf[0x42C];
 		int outIdx = 0;
 		int needHyphen = 0;
+		size_t textLen;
+
+		textLen = strlen(text);
+		if (textLen > 240) {
+			PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell macro text too long");
+			return;
+		}
 
 		while (*text != '\0') {
 			if (*text == ' ') {
+				if (outIdx >= (int)sizeof(incantation) - 1) {
+					PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell incantation too long");
+					return;
+				}
 				incantation[outIdx++] = ' ';
 				needHyphen = 0;
 			} else {
-				if (needHyphen)
+				if (needHyphen) {
+					if (outIdx >= (int)sizeof(incantation) - 1) {
+						PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell incantation too long");
+						return;
+					}
 					incantation[outIdx++] = '-';
+				}
+				if (outIdx >= (int)sizeof(incantation) - 1) {
+					PacketSecurity_ClosePlayer(this, PacketType_GODCOMMAND, "HandlePacket_GODCOMMAND", "spell incantation too long");
+					return;
+				}
 				if (*text >= 'a' && *text <= 'z')
 					incantation[outIdx++] = *text - 0x20;
 				else
@@ -4462,7 +4623,7 @@ bounce:
  *      from template slot (0x0045B42C)
  */
 void
-HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf)
+HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint32_t off;
 	CResourceNode *node;
@@ -4470,6 +4631,11 @@ HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf)
 	uint32_t serial;
 	uint16_t tmpWord;
 	uint32_t tmpDWord;
+
+	USED(packetLen);
+
+	if (!PacketSecurity_RequireGM(this, PacketType_RESOURCETILEDATA, "HandlePacket_RESOURCETILEDATA"))
+		return;
 
 	off = 0;
 	node = NULL;
@@ -4920,22 +5086,29 @@ HandlePacket_GROUPS(CPlayer *this, uint8_t *buf)
  * vendor.
  */
 void
-HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
+HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t vendorSerial;
 	uint8_t flag;
 	CItem *vendor;
 	int numItems;
 	int i;
+	PacketReader reader;
 	// Binary: 0xC-byte padded struct array on stack (0xBCC bytes total).
 	// GetByte writes layer at base + i*0xC + 0, GetDWord writes
 	// serial at base + i*0xC + 4, GetWord writes qty at base + i*0xC + 8.
 	BuyEntry entries[250];
 
-	off = 0;
-	GetDWord(buf, &off, &vendorSerial);
-	GetByte(buf, &off, &flag);
+	if (!PacketSecurity_ValidateVendorBuy(packetLen, &numItems)) {
+		PacketSecurity_ClosePlayer(this, PacketType_OFFERACCEPT, "HandlePacket_OFFERACCEPT", "invalid buy item count or length");
+		return;
+	}
+
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &vendorSerial) || !PacketReader_ReadU8(&reader, &flag)) {
+		PacketSecurity_ClosePlayer(this, PacketType_OFFERACCEPT, "HandlePacket_OFFERACCEPT", "truncated vendor header");
+		return;
+	}
 
 	vendor = CWorld_FindEntityInRange(g_World, (CEntity *)this, vendorSerial, 0x12);
 	if (vendor == NULL)
@@ -4947,12 +5120,11 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
 	if ((flag & 0xFF) != 2)
 		return;
 
-	numItems = ((int)(GetPacketOffset(buf) & 0xFFFF) - 8) / 7;
-
 	for (i = 0; i < numItems; i++) {
-		GetByte(buf, &off, &entries[i].layer);
-		GetDWord(buf, &off, &entries[i].serial);
-		GetWord(buf, &off, &entries[i].qty);
+		if (!PacketReader_ReadU8(&reader, &entries[i].layer) || !PacketReader_ReadU32(&reader, &entries[i].serial) || !PacketReader_ReadU16(&reader, &entries[i].qty)) {
+			PacketSecurity_ClosePlayer(this, PacketType_OFFERACCEPT, "HandlePacket_OFFERACCEPT", "truncated buy entry");
+			return;
+		}
 	}
 
 	CMobile_ProcessBuyList((CMobile *)vendor, this, numItems, entries);
@@ -4965,25 +5137,34 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
  * forwards it to the targeted vendor via CMobile_ProcessSellOffer.
  */
 void
-HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf)
+HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t vendorSerial;
 	uint16_t itemCount;
 	int i;
 	CItem *vendor;
+	PacketReader reader;
 	// Binary: 0xC-byte padded struct array on stack (0xBCC bytes total).
 	// GetDWord writes serial at base + i*0xC + 4, GetWord writes
 	// amount at base + i*0xC + 8. ProcessSellOffer reads same offsets.
 	SellEntry entries[252];
 
-	off = 0;
-	GetDWord(buf, &off, &vendorSerial);
-	GetWord(buf, &off, &itemCount);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &vendorSerial) || !PacketReader_ReadU16(&reader, &itemCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SHOP_OFFER, "HandlePacket_SHOP_OFFER", "truncated sell header");
+		return;
+	}
+
+	if (!PacketSecurity_ValidateVendorSell(packetLen, itemCount)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SHOP_OFFER, "HandlePacket_SHOP_OFFER", "invalid sell item count or length");
+		return;
+	}
 
 	for (i = 0; i < (int)(itemCount & 0xFFFF); i++) {
-		GetDWord(buf, &off, &entries[i].serial);
-		GetWord(buf, &off, &entries[i].amount);
+		if (!PacketReader_ReadU32(&reader, &entries[i].serial) || !PacketReader_ReadU16(&reader, &entries[i].amount)) {
+			PacketSecurity_ClosePlayer(this, PacketType_SHOP_OFFER, "HandlePacket_SHOP_OFFER", "truncated sell entry");
+			return;
+		}
 	}
 
 	vendor = CWorld_FindEntityInRange(g_World, (CEntity *)this, vendorSerial, 0x12);
@@ -5572,10 +5753,10 @@ HandlePacket_TRADE(CPlayer *this, uint8_t *buf)
  * so the bulletin-board posting is broadcast rather than replied to.
  */
 void
-BBoard_EnableBroadcastMode(uint8_t *buf)
+BBoard_EnableBroadcastMode(uint8_t *buf, uint16_t packetLen)
 {
 	g_BBoardBroadcastMode = 1;
-	HandlePacket_BBOARD(NULL, buf);
+	HandlePacket_BBOARD(NULL, buf, packetLen);
 	g_BBoardBroadcastMode = 0;
 }
 
@@ -5585,9 +5766,9 @@ BBoard_EnableBroadcastMode(uint8_t *buf)
  * Trampoline to BBoard_EnableBroadcastMode.
  */
 static void
-BBoard_BroadcastWrapper(uint8_t *buf)
+BBoard_BroadcastWrapper(uint8_t *buf, uint16_t packetLen)
 {
-	BBoard_EnableBroadcastMode(buf);
+	BBoard_EnableBroadcastMode(buf, packetLen);
 }
 
 /*
@@ -5608,9 +5789,8 @@ BBoard_BroadcastWrapper(uint8_t *buf)
  * with proper bounds for subject, allocate tempByte+1 for lines.
  */
 void
-HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
+HandlePacket_BBOARD(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t subCmd;
 	uint32_t boardSerial;
 	uint32_t postSerial;
@@ -5619,20 +5799,26 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 	CItem *post;
 	int i;
 	uint8_t tempByte;
-	char *tempStr;
+	const uint8_t *tempStr;
 	char subject[80];
 	uint8_t numLines;
 	uintptr_t lines[256];
 	CBulletinBoard *bb;
+	PacketReader reader;
 
-	off = 0;
-	GetByte(buf, &off, &subCmd);
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU8(&reader, &subCmd)) {
+		PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "missing sub-command");
+		return;
+	}
 
 	switch (subCmd & 0xFF) {
 	case 3: {
 		// Request post body
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &postSerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &postSerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated post-body request");
+			return;
+		}
 
 		board = CWorld_FindEntityInRange(g_World, (CEntity *)this, boardSerial, 0x12);
 		post = CWorld_FindEntityInRange(g_World, (CEntity *)this, postSerial, 0x12);
@@ -5645,8 +5831,10 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 
 	case 4: {
 		// Request board summary
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &postSerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &postSerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated summary request");
+			return;
+		}
 
 		board = CWorld_FindEntityInRange(g_World, (CEntity *)this, boardSerial, 0x12);
 		post = CWorld_FindEntityInRange(g_World, (CEntity *)this, postSerial, 0x12);
@@ -5658,27 +5846,54 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 	}
 
 	case 5: {
+		int lineCountRead;
+		uint32_t totalBodyLen;
+
 		// Post new message
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &replySerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &replySerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated post header");
+			return;
+		}
 
 		// Read subject
 		// FIXED: binary uses strcpy (0x00497CE3) - overflow if tempByte > 0x4F
-		GetByte(buf, &off, &tempByte);
-		GetString(buf, &off, &tempStr, tempByte & 0xFF);
-		strncpy(subject, tempStr, sizeof(subject) - 1);
-		subject[sizeof(subject) - 1] = '\0';
+		if (!PacketReader_ReadU8(&reader, &tempByte) || !PacketReader_ReadBytesPtr(&reader, &tempStr, tempByte)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated subject");
+			return;
+		}
+		{
+			size_t copyLen = tempByte < sizeof(subject) ? tempByte : sizeof(subject) - 1;
+			memcpy(subject, tempStr, copyLen);
+			subject[copyLen] = '\0';
+		}
 
 		// Read lines
 		// FIXED: binary allocates tempByte bytes (0x00497D6C) then strcpy
 		// (0x00497D90) - heap overflow if string lacks NUL within allocation
-		GetByte(buf, &off, &numLines);
+		if (!PacketReader_ReadU8(&reader, &numLines)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "missing line count");
+			return;
+		}
+		lineCountRead = 0;
+		totalBodyLen = 0;
 		for (i = 0; i < (numLines & 0xFF); i++) {
-			GetByte(buf, &off, &tempByte);
-			GetString(buf, &off, &tempStr, tempByte & 0xFF);
+			if (!PacketReader_ReadU8(&reader, &tempByte) || !PacketReader_ReadBytesPtr(&reader, &tempStr, tempByte)) {
+				PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated line");
+				goto cleanup_lines;
+			}
+			totalBodyLen += tempByte;
+			if (totalBodyLen > kPacketSecurityMaxText) {
+				PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "post body too large");
+				goto cleanup_lines;
+			}
 			lines[i] = (uintptr_t)OperatorNew((tempByte & 0xFF) + 1);
-			strncpy((char *)lines[i], tempStr, tempByte & 0xFF);
+			if (lines[i] == 0) {
+				PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "line allocation failed");
+				goto cleanup_lines;
+			}
+			memcpy((char *)lines[i], tempStr, tempByte & 0xFF);
 			((char *)lines[i])[tempByte & 0xFF] = '\0';
+			lineCountRead++;
 		}
 
 		if (g_BBoardBroadcastMode == 0 && boardSerial != 0) {
@@ -5689,14 +5904,15 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 				CBulletinBoard_PostMessage((CBulletinBoard *)board, this, post, subject, numLines, lines);
 			}
 		} else if (boardSerial == 0 && this != NULL && CPlayer_IsEditing(this)) {
-			BBoard_BroadcastWrapper(buf);
+			BBoard_BroadcastWrapper(buf, packetLen);
 		} else if (g_BBoardBroadcastMode != 0) {
 			for (bb = g_BBoardHead; bb != NULL; bb = bb->bbNext) {
 				CBulletinBoard_PostMessage(bb, NULL, NULL, subject, numLines, lines);
 			}
 		}
 
-		for (i = 0; i < (numLines & 0xFF); i++) {
+cleanup_lines:
+		for (i = 0; i < lineCountRead; i++) {
 			OperatorDelete((void *)lines[i]);
 		}
 		break;
@@ -5704,8 +5920,10 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 
 	case 6: {
 		// Remove post
-		GetDWord(buf, &off, &boardSerial);
-		GetDWord(buf, &off, &postSerial);
+		if (!PacketReader_ReadU32(&reader, &boardSerial) || !PacketReader_ReadU32(&reader, &postSerial)) {
+			PacketSecurity_ClosePlayer(this, PacketType_BBOARD, "HandlePacket_BBOARD", "truncated remove request");
+			return;
+		}
 
 		board = CWorld_FindEntityInRange(g_World, (CEntity *)this, boardSerial, 0x12);
 		post = CWorld_FindEntityInRange(g_World, (CEntity *)this, postSerial, 0x12);
@@ -5905,14 +6123,17 @@ HandlePacket_HUEPICKER(CPlayer *this, uint8_t *buf)
  * Replies to the client with the name of the given mobile serial.
  */
 void
-HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf)
+HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint8_t obuf[0x23];
-	uint32_t off;
+	uint8_t obuf[0x25];
+	PacketReader reader;
 	uint32_t serial;
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU32(&reader, &serial)) {
+		PacketSecurity_ClosePlayer(this, PacketType_MOBNAME, "HandlePacket_MOBNAME", "truncated serial");
+		return;
+	}
 
 	PacketManager_MakePacket_MOBNAME(obuf, this, serial);
 
@@ -5998,31 +6219,43 @@ HandlePacket_BRITANNIA_SELECT(CUserSock *this, uint8_t *buf)
  * Frees textBuf. Verified exact match with binary.
  */
 void
-HandlePacket_TEXT_ENTRY(CPlayer *this, uint8_t *buf)
+HandlePacket_TEXT_ENTRY(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t serial;
 	uint32_t promptID;
 	uint32_t promptType;
 	CItem *entity;
+	PacketReader reader;
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetDWord(buf, &off, &promptID);
-	GetDWord(buf, &off, &promptType);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &serial) || !PacketReader_ReadU32(&reader, &promptID) || !PacketReader_ReadU32(&reader, &promptType)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "truncated fixed fields");
+		return;
+	}
 
 	{
-		int textLen;
-		char *text;
+		uint16_t textLen;
+		const uint8_t *text;
 		char *textBuf;
 
-		textLen = (int)(GetPacketOffset(buf) & 0xFFFF) - (int)off;
+		if (!PacketSecurity_TextLengthFromPacket(packetLen, 3, PacketReader_Offset(&reader), kPacketSecurityMaxText, &textLen)) {
+			PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "invalid text length");
+			return;
+		}
 		if (textLen <= 1)
 			return;
 
 		textBuf = OperatorNew(textLen);
-		GetString(buf, &off, &text, textLen);
-		strncpy(textBuf, text, textLen);
+		if (textBuf == NULL) {
+			PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "text allocation failed");
+			return;
+		}
+		if (!PacketReader_ReadBytesPtr(&reader, &text, textLen)) {
+			OperatorDelete(textBuf);
+			PacketSecurity_ClosePlayer(this, PacketType_TEXT_ENTRY, "HandlePacket_TEXT_ENTRY", "truncated text");
+			return;
+		}
+		memcpy(textBuf, text, textLen);
 		textBuf[textLen - 1] = '\0';
 
 		entity = CWorld_FindBySerial(g_World, serial);
@@ -6164,28 +6397,34 @@ HandlePacket_REQ_TIP(CPlayer *this, uint8_t *buf)
  * StringResponse (0x3A).
  */
 void
-HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf)
+HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint32_t serial;
 	uint16_t promptType;
 	uint8_t responseType;
 	uint16_t textLength;
-	char *text;
+	const uint8_t *text;
+	char textBuf[kPacketSecurityMaxText + 1];
 	CItem *entity;
+	PacketReader reader;
 
-	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetWord(buf, &off, &promptType);
-	GetByte(buf, &off, &responseType);
-	GetWord(buf, &off, &textLength);
-	GetString(buf, &off, &text, textLength);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU32(&reader, &serial) || !PacketReader_ReadU16(&reader, &promptType) || !PacketReader_ReadU8(&reader, &responseType) ||
+	        !PacketReader_ReadU16(&reader, &textLength)) {
+		PacketSecurity_ClosePlayer(this, PacketType_STRING_RESPONSE, "HandlePacket_STRING_RESPONSE", "truncated fixed fields");
+		return;
+	}
+	if (textLength > kPacketSecurityMaxText || !PacketReader_ReadBytesPtr(&reader, &text, textLength) ||
+	        !PacketSecurity_CopyBytesAsCString(text, textLength, textBuf, sizeof(textBuf))) {
+		PacketSecurity_ClosePlayer(this, PacketType_STRING_RESPONSE, "HandlePacket_STRING_RESPONSE", "invalid text length");
+		return;
+	}
 
 	entity = CWorld_FindBySerial(g_World, serial);
 	if (entity == NULL)
 		return;
 
-	Entity_ExecuteEvent(&entity->resourceEntity.entity, StringResponse, (uintptr_t)promptType, (uintptr_t)this->mobile.container.item.serial, (int)responseType, text);
+	Entity_ExecuteEvent(&entity->resourceEntity.entity, StringResponse, (uintptr_t)promptType, (uintptr_t)this->mobile.container.item.serial, (int)responseType, textBuf);
 }
 
 /*
@@ -6264,14 +6503,14 @@ HandlePacket_GMSingle(CPlayer *this, uint8_t *buf)
  * packets are only dispatched when their flag is on.
  */
 void
-DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
+DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen)
 {
 	switch (type) {
 	case PacketType_REQ_MOVE:
 		HandlePacket_REQ_MOVE(this, buf);
 		break;
 	case PacketType_SPEECH:
-		HandlePacket_SPEECH(this, buf);
+		HandlePacket_SPEECH(this, buf, packetLen);
 		break;
 	case PacketType_GODMODE_TOGGLE:
 		HandlePacket_GODMODE_TOGGLE(this, buf);
@@ -6292,7 +6531,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_REQ_LOOK(this, buf);
 		break;
 	case PacketType_GODCOMMAND:
-		HandlePacket_GODCOMMAND(this, buf);
+		HandlePacket_GODCOMMAND(this, buf, packetLen);
 		break;
 	case PacketType_REQ_OBJEQUIP:
 		HandlePacket_REQ_OBJEQUIP(this, buf);
@@ -6313,7 +6552,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_GROUPS(this, buf);
 		break;
 	case PacketType_OFFERACCEPT:
-		HandlePacket_OFFERACCEPT(this, buf);
+		HandlePacket_OFFERACCEPT(this, buf, packetLen);
 		break;
 	case PacketType_CHECK_VER:
 		HandlePacket_CHECK_VER(this, buf);
@@ -6340,7 +6579,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_TRADE(this, buf);
 		break;
 	case PacketType_BBOARD:
-		HandlePacket_BBOARD(this, buf);
+		HandlePacket_BBOARD(this, buf, packetLen);
 		break;
 	case PacketType_COMBAT:
 		HandlePacket_COMBAT(this, buf);
@@ -6353,19 +6592,19 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_RENAME_MOB(this, buf);
 		break;
 	case PacketType_ResourceQuery:
-		HandlePacket_ResourceQuery(this, buf);
+		HandlePacket_ResourceQuery(this, buf, packetLen);
 		break;
 	case PacketType_PICKEDOBJ:
 		HandlePacket_PICKEDOBJ(this, buf);
 		break;
 	case PacketType_GodViewQuery:
-		HandlePacket_GodViewQuery(this, buf);
+		HandlePacket_GodViewQuery(this, buf, packetLen);
 		break;
 	case PacketType_SendResources:
-		HandlePacket_SendResources(this, buf);
+		HandlePacket_SendResources(this, buf, packetLen);
 		break;
 	case PacketType_TriggerEdit:
-		HandlePacket_TriggerEdit(this, buf);
+		HandlePacket_TriggerEdit(this, buf, packetLen);
 		break;
 	case PacketType_POSTLOGIN:
 		HandlePacket_POSTLOGIN_Player(this, buf);
@@ -6377,19 +6616,19 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_HUEPICKER(this, buf);
 		break;
 	case PacketType_GameCentMon:
-		HandlePacket_GameCentMon(this, buf);
+		HandlePacket_GameCentMon(this, buf, packetLen);
 		break;
 	case PacketType_MOBNAME:
-		HandlePacket_MOBNAME(this, buf);
+		HandlePacket_MOBNAME(this, buf, packetLen);
 		break;
 	case PacketType_TEXT_ENTRY:
-		HandlePacket_TEXT_ENTRY(this, buf);
+		HandlePacket_TEXT_ENTRY(this, buf, packetLen);
 		break;
 	case PacketType_REQUEST_ASSIST:
 		HandlePacket_REQUEST_ASSIST(this, buf);
 		break;
 	case PacketType_SHOP_OFFER:
-		HandlePacket_SHOP_OFFER(this, buf);
+		HandlePacket_SHOP_OFFER(this, buf, packetLen);
 		break;
 	case PacketType_HARDWARE_INFO:
 		HandlePacket_HARDWARE_INFO(this, buf);
@@ -6398,13 +6637,13 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 		HandlePacket_REQ_TIP(this, buf);
 		break;
 	case PacketType_STRING_RESPONSE:
-		HandlePacket_STRING_RESPONSE(this, buf);
+		HandlePacket_STRING_RESPONSE(this, buf, packetLen);
 		break;
 	case PacketType_SPEECH_UNICODE:
-		HandlePacket_SPEECH_UNICODE(this, buf);
+		HandlePacket_SPEECH_UNICODE(this, buf, packetLen);
 		break;
 	case PacketType_GumpMenuSelection:
-		HandlePacket_GumpMenuSelection(this, buf);
+		HandlePacket_GumpMenuSelection(this, buf, packetLen);
 		break;
 	case PacketType_CHAT_TEXT:
 		if (feat(FEAT_CHAT))
@@ -6443,7 +6682,7 @@ DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf)
 				HandlePacket_AddResource(this, buf);
 				break;
 			case PacketType_RESOURCETILEDATA:
-				HandlePacket_RESOURCETILEDATA(this, buf);
+				HandlePacket_RESOURCETILEDATA(this, buf, packetLen);
 				break;
 			case PacketType_NEW_ART:
 				HandlePacket_NEW_ART(this, buf);
@@ -6648,9 +6887,8 @@ BuildGodViewPacket(uint8_t *buf, uint8_t type, uint16_t count, int dataLen, uint
  * writes original subtype. Empty result sends type=0xFF, count=0.
  */
 void
-HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
+HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t offset;
 	uint8_t subtype;
 	uint8_t pktBuf[0x2006];
 	uint8_t dataBuf[0x2000];
@@ -6660,9 +6898,16 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 	CItem *entity;
 	uint16_t category;
 	int dataLen;
+	PacketReader reader;
 
-	offset = 0;
-	GetByte(buf, &offset, &subtype);
+	if (!PacketSecurity_RequireGM(this, PacketType_GodViewQuery, "HandlePacket_GodViewQuery"))
+		return;
+
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU8(&reader, &subtype)) {
+		PacketSecurity_ClosePlayer(this, PacketType_GodViewQuery, "HandlePacket_GodViewQuery", "truncated subtype");
+		return;
+	}
 
 	if (subtype != 0)
 		return;
@@ -7106,29 +7351,58 @@ restore_location:
  * mode 0x01-0x0B: trigger operations via jump table (11 cases)
  */
 void
-HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
+HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t mode;
 	uint16_t connIndex, dataLen;
 	char *data;
 	char *dataSaved;
 	char *readCur;
+	char *dataEnd;
 	char *writeCur;
 	uint8_t responseBuf[0x2040];
 	char localBuf[0x2038];
 	int32_t entitySerial;
 	CItem *entity;
+	PacketReader reader;
+	const uint8_t *dataPtr;
 
-	off = 0;
-	GetByte(buf, &off, &mode);
-	GetWord(buf, &off, &connIndex);
-	GetWord(buf, &off, &dataLen);
-	GetString(buf, &off, &data, dataLen);
+	if (!PacketSecurity_RequireGM(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit"))
+		return;
+
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &mode) || !PacketReader_ReadU16(&reader, &connIndex) || !PacketReader_ReadU16(&reader, &dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "truncated trigger header");
+		return;
+	}
+	if (packetLen < 8 || dataLen != (uint16_t)(packetLen - 8)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "data length does not match packet");
+		return;
+	}
+	if (!PacketReader_ReadBytesPtr(&reader, &dataPtr, dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "truncated trigger data");
+		return;
+	}
+	data = (char *)dataPtr;
+	dataEnd = data + dataLen;
 
 	dataSaved = data;
 	writeCur = localBuf;
 	readCur = data;
+
+#define TRIGGER_REQUIRE_INPUT(cur, len, why)                                                                       \
+	do {                                                                                                       \
+		if ((cur) < data || (cur) > dataEnd || (size_t)(dataEnd - (cur)) < (size_t)(len)) {                \
+			PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", why); \
+			return;                                                                                    \
+		}                                                                                                  \
+	} while (0)
+
+#define TRIGGER_READ_I32(dst, why)                      \
+	do {                                            \
+		TRIGGER_REQUIRE_INPUT(readCur, 4, why); \
+		(dst) = ReadInt32LE(&readCur);          \
+	} while (0)
 
 	if ((mode & 0xFF) == 0x10) {
 		// Mode 0x10: region query - scan 0x1000 template chain buckets
@@ -7144,10 +7418,10 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		regionWriteCur = regionBuf;
 
 		// Read bounding rect
-		x1 = ReadInt32LE(&readCur);
-		y1 = ReadInt32LE(&readCur);
-		x2 = ReadInt32LE(&readCur);
-		y2 = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(x1, "truncated region query x1");
+		TRIGGER_READ_I32(y1, "truncated region query y1");
+		TRIGGER_READ_I32(x2, "truncated region query x2");
+		TRIGGER_READ_I32(y2, "truncated region query y2");
 
 		for (i = 0; i < 0x1000; i++) {
 			cur = g_TemplateChain[i];
@@ -7211,21 +7485,21 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		int32_t newTemplateIdx, newExtra;
 		CLocation newLoc;
 
-		findSerial = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(findSerial, "truncated entity update serial");
 		editEnt = CWorld_FindBySerial(g_World, findSerial);
 		if (editEnt == NULL)
 			return;
 
-		newBodyType = ReadInt32LE(&readCur);
-		newColor = ReadInt32LE(&readCur);
-		newLocX = ReadInt32LE(&readCur);
-		newLocY = ReadInt32LE(&readCur);
-		newLocZ = ReadInt32LE(&readCur);
-		newBoundX = ReadInt32LE(&readCur);
-		newBoundY = ReadInt32LE(&readCur);
-		newBoundZ = ReadInt32LE(&readCur);
-		newTemplateIdx = ReadInt32LE(&readCur);
-		newExtra = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(newBodyType, "truncated entity update body");
+		TRIGGER_READ_I32(newColor, "truncated entity update color");
+		TRIGGER_READ_I32(newLocX, "truncated entity update x");
+		TRIGGER_READ_I32(newLocY, "truncated entity update y");
+		TRIGGER_READ_I32(newLocZ, "truncated entity update z");
+		TRIGGER_READ_I32(newBoundX, "truncated entity update bound x");
+		TRIGGER_READ_I32(newBoundY, "truncated entity update bound y");
+		TRIGGER_READ_I32(newBoundZ, "truncated entity update bound z");
+		TRIGGER_READ_I32(newTemplateIdx, "truncated entity update template");
+		TRIGGER_READ_I32(newExtra, "truncated entity update extra");
 		USED(newTemplateIdx);
 		USED(newExtra);
 
@@ -7266,17 +7540,17 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 
 		respConnIndex = 0;
 
-		queryBodyType = ReadInt32LE(&readCur);
-		queryX = ReadInt32LE(&readCur);
-		queryY = ReadInt32LE(&readCur);
-		queryZ = ReadInt32LE(&readCur);
-		hasChild = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(queryBodyType, "truncated query body");
+		TRIGGER_READ_I32(queryX, "truncated query x");
+		TRIGGER_READ_I32(queryY, "truncated query y");
+		TRIGGER_READ_I32(queryZ, "truncated query z");
+		TRIGGER_READ_I32(hasChild, "truncated query child flag");
 
 		childSerial = 0;
 		foundEnt = NULL;
 
 		if (hasChild != 0) {
-			childSerial = ReadInt32LE(&readCur);
+			TRIGGER_READ_I32(childSerial, "truncated query child serial");
 			foundEnt = CWorld_FindBySerial(g_World, childSerial);
 		} else {
 			if (CBlockManager_IsValidCoord(&g_SpatialGrid, queryX, queryY)) {
@@ -7406,6 +7680,9 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 				childCount = 0;
 				childCur = foundEnt->resourceEntity.firstChild;
 				while (childCur != NULL) {
+					if ((size_t)(localBuf + sizeof(localBuf) - readCur) < 28)
+						break;
+
 					respConnIndex++;
 					// Write child id (CResourceNode.id)
 					WriteInt32LE(&readCur, (int32_t)childCur->id);
@@ -7455,7 +7732,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		int32_t deleteIdx;
 		int32_t foundCount;
 
-		deleteCount = ReadInt32LE(&readCur);
+		TRIGGER_READ_I32(deleteCount, "truncated count query");
 		USED(deleteCount);
 		foundCount = 0;
 
@@ -7463,7 +7740,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			int32_t delSerial;
 			int blockScanIdx;
 
-			delSerial = ReadInt32LE(&readCur);
+			TRIGGER_READ_I32(delSerial, "truncated count query body type");
 
 			for (blockScanIdx = 0; blockScanIdx < (int)g_SpatialGrid.totalBlocks; blockScanIdx++) {
 				CItem *scanItem;
@@ -7488,7 +7765,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 		return;
 	}
 
-	entitySerial = ReadInt32LE(&readCur);
+	TRIGGER_READ_I32(entitySerial, "truncated entity serial");
 	readCur -= 4; // binary: sub edx, 4 at 0x004b6a9a
 	entity = CWorld_FindBySerial(g_World, entitySerial);
 
@@ -7512,7 +7789,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 				int32_t delSer;
 				CItem *delEnt;
 
-				delSer = ReadInt32LE(&readCur);
+				TRIGGER_READ_I32(delSer, "truncated delete serial");
 				delEnt = CWorld_FindBySerial(g_World, delSer);
 				if (delEnt != NULL) {
 					TriggerEdit_DeleteEntity(delEnt);
@@ -7533,6 +7810,14 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			CItem *tagEntity;
 
 			tagSearchStr = readCur + 4;
+			if (tagSearchStr < data || tagSearchStr > dataEnd) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "invalid tag search pointer");
+				return;
+			}
+			if ((connIndex & 0xFFFF) != 0 && !TriggerEdit_CStringFits(tagSearchStr, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated tag search string");
+				return;
+			}
 			readCur = writeCur;
 
 			// Write entity serial
@@ -7638,12 +7923,20 @@ next_tag_entity:
 
 		case 7: {
 			char *opData = readCur + 4;
+			if (!TriggerEdit_CStringFits(opData, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated script operation string");
+				return;
+			}
 			TriggerEdit_Op546F(opData);
 			return;
 		}
 
 		case 5: {
 			char *opData = readCur + 4;
+			if (!TriggerEdit_CStringFits(opData, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated property string");
+				return;
+			}
 			TriggerEdit_SetStringProp(entity, opData);
 			return;
 		}
@@ -7654,18 +7947,24 @@ next_tag_entity:
 			char nameBuf[128];
 			char *varCur = varData;
 
+			TRIGGER_REQUIRE_INPUT(varData, 1, "truncated objvar data");
+
 			// Check if first byte is non-zero (has prefix name)
 			if ((int8_t)*varCur != 0) {
-				strcpy(nameBuf, varCur);
-				varCur += strlen(varCur) + 1;
+				if (!TriggerEdit_CopyNextCString(&varCur, dataEnd, nameBuf, sizeof(nameBuf))) {
+					PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "invalid objvar prefix string");
+					return;
+				}
 				TriggerEdit_SetStringProp(entity, nameBuf);
 			} else {
 				varCur++;
 			}
 
 			// Copy value name
-			strcpy(nameBuf, varCur);
-			varCur += strlen(varCur) + 1;
+			if (!TriggerEdit_CopyNextCString(&varCur, dataEnd, nameBuf, sizeof(nameBuf))) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "invalid objvar name string");
+				return;
+			}
 
 			// Inner switch on varSubType (0-4)
 			if (varSubType > 4) {
@@ -7677,6 +7976,7 @@ next_tag_entity:
 					char *locCur = varCur;
 					CLocation varLoc;
 
+					TRIGGER_REQUIRE_INPUT(locCur, 12, "truncated objvar location");
 					locValX = ReadInt32LE(&locCur);
 					locValY = ReadInt32LE(&locCur);
 					locValZ = ReadInt32LE(&locCur);
@@ -7691,6 +7991,7 @@ next_tag_entity:
 					int32_t intVal;
 					char *intCur = varCur;
 
+					TRIGGER_REQUIRE_INPUT(intCur, 4, "truncated objvar integer");
 					intVal = ReadInt32LE(&intCur);
 					CEntity_SetObjVar(entity, nameBuf, 0, (uint32_t)intVal);
 					break;
@@ -7699,12 +8000,17 @@ next_tag_entity:
 					int32_t objVal;
 					char *objCur = varCur;
 
+					TRIGGER_REQUIRE_INPUT(objCur, 4, "truncated objvar object");
 					objVal = ReadInt32LE(&objCur);
 					CEntity_SetObjVar(entity, nameBuf, 4, (uint32_t)objVal);
 					break;
 				}
 				case 1: {
 					CString _v, _n;
+					if (!TriggerEdit_CStringFits(varCur, dataEnd)) {
+						PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated objvar string value");
+						return;
+					}
 					CString_Constructor(&_v, varCur);
 					CString_Constructor(&_n, nameBuf);
 					ObjVar_SetStr(entity, &_n, 1, (uintptr_t)&_v);
@@ -7719,8 +8025,10 @@ next_tag_entity:
 
 			if ((mode & 0xFF) == 7) {
 				uint16_t cpLen = dataLen & 0xFFFF;
-				memcpy(writeCur, dataSaved, cpLen);
-				writeCur += cpLen;
+				if (!TriggerEdit_WriteBytesBounded(&writeCur, localBuf, sizeof(localBuf), dataSaved, cpLen)) {
+					PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "trigger response too large");
+					return;
+				}
 				goto epilogue;
 			}
 			return;
@@ -7728,6 +8036,10 @@ next_tag_entity:
 
 		case 2: {
 			char *opData = readCur + 4;
+			if (!TriggerEdit_CStringFits(opData, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated trigger operation string");
+				return;
+			}
 			TriggerEdit_Op545E(entity, opData);
 			return;
 		}
@@ -7736,6 +8048,10 @@ next_tag_entity:
 			char *scriptName = readCur + 4;
 			const char *attachResult;
 
+			if (!TriggerEdit_CStringFits(scriptName, dataEnd)) {
+				PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "unterminated attach script name");
+				return;
+			}
 			attachResult = entity != NULL ? Entity_AttachScript(entity, scriptName, 1) : "Entity not found";
 
 			readCur = writeCur;
@@ -7743,8 +8059,10 @@ next_tag_entity:
 			writeCur = readCur;
 
 			if (attachResult != NULL) {
-				strcpy(writeCur, attachResult);
-				writeCur += strlen(attachResult) + 1;
+				if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), attachResult)) {
+					PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "attach response too large");
+					return;
+				}
 			}
 			goto epilogue;
 		}
@@ -7785,8 +8103,11 @@ next_tag_entity:
 					dataLen = nameLen;
 
 					// Copy name to write cursor
-					strcpy(writeCur, sName);
-					writeCur += nameLen;
+					if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), sName)) {
+						PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "script response too large");
+						CVector_Destructor(&scriptList);
+						return;
+					}
 
 					scriptCount++;
 					scriptIter++;
@@ -7819,13 +8140,22 @@ next_tag_entity:
 					dataLen = tdNameLen;
 
 					// Copy name to write cursor
-					strcpy(writeCur, tdName);
-					writeCur += tdNameLen;
+					if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), tdName)) {
+						PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "tag response too large");
+						CVector_Destructor(&tagDefList);
+						return;
+					}
 
 					// Write value after name based on type
 					{
 						char *tagWritePos = writeCur;
 						int tagType = (int)tagDefEntry->type;
+
+						if ((size_t)(localBuf + sizeof(localBuf) - writeCur) < 16) {
+							PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "tag value response too large");
+							CVector_Destructor(&tagDefList);
+							return;
+						}
 
 						switch (tagType) {
 						case 0: {
@@ -7857,8 +8187,12 @@ next_tag_entity:
 							strLen = (uint16_t)(strlen(strVal) + 1);
 							dataLen = strLen;
 
-							strcpy(writeCur, strVal);
-							writeCur += strLen;
+							if (!TriggerEdit_WriteCStringBounded(&writeCur, localBuf, sizeof(localBuf), strVal)) {
+								PacketSecurity_ClosePlayer(
+								        this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "tag string response too large");
+								CVector_Destructor(&tagDefList);
+								return;
+							}
 							break;
 						}
 						case 3: {
@@ -7912,8 +8246,13 @@ next_tag_entity:
 	}
 
 epilogue: {
-	int32_t respDataLen = (int32_t)(writeCur - localBuf);
+	int32_t respDataLen;
 
+	if (writeCur < localBuf || writeCur > localBuf + sizeof(localBuf)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "trigger response cursor out of bounds");
+		return;
+	}
+	respDataLen = (int32_t)(writeCur - localBuf);
 	BuildTriggerEditResponse(responseBuf, mode, connIndex, localBuf, (uint16_t)respDataLen);
 	SendToClient((CItem *)this, responseBuf, -1);
 }
@@ -8193,57 +8532,74 @@ BroadcastUnicodeSpeechAtEye(CItem *entity, uint8_t speechType, uint16_t *text, u
  * clients can talk.
  */
 void
-HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf)
+HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
 	uint8_t synthBuf[8192];
-	uint32_t off;
 	uint8_t speechType;
 	uint16_t hue, font;
-	int textOff;
 	char asciiText[241];
 	int i, textLen, pktLen;
 	uint16_t ch;
+	PacketReader reader;
 
-	// Parse fields using Get functions (they skip the 3-byte header
-	// for variable-size packets via GetSizeLength).
-	off = 0;
-	GetByte(buf, &off, &speechType); // byte 3: speech type
-	GetWord(buf, &off, &hue);        // bytes 4-5: hue
-	GetWord(buf, &off, &font);       // bytes 6-7: font
-
-	// Data starts at absolute offset 12 (3-byte header + 5 fields + 4 lang)
-	textOff = 12;
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &speechType) || !PacketReader_ReadU16(&reader, &hue) || !PacketReader_ReadU16(&reader, &font) || !PacketReader_Skip(&reader, 4)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "truncated unicode speech header");
+		return;
+	}
 
 	if (speechType & 0xC0) {
 		// Keyword-encoded mode: 12-bit packed keyword data before ASCII text.
 		// First 12-bit value = keyword count, read from big-endian uint16.
 		uint16_t w;
 		int count, kwBytes;
+		uint16_t kwStart;
+		const uint8_t *textPtr;
+		uint16_t remaining;
 
-		memcpy(&w, &buf[textOff], 2);
-		w = (uint16_t)((w >> 8) | (w << 8)); // ntohs
+		kwStart = reader.off;
+		if (!PacketReader_ReadU16(&reader, &w)) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "truncated keyword count");
+			return;
+		}
 		count = (w & 0xFFF0) >> 4;
 
 		// Total keyword section bytes: (count+1) 12-bit values, packed
 		kwBytes = (((count + 1) * 3) / 2) + ((count + 1) % 2);
-		textOff += kwBytes;
+		if (kwBytes < 2 || PacketReader_Remaining(&reader) + 2 < (uint16_t)kwBytes) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "keyword data exceeds packet");
+			return;
+		}
+		reader.off = (uint16_t)(kwStart + kwBytes);
 
 		// Strip keyword flag to get actual speech type
 		speechType &= ~0xC0;
 
 		// Text is null-terminated ASCII
-		for (i = 0; i < 240 && buf[textOff + i] != '\0'; i++)
-			asciiText[i] = (char)buf[textOff + i];
+		textPtr = reader.buf + reader.off;
+		remaining = PacketReader_Remaining(&reader);
+		for (i = 0; i < (int)remaining && i < 240 && textPtr[i] != '\0'; i++)
+			asciiText[i] = (char)textPtr[i];
+		if (i >= (int)remaining || i >= 240) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "keyword speech text missing terminator");
+			return;
+		}
 		asciiText[i] = '\0';
 		textLen = i;
 	} else {
 		// Normal mode: UTF-16BE text at offset 12
 		for (i = 0; i < 240; i++) {
-			memcpy(&ch, &buf[textOff + i * 2], 2);
-			ch = (uint16_t)((ch >> 8) | (ch << 8)); // ntohs
+			if (!PacketReader_ReadU16(&reader, &ch)) {
+				PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "unicode speech text missing terminator");
+				return;
+			}
 			if (ch == 0)
 				break;
 			asciiText[i] = (char)(ch & 0xFF);
+		}
+		if (i >= 240) {
+			PacketSecurity_ClosePlayer(this, PacketType_SPEECH_UNICODE, "HandlePacket_SPEECH_UNICODE", "unicode speech text exceeds cap");
+			return;
 		}
 		asciiText[i] = '\0';
 		textLen = i;
@@ -8263,7 +8619,7 @@ HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf)
 	synthBuf[7] = (uint8_t)(font & 0xFF);
 	memcpy(&synthBuf[8], asciiText, textLen + 1);
 
-	HandlePacket_SPEECH(this, synthBuf);
+	HandlePacket_SPEECH(this, synthBuf, (uint16_t)pktLen);
 }
 
 /*
@@ -9435,7 +9791,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 			PacketManager_MakePacket_FEATURES(obuf);
 			Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		}
-		PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
+		PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0], Version_GetConnVer(this, CLIENT_12600) < CLIENT_12535);
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 		return;
 	}
@@ -9471,7 +9827,7 @@ HandlePacket_POSTLOGIN(CUserSock *this, uint8_t *buf)
 		Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 	}
 
-	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0]);
+	PacketManager_MakePacket_CITIES_AND_CHARS(obuf, &characterNames[0], &characterPasswords[0], Version_GetConnVer(this, CLIENT_12600) < CLIENT_12535);
 	Socket_Copy_To_CSocketBuffer(&this->socket, &obuf[0], -1);
 }
 
@@ -9569,16 +9925,19 @@ Vendor_SayTo(CPlayer *player, CMobile *vendor, char *text)
  * CPlayer exists. Format: null-terminated version string (e.g. "2.0.8").
  */
 void
-HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf)
+HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
-	char *version;
+	PacketReader reader;
+	char version[24];
 
-	off = 0;
-	GetString(buf, &off, &version, 20);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadCStringCopy(&reader, version, sizeof(version), sizeof(version))) {
+		Log_Game(this->addr, "closing packet 0x%02X in HandlePacket_CLIENT_VERSION: invalid client version string", PacketType_CLIENT_VERSION);
+		this->socket.status = SocketClosing;
+		return;
+	}
 
-	strncpy(this->clientVersion, version, sizeof(this->clientVersion) - 1);
-	this->clientVersion[sizeof(this->clientVersion) - 1] = '\0';
+	strcpy(this->clientVersion, version);
 
 	{
 		const ClientVersionInfo *info = Version_FindByName(version);

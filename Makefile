@@ -79,6 +79,8 @@ OFILES=\
 	objvar.o\
 	packet_handler.o\
 	packet_manager.o\
+	packet_reader.o\
+	packet_security.o\
 	packet_utils.o\
 	pending_auth.o\
 	player.o\
@@ -175,6 +177,8 @@ HFILES=\
 	objvar.h\
 	packet_handler.h\
 	packet_manager.h\
+	packet_reader.h\
+	packet_security.h\
 	packet_utils.h\
 	pending_auth.h\
 	player.h\

@@ -83,6 +83,9 @@ static int CNPCManager_GetCountMinus4(StdPtrList *this); // 0x00484400
 static void CNPCManagerBlock_Destructor(CNPCManagerBlock *this); // 0x00484560
 static int Path_AtStep(PathNode *step, CLocation *loc, int dir); // 0x00484C50
 static void Path_GetCurrentStep(CNPC *npc, PathNode *out); // 0x0049DF20
+static void Path_Discard(CNPC *npc);
+static void Path_Install(CNPC *npc, PathNode *path, uint32_t stepsRemaining);
+static int Path_IsCurrent(CNPC *npc, uintptr_t path, uint32_t generation);
 static void Path_AdvanceStep(CNPC *npc); // 0x0049DF51
 static int Path_StepCheck(CNPC *npc, PathNode *node, int dir, PathNode *result); // 0x0049DFA4
 static StdPtrNode **SearchNode_IterConstructor(StdPtrNode **self); // 0x0049E590
@@ -1432,7 +1435,7 @@ CResourceMobile_Destructor(CNPC *npc)
 	}
 
 	if (npc->pathArray != 0)
-		free((void *)npc->pathArray);
+		Path_Discard(npc);
 
 	free(npc->resTplPtr0);
 	npc->resTplPtr0 = NULL;
@@ -1818,6 +1821,8 @@ NPC_PathWalk(CNPC *npc)
 	int stepDir;
 	int checkResult;
 	int walkZ;
+	uintptr_t walkedPath;
+	uint32_t walkedPathGeneration;
 	CVector vec;
 	char typeFlag;
 
@@ -1830,6 +1835,8 @@ NPC_PathWalk(CNPC *npc)
 
 	Path_GetCurrentStep(npc, &stepLoc);
 	Path_AdvanceStep(npc);
+	walkedPath = npc->pathArray;
+	walkedPathGeneration = CNPC_GetPathGeneration(npc);
 
 	npcLoc = &npc->mobile.container.item.resourceEntity.entity.location;
 
@@ -1854,8 +1861,7 @@ NPC_PathWalk(CNPC *npc)
 		((void (*)(void *, CVector *, int))VT_FN((CItem *)npc, VT_NOTIFY_NEARBY))(npc, &vec, 0);
 
 		if (!Path_AtStep(&stepLoc, npcLoc, (int)((CMobile *)npc)->direction)) {
-			OperatorDelete((void *)npc->pathArray);
-			npc->pathArray = 0;
+			Path_Discard(npc);
 			if (pathSpeed != -1)
 				Entity_ExecuteEvent((CEntity *)npc, 0x20, pathSpeed);
 		}
@@ -1865,13 +1871,24 @@ NPC_PathWalk(CNPC *npc)
 	}
 
 	checkResult = CMobile_CheckWalkDir(npc, stepDir);
+	if (npc != g_currentNPC)
+		return;
+	if (!Path_IsCurrent(npc, walkedPath, walkedPathGeneration))
+		return;
 	if (checkResult == 3)
 		return;
 	if (checkResult == 1)
 		return;
 
-	if (((int (*)(void *, int, int *))VT_FN((CItem *)npc, VT_WALK_CHECK))(npc, stepDir, &walkZ)) {
+	checkResult = ((int (*)(void *, int, int *))VT_FN((CItem *)npc, VT_WALK_CHECK))(npc, stepDir, &walkZ);
+	if (npc != g_currentNPC || !Path_IsCurrent(npc, walkedPath, walkedPathGeneration))
+		return;
+	if (checkResult) {
 		((void (*)(void *, int, int))VT_FN((CItem *)npc, VT_DO_WALK))(npc, stepDir, walkZ);
+		if (npc != g_currentNPC)
+			return;
+		if (!Path_IsCurrent(npc, walkedPath, walkedPathGeneration))
+			return;
 
 		if (Path_AtStep(&stepLoc, npcLoc, (int)((CMobile *)npc)->direction)) {
 			if (npc->pathArray == 0) {
@@ -1882,10 +1899,8 @@ NPC_PathWalk(CNPC *npc)
 		}
 	}
 
-	if (npc->pathArray != 0) {
-		OperatorDelete((void *)npc->pathArray);
-		npc->pathArray = 0;
-	}
+	if (npc->pathArray != 0)
+		Path_Discard(npc);
 	if (pathSpeed != -1)
 		Entity_ExecuteEvent((CEntity *)npc, 0x20, pathSpeed);
 }
@@ -3315,31 +3330,63 @@ CNPC_GetMovementType_VT(CNPC *npc)
 /*
  * 0x0049DF20 - Path_GetCurrentStep
  *
- * Copies pathArray[pathStepsRemaining] into out.
+ * Copies the current path step, masking off the generation bits.
  */
 static void
 Path_GetCurrentStep(CNPC *npc, PathNode *out)
 {
 	PathNode *pathArray = (PathNode *)npc->pathArray;
-	uint32_t idx = npc->pathStepsRemaining;
+	uint32_t idx = CNPC_GetPathStepsRemaining(npc);
 
 	*out = pathArray[idx];
+}
+
+static uint32_t
+Path_NextGeneration(CNPC *npc)
+{
+	return (CNPC_GetPathGeneration(npc) + NPC_PATH_GENERATION_INCREMENT) & NPC_PATH_GENERATION_MASK;
+}
+
+static void
+Path_Discard(CNPC *npc)
+{
+	uint32_t nextGeneration = Path_NextGeneration(npc);
+
+	if (npc->pathArray != 0)
+		OperatorDelete((void *)npc->pathArray);
+	npc->pathArray = 0;
+	npc->pathStepsRemaining = nextGeneration;
+}
+
+static void
+Path_Install(CNPC *npc, PathNode *path, uint32_t stepsRemaining)
+{
+	npc->pathArray = (uintptr_t)path;
+	npc->pathStepsRemaining = CNPC_GetPathGeneration(npc) | (stepsRemaining & NPC_PATH_STEP_MASK);
+}
+
+static int
+Path_IsCurrent(CNPC *npc, uintptr_t path, uint32_t generation)
+{
+	return npc->pathArray == path && CNPC_GetPathGeneration(npc) == generation;
 }
 
 /*
  * 0x0049DF51 - Path_AdvanceStep
  *
- * Decrements pathStepsRemaining and frees pathArray when the index
- * drops to zero.
+ * Decrements the step index and discards a completed path, retaining
+ * the generation used to detect replacement during callbacks.
  */
 static void
 Path_AdvanceStep(CNPC *npc)
 {
-	npc->pathStepsRemaining--;
-	if ((int32_t)npc->pathStepsRemaining <= 0) {
-		OperatorDelete((void *)npc->pathArray);
-		npc->pathArray = 0;
+	uint32_t stepsRemaining = CNPC_GetPathStepsRemaining(npc);
+
+	if (stepsRemaining <= 1) {
+		Path_Discard(npc);
+		return;
 	}
+	npc->pathStepsRemaining = CNPC_GetPathGeneration(npc) | (stepsRemaining - 1);
 }
 
 // 0x005EFCE0 - opposite direction table: maps dir d to (d + 4) & 7
@@ -3412,10 +3459,7 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 	if (maxSteps >= 0x200)
 		maxSteps = 0x1FF;
 
-	if (npc->pathArray != 0) {
-		OperatorDelete((void *)npc->pathArray);
-		npc->pathArray = 0;
-	}
+	Path_Discard(npc);
 
 	PathNode_InitFromLoc((PathNode *)&nodes[0], &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
 
@@ -3472,9 +3516,10 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 found_path:
 	pathSize = parentCost + 2;
 	pathArray = (PathNode *)OperatorNew(pathSize * sizeof(PathNode));
+	if (pathArray == NULL)
+		return;
 
-	npc->pathArray = (uintptr_t)pathArray;
-	npc->pathStepsRemaining = parentCost;
+	Path_Install(npc, pathArray, (uint32_t)parentCost);
 
 	k = 0;
 	PathNode_Copy(&pathArray[k], &resultNode);
@@ -6694,10 +6739,7 @@ CNPC_SetupPath8Dir(CNPC *npc, CLocation *loc, int maxSteps)
 	if (maxSteps >= 0x200)
 		maxSteps = 0x1FF;
 
-	if (npc->pathArray != 0) {
-		free((void *)npc->pathArray);
-		npc->pathArray = 0;
-	}
+	Path_Discard(npc);
 
 	nodes[0].x = mob->resourceEntity.entity.location.x;
 	nodes[0].y = mob->resourceEntity.entity.location.y;
@@ -6758,9 +6800,10 @@ CNPC_SetupPath8Dir(CNPC *npc, CLocation *loc, int maxSteps)
 found_path_8dir:
 	pathSize = parentCost + 2;
 	pathArray = (PathNode *)malloc(pathSize * sizeof(PathNode));
+	if (pathArray == NULL)
+		return;
 
-	npc->pathArray = (uintptr_t)pathArray;
-	npc->pathStepsRemaining = parentCost;
+	Path_Install(npc, pathArray, (uint32_t)parentCost);
 
 	k = 0;
 	pathArray[k] = resultNode;

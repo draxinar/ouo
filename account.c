@@ -29,6 +29,7 @@ static void computePassHash(const uint8_t *salt, const char *password, uint8_t *
 static void hexEncode(const uint8_t *data, int len, char *out);
 static int hexDecode(const char *hex, uint8_t *out, int len);
 static void copyChatName(char *dst, const char *src);
+static void appendLogAddress(char *buf, size_t bufSize, int formattedLen, uint32_t addr);
 
 #define ACCOUNT_HASH_SIZE 64
 
@@ -525,6 +526,27 @@ Account_Count(void)
 	return count;
 }
 
+static void
+appendLogAddress(char *buf, size_t bufSize, int formattedLen, uint32_t addr)
+{
+	size_t off;
+
+	if (bufSize == 0)
+		return;
+
+	if (formattedLen < 0) {
+		buf[0] = '\0';
+		off = 0;
+	} else if ((size_t)formattedLen >= bufSize) {
+		off = bufSize - 1;
+		buf[off] = '\0';
+	} else {
+		off = (size_t)formattedLen;
+	}
+
+	snprintf(buf + off, bufSize - off, " from %u.%u.%u.%u", (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF);
+}
+
 /*
  * Custom - Log_Auth
  *
@@ -543,7 +565,7 @@ Log_Auth(uint32_t addr, const char *fmt, ...)
 	n = vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
-	snprintf(buf + n, sizeof(buf) - n, " from %u.%u.%u.%u", (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF);
+	appendLogAddress(buf, sizeof(buf), n, addr);
 
 	EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "auth", "misc", buf);
 }
@@ -566,7 +588,7 @@ Log_Game(uint32_t addr, const char *fmt, ...)
 	n = vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
-	snprintf(buf + n, sizeof(buf) - n, " from %u.%u.%u.%u", (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF);
+	appendLogAddress(buf, sizeof(buf), n, addr);
 
 	EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "game", "misc", buf);
 }

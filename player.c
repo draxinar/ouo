@@ -922,7 +922,8 @@ NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *
 
 	player = NewPlayer(name, locX, locY, locZ, genre, strength, dexterity, intelligence, skill1Number, skill1Value, skill2Number, skill2Value, skill3Number, skill3Value,
 	        skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
-	strcpy(player->password, password);
+	strncpy(player->password, password ? password : "", sizeof(player->password) - 1);
+	player->password[sizeof(player->password) - 1] = '\0';
 	player->usersock = this;
 	this->player = player;
 
@@ -3346,7 +3347,11 @@ CPlayer_HeartbeatCleanup(CPlayer *this)
 void
 CPlayer_PingReply(CPlayer *this, uint8_t sequence)
 {
-	USED(sequence);
+	uint8_t obuf[2];
+
+	obuf[0] = PacketType_PING;
+	obuf[1] = sequence;
+	SendPacketToPlayer(this, obuf, sizeof(obuf));
 	this->pingTimer = 0;
 }
 
@@ -3916,6 +3921,9 @@ CPlayer_Disconnect(CPlayer *this)
 	SendPacketInRange(obuf, &this->mobile.container.item.resourceEntity.entity.location, 0x12);
 
 	BroadcastDestroyAndRemove(&this->mobile.container.item);
+
+	// Flush the queued destroy packet and close server-initiated logouts.
+	CUserSock_CloseAndDetachPlayer(this->usersock, this);
 
 	CVector_Destructor(&scriptVec);
 }

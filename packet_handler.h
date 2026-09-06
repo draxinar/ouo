@@ -101,6 +101,13 @@ enum {
 	PacketType_GMSingle = 0x9D,          // unknown name
 };
 
+/* ObjAccess subtype 5 returns zero when a pickup is authorized. */
+static inline int
+PacketHandler_IsPickupAccessAuthorized(int accessResult)
+{
+	return accessResult == 0;
+}
+
 __extension__ typedef struct CTradeSession CTradeSession;
 
 /*
@@ -188,7 +195,7 @@ void HandlePacket_POSTLOGIN_UserSock(CUserSock *this); // 0x0047E768
 void HandlePacket_PRELOGIN(CUserSock *this, uint8_t *buf); // 0x0047E79E
 void HandlePacket_ACCT_LOGIN_REQ_original(CUserSock *this, uint8_t *buf); // 0x0047E8D8
 void HandlePacket_ACCT_LOGIN_REQ(CUserSock *this, uint8_t *buf); // 0x0047E8D8
-void HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf); // 0x0047EA8F
+void HandlePacket_ACCT_DEL_CHAR(CUserSock *this, uint8_t *buf, uint16_t packetLen); // 0x0047EA8F
 void HandlePacket_CHG_CHAR_PW(CUserSock *this, uint8_t *buf); // 0x0047EADE
 void Handle_LookAt(CPlayer *this, uint32_t targetSerial); // 0x0048E779
 void Player_Login(CPlayer *this, uint32_t addr); // 0x00492746
@@ -198,25 +205,27 @@ void HandlePacket_GODMODE_TOGGLE(CPlayer *this, uint8_t *buf); // 0x00492CBA
 void HandlePacket_POSTLOGIN_Player(CPlayer *this, uint8_t *buf); // 0x00493170
 void HandlePacket_POSTMSG(CPlayer *this, uint8_t *buf); // 0x004931CF
 void HandlePacket_CHECK_VER(CPlayer *this, uint8_t *buf); // 0x0049320F
-void HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf); // 0x00493248
+void HandlePacket_GumpMenuSelection(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00493248
 void HandlePacket_REQ_MOVE(CPlayer *this, uint8_t *buf); // 0x00493495
 void HandlePacket_HARDWARE_INFO(CPlayer *this, uint8_t *buf); // 0x004934DE
-void HandlePacket_SPEECH(CPlayer *this, uint8_t *buf); // 0x0049398C
+void HandlePacket_SPEECH(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x0049398C
 void HandlePacket_REQ_OBJUSE(CPlayer *this, uint8_t *buf); // 0x00493E4C
 void HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf); // 0x004942A6
 void HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf); // 0x00494D6F
 void HandlePacket_ATTACK(CPlayer *this, uint8_t *buf); // 0x00495D46
-void HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf); // 0x00495DBE
+int PacketSecurity_RequireGM(CPlayer *this, uint8_t packetType, const char *handler);
+void PacketSecurity_ClosePlayer(CPlayer *this, uint8_t packetType, const char *handler, const char *reason);
+void HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00495DBE
 void HandlePacket_REQ_LOOK(CPlayer *this, uint8_t *buf); // 0x00495E18
 void HandlePacket_REQ_OBJEQUIP(CPlayer *this, uint8_t *buf); // 0x00495E4D
-void HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf); // 0x0049606F
+void HandlePacket_RESOURCETILEDATA(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x0049606F
 void SendStatusToPlayer(CMobile *mob, CPlayer *player, uint32_t serial, uint8_t flag); // 0x004963DD
 void HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf); // 0x004964CA
 void HandlePacket_ELEVCHANGE(CPlayer *this, uint8_t *buf); // 0x00496A03
 void HandlePacket_MOVEOBJECT(CPlayer *this, uint8_t *buf); // 0x00496AF7
 void HandlePacket_GROUPS(CPlayer *this, uint8_t *buf); // 0x00496BD6
-void HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf); // 0x00496C0F
-void HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf); // 0x00496D55
+void HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00496C0F
+void HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00496D55
 void HandlePacket_DESTROY_OBJECT(CPlayer *this, uint8_t *buf); // 0x00496E7D
 void HandlePacket_MAP_COMMAND(CPlayer *this, uint8_t *buf); // 0x0049743B
 void HandlePacket_DEATH(CPlayer *this, uint8_t *buf); // 0x004976D3
@@ -224,22 +233,22 @@ void HandlePacket_KEY_USE(CPlayer *this, uint8_t *buf); // 0x00497754
 void HandlePacket_FRIENDS(CPlayer *this, uint8_t *buf); // 0x00497759
 void HandlePacket_TARGET(CPlayer *this, uint8_t *buf); // 0x0049775E
 void HandlePacket_TRADE(CPlayer *this, uint8_t *buf); // 0x0049798B
-void BBoard_EnableBroadcastMode(uint8_t *buf); // 0x00497ACD
-void HandlePacket_BBOARD(CPlayer *this, uint8_t *buf); // 0x00497B05
+void BBoard_EnableBroadcastMode(uint8_t *buf, uint16_t packetLen); // 0x00497ACD
+void HandlePacket_BBOARD(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x00497B05
 void HandlePacket_PING(CPlayer *this, uint8_t *buf); // 0x00497F5F
 void HandlePacket_COMBAT(CPlayer *this, uint8_t *buf); // 0x00497F90
 void HandlePacket_OK_MOVE(CPlayer *this, uint8_t *buf); // 0x00498015
 void HandlePacket_RENAME_MOB(CPlayer *this, uint8_t *buf); // 0x00498078
 void HandlePacket_PICKEDOBJ(CPlayer *this, uint8_t *buf); // 0x00498185
 void HandlePacket_HUEPICKER(CPlayer *this, uint8_t *buf); // 0x00498255
-void HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf); // 0x004982EA
+void HandlePacket_MOBNAME(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004982EA
 void HandlePacket_BRITANNIA_SELECT(CUserSock *this, uint8_t *buf); // 0x00498335
-void HandlePacket_TEXT_ENTRY(CPlayer *this, uint8_t *buf); // 0x0049835A
+void HandlePacket_TEXT_ENTRY(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x0049835A
 void HandlePacket_REQUEST_ASSIST(CPlayer *this, uint8_t *buf); // 0x00498461
 void HandlePacket_RequestAssistance(CPlayer *this, uint8_t *buf); // 0x00498505
 void HandlePacket_REQ_TIP(CPlayer *this, uint8_t *buf); // 0x004986A9
-void HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf); // 0x004986AE
-void DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf); // 0x0049D19E
+void HandlePacket_STRING_RESPONSE(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004986AE
+void DoHandlePacket_Player(CPlayer *this, int type, uint8_t *buf, uint16_t packetLen); // 0x0049D19E
 uint16_t InitializeGlobalPacketOffset(void); // 0x0049DA80
 uint16_t SetPacketType(uint8_t *buf, uint8_t type); // 0x0049DAA0
 uint16_t GetSizeLength(uint8_t *buf); // 0x0049DAC0
@@ -247,12 +256,12 @@ uint8_t PacketManager_GetPacketByte(uint8_t *ptr); // 0x0049DB00
 uint16_t SetPacketOffset(uint8_t *buf, uint16_t off); // 0x0049DB10
 uint16_t SetGlobalOffset(uint16_t off); // 0x0049DB50
 void BuildTriggerPacket(uint8_t *buf, uint8_t subtype, int32_t datalen, char *data); // 0x004B3390
-void HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf); // 0x004B4CE4
+void HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004B4CE4
 void SaveResources(void); // 0x004B503E
 TagNode *TriggerEdit_FindTagDef(CItem *entity, const char *name); // 0x004B56A1
-void HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf); // 0x004B5DC7
+void HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004B5DC7
 void Script_createPlaceHolder(uint32_t serial); // 0x004B7616
-void HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf); // 0x004DB1C1
+void HandlePacket_SPEECH_UNICODE(CPlayer *this, uint8_t *buf, uint16_t packetLen); // 0x004DB1C1
 void CWorld_SpeechNotifyNearbyUnicode(CWorld *self, uint32_t serial, CLocation *loc, uint16_t *text, int unused, int range); // 0x004DB1C6
 void DoorClose(CItem *door, int unused); // 0x004DB6CC
 void UseDoor(CItem *door); // 0x004DBC41
@@ -262,7 +271,7 @@ void UseItem_Default(CPlayer *player, CItem *entity); // 0x004DCC42
 void UseItemDispatch(CItem *player, CItem *entity); // 0x004DCCB5
 void DispatchDoubleClick(CPlayer *this, CItem *entity, int isPaperdoll); // 0x004DCD04
 void Vendor_SayTo(CPlayer *player, CMobile *vendor, char *text);
-void HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf);
+void HandlePacket_CLIENT_VERSION(CUserSock *this, uint8_t *buf, uint16_t packetLen);
 void HandlePacket_SKILLOCK(CPlayer *this, uint8_t *buf);
 uint16_t ClampStat(int32_t val);
 void HandlePacket_TILEDATA(CPlayer *this, uint8_t *buf);

@@ -14,7 +14,7 @@
 #include "dat.h"
 #include "region.h"
 
-static int64_t GetRandom64(void); // 0x00467D9F
+static uint64_t GetRandom64(void); // 0x00467D9F
 
 /*
  * 0x0045ACC0 - SwapEndian
@@ -31,22 +31,25 @@ SwapEndian(void *value)
 /*
  * 0x00467D9F - GetRandom64
  *
- * Returns a 64-bit random number assembled from four rand() calls
- * (two 16-bit halves form each of the low and high 32-bit halves).
+ * Returns a 64-bit random number assembled from four 15-bit values
+ * in 16-bit lanes, matching the original MSVC rand() width.
+ *
+ * FIXED: use unsigned shifts and mask wider host rand() results so
+ * skill atrophy cannot receive a negative random remainder.
  */
-static int64_t
+static uint64_t
 GetRandom64(void)
 {
-	int r1, r2, r3, r4;
-	int32_t lo, hi;
+	uint32_t r1, r2, r3, r4;
+	uint32_t lo, hi;
 
-	r1 = rand();
-	r2 = rand();
+	r1 = (uint32_t)rand() & 0x7FFFu;
+	r2 = (uint32_t)rand() & 0x7FFFu;
 	lo = (r1 << 16) | r2;
-	r3 = rand();
-	r4 = rand();
+	r3 = (uint32_t)rand() & 0x7FFFu;
+	r4 = (uint32_t)rand() & 0x7FFFu;
 	hi = (r3 << 16) | r4;
-	return ((int64_t)hi << 32) | (int64_t)lo;
+	return ((uint64_t)hi << 32) | (uint64_t)lo;
 }
 
 /*
@@ -68,23 +71,24 @@ GetRandomRange(int min, int max)
  * 0x0046840E - GetRandomRange64
  *
  * 64-bit version of GetRandomRange. Generates a 64-bit random via
- * GetRandom64, computes rand % (max - min + 1) + min using 64-bit
- * signed remainder (__allrem in binary). Returns low 32 bits.
+ * GetRandom64, computes rand % (max - min + 1) + min. The binary
+ * uses signed remainder (__allrem) on its nonnegative random source.
+ * Widen the range before subtracting to avoid overflowing int.
  * Thiscall on CRandom in binary (this pointer stored but unused).
  * Single caller: DecaySkill (0x0047364A).
  */
 int
 GetRandomRange64(int min, int max)
 {
-	int64_t r;
-	int64_t range;
+	uint64_t r;
+	uint64_t range;
 	int64_t result;
 
 	if (max < min)
 		return 0;
 	r = GetRandom64();
-	range = (int64_t)(max - min + 1);
-	result = r % range + (int64_t)min;
+	range = (uint64_t)((int64_t)max - (int64_t)min) + 1u;
+	result = (int64_t)(r % range) + (int64_t)min;
 	return (int)result;
 }
 

@@ -766,6 +766,7 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 		for (tp = (uintptr_t *)tmpList.begin; tp != (uintptr_t *)tmpList.end; tp++) {
 			CItem *found = (CItem *)*tp;
 			int16_t foundZ;
+			int16_t foundTopZ;
 			uint32_t foundSerial;
 			uintptr_t *findResult;
 			uintptr_t findSerialVal;
@@ -784,9 +785,15 @@ CMultiSlave_GetItems(CMultiSlave *slave, CVector *outList)
 			if (foundZ > maxZ)
 				break;
 
-			// Update maxZ with this item's surface height
+			/*
+			 * FIXED: The binary assigns foundZ + surfaceH to maxZ
+			 * unconditionally. A shorter item can then lower the reachable
+			 * stack height and cause a later passenger to be left behind.
+			 */
 			surfaceH = ((int (*)(void *))VT_FN(found, VT_GET_SURFACE_H))(found);
-			maxZ = foundZ + (int16_t)surfaceH;
+			foundTopZ = foundZ + (int16_t)surfaceH;
+			if (foundTopZ > maxZ)
+				maxZ = foundTopZ;
 
 			// Check if already in output list
 			findResult = Vector_Find(outList->begin, outList->end, tp);

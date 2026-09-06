@@ -666,8 +666,8 @@ Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int cat
 		if (outCreatureType != typeClass)
 			continue;
 
-		// Skip if creature class exceeds player's difficulty rating.
-		if (outCreatureClass > difficulty)
+		// Skip if the creature's tracking difficulty exceeds the player's rating.
+		if (outDifficulty > difficulty)
 			continue;
 
 		// Skip owned pets: manual CList iteration on myBoss tag.
@@ -6329,7 +6329,7 @@ Script_areBehaviorsEnabled(uint32_t serial)
 		return 0;
 	if (ent->resourceEntity.entity.removedFromWorld)
 		return 0;
-	return ((int (*)(void *, int))VT_FN(ent, VT_TEST_BEHAVIOR))(ent, 8);
+	return !((int (*)(void *, int))VT_FN(ent, VT_TEST_BEHAVIOR))(ent, 8);
 }
 
 /*

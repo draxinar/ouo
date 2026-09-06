@@ -128,7 +128,10 @@ struct CNPC {
 	// CResourceMobile continued
 	uintptr_t pathArray;         // 0x468 (init 0, PathNode* array from A* pathfinding)
 	int32_t pathSpeed;           // 0x46C (init -1, pathfinding movement speed, set by walkTo)
-	uint32_t pathStepsRemaining; // 0x470 (init 0, remaining steps in path)
+	/* Low 9 bits are the remaining-step index; upper bits identify the
+	 * installed path so re-entrant script callbacks cannot confuse a
+	 * replacement allocation with the path currently being walked. */
+	uint32_t pathStepsRemaining; // 0x470 (packed path generation + step index)
 
 	// CNPC fields (0x004617B4)
 	// Offset 0x474: dual-purpose field.
@@ -151,6 +154,22 @@ struct CNPC {
 #if __SIZEOF_POINTER__ == 4
 _Static_assert(sizeof(CNPC) == 0x480, "CNPC size mismatch");
 #endif
+
+#define NPC_PATH_STEP_MASK            0x1FFu
+#define NPC_PATH_GENERATION_MASK      (~NPC_PATH_STEP_MASK)
+#define NPC_PATH_GENERATION_INCREMENT (NPC_PATH_STEP_MASK + 1u)
+
+static inline uint32_t
+CNPC_GetPathStepsRemaining(const CNPC *npc)
+{
+	return npc->pathStepsRemaining & NPC_PATH_STEP_MASK;
+}
+
+static inline uint32_t
+CNPC_GetPathGeneration(const CNPC *npc)
+{
+	return npc->pathStepsRemaining & NPC_PATH_GENERATION_MASK;
+}
 
 /*
  * Path node in the heap-allocated A* path result array (8 bytes).

@@ -20,6 +20,7 @@
 #include "multi.h"
 #include "npc.h"
 #include "packet_handler.h"
+#include "packet_reader.h"
 #include "packet_utils.h"
 #include "player.h"
 #include "region.h"
@@ -198,9 +199,8 @@ ResQuery_SelectRegion(ResQuerySession *session, int hashIndex)
  * session context array.
  */
 void
-HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
+HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t subtype;
 	uint8_t flags;
 	uint16_t resourceIndex;
@@ -210,12 +210,17 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 	char *cursor;
 	uint8_t pktBuf[0xE004];
 	int32_t dataLen;
+	PacketReader reader;
 
-	off = 0;
-	GetByte(buf, &off, &subtype);
-	GetByte(buf, &off, &flags);
-	GetWord(buf, &off, &resourceIndex);
-	GetDWord(buf, &off, &param);
+	if (!PacketSecurity_RequireGM(this, PacketType_ResourceQuery, "HandlePacket_ResourceQuery"))
+		return;
+
+	PacketReader_Init(&reader, buf, packetLen, GetSizeLength(buf));
+	if (!PacketReader_ReadU8(&reader, &subtype) || !PacketReader_ReadU8(&reader, &flags) || !PacketReader_ReadU16(&reader, &resourceIndex) ||
+	        !PacketReader_ReadU32(&reader, &param)) {
+		PacketSecurity_ClosePlayer(this, PacketType_ResourceQuery, "HandlePacket_ResourceQuery", "truncated fixed fields");
+		return;
+	}
 
 	session = NULL;
 
@@ -801,46 +806,76 @@ case9_done:
  * SaveResources companion is an empty stub.
  */
 void
-HandlePacket_SendResources(CPlayer *this, uint8_t *buf)
+HandlePacket_SendResources(CPlayer *this, uint8_t *buf, uint16_t packetLen)
 {
-	uint32_t off;
 	uint8_t mode;
 	uint16_t resIndex, dataLen;
-	char *data;
+	const uint8_t *data;
 	CResBankRegion *region;
 	char *cursor;
 	int nameLen;
+	PacketReader reader;
+	uint32_t nameOffset;
+	size_t nameCap;
 
-	USED(this);
+	if (!PacketSecurity_RequireGM(this, PacketType_SendResources, "HandlePacket_SendResources"))
+		return;
 
-	off = 0;
-	GetByte(buf, &off, &mode);
-	GetWord(buf, &off, &resIndex);
-	GetWord(buf, &off, &dataLen);
-	GetString(buf, &off, &data, dataLen & 0xFFFF);
+	PacketReader_Init(&reader, buf, packetLen, 3);
+	if (!PacketReader_ReadU8(&reader, &mode) || !PacketReader_ReadU16(&reader, &resIndex) || !PacketReader_ReadU16(&reader, &dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "truncated fixed fields");
+		return;
+	}
+	if (packetLen < 8 || dataLen != (uint16_t)(packetLen - 8)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "data length does not match packet");
+		return;
+	}
+	if (!PacketReader_ReadBytesPtr(&reader, &data, dataLen)) {
+		PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "truncated resource data");
+		return;
+	}
 
-	if ((mode & 0xFF) == 0) {
-		region = g_ResBankManager.hashTable[resIndex & 0xFFFF];
+	if (mode > 2) {
+		PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "invalid resource mode");
+		return;
+	}
 
-		cursor = data;
+	if (mode == 0 || mode == 2) {
+		if (resIndex >= 256 || g_ResBankManager.hashTable[resIndex] == NULL) {
+			PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "invalid resource region");
+			return;
+		}
+		region = g_ResBankManager.hashTable[resIndex];
+	} else {
+		region = NULL;
+	}
 
-		region->x1 = ReadInt32LE(&cursor);
-		region->y1 = ReadInt32LE(&cursor);
-		region->x2 = ReadInt32LE(&cursor);
-		region->y2 = ReadInt32LE(&cursor);
+	if (mode == 0 || mode == 1) {
+		if (dataLen < 17) {
+			PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "truncated region update");
+			return;
+		}
 
-		nameLen = (uint8_t)*cursor;
-		cursor++;
-		memcpy(region->name, cursor, nameLen);
-		region->name[nameLen] = '\0';
+		nameOffset = 17u;
+		nameLen = data[16];
+		nameCap = sizeof(((CResBankRegion *)0)->name);
+		if (nameOffset + (uint32_t)nameLen > dataLen || (size_t)nameLen >= nameCap) {
+			PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "invalid region name length");
+			return;
+		}
+	}
 
-		SaveResources();
-	} else if ((mode & 0xFF) == 1) {
+	if (mode == 1) {
 		region = OperatorNew(sizeof(CResBankRegion));
-		if (region != NULL)
-			CResBankRegion_Constructor(region);
+		if (region == NULL) {
+			PacketSecurity_ClosePlayer(this, PacketType_SendResources, "HandlePacket_SendResources", "region allocation failed");
+			return;
+		}
+		CResBankRegion_Constructor(region);
+	}
 
-		cursor = data;
+	if (mode == 0 || mode == 1) {
+		cursor = (char *)data;
 
 		region->x1 = ReadInt32LE(&cursor);
 		region->y1 = ReadInt32LE(&cursor);
@@ -852,12 +887,11 @@ HandlePacket_SendResources(CPlayer *this, uint8_t *buf)
 		memcpy(region->name, cursor, nameLen);
 		region->name[nameLen] = '\0';
 
-		CResBankManager_AddRegion(region);
+		if (mode == 1)
+			CResBankManager_AddRegion(region);
 
 		SaveResources();
-	} else if ((mode & 0xFF) == 2) {
-		region = g_ResBankManager.hashTable[resIndex & 0xFFFF];
-
+	} else if (mode == 2) {
 		CResBankManager_RemoveRegion(region, 1);
 
 		SaveResources();

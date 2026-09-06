@@ -15,6 +15,7 @@
 #include "account.h"
 #include "blowfish.h"
 #include "packet_handler.h"
+#include "packet_security.h"
 #include "packet_utils.h"
 #include "pending_auth.h"
 #include "player.h"
@@ -36,6 +37,54 @@ CUserSock *GLOBAL_CUserSock;
 uint8_t g_ServerAddr[4];
 uint16_t g_ServerPort = 2593;
 
+static void
+UserSock_HandlePreCharPing(CUserSock *this, uint8_t *buf)
+{
+	uint8_t obuf[2];
+
+	obuf[0] = PacketType_PING;
+	obuf[1] = buf[1];
+	Socket_Copy_To_CSocketBuffer(&this->socket, obuf, sizeof(obuf));
+}
+
+static void
+UserSock_CloseMalformedPacket(CUserSock *this, uint8_t packetType, const char *reason)
+{
+	this->invalidPacketCount++;
+	Log_Game(this->addr, "closing malformed packet type=0x%02X reason=%s", packetType, reason ? reason : "unknown");
+	this->socket.status = SocketClosing;
+}
+
+/*
+ * Unlink a specific socket/player pair without disturbing a newer
+ * association installed on either object.
+ */
+void
+CUserSock_DetachPlayer(CUserSock *this, CPlayer *player)
+{
+	if (this == NULL || player == NULL)
+		return;
+	if (this->player == player)
+		this->player = NULL;
+	if (player->usersock == this)
+		player->usersock = NULL;
+}
+
+/*
+ * Close a live player connection, then sever the bidirectional link.
+ * SocketDestroyed means the socket pump is already running its destructor;
+ * do not move that socket backward to SocketClosing during nested logout.
+ */
+void
+CUserSock_CloseAndDetachPlayer(CUserSock *this, CPlayer *player)
+{
+	if (this == NULL || player == NULL)
+		return;
+	if (this->player == player && this->socket.status != SocketDestroyed)
+		this->socket.status = SocketClosing;
+	CUserSock_DetachPlayer(this, player);
+}
+
 /*
  * 0x0047EB43 - UserSock_DoHandlePacket
  *
@@ -55,6 +104,10 @@ UserSock_DoHandlePacket(CUserSock *this)
 	uint8_t *packetType;
 	uint16_t g_PacketSize;
 	uint8_t *buf;
+	const char *decodeReason;
+	int decodeResult;
+
+	result = 0;
 
 	// MODIFIED: seed consumption for multi-client support.
 	// Binary (0x0047EB43) has no seed handling - UO Demo uses unencrypted
@@ -209,18 +262,17 @@ seed_done:;
 		// UserSock_Decrypt is a no-op in the demo binary.
 		packetType = &buf[0];
 
-		if (PacketIsDynamicSize(buf)) {
-			memcpy(&g_PacketSize, &buf[1], 2);
-			result = ntohs_inplace(&g_PacketSize);
-		} else {
-			g_PacketSize = this->packetTable[5 * *packetType];
+		decodeReason = NULL;
+		decodeResult = PacketSecurity_DecodePacketSize(this->packetTable, buf, this->curr, &g_PacketSize, &decodeReason);
+		if (decodeResult == PacketSecurityNeedMore)
+			return 0;
+		if (decodeResult == PacketSecurityBad) {
+			UserSock_CloseMalformedPacket(this, *packetType, decodeReason);
+			return 1;
 		}
-		// MODIFIED: binary uses 0xB6, we use 0xE3 for 1.26+ through 5.0.x packet types
-		if ((g_PacketSize & 0xFFFF) >= 1 && (*packetType & 0xFF) < 0xE3)
-			break;
-		// Invalid packet type or zero size: skip 1 byte
-		this->invalidPacketCount++;
-		g_PacketSize++;
+		if (this->curr < (int)(g_PacketSize & 0xFFFF))
+			return 0;
+		break;
 loop:
 		for (i = g_PacketSize; i < this->curr; i++)
 			this->buf[i - g_PacketSize] = this->buf[i];
@@ -244,9 +296,7 @@ loop:
 	// MODIFIED: added BRITANNIA_SELECT for two-phase login flow.
 	if (*packetType == PacketType_ACCT_LOGIN_REQ || *packetType == PacketType_ACCT_DEL_CHAR || *packetType == PacketType_CHG_CHAR_PW || *packetType == 0x01 ||
 	        *packetType == PacketType_POSTLOGIN || *packetType == PacketType_HARDWARE_INFO || *packetType == PacketType_BRITANNIA_SELECT || this->seedConsumed == 1 ||
-	        PacketIsEDEDEDED(buf) != 0) {
-		if (this->curr < (int)(g_PacketSize & 0xFFFF))
-			return result;
+	        PacketIsEDEDEDED(buf, g_PacketSize) != 0) {
 		PacketGetDynamicSize(buf);
 		switch (*packetType) {
 		case 0x00: // PacketType_LOGIN
@@ -259,7 +309,7 @@ loop:
 			HandlePacket_ACCT_LOGIN_REQ(this, buf);
 			break;
 		case PacketType_ACCT_DEL_CHAR: // 0x83
-			HandlePacket_ACCT_DEL_CHAR(this, buf);
+			HandlePacket_ACCT_DEL_CHAR(this, buf, g_PacketSize);
 			break;
 		case PacketType_CHG_CHAR_PW: // 0x84
 			HandlePacket_CHG_CHAR_PW(this, buf);
@@ -279,13 +329,21 @@ loop:
 		// Dispatch at the CUserSock layer so clientVersion is populated in
 		// time for PRELOGIN's auth log event.
 		case PacketType_CLIENT_VERSION: // 0xBD
-			HandlePacket_CLIENT_VERSION(this, buf);
+			HandlePacket_CLIENT_VERSION(this, buf, g_PacketSize);
+			break;
+		case PacketType_PING: // 0x73
+			if (this->player)
+				DoHandlePacket_Player(this->player, *packetType, buf, g_PacketSize);
+			else
+				UserSock_HandlePreCharPing(this, buf);
 			break;
 		default:
 			if (this->player)
-				DoHandlePacket_Player(this->player, *packetType, buf);
+				DoHandlePacket_Player(this->player, *packetType, buf, g_PacketSize);
 			break;
 		}
+		if (this->socket.status == SocketClosing)
+			return 1;
 		g_PacketSize = g_PacketSize & 0xFFFF;
 		goto loop;
 	}
@@ -401,16 +459,19 @@ CUserSock_Constructor(CUserSock *this, int s, int addr)
 CSocket *
 CUserSock_Delete(CUserSock *this)
 {
+	CPlayer *player;
+
 	this->socket.vtable = (CSocket_vtable *)&VTABLE_CUserSock;
 	if (GLOBAL_CUserSock == this)
 		GLOBAL_CUserSock = 0;
-	if (this->player) {
+	player = this->player;
+	if (player != NULL) {
 		// Custom: log disconnect before logout
 		if (this->account)
-			Log_Game(this->addr, "'%s' disconnected as '%s'", this->account->login, CMobile_GetName_VT((CItem *)this->player));
-		if (CPlayer_IsPlayerOnline(this->player))
-			CPlayer_LogOut(this->player, 1);
-		this->player->usersock = 0;
+			Log_Game(this->addr, "'%s' disconnected as '%s'", this->account->login, CMobile_GetName_VT((CItem *)player));
+		if (CPlayer_IsPlayerOnline(player))
+			CPlayer_LogOut(player, 1);
+		CUserSock_DetachPlayer(this, player);
 	}
 	if (this->gameCrypt) {
 		free(this->gameCrypt);
@@ -444,6 +505,8 @@ CUserSock_Handle_Input(CUserSock *this)
 	uint8_t packetType;
 	uint16_t g_PacketSize;
 	uint8_t *buf;
+	const char *decodeReason;
+	int decodeResult;
 
 	n = recv(this->socket.s, &this->buf[this->curr], 0x10000 - this->curr, 0);
 	// Binary uses a buffered WinSock wrapper (0x004E730E) where recv==0
@@ -491,14 +554,16 @@ CUserSock_Handle_Input(CUserSock *this)
 		} else {
 			buf = this->buf;
 			packetType = buf[0];
-			if (IsPacketDynamicSize2(packetType)) {
-				memcpy(&g_PacketSize, &buf[1], 2);
-				ntohs_inplace(&g_PacketSize);
-			} else {
-				g_PacketSize = this->packetTable[5 * packetType];
+			decodeReason = NULL;
+			decodeResult = PacketSecurity_DecodePacketSize(this->packetTable, buf, this->curr, &g_PacketSize, &decodeReason);
+			if (decodeResult == PacketSecurityNeedMore) {
+				return 0;
+			} else if (decodeResult == PacketSecurityBad) {
+				UserSock_CloseMalformedPacket(this, packetType, decodeReason);
+				return 1;
 			}
 			n = g_PacketSize;
-			if (this->curr >= g_PacketSize) {
+			if (this->curr >= (int)g_PacketSize) {
 				n = UserSock_DoHandlePacket(this);
 			} else if (this->curr == 0x10000) {
 				n = 1; // binary: eax = this (artifact, return value never used)
