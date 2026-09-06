@@ -859,11 +859,13 @@ static const uint16_t g_CheckerGraphics[32] = {
 // clang-format on
 
 /*
- * Not present on UoDemo, but required on clients >= 1.25.35.
- * The order should match the hardcoded list in clients >= 1.26.0.
+ * Not present on UoDemo, but required on clients from 1.25.30 that show
+ * a starting-city list. The order should match the client's own map
+ * labels in 1.26.0 and later. Ocllo's coordinates are the demo's own
+ * configured start (server.txt: startx 3669, starty 2620).
  */
 PlaceName g_PlaceNameList[] = {
-	{ "Ocllo", "Bountiful Harvest", 341, 316, 0 },
+	{ "Ocllo", "Bountiful Harvest", 3669, 2620, 0 },
 	{ "Minoc", "Tavern", 2477, 411, 15 },
 	{ "Britain", "Sweet Dreams Inn", 1495, 1629, 10 },
 	{ "Moonglow", "Docks", 4406, 1045, 0 },
@@ -1511,11 +1513,12 @@ BroadcastToRangeWithLOS(uint8_t *buf, CLocation *loc, int maxCount, int range)
  * Demo/1.25.x: 100 bytes.
  * Client 1.26.0: 104 bytes (+4 bytes for starting city index at end).
  *
- * MODIFIED: the packet is 100 bytes in the demo client and 104 in 1.26.0,
- * so the trailing starting-city index is read only for the newer clients.
- * The account check and the five-character-per-account limit are custom.
- * The fixed name and password fields are copied into terminated buffers
- * before use, since the packet fields carry no guaranteed terminator.
+ * MODIFIED: the tail is a shard-selector byte, the starting-city index
+ * byte, the character-slot dword and the client-IP dword for every
+ * client (100 bytes); 1.26.0 and later append two hue words. The account
+ * check and the five-character-per-account limit are custom. The fixed
+ * name and password fields are copied into terminated buffers before
+ * use, since the packet fields carry no guaranteed terminator.
  */
 void
 HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
@@ -1535,8 +1538,8 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	uint16_t hairColor;
 	uint16_t facialHairStyle;
 	uint16_t facialHairColor;
-	uint8_t unknown, slot;
-	uint16_t unknownD, slotD;
+	uint8_t britannia, cityByte;
+	uint32_t slot;
 	uint32_t clientIP;
 	uint32_t colors;
 	uint16_t startLocation;
@@ -1602,25 +1605,19 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	int connVer = g_AutoDetect ? this->detectedKeyIndex : g_ClientVersion;
 	if (connVer < 0)
 		connVer = CLIENT_12600;
-	if (connVer < CLIENT_12535) {
-		startLocation = -1;
-		GetByte(buf, &off, &unknown);
-		GetByte(buf, &off, &slot);
-		GetDWord(buf, &off, &clientIP);
+	// Every 1.23.37b through 2.0.x client writes the same tail: a
+	// Britannia shard-list selector byte, the starting-city index byte,
+	// the character-slot dword and the client-IP dword (a 100-byte
+	// packet). 1.26.0 and later append two hue words (shirt and pants
+	// colours), read here as one dword.
+	GetByte(buf, &off, &britannia);
+	GetByte(buf, &off, &cityByte);
+	GetDWord(buf, &off, &slot);
+	GetDWord(buf, &off, &clientIP);
+	startLocation = cityByte;
+	colors = 0;
+	if (connVer >= CLIENT_12600)
 		GetDWord(buf, &off, &colors);
-	} else {
-		// 1.25.35+ uses 3 Words + 2 DWords tail.
-		// For 1.26.0+ this is a 104-byte packet; for 1.25.35-37
-		// the packet is 100 bytes but the tail fields align.
-		GetWord(buf, &off, &startLocation);
-		GetWord(buf, &off, &unknownD);
-		GetWord(buf, &off, &slotD);
-		GetDWord(buf, &off, &clientIP);
-		GetDWord(buf, &off, &colors);
-		// Pre-1.26 clients don't support character colors.
-		if (connVer < CLIENT_12600)
-			colors = 0;
-	}
 	addr = this->addr;
 	succeed = 0;
 	succeed = 1;
@@ -1629,7 +1626,7 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	// accounts), but with account-scoped slot-based selection (0x5D) names
 	// don't need to be unique.
 	if (succeed) {
-		if (startLocation > 0 && startLocation < nelem(g_PlaceNameList)) {
+		if (startLocation < nelem(g_PlaceNameList)) {
 			locX = g_PlaceNameList[startLocation].x;
 			locY = g_PlaceNameList[startLocation].y;
 			locZ = g_PlaceNameList[startLocation].z;

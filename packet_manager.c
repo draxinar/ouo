@@ -1766,7 +1766,11 @@ PacketManager_MakePacket_FEATURES(uint8_t *buf)
 }
 
 /*
- * Not present on UoDemo, but required on clients >= 1.25.35.
+ * Not present on UoDemo, but required on clients from 1.25.30 that show a
+ * starting-city list. Each location is a 63-byte record (index byte plus
+ * two 31-byte names). The trailing dword is ignored by every client
+ * checked (1.25.30 through 2.0.x parse by the declared length and their
+ * own counters), so it is sent unconditionally.
  */
 uint16_t
 PacketManager_MakePacket_CITIES_AND_CHARS(uint8_t *buf, char *characterNames, char *characterPasswords)
