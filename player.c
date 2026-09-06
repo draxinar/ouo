@@ -909,7 +909,9 @@ CPlayer_AttachStartupScripts(CPlayer *this)
  * to the connection, and binds it to the socket's account.
  *
  * MODIFIED: the character is bound to its account and given the lowest
- * free slot, which the binary has no equivalent for.
+ * free slot, which the binary has no equivalent for. The password copy
+ * is bounded where the binary strcpy's an unterminated packet field into
+ * the 32-byte password, overrunning into usersock at +0x3A4.
  */
 CPlayer *
 NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *name, char *password, uint8_t genre, uint8_t strength, uint8_t dexterity, uint8_t intelligence,
@@ -920,7 +922,10 @@ NewCharacter(CUserSock *this, uint16_t locX, uint16_t locY, uint8_t locZ, char *
 
 	player = NewPlayer(name, locX, locY, locZ, genre, strength, dexterity, intelligence, skill1Number, skill1Value, skill2Number, skill2Value, skill3Number, skill3Value,
 	        skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
-	strcpy(player->password, password);
+	// Bound the copy: password is a fixed 30-byte packet field that may
+	// not be terminated, and player->password is 32 bytes.
+	strncpy(player->password, password, sizeof(player->password) - 1);
+	player->password[sizeof(player->password) - 1] = '\0';
 	player->usersock = this;
 	this->player = player;
 

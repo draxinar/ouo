@@ -1514,6 +1514,8 @@ BroadcastToRangeWithLOS(uint8_t *buf, CLocation *loc, int maxCount, int range)
  * MODIFIED: the packet is 100 bytes in the demo client and 104 in 1.26.0,
  * so the trailing starting-city index is read only for the newer clients.
  * The account check and the five-character-per-account limit are custom.
+ * The fixed name and password fields are copied into terminated buffers
+ * before use, since the packet fields carry no guaranteed terminator.
  */
 void
 HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
@@ -1524,6 +1526,7 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	uint16_t pattern1, pattern2;
 	uint8_t pattern3;
 	char *characterName, *characterPassword;
+	char characterNameBuf[30], characterPasswordBuf[30];
 	uint8_t genre, strength, dexterity, intelligence;
 	uint8_t skill1Number, skill2Number, skill3Number;
 	uint8_t skill1Value, skill2Value, skill3Value;
@@ -1571,6 +1574,13 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 	GetByte(buf, &off, &pattern3);
 	GetString(buf, &off, &characterName, 30);
 	GetString(buf, &off, &characterPassword, 30);
+	// The name and password occupy fixed 30-byte packet fields that may
+	// carry no terminator. Copy them into terminated buffers so every
+	// 30-byte name sink downstream stays within bounds.
+	memcpy(characterNameBuf, characterName, sizeof(characterNameBuf) - 1);
+	characterNameBuf[sizeof(characterNameBuf) - 1] = '\0';
+	memcpy(characterPasswordBuf, characterPassword, sizeof(characterPasswordBuf) - 1);
+	characterPasswordBuf[sizeof(characterPasswordBuf) - 1] = '\0';
 	GetByte(buf, &off, &genre);
 	GetByte(buf, &off, &strength);
 	GetByte(buf, &off, &dexterity);
@@ -1624,9 +1634,9 @@ HandlePacket_LOGIN(CUserSock *this, uint8_t *buf)
 			locY = g_PlaceNameList[startLocation].y;
 			locZ = g_PlaceNameList[startLocation].z;
 		}
-		player = NewCharacter(this, locX, locY, locZ, characterName, characterPassword, genre, strength, dexterity, intelligence, skill1Number, skill1Value, skill2Number,
-		        skill2Value, skill3Number, skill3Value, skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
-		Log_Game(this->addr, "'%s' created character '%s'", this->account->login, characterName);
+		player = NewCharacter(this, locX, locY, locZ, characterNameBuf, characterPasswordBuf, genre, strength, dexterity, intelligence, skill1Number, skill1Value,
+		        skill2Number, skill2Value, skill3Number, skill3Value, skinColor, hairStyle, hairColor, facialHairStyle, facialHairColor, clientIP, colors);
+		Log_Game(this->addr, "'%s' created character '%s'", this->account->login, characterNameBuf);
 		Player_Login(player, addr);
 	} else {
 		PacketManager_MakePacket_LOGIN_REJECT(&obuf[0], 0x00);
@@ -5819,7 +5829,9 @@ HandlePacket_OK_MOVE(CPlayer *this, uint8_t *buf)
  * renamed to Y." message.
  *
  * FIXED: binary sprintf's into a 128-byte stack buffer without bounds
- * checking; we use snprintf.
+ * checking; we use snprintf. The requested name is a fixed 30-byte
+ * packet field with no guaranteed terminator, so it is copied into a
+ * terminated buffer before it reaches snprintf and CMobile::SetName.
  */
 void
 HandlePacket_RENAME_MOB(CPlayer *this, uint8_t *buf)
@@ -5828,12 +5840,15 @@ HandlePacket_RENAME_MOB(CPlayer *this, uint8_t *buf)
 	uint32_t off;
 	uint32_t serial;
 	char *newName;
+	char newNameBuf[30];
 	CItem *entity;
 	char msg[128];
 
 	off = 0;
 	GetDWord(buf, &off, &serial);
 	GetString(buf, &off, &newName, 0x1E);
+	memcpy(newNameBuf, newName, sizeof(newNameBuf) - 1);
+	newNameBuf[sizeof(newNameBuf) - 1] = '\0';
 
 	entity = CWorld_FindEntityInRange(g_World, &this->mobile.container.item.resourceEntity.entity, serial, 18);
 	if (entity == NULL)
@@ -5855,9 +5870,9 @@ HandlePacket_RENAME_MOB(CPlayer *this, uint8_t *buf)
 		oldName = ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity);
 
 		// FIXED: binary uses sprintf - overflow if oldName is long
-		snprintf(msg, sizeof(msg), "Pet %s renamed to %s.", oldName, newName);
+		snprintf(msg, sizeof(msg), "Pet %s renamed to %s.", oldName, newNameBuf);
 
-		CMobile_SetName(mob, newName);
+		CMobile_SetName(mob, newNameBuf);
 	}
 
 	PacketManager_MakePacket_TEXT(obuf, NULL, (CItem *)&this->mobile.container.item, 6, msg, 0x3B2, 3);
