@@ -8245,18 +8245,17 @@ next_tag_entity:
 		}
 	}
 
-epilogue:
-	{
-		int32_t respDataLen;
+epilogue: {
+	int32_t respDataLen;
 
-		if (writeCur < localBuf || writeCur > localBuf + sizeof(localBuf)) {
-			PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "trigger response cursor out of bounds");
-			return;
-		}
-		respDataLen = (int32_t)(writeCur - localBuf);
-		BuildTriggerEditResponse(responseBuf, mode, connIndex, localBuf, (uint16_t)respDataLen);
-		SendToClient((CItem *)this, responseBuf, -1);
+	if (writeCur < localBuf || writeCur > localBuf + sizeof(localBuf)) {
+		PacketSecurity_ClosePlayer(this, PacketType_TriggerEdit, "HandlePacket_TriggerEdit", "trigger response cursor out of bounds");
+		return;
 	}
+	respDataLen = (int32_t)(writeCur - localBuf);
+	BuildTriggerEditResponse(responseBuf, mode, connIndex, localBuf, (uint16_t)respDataLen);
+	SendToClient((CItem *)this, responseBuf, -1);
+}
 }
 
 /*
