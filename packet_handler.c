@@ -4115,6 +4115,11 @@ HandlePacket_ATTACK(CPlayer *this, uint8_t *buf)
  * CUSTOM (FEAT_SKILL_MEDITATION, FEAT_SKILL_STEALTH, FEAT_SKILL_REMOVE_TRAP):
  * skills 46, 47 and 48 are refused when their flag is off, and stealth
  * keeps the player hidden instead of revealing on use.
+ *
+ * FIXED: CastSpellByName (0x0044822B) copies the macro text into a
+ * 480-byte incantation buffer, emitting up to two bytes per input
+ * character with no output bound, so an unterminated 0xF1-byte macro
+ * field overruns it. The scan is capped at 240 input characters.
  */
 void
 HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
@@ -4191,21 +4196,24 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 		uint8_t obuf[0x42C];
 		int outIdx = 0;
 		int needHyphen = 0;
+		int i;
 
-		while (*text != '\0') {
-			if (*text == ' ') {
+		// Cap the scan at 240 input characters: each emits up to two
+		// output bytes, the most that fit the 480-byte buffer, which
+		// also bounds the read to the packet field width.
+		for (i = 0; i < 240 && text[i] != '\0'; i++) {
+			if (text[i] == ' ') {
 				incantation[outIdx++] = ' ';
 				needHyphen = 0;
 			} else {
 				if (needHyphen)
 					incantation[outIdx++] = '-';
-				if (*text >= 'a' && *text <= 'z')
-					incantation[outIdx++] = *text - 0x20;
+				if (text[i] >= 'a' && text[i] <= 'z')
+					incantation[outIdx++] = text[i] - 0x20;
 				else
-					incantation[outIdx++] = *text;
+					incantation[outIdx++] = text[i];
 				needHyphen = 1;
 			}
-			text++;
 		}
 		incantation[outIdx] = '\0';
 		PacketManager_MakePacket_TEXT(obuf, NULL, (CItem *)&this->mobile.container.item, 6, incantation, 0x3B2, 0);
