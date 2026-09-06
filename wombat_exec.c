@@ -6290,8 +6290,13 @@ Script_enableBehaviors(uint32_t serial)
 /*
  * 0x0041128C - areBehaviorsEnabled
  *
- * Returns 1 when the NPC's behaviour bit 0x08 is set, which is what
- * disableBehaviors clears.
+ * Returns TestBehavior(0x08) unnegated. Behavior bit 0x08 is a disable
+ * bit - disableBehaviors sets 0x1003F including it, enableBehaviors
+ * clears it, and CNPC::PostInitBehaviorCheck engages only when it is
+ * clear - so this Wombat binding returns 1 when the NPC's behaviors are
+ * disabled, the inverse of what its name suggests. The demo's
+ * dragonai.m enterrange trigger reads the binary's polarity, so it is
+ * reproduced unchanged rather than negated.
  */
 int
 Script_areBehaviorsEnabled(uint32_t serial)
