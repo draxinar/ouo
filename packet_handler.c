@@ -4963,6 +4963,11 @@ HandlePacket_GROUPS(CPlayer *this, uint8_t *buf)
  * accept flag and up to 250 (layer, serial, qty) buy entries off
  * the wire, and delegates the transaction to ProcessBuyList on the
  * vendor.
+ *
+ * FIXED: the binary derives the entry count as (packetLen - 8) / 7 and
+ * fills a 250-entry stack array (0xBD0 frame) with no bound, so a long
+ * packet writes past it - up to 9361 entries. Reject a count outside
+ * 0..250 before reading any entry.
  */
 void
 HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
@@ -4993,6 +4998,8 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
 		return;
 
 	numItems = ((int)(GetPacketOffset(buf) & 0xFFFF) - 8) / 7;
+	if (numItems < 0 || numItems > 250)
+		return;
 
 	for (i = 0; i < numItems; i++) {
 		GetByte(buf, &off, &entries[i].layer);
@@ -5008,6 +5015,11 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
  *
  * Parses the client's sell list (up to 250 serial+amount entries) and
  * forwards it to the targeted vendor via CMobile_ProcessSellOffer.
+ *
+ * FIXED: the binary trusts the uint16 item count and fills a 250-entry
+ * stack array (0xBCC frame) with no bound, before it even resolves the
+ * vendor, so a large count writes past it - up to 65535 entries. Reject
+ * a count above 250 before reading any entry.
  */
 void
 HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf)
@@ -5025,6 +5037,8 @@ HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf)
 	off = 0;
 	GetDWord(buf, &off, &vendorSerial);
 	GetWord(buf, &off, &itemCount);
+	if ((int)(itemCount & 0xFFFF) > 250)
+		return;
 
 	for (i = 0; i < (int)(itemCount & 0xFFFF); i++) {
 		GetDWord(buf, &off, &entries[i].serial);
