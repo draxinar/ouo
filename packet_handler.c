@@ -5789,7 +5789,10 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 /*
  * 0x00497F5F - HandlePacket_PING
  *
- * Reads the ping sequence byte and echoes it back via PingReply.
+ * Reads the ping sequence byte and hands it to PingReply, which discards
+ * the sequence and only resets the idle ping timer. The demo clients
+ * (1.25.32 through 2.0.x) treat inbound 0x73 as a no-op and never wait
+ * for a reply, so none is sent.
  */
 void
 HandlePacket_PING(CPlayer *this, uint8_t *buf)
