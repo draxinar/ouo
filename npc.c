@@ -1442,29 +1442,27 @@ CResourceMobile_Destructor(CNPC *npc)
 		}
 	}
 
-	if (npc->convoFragList != NULL) {
+	if (npc->convoFragList != NULL)
 		StdPtrList_ScalarDelete_NPC((StdPtrList *)npc->convoFragList, 1);
-		npc->convoFragList = NULL;
-	}
 
 	if (npc->pathArray != 0)
-		free((void *)npc->pathArray);
+		OperatorDelete((void *)npc->pathArray);
 
-	free(npc->resTplPtr0);
+	OperatorDelete(npc->resTplPtr0);
 	npc->resTplPtr0 = NULL;
-	free(npc->resTplPtr1);
+	OperatorDelete(npc->resTplPtr1);
 	npc->resTplPtr1 = NULL;
-	free(npc->resTplPtr2);
+	OperatorDelete(npc->resTplPtr2);
 	npc->resTplPtr2 = NULL;
-	free(npc->resTplPtr3);
+	OperatorDelete(npc->resTplPtr3);
 	npc->resTplPtr3 = NULL;
-	free(npc->resTplPtr4);
+	OperatorDelete(npc->resTplPtr4);
 	npc->resTplPtr4 = NULL;
-	free(npc->resTplPtr5);
+	OperatorDelete(npc->resTplPtr5);
 	npc->resTplPtr5 = NULL;
-	free(npc->resTplPtr6);
+	OperatorDelete(npc->resTplPtr6);
 	npc->resTplPtr6 = NULL;
-	free(npc->resTplPtr7);
+	OperatorDelete(npc->resTplPtr7);
 	npc->resTplPtr7 = NULL;
 
 	CMobile_Destructor(mob);
@@ -2569,6 +2567,8 @@ CNPC_SetSerial(CItem *self, uint32_t newSerial)
 	uint32_t bucket;
 	CNPC *npc = (CNPC *)self;
 
+	ResourceEntity_AttachTemplate(self);
+
 	if (self->hashNext != NULL)
 		self->hashNext->hashPrev = self->hashPrev;
 	if (self->hashPrev != NULL) {
@@ -2587,11 +2587,10 @@ CNPC_SetSerial(CItem *self, uint32_t newSerial)
 		g_NPCHash[bucket] = npc->npcHashNext;
 	}
 
-	// The binary calls a no-op Noop_4851F0(serial) here when the serial
-	// actually changes; omitted since it has no observable effect, the
-	// same treatment CItem_SetSerial gives it.
+	if (self->serial != 0 && newSerial != self->serial)
+		Noop_4851F0();
 
-	self->serial = newSerial;
+	CItem_SetSerialField(self, newSerial);
 
 	CWorld_InsertEntity(g_World, self);
 
@@ -2612,7 +2611,7 @@ CNPC_SetSerial(CItem *self, uint32_t newSerial)
 void
 CNPC_RemoveFromWorldGrid(CItem *this)
 {
-	uint8_t pktBuf[0x14];
+	uint8_t pktBuf[8];
 	CItem *parent;
 	int blockIdx;
 
@@ -2631,31 +2630,22 @@ CNPC_RemoveFromWorldGrid(CItem *this)
 		SendPacketInRange(pktBuf, &this->resourceEntity.entity.location, 0x12);
 	}
 
-	if (this->parent != NULL) {
+	if (this->spatialNext != NULL)
+		this->spatialNext->spatialPrev = this->spatialPrev;
+
+	if (this->spatialPrev != NULL) {
+		this->spatialPrev->spatialNext = this->spatialNext;
+	} else if (this->parent != NULL) {
 		parent = this->parent;
-		if (this->spatialNext != NULL)
-			this->spatialNext->spatialPrev = this->spatialPrev;
-		if (this->spatialPrev != NULL) {
-			this->spatialPrev->spatialNext = this->spatialNext;
-		} else {
-			if (((CContainer *)parent)->contents == this)
-				((CContainer *)parent)->contents = this->spatialNext;
-		}
-		this->spatialPrev = NULL;
-		this->spatialNext = NULL;
+		if (((CContainer *)parent)->contents == this)
+			((CContainer *)parent)->contents = this->spatialNext;
 	} else {
-		if (this->spatialNext != NULL)
-			this->spatialNext->spatialPrev = this->spatialPrev;
-		if (this->spatialPrev != NULL) {
-			this->spatialPrev->spatialNext = this->spatialNext;
-		} else {
-			blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, &this->resourceEntity.entity.location, 0);
-			g_SpatialGrid.cells[blockIdx].itemHead = this->spatialNext;
-		}
-		this->spatialPrev = NULL;
-		this->spatialNext = NULL;
+		blockIdx = CBlockManager_GetBlockIndexFromLoc(&g_SpatialGrid, &this->resourceEntity.entity.location, 0);
+		g_SpatialGrid.cells[blockIdx].itemHead = this->spatialNext;
 	}
 
+	this->spatialPrev = NULL;
+	this->spatialNext = NULL;
 	this->parent = NULL;
 	this->resourceEntity.entity.removedFromWorld = 1;
 }
@@ -3767,7 +3757,7 @@ CNPC_PackBehaviorScan(CNPC *npc)
 		uint32_t serial;
 		uint16_t tmpl;
 		int16_t x, y;
-		int8_t z;
+		int16_t z;
 
 		tmpl = CResourceEntity_GetTemplateIndex((CItem *)npc);
 		x = npc->mobile.container.item.resourceEntity.entity.location.x;

@@ -100,6 +100,7 @@ CItem *CWorld_FindBySerial(CWorld *world, uint32_t serial); // 0x0048B8CA
 CItem *CWorld_FindNPCBySerial(CWorld *world, uint32_t serial); // 0x0048B910
 void CItem_SetSerialField(CItem *item, uint32_t serial); // 0x0048527C
 CItem *CWorld_FindMobileBySerial(CWorld *world, uint32_t serial); // 0x0048B94D
+void Noop_4851F0(void); // 0x004851F0
 uint32_t CWorld_AllocSerial(CWorld *world); // 0x0048D175
 CItem *CWorld_FindEntityInRange(CWorld *world, CEntity *refEntity, uint32_t serial, int range); // 0x0048D9FC
 CItem *FindHighestItemAtXY(CWorld *world, int16_t x, int16_t y); // 0x0048DBDB

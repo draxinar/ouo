@@ -50,7 +50,7 @@ static void StdTree_Inc(StdTreeNode **iter); // 0x004E7100
 static void StdTree_Dec(StdTreeNode **iter); // 0x004E7040
 static StdTreeNode *StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t key, uintptr_t value); // 0x004E6CD0
 static void StdTree_EraseSubtree(StdMapTree *tree, StdTreeNode *node); // 0x004E6C40
-static void StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last); // 0x004E6A30
+static StdTreeNode *StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last); // 0x004E6A30
 static void *StdMap_Find(StdMapTree *this, void *outIter, void *keyPtr); // 0x004227B0
 static void StdMap_EraseRecursive(StdMapTree *this, void *node); // 0x004227E0
 static void StdMap_TreeInit(StdMapTree *this); // 0x00422890
@@ -1567,11 +1567,13 @@ StdMap_GetHead(StdMapTree *this)
 }
 
 /*
- * 0x00422E50 - std::_Tree::_Splice
+ * 0x00422E50 - std::_Tree::_Rrotate
  *
- * Relinks a node within the red-black tree during erase/rebalance. Swaps
- * the node with its left child's successor. Updates parent/child/prev
- * pointers and handles the _Most (rightmost) tracking.
+ * Right rotation about node: its left child takes its place, the child's
+ * right subtree becomes node's left, and the root or the grandparent's
+ * matching child pointer is retargeted. The binary brackets the walk in
+ * a std::_Lockit critical section, which we omit along with every other
+ * lock in the single-threaded port.
  */
 static void
 StdMap_TreeSplice(StdMapTree *this, void *node)
@@ -1663,10 +1665,11 @@ StdMap_GetRoot(StdMapTree *this)
 }
 
 /*
- * 0x004230E0 - std::_Tree::_Splice2 (tree relink)
+ * 0x004230E0 - std::_Tree::_Lrotate
  *
- * Second variant of _Splice. Relinks a node with its right child's
- * predecessor. Mirror of StdMap_TreeSplice using next/value swapped.
+ * Left rotation about node, the mirror of StdMap_TreeSplice: its right
+ * child takes its place. The binary's std::_Lockit bracket is omitted
+ * as elsewhere.
  */
 static void
 StdMap_TreeSplice2(StdMapTree *this, void *node)
@@ -4670,8 +4673,8 @@ SortSurface_InsertionEntry(SurfaceInfo *begin, SurfaceInfo *end, char typeTag)
  * 0x0046C260 - std::sort quicksort (SurfaceInfo)
  *
  * Quicksort loop: while range > 16, choose median-of-3 pivot, partition,
- * recurse on smaller half. Falls through to insertion sort entry when
- * range <= 16.
+ * recurse on smaller half, and return once the range is 16 or less. The
+ * caller runs the insertion pass.
  */
 static void
 SortSurface_Quicksort(SurfaceInfo *begin, SurfaceInfo *end, char typeTag, int depth)
@@ -5207,7 +5210,7 @@ CVector_ClearAndFree16(CVector *vec)
 
 	Destroy16_Range(vec, vec->begin, vec->end);
 	count = ((char *)vec->capacity - (char *)vec->begin) / sizeof(CString);
-	CVector_ClearFreeRaw(vec->begin, count);
+	StdDeque_DeallocSI(vec, vec->begin, (int)count);
 	vec->begin = NULL;
 	vec->end = NULL;
 	vec->capacity = NULL;
@@ -5249,10 +5252,9 @@ CVector_AssignOp16(CVector *this, CVector *src)
 		} else {
 			// Realloc: destroy, free, allocate, copy.
 			Destroy16_Range(this, this->begin, this->end);
-			CVector_ClearFreeRaw(this->begin, ((char *)this->capacity - (char *)this->begin) / sizeof(CString));
+			StdDeque_DeallocSI(this, this->begin, (int)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(CString)));
 			this->begin = CVector_Allocate16(this, srcCount, 0);
-			CVector_Uninit_Copy16_Fwd2(this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
-			this->end = this->begin ? (void *)((char *)this->begin + srcCount * sizeof(CString)) : NULL;
+			this->end = CVector_Uninit_Copy16_Fwd2(this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 			this->capacity = this->end;
 		}
 	}
@@ -5290,7 +5292,7 @@ CVector_ClearAndFree1C(CVector *vec)
 
 	Destroy1C_Range(vec, vec->begin, vec->end);
 	count = ((char *)vec->capacity - (char *)vec->begin) / sizeof(CMultiComponentDef);
-	CVector_ClearFreeRaw(vec->begin, count);
+	StdDeque_DeallocSI(vec, vec->begin, (int)count);
 	vec->begin = NULL;
 	vec->end = NULL;
 	vec->capacity = NULL;
@@ -5322,7 +5324,7 @@ CVector_ClearAndFree6(CVector *this)
 	int count;
 	Destroy6_Range(this, this->begin, this->end);
 	count = ((char *)this->capacity - (char *)this->begin) / sizeof(CLocation);
-	CVector_ClearFreeRaw(this->begin, count);
+	StdDeque_DeallocSI(this, this->begin, (int)count);
 	this->begin = NULL;
 	this->end = NULL;
 	this->capacity = NULL;
@@ -5388,7 +5390,7 @@ CVector_AssignOp4(CVector *this, CVector *src)
 			this->end = (char *)this->begin + srcCount * sizeof(uintptr_t);
 		} else {
 			CVector_Destroy4_Range(this, this->begin, this->end);
-			CVector_ClearFreeRaw(this->begin, (uint32_t)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(uintptr_t)));
+			StdDeque_DeallocSI(this, this->begin, (int)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(uintptr_t)));
 			this->begin = CVector_Allocate4(this, srcCount, 0);
 			this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 			this->capacity = this->end;
@@ -6649,7 +6651,7 @@ StdTree_Clear(StdMapTree *tree)
 	StdTreeNode *head = tree->head;
 
 	// Erase all nodes (binary: calls _EraseRange with begin/end).
-	StdTree_EraseRange(tree, head->left, head);
+	(void)StdTree_EraseRange(tree, head->left, head);
 
 	// Free head node.
 	OperatorDelete(head);
@@ -6971,10 +6973,14 @@ StdTree_RBErase(StdMapTree *tree, StdTreeNode *z)
 /*
  * 0x004E6A30 - std::_Tree::erase range
  *
- * Erases all nodes in [first, last). If range covers the entire tree, uses
- * the fast _EraseSubtree path. Otherwise erases one-by-one.
+ * Erases all nodes in [first, last) and returns the iterator that follows
+ * the erased range. If range covers the entire tree, uses the fast
+ * _EraseSubtree path. Otherwise erases one-by-one. The binary returns the
+ * iterator through a hidden sret pointer; we return it directly, since the
+ * port models a tree iterator as the bare node pointer. Its std::_Lockit
+ * bracket is omitted as elsewhere.
  */
-static void
+static StdTreeNode *
 StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last)
 {
 	StdTreeNode *head = tree->head;
@@ -6986,15 +6992,17 @@ StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last)
 		tree->size = 0;
 		head->left = head;
 		head->right = head;
-	} else {
-		// Partial range: erase one-by-one.
-		while (first != last) {
-			StdTreeNode *next = first;
-			StdTree_Inc(&next);
-			StdTree_RBErase(tree, first);
-			first = next;
-		}
+		return head->left;
 	}
+
+	// Partial range: erase one-by-one.
+	while (first != last) {
+		StdTreeNode *next = first;
+		StdTree_Inc(&next);
+		StdTree_RBErase(tree, first);
+		first = next;
+	}
+	return first;
 }
 
 /*

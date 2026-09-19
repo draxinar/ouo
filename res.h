@@ -76,7 +76,7 @@ void CResManager_Destructor_Hint(CResManager *this); // 0x00464380
 void *CResManager_BeginIterInternalHint(CResManager *rm, CSearchCtx *output, uint32_t *key, int direction); // 0x004644F0
 void CResManager_BeginSearchHint(CResManager *rm, CSearchCtx *output, int startBucket, int direction); // 0x00464730
 void *CResManager_NextEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00464910
-void *CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void *outErased, int direction); // 0x00464A60
+void *CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outErased, int direction); // 0x00464A60
 char EntityMap_ForEachValidateZ(uintptr_t *first, uintptr_t *end, char cmp); // 0x004302E0
 void CEntityMap_ValidateEntityZ(CEntityMap *this, CItem *entity); // 0x00430310
 void SortBySerial_Entry(uintptr_t *first, uintptr_t *last, char cmp); // 0x004303C0

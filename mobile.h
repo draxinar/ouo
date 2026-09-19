@@ -347,7 +347,7 @@ int CMobile_IsMurderer(CMobile *this); // 0x0048F35B
 int IsGuildEnemy(CMobile *subject, uint32_t viewerGuildstoneId, int viewerGuildType); // 0x0048F389
 void CItem_FillAggroInfo_VT(CItem *self, AggroInfo *info); // 0x0048F429
 int CMobile_ComputeNotoriety(CMobile *subject, CMobile *viewer); // 0x0048F4E1
-void CMobile_NotifyDamage(CMobile *target, CMobile *attacker); // 0x0048FC7B
+void CMobile_NotifyDamage(CMobile *target, CMobile *attacker, int flag); // 0x0048FC7B
 int CMobile_IsCriminal(CMobile *mob); // 0x0048FE31
 void CMobile_SetCriminalPunishable(CMobile *mob, CLocation *crimeLoc, int duration); // 0x0048FE4B
 void CMobile_SetCriminal(CMobile *mob, int duration); // 0x0048FEB8

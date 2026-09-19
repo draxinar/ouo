@@ -434,7 +434,7 @@ LoadAll_LVNData(void)
 	*dest = '\0';
 	strcpy(buf, "lvn");
 
-	RegionManager_FindLVNRegion(&g_RegionRM, g_mapStartX, g_mapStartY, g_mapStartX + g_mapWidth, g_mapStartY + g_mapHeight, buf, 0x80);
+	RegionManager_FindLVNRegion(g_mapStartX, g_mapStartY, g_mapStartX + g_mapWidth, g_mapStartY + g_mapHeight, &g_RegionRM, buf, 0x80);
 
 	len = (int)strlen(buf);
 	if (len > 0x7F)

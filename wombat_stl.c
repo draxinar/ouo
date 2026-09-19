@@ -422,7 +422,7 @@ static void
 BasicIos_Init(CIosBase *this)
 {
 	this->vtable = (void **)g_vt_IosBase;
-	// fcn.005c0150 is MSVC CRT base class init - no-op in our code
+	// MSVC's CRT base class init follows, a no-op in our code.
 }
 
 /*
@@ -636,7 +636,7 @@ static void *
 Locale_Facet_Decref(CLocaleFacet *this)
 {
 	CLocaleFacet *f = this;
-	// fcn.005c0310 / fcn.005c03d0 are critical section enter/leave - no-op
+	// The binary's critical-section bracket is omitted as elsewhere.
 	if (f->refs > 0 && f->refs < 0xFFFFFFFF)
 		f->refs -= 1;
 	// neg/sbb/not/and: returns this if refs == 0 (needs deletion), else NULL
@@ -791,9 +791,9 @@ static __attribute__((unused)) void *
 String_AppendN(CSdbStr *this, uint32_t count, char ch)
 {
 	CSdbStr *s = this;
-	uint32_t maxsize = 0x3ffffff; // [0x005ee084]
+	uint32_t maxsize = 0xffffffff; // [0x005ee084]
 	if (maxsize - s->length <= count) {
-		// fcn.005c03f0 throws length_error - we just return
+		// The binary throws length_error here; we just return.
 		return this;
 	}
 	if (count > 0) {
@@ -857,7 +857,7 @@ CString_Erase(CSdbStr *this, unsigned int offset, unsigned int count)
 	unsigned int *pLen = (unsigned int *)&cs->length;
 	unsigned int newLen;
 
-	// Binary calls fcn.005C0890 if offset > length - we skip the assert
+	// The binary asserts when offset > length; we skip the assert.
 
 	String_Freeze(this);
 
@@ -1011,7 +1011,8 @@ IosBase_SetState2(CIosBase *this, uint32_t state, char excflag __attribute__((un
 		finalstate = state | 4;
 	else
 		finalstate = state;
-	// fcn.005bfc50 stores finalstate & 7 into state field; exception path omitted
+	// The binary stores finalstate & 7 through a helper whose exception
+	// path is omitted here.
 	ios->state = finalstate & 7;
 }
 
@@ -1080,8 +1081,8 @@ Iterator_Constructor(char *this, void *stream)
 static void
 Iterator_Destructor(char *this)
 {
-	// Binary calls fcn.005c0bf0 (std::uncaught_exception) here; the
-	// inlined body is `xor al,al; ret`, so it always reports false.
+	// The binary calls std::uncaught_exception here; its body is
+	// `xor al,al; ret`, so it always reports false.
 	unsigned char uncaught = 0;
 	if (!uncaught) {
 		uintptr_t *p = (uintptr_t *)this;
@@ -1154,10 +1155,10 @@ CStdioFile_ConstructorAlloc(CStdioFileBuf *this, void *filePtr)
 static void *
 Locale_FacetConstructorAlloc(CLocaleFacet *this)
 {
-	// Binary calls fcn.005c0d00 (locale allocator) and stores the resulting
-	// global facet pointer here, then bumps its refcount inside a critical
-	// section (fcn.005c0310 / fcn.005c03d0). We don't replicate the locale
-	// infrastructure, so the slot is zeroed and the incref is skipped.
+	// The binary calls the locale allocator, stores the resulting global
+	// facet pointer here and bumps its refcount inside a critical section.
+	// We don't replicate the locale infrastructure, so the slot is zeroed
+	// and the incref is skipped.
 	uintptr_t *p = (uintptr_t *)this;
 	p[0] = 0;
 	return this;
@@ -1171,8 +1172,7 @@ Locale_FacetConstructorAlloc(CLocaleFacet *this)
 static void
 Locale_Facet_Incref(CLocaleFacet *this)
 {
-	// Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical
-	// section enter/leave); we don't replicate the lock.
+	// The binary's critical-section bracket is omitted as elsewhere.
 	CLocaleFacet *f = this;
 	if (f->refs < 0xFFFFFFFF)
 		f->refs += 1;
@@ -1193,8 +1193,8 @@ CStdioFile_Open(CStdioFileBuf *this, void *filename, void *mode)
 	if (fb->fileBuf != NULL)
 		return NULL;
 
-	// Binary calls fcn.005c1230 (locale facet file open); in our build
-	// we just use fopen directly.
+	// The binary goes through the locale facet's file open; we use fopen
+	// directly.
 	void *result = fopen((const char *)filename, (const char *)mode);
 	if (result == NULL)
 		return NULL;
@@ -1338,7 +1338,8 @@ String_Grow(CSdbStr *this, uint32_t newcap, int flag)
 	CSdbStr *cs = this;
 	uint32_t max_cap = String_GrowCap(this);
 	if (max_cap < newcap) {
-		// fcn.005c03f0 throws length_error - no-op in our build
+		// The binary throws length_error here; we just return.
+		return 0;
 	}
 
 	if (cs->data != NULL) {
@@ -1918,20 +1919,19 @@ locale_Getfacet(void *loc, int unused, int allowConstruct)
 {
 	void *facet;
 
-	// Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical
-	// section enter/leave); we don't replicate the lock.
+	// The binary's critical-section bracket is omitted as elsewhere.
 	uint32_t facetId = Locale_Id_GetOrAlloc((uint32_t *)&g_locale_facet_id);
 
-	// Binary calls fcn.005c0c40 (locale::_Getfacet) here; we don't
-	// replicate MSVC's locale facet table, so the lookup yields NULL.
+	// The binary calls locale::_Getfacet here; we don't replicate MSVC's
+	// locale facet table, so the lookup yields NULL.
 	facet = NULL;
 	USED(loc);
 	USED(unused);
 	USED(facetId);
 
 	if (facet == NULL) {
-		// Binary also consults fcn.005c0cb0 (locale validity) before
-		// deciding to construct; absent the CRT table it reads valid.
+		// The binary also consults the locale's validity before deciding to
+		// construct; absent the CRT table it reads valid.
 		if (!allowConstruct)
 			return NULL;
 
@@ -2014,8 +2014,7 @@ CStdioFile_CopyConstructorBody(CStdioFileBuf *this, CStdioFileBuf *src)
 static uint32_t
 Locale_Id_GetOrAlloc(uint32_t *this)
 {
-	// Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical
-	// section enter/leave); we don't replicate the lock.
+	// The binary's critical-section bracket is omitted as elsewhere.
 	uint32_t *p = this;
 	static uint32_t s_idCounter = 49; // initial value at [0x9a3a80]
 	if (p[0] == 0) {
@@ -2042,8 +2041,8 @@ Locale_UseFacet(void *arg1, void *arg2, void *arg3)
 	threadType = (void *)(intptr_t)Locale_Facet_GetCat();
 	facetId = Locale_Id_GetOrAlloc((uint32_t *)&g_locale_facet_id);
 
-	// Binary calls fcn.005c1440 (std::use_facet) here; we don't replicate
-	// MSVC's locale facet table, so the lookup yields NULL.
+	// The binary calls std::use_facet here; we don't replicate MSVC's
+	// locale facet table, so the lookup yields NULL.
 	facet = NULL;
 	USED(threadType);
 	USED(facetId);
@@ -2094,7 +2093,7 @@ String_CopyConstructor(CSdbStr *this, void *src)
 {
 	*(char *)this = *(char *)src;
 	CString_Release_Stl(this, 0);
-	String_Stl_Replace(this, src, 0, 0x3ffffff);
+	String_Stl_Replace(this, src, 0, 0xffffffff);
 	return this;
 }
 
@@ -2131,7 +2130,7 @@ String_Stl_Replace(CSdbStr *this, void *src, uint32_t offset, uint32_t count)
 		n = count;
 
 	if (this == src) {
-		uint32_t maxsize = 0x3ffffff;
+		uint32_t maxsize = 0xffffffff;
 		CString_Erase(this, offset + n, maxsize);
 		CString_Erase(this, 0, offset);
 		return this;
@@ -2213,8 +2212,8 @@ Locale_ConstructorCategory(CLocaleCategory *this, void *arg)
 
 	this->vtable = (uintptr_t *)g_vt_LocaleCategory;
 
-	// Binary calls fcn.005c67a0 (_Getcat) on the literal "C" to construct a
-	// stack-local locale state, then fcn.005c68e0 to tear it down after the
+	// The binary calls _Getcat on the literal "C" to construct a
+	// stack-local locale state, then tears it down after the
 	// CopySystemTime call. We don't replicate _Getcat, so pass NULL.
 	getcat_result = NULL;
 	CopySystemTime(this, getcat_result);
@@ -2326,7 +2325,7 @@ Locale_Facet_GetCat(void)
  * decrefs and destroys the cached facet at process exit. Called by
  * locale_Getfacet (0x004047A0) the first time a facet is materialized.
  *
- * MODIFIED: the binary wraps the body in fcn.005c0310 / fcn.005c03d0
+ * MODIFIED: the binary wraps the body in 0x005C0310 / 0x005C03D0
  * (critical section enter/leave) and we do not replicate the lock. The
  * atexit registration goes through the CRT thunk at 0x004E8720, which has no
  * Linux equivalent, so Locale_FacetAtexitDtor is left for the caller to
@@ -2399,8 +2398,7 @@ Locale_FacetAtexitDtor(void)
 {
 	typedef void *(*ScalarDtor)(CLocaleFacet *, int);
 
-	// Binary wraps the body in fcn.005c0310 / fcn.005c03d0 (critical
-	// section enter/leave); we don't replicate the lock.
+	// The binary's critical-section bracket is omitted as elsewhere.
 	CLocaleFacet *dead = (CLocaleFacet *)Locale_Facet_Decref(g_LocaleFacetSlot);
 
 	if (dead != NULL) {

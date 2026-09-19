@@ -5323,7 +5323,7 @@ CResManager_NextEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *curr
 		return output;
 	}
 
-	nextBucket = (int)bucket + (direction ? 1 : -1);
+	nextBucket = (int)bucket + (direction == 1 ? 1 : -1);
 
 	CResManager_BeginSearchHint(rm, output, nextBucket, direction);
 	return output;
@@ -5336,7 +5336,7 @@ CResManager_NextEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *curr
  * they become empty, and writes the successor ctx to *output.
  */
 void *
-CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void *outErased, int direction)
+CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outErased, int direction)
 {
 	CSearchCtx localCtx, nextCtx;
 	uint32_t bucket;
@@ -5344,7 +5344,7 @@ CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *cur
 
 	CSearchCtx_Constructor(&localCtx);
 
-	*(uint32_t *)outErased = 0;
+	*outErased = NULL;
 
 	if (!CSearchCtx_Find(current)) {
 		CResManager_CreateBucket(output, &localCtx);
@@ -5358,7 +5358,7 @@ CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *cur
 	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
 
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_Erase_ResManager(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), (void **)outErased, direction);
+	CResList_Erase_ResManager(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outErased, direction);
 
 	bucket = CSearchCtx_GetBucket(current);
 	if (rm->keys[bucket]->count == 0) {
@@ -6467,14 +6467,12 @@ CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	// Check if bucket is empty (CResList_GetHead returns count at +8)
 	bucket = CSearchCtx_GetBucket(current);
 	if (rm->keys[bucket]->count == 0) {
-		// ScalarDestructor_KeyNode(keys[bucket], 1) - 0x00464C40
 		bucket = CSearchCtx_GetBucket(current);
 		ptr = rm->keys[bucket];
 		if (ptr != NULL) {
-			CResList_ScalarDelete_MultiA(ptr, 1);
+			ScalarDestructor_KeyNode(ptr, 1);
 		}
 
-		// CResList_ScalarDelete_MultiVal(vals[bucket], 1) - 0x0047B490
 		bucket = CSearchCtx_GetBucket(current);
 		ptr = rm->vals[bucket];
 		if (ptr != NULL) {

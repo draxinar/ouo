@@ -33,7 +33,6 @@
 #include "world.h"
 
 static void CWorld_ScanAndDecay(void); // 0x0045971D
-static void Noop_4851F0(void); // 0x004851F0
 static void Noop_4851F5(void); // 0x004851F5
 static uint32_t AllocNextSerial(void); // 0x00485248
 static void CDataManager_InitMapBuffers(CWorld *this); // 0x0048EE03
@@ -285,9 +284,10 @@ World_FindBySerial_Either(uint32_t serial)
  * 0x004851F0 - (unknown, no-op)
  *
  * Empty function. Called from CItem_Delete on the non-shutdown
- * path with no observable effect.
+ * path, and from the SetSerial overrides when the serial changes,
+ * with no observable effect.
  */
-static __attribute__((unused)) void
+void
 Noop_4851F0(void)
 {
 }
@@ -375,12 +375,19 @@ CDataManager_SetLockdown(CItem *this, int set)
  *   8. Zeros two 0x1000-entry arrays at +0x00040058 and +0x00044058
  *
  * CWorld struct covers the full CDataManager layout to ~0x00048084.
+ *
+ * MODIFIED: the binary's g_ItemTileData, g_AnimData, g_HueData and
+ * g_HueDataExp are the CWorld buffer fields themselves, at fixed offsets
+ * inside the struct. Here they are separate globals, so step 5 is
+ * followed by pointing each one at the buffer the matching Init call
+ * allocated.
  */
 void
 CDataManager_Init(CWorld *this)
 {
 	int i;
 	char *envVal;
+	int decayMode;
 
 	// 1. Zero critical section / arena page pointers
 	this->critSectTileData1 = NULL;
@@ -419,21 +426,20 @@ CDataManager_Init(CWorld *this)
 	CDataManager_InitTileBuffer(this);
 	CDataManager_InitArtBuffer(this);
 
-	// Connect CWorld fields to global data pointers (binary: these are
-	// the same memory since globals alias CWorld struct offsets)
+	// The binary's globals are these buffer fields; ours are separate.
 	g_ItemTileData = (TileDataEntry *)this->itemTileData;
 	g_AnimData = (AnimDataEntry *)this->animData;
 	g_HueData = (HueEntry *)this->hueData;
 	g_HueDataExp = (HueEntryExpanded *)this->hueDataExp;
 
-	// 6. DECAY_TEST env check (binary dead code: unconditionally overwrites)
+	// 6. DECAY_TEST env check (dead: decayMode is overwritten by 2)
 	this->bboardHead = 0;
+	decayMode = 0;
 	envVal = getenv("DECAY_TEST");
-	if (envVal != NULL) {
-		// binary: strcasecmp with "on" - result ignored
-		USED(envVal);
-	}
-	CWorld_InitDecay(2);
+	if (envVal != NULL && strcasecmp(envVal, "on") == 0)
+		decayMode = 1;
+	decayMode = 2;
+	CWorld_InitDecay(decayMode);
 
 	// 8. Zero template chain arrays
 	for (i = 0; i < 0x1000; i++) {

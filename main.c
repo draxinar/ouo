@@ -156,8 +156,10 @@ AnimDataEntry *g_AnimData;
 // 0x0069830C - AnimData loaded flag. Set after animdata.mul is read.
 int g_AnimDataLoaded;
 
-// 0x00621998 - global buffer for LVN region name (binary .bss).
-char g_LVNDestBuf[256];
+// 0x00621998 - global buffer for LVN region name. The binary ships it
+// in .data initialized to "Unknown?"; LoadAll_LVNData clears it before
+// first use, so the default only shows if a reader runs before that.
+char g_LVNDestBuf[256] = "Unknown?";
 
 /*
  * 0x00467BC6 - StaticInit_WeaponManager

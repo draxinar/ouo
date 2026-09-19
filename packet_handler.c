@@ -102,7 +102,6 @@ static void OpenSpellbook(CPlayer *player, uint32_t playerSerial, CItem *spellbo
 static void DoDoubleClick(CPlayer *this, uint32_t playerSerial, CLocation *playerLoc, CItem *entity, int isPaperdoll); // 0x004DC611
 static void DeadDoubleClick(CPlayer *this, CItem *entity); // 0x004DCD62
 static uint16_t LightToggleLookup(uint16_t graphic);
-static int CItem_GetByteProp(CItem *ent); // 0x00490AC3
 static int CItem_GetSortKey(CItem *ent); // 0x00490C6D
 static const char *TriggerEdit_CString_GetCStr(void *cstr); // 0x004D3387
 static void GM_TargetJail(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16_t y, uint16_t z); // Custom
@@ -1736,9 +1735,17 @@ HandlePacket_PRELOGIN(CUserSock *this, uint8_t *buf)
 /*
  * 0x0047E8D8 - HandlePacket_ACCT_LOGIN_REQ (binary original)
  *
- * The binary's own handler, kept verbatim. HandlePacket_ACCT_LOGIN_REQ
+ * The pre-1.25.35 account login handler. HandlePacket_ACCT_LOGIN_REQ
  * below dispatches to it and is the entry the packet table names.
  * Unused in client >= 1.25.35.
+ *
+ * MODIFIED: the account layer the demo binary shipped without.
+ * Account_FindOrCreate resolves the login and the reply carries the
+ * account number where the binary sends the connection's IP; the
+ * character sweep skips empty slots and stops at five instead of
+ * clamping the vector count, reads the name field directly rather
+ * than through vtable[0x34], and bounds the copy with strncpy where
+ * the binary uses strcpy.
  */
 void
 HandlePacket_ACCT_LOGIN_REQ_original(CUserSock *this, uint8_t *buf)
@@ -1792,12 +1799,13 @@ HandlePacket_ACCT_LOGIN_REQ_original(CUserSock *this, uint8_t *buf)
 }
 
 /*
- * 0x0047E8D8 - HandlePacket_ACCT_LOGIN_REQ
+ * Custom - HandlePacket_ACCT_LOGIN_REQ
  *
- * Binary sends ACCT_LOGIN_OK (0x86) with the character list directly on
- * the login connection. This is the UoDemo-only login flow.
- *
- * MODIFIED: clients from 1.25.30+ handle BRITANNIA_LIST (0xA8).
+ * The packet table's entry for account login. The demo binary handled it
+ * in one function, sending ACCT_LOGIN_OK (0x86) with the character list
+ * directly on the login connection; that body is
+ * HandlePacket_ACCT_LOGIN_REQ_original, which this dispatches to for demo
+ * clients. Clients from 1.25.30+ handle BRITANNIA_LIST (0xA8) instead.
  * Decompilation confirms 0xA8 handlers in the packet dispatch of 1.25.30,
  * 1.25.31, 1.25.35, and 1.25.37 (HandlePacket_BRITANNIA_LIST). Clients
  * 1.25.0 and 1.23.37b cap the dispatch table at packet 0xA3 and do not
@@ -2065,17 +2073,6 @@ container_addendum:
 		PacketManager_MakePacket_TEXT(obuf2, target, (CItem *)this, 6, countBuf, 0x03B2, 3);
 		SendToClient((CItem *)this, obuf2, -1);
 	}
-}
-
-/*
- * 0x00490AC3 - CItem::GetByteProp
- *
- * Returns CItem::GetLayer().
- */
-static int
-CItem_GetByteProp(CItem *ent)
-{
-	return CItem_GetLayerThiscall(ent);
 }
 
 /*
@@ -2397,7 +2394,7 @@ HandlePacket_TILEDATA(CPlayer *this, uint8_t *buf)
 	uint8_t weight, quality, stackOff;
 	char *name;
 
-	hue = 0; /* 0x00492D39: pre-initialized */
+	hue = 0;
 
 	off = 0;
 	GetWord(buf, &off, &artId);
@@ -5272,7 +5269,6 @@ HandlePacket_NEW_TERR(CPlayer *this, uint8_t *buf)
 		return;
 	}
 
-	// 0x00497359
 	if ((width & 0xFFFF) > 1 || (height & 0xFFFF) > 1)
 		World_SuppressUpdates();
 
@@ -7414,21 +7410,21 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			WriteInt32LE(&readCur, (int32_t)resCur->serial);
 
 			respConnIndex++;
-			// Write byte property via 0x00490AC3
+			// Write byte property
 			{
 				int32_t val = CItem_GetByteProp(resCur) & 0xFF;
 				WriteInt32LE(&readCur, val);
 			}
 
 			respConnIndex++;
-			// Write sort key via 0x00490C6D
+			// Write sort key
 			{
 				int32_t val = CItem_GetSortKey(resCur) & 0xFFFF;
 				WriteInt32LE(&readCur, val);
 			}
 
 			respConnIndex++;
-			// Write template index via 0x004E04A0
+			// Write template index
 			{
 				int32_t val = CResourceEntity_GetTemplateIndex(resCur) & 0xFFFF;
 				WriteInt32LE(&readCur, val);
@@ -9033,7 +9029,7 @@ OpenPaperdoll(CPlayer *player, uint32_t playerSerial, CItem *target)
 		strncpy(buf, CString_GetBuffer(&title), 59);
 		buf[59] = '\0';
 		i = (int)strlen(buf) - 1;
-		while (i > 0 && buf[i] != ',')
+		while (i != 0 && buf[i] != ',')
 			i--;
 		memset(buf + i, 0, 60 - i);
 	}

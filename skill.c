@@ -774,6 +774,14 @@ SkillCheck_ShouldLogDebug(CMobile *mob, int8_t skillId)
  * result at 1000, then dispatches the skill-gain notification (player
  * path guards editing/counselor/GM; NPC path triggers weight-based decay).
  *
+ * FIXED: chanceFactor * advanceRate / 1000 truncates to zero for the
+ * low advance rates, so those skills can never reach 100 - the binary
+ * divides at 0x004D5208 with no floor. A gain of zero is clamped to 1
+ * while the skill is still under 1000 and its advance rate is positive.
+ *
+ * MODIFIED: the result is scaled by g_GainMultiplier, the -fast N
+ * progression multiplier, which is 1 unless the flag is given.
+ *
  * CUSTOM (FEAT_SKILL_LOCK): a locked or Down skill does not gain.
  */
 static void
@@ -817,7 +825,7 @@ CMobile_SkillGain(CMobile *mob, int8_t skillId, int chanceFactor, int gainPercen
 		// FIXED: clamp truncation hole to 1 so all skills can reach 100.
 		// Ultima Online Patch Notes for 11/10/1998
 		// "It will be possible to reach 100 in any skill.
-		// Previously, some skills couldn’t reach 100."
+		// Previously, some skills couldn't reach 100."
 		gainAmount = 1;
 	}
 

@@ -377,7 +377,7 @@ HandlePacket_BOOKHDR(CPlayer *this, uint8_t *buf)
 
 	SetBookAuthor(entity, author, this->mobile.container.item.serial);
 
-	while (isspace((unsigned char)*title))
+	while (isspace((int)*title))
 		title++;
 	if (*title == '\0')
 		title = "a book";

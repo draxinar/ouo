@@ -1086,7 +1086,7 @@ CContainer_CanHold(CContainer *this, CItem *item, int *reason)
 		itemWeight = CContainer_GetWeight(item);
 	}
 
-	if (this->storedWeight + itemWeight > 0x190) {
+	if ((int)(this->storedWeight + itemWeight) > 0x190) {
 		if (reason)
 			*reason = 1;
 		return 0;

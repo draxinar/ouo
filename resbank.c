@@ -2217,7 +2217,6 @@ CResBankManager_ProcessRespawnChunk(int maxIterations)
 			if (node->value3 + amount > node->value1)
 				amount = node->value1 - node->value3;
 
-			// Note: binary does NOT have an amount <= 0 check here.
 			if (!CResBankRegion_CanSpawnTemplate(region, node->id))
 				continue;
 
@@ -2511,6 +2510,10 @@ SpawnAtPointForLocation(uint16_t templateId, uint16_t x, uint16_t y, int16_t z, 
  * Spawns templateId at (x, y, z) in region after passing budget,
  * CanSpawnHere, and FindSpawnSpot checks. Returns the new mob's
  * serial, or 0 with a failure counter incremented.
+ *
+ * MODIFIED: debits the spawned template from the region's resource bank
+ * through DeductSpawnFromBank - gated on the closed-economy feature
+ * inside the callee.
  */
 static uint32_t
 CResBankRegion_SpawnAtPoint(CResBankRegion *region, uint16_t templateId, uint16_t x, uint16_t y, int16_t z, int noWander)
@@ -2560,6 +2563,10 @@ CResBankRegion_SpawnAtPoint(CResBankRegion *region, uint16_t templateId, uint16_
  *
  * Finds a walkable spot inside the subregion box via FindSpawnSpotInBox
  * and spawns templateId there, returning the new mob or NULL.
+ *
+ * MODIFIED: debits the spawned template from the region's resource bank
+ * through DeductSpawnFromBank - gated on the closed-economy feature
+ * inside the callee.
  */
 static CItem *
 CResBankRegion_SpawnAtPointInBox(CResBankRegion *region, uint16_t templateId, SubRegion *sub)
@@ -2583,11 +2590,12 @@ CResBankRegion_SpawnAtPointInBox(CResBankRegion *region, uint16_t templateId, Su
 		USED(spawnFlags);
 	}
 
-	resultLoc.x = 0xFFFF;
-	resultLoc.y = 0xFFFF;
-	resultLoc.z = -1;
+	CLocation_Init(&resultLoc);
 
 	height = GetCreatureHeight(templateId);
+
+	CLocation_Init(&boxMin);
+	CLocation_Init(&boxMax);
 
 	CLocation_Set(&boxMin, (int16_t)sub->x1, (int16_t)sub->y1, sub->z1);
 	CLocation_Set(&boxMax, (int16_t)sub->x2, (int16_t)sub->y2, sub->z2);
@@ -3356,7 +3364,7 @@ AddResourceNodesByCategory(CItem *eggEntity, int categoryIdx, int count)
 	CResourceNode *child;
 	CResourceNode *found;
 	int32_t v1, v2, v3;
-	uint8_t nodeType;
+	CResourceNode scratch;
 	uint16_t nodeId;
 
 	if (categoryIdx >= 0xd)
@@ -3364,8 +3372,13 @@ AddResourceNodesByCategory(CItem *eggEntity, int categoryIdx, int count)
 
 	resSn = g_BodyTypeSerials[categoryIdx];
 
-	if ((resSn & 0xFFFF) >= 0x4000)
+	if (!CWorld_IsValidItemResource((uint16_t)resSn))
 		return;
+
+	// The binary brackets this scratch node with the array-new cookie
+	// flag at 0x006DC238, which nothing reads; that is MSVC scaffolding
+	// and omitted like the other codegen guards.
+	CResourceNode_ConstructorWrapper(&scratch);
 
 	resData = &g_ResEntitySlots[resSn];
 
@@ -3381,21 +3394,23 @@ AddResourceNodesByCategory(CItem *eggEntity, int categoryIdx, int count)
 		v2 = child->value2 * count;
 		v3 = child->value1 * count; // binary: value3 = value1 * count
 
-		nodeType = child->type;
-		nodeId = child->id;
+		scratch.type = child->type;
+		scratch.id = child->id;
 
-		found = CResourceEntity_FindNode(eggEntity, nodeId, 3);
+		found = CResourceEntity_FindNode(eggEntity, scratch.id, 3);
 
 		if (found != NULL) {
 			found->value1 += v1;
 			found->value2 += v2;
 			found->value3 += v3;
 		} else {
-			CResourceEntity_AddNode(eggEntity, nodeId, (int8_t)nodeType, v1, v2, v3, 0);
+			CResourceEntity_AddNode(eggEntity, scratch.id, (int8_t)scratch.type, v1, v2, v3, 0);
 		}
 
 		child = child->next;
 	}
+
+	CResourceNode_Noop(&scratch);
 }
 
 /*
@@ -4755,7 +4770,6 @@ ProcessBlockItemsForSpawn(CItem *head)
 {
 	CItem *cur, *next;
 	uint32_t tdFlags;
-	int isContainer, isWeapon;
 
 	cur = head;
 
@@ -4774,10 +4788,7 @@ ProcessBlockItemsForSpawn(CItem *head)
 
 		tdFlags = g_ItemTileData[(uint16_t)CEntity_GetBodyType(cur)].flags;
 
-		isContainer = VT_IsMobile2(cur);
-		isWeapon = VT_IsWeapon(cur);
-
-		if (((tdFlags & 0x200000) && !isContainer) || (!(tdFlags & 0x200000) && isWeapon)) {
+		if (((tdFlags & 0x200000) && !VT_IsMobile2(cur)) || (!(tdFlags & 0x200000) && VT_IsWeapon(cur))) {
 			CLocation savedLoc;
 			uint32_t savedBody;
 			uint32_t savedHue;
@@ -4818,7 +4829,7 @@ ProcessBlockItemsForSpawn(CItem *head)
 			USED(savedLayer);
 			USED(savedAmount);
 
-		} else if (((tdFlags & 0x8000002) && !isWeapon) || (!(tdFlags & 0x8000002) && isContainer)) {
+		} else if (((tdFlags & 0x8000002) && !VT_IsWeapon(cur)) || (!(tdFlags & 0x8000002) && VT_IsMobile2(cur))) {
 			CLocation savedLoc;
 			uint32_t savedBody;
 			uint32_t savedHue;
@@ -4858,7 +4869,7 @@ ProcessBlockItemsForSpawn(CItem *head)
 			USED(savedLayer);
 			USED(savedAmount);
 
-		} else if (isContainer) {
+		} else if (VT_IsMobile2(cur)) {
 			CContainer *cont = (CContainer *)cur;
 			ProcessBlockItemsForSpawn(cont->contents);
 		}
@@ -5585,7 +5596,7 @@ Spawn_GetTemplatesRM(void)
 }
 
 /*
- * Helper - DeductSpawnFromBank
+ * Custom - DeductSpawnFromBank
  *
  * Walks templateId's type-3 production nodes and subtracts each value1
  * from the bank at loc via SubtractFromQuantity + AddToSpawnedCount.

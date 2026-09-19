@@ -304,6 +304,18 @@ FileManager_Close(FileManager *fm, FileManagerEntry *entry)
  * "@@@.@@@" sentinel, populating fm->entries. MODIFIED: POSIX I/O in
  * place of Win32; the std::map filename index is dropped in favor of a
  * linear scan in FileManager_Open.
+ *
+ * FIXED: the binary copies each entry into fm->entries with no bound on
+ * numEntries, so a container holding more than FM_MAX_ENTRIES entries
+ * before its sentinel writes past the array. The loop stops at the
+ * capacity instead.
+ *
+ * MODIFIED: the binary ignores fread's return and leaves the loop only
+ * on the sentinel, so a truncated container re-reads the last record
+ * forever; it also seeds the local entry with the sentinel through
+ * FileManagerEntry's constructor, which is what makes a zero-length
+ * read terminate. We break on a short read and only zero the local.
+ * The final seek goes to the end rather than to the saved length.
  */
 void
 FileManager_ReadDirectory(FileManager *fm)
@@ -469,20 +481,6 @@ FileManager_Write(FileManager *fm, const void *buf, int elemSize, int elemCount,
 		entry->dataSize = entry->curPos;
 
 	return nwritten;
-}
-
-/*
- * Helper - FileManager_Ftell
- *
- * Returns the entry's current position.
- */
-long
-FileManager_Ftell(FileManager *fm, FileManagerEntry *entry)
-{
-	USED(fm);
-	if (entry == NULL)
-		return -1;
-	return (long)entry->curPos;
 }
 
 /*

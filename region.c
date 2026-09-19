@@ -55,7 +55,7 @@ static void CRegion_InitFields(CRegion *this); // 0x004A3EF2
 static int CRegion_GetOccupancy(CRegion *this, int unused); // 0x004A418E
 static void RegionManager_Destructor(void); // 0x004A4371
 static int RegionManager_EraseByPrefix(uint32_t prefix); // 0x004A44A4
-static FILE *RegionManager_SaveRegionLine(uint16_t version, FILE *fp, CRegion *region); // 0x004A46E5
+static char *RegionManager_SaveRegionLine(uint16_t version, char *buf, CRegion *region); // 0x004A46E5
 static void RegionManager_SaveRegionBinary(uint16_t version, FILE *fp, CRegion *region); // 0x004A4804
 static void RegionManager_ParseRegionLine(uint16_t version, const char *line, int prefixFlag, int prefixValue); // 0x004A4A71
 static void CRegion_NullDestructor1(CRegion *this, uint16_t arg); // 0x004A500F
@@ -367,7 +367,7 @@ CRegion_ValidateBounds(CRegion *this)
  * Scans every tile in the region's bounding rectangle and returns
  * the percentage of tiles that hold a static item.
  */
-static int __attribute__((unused))
+static int
 CRegion_GetOccupancy(CRegion *this, int unused)
 {
 	int found;
@@ -596,21 +596,21 @@ rebuild:
 /*
  * 0x004A46E5 - RegionManager::SaveRegionLine
  *
- * Writes a CRegion as one text line to fp. Versions > 0xFACE
- * include weatherNight and lightLevel.
+ * Formats a CRegion as one text line into buf and returns it. Versions
+ * > 0xFACE include weatherNight and lightLevel.
  */
-static __attribute__((unused)) FILE *
-RegionManager_SaveRegionLine(uint16_t version, FILE *fp, CRegion *region)
+static __attribute__((unused)) char *
+RegionManager_SaveRegionLine(uint16_t version, char *buf, CRegion *region)
 {
 	if ((uint16_t)version > 0xFACE) {
-		fprintf(fp, "%5u %5hd %5hd %5hd %5hd %5hd %5hd %12d %s %hu %hu %hu %hu %u %s\n", region->prefix, region->x, region->y, region->width, region->height, region->zMin,
+		sprintf(buf, "%5u %5hd %5hd %5hd %5hd %5hd %5hd %12d %s %hu %hu %hu %hu %u %s\n", region->prefix, region->x, region->y, region->width, region->height, region->zMin,
 		        region->zMax, 0, region->name, (unsigned short)region->weatherSeason, (unsigned short)region->weatherDay, (unsigned short)region->weatherNight,
 		        (unsigned short)region->type, (unsigned int)(int16_t)region->lightLevel, region->name2);
 	} else {
-		fprintf(fp, "%5u %5hd %5hd %5hd %5hd %5hd %5hd %12d %s %hu %hu %hu %s\n", region->prefix, region->x, region->y, region->width, region->height, region->zMin,
+		sprintf(buf, "%5u %5hd %5hd %5hd %5hd %5hd %5hd %12d %s %hu %hu %hu %s\n", region->prefix, region->x, region->y, region->width, region->height, region->zMin,
 		        region->zMax, 0, region->name, (unsigned short)region->weatherSeason, (unsigned short)region->weatherDay, (unsigned short)region->type, region->name2);
 	}
-	return fp;
+	return buf;
 }
 
 /*
@@ -1250,7 +1250,7 @@ RegionManager_isInCityRegion(CLocation *loc)
  * "dungn_" prefix from the region name.
  */
 void
-RegionManager_FindLVNRegion(CResManager *rm, int startX, int startY, int endX, int endY, char *outBuf, int maxLen)
+RegionManager_FindLVNRegion(int startX, int startY, int endX, int endY, CResManager *rm, char *outBuf, int maxLen)
 {
 	CSearchCtx ctx;
 	CSearchCtx temp;

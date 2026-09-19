@@ -72,7 +72,7 @@ static void CTemplateManager_ParseSfx(CItem *entity, const char *data, int field
 static char *CTemplateManager_ParseBracedDefineList(char *dataCursor, CStringList *list); // 0x004BA9B6
 static void CTemplateManager_LoadObjVar(CItem *entity, char *data); // 0x004BA865
 static void CTemplate_LoadSkillNameStr(CMobile *mob, char *dataCursor); // 0x004BA7D6
-static void CTemplateManager_ParseResource(NPCTemplate *tmpl, char *data); // 0x004BA62A
+static void CTemplateManager_ParseResource(NPCTemplate *tmpl, char *data, int unused); // 0x004BA62A
 static int CTemplateManager_ResolveDefines(CString *input, CString *output); // 0x004BA44B
 static int CTemplateManager_LoadDefines(void); // 0x004BA2AA
 static void CTemplateManager_ClearDefines(CTemplateManager *this); // 0x004BA291
@@ -471,14 +471,16 @@ CTemplateManager_ResolveDefines(CString *input, CString *output)
  * Resource type: food=0, shelter=1, desire=2, production=3.
  */
 static void
-CTemplateManager_ParseResource(NPCTemplate *tmpl, char *data)
+CTemplateManager_ParseResource(NPCTemplate *tmpl, char *data, int unused)
 {
-	char tokenBuf[16];
+	char tokenBuf[24];
 	int resType;
 	CResourceNode *node;
 	int val1;
 	int val2;
 	CResourceType *rt;
+
+	USED(unused);
 
 	data = GetValue(data, tokenBuf);
 
@@ -2176,7 +2178,7 @@ CTemplateManager_LoadTemplates(void)
 			}
 			if (doResource) {
 				doResource = 0;
-				CTemplateManager_ParseResource(tmpl, tmpl->rawFields[numRawFields - 1].data);
+				CTemplateManager_ParseResource(tmpl, tmpl->rawFields[numRawFields - 1].data, numRawFields - 1);
 			}
 			if (doCorpsename) {
 				SCommand_ParseToken(tmpl->rawFields[numRawFields - 1].data, key);

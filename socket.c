@@ -722,7 +722,7 @@ CListenSocket_ListenRange(CListenSocket *this, int startPort, int endPort, int b
 {
 	uint32_t optval;
 	struct sockaddr_in sin;
-	uint32_t port; // binary: uint16_t ports[2] accessed as *(uint32_t *)
+	int port; // binary: uint16_t ports[2] accessed as *(uint32_t *)
 
 	optval = 1;
 	this->socket.s = socket(AF_INET, SOCK_STREAM, 0);
@@ -738,12 +738,12 @@ CListenSocket_ListenRange(CListenSocket *this, int startPort, int endPort, int b
 	}
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_family = AF_INET;
-	for (port = (uint32_t)startPort; port < (uint32_t)endPort; ++port) {
+	for (port = startPort; port < endPort; ++port) {
 		sin.sin_port = htons((uint16_t)port);
 		if (bind(this->socket.s, (struct sockaddr *)&sin, sizeof(sin)) != -1)
 			break;
 	}
-	if (port == (uint32_t)endPort) {
+	if (port == endPort) {
 		perror("CListenSocket::Init: bind");
 		close(this->socket.s);
 		this->socket.s = -1;

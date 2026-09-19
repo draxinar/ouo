@@ -1165,7 +1165,7 @@ HandleReturnMismatch(CExecThread *thread)
 
 	aligned = (typeSize + 3) & ~3;
 
-	if (typeSize > 0) {
+	if (typeSize != 0) {
 		// Peek hstack for saved scope position
 		peek = (intptr_t)CNodeList_Peek(&thread->hstack);
 		base = (char *)thread->scope.data + peek - sizeof(void *);
@@ -4291,7 +4291,9 @@ CArray_Init(WombatArray *arr, int width, int height, CList *typeList)
  * (always false at j=0), so the per-element CString/CUString delete
  * branch is dead code and every string stored via SetStrElem or
  * SetUStrElem leaks for the lifetime of the process. The intended
- * bound is `j < arr->height`.
+ * bound is `j < arr->height`. With that bound live, the loop
+ * dereferences the element pointer the binary dereferences unguarded,
+ * so both sites also test it for NULL.
  */
 static void
 CArray_Free(WombatArray *arr)
@@ -5077,7 +5079,7 @@ Script_superTargetObj(uint32_t serial, uint32_t cursorId, int cursorType)
 {
 	CItem *ent;
 	CPlayer *player;
-	uint8_t buf[24];
+	uint8_t buf[20];
 	uint32_t targetObj;
 	CLocation targetLoc;
 	int targetType;
@@ -5180,7 +5182,7 @@ Script_superTargetLoc(uint32_t serial, uint32_t cursorId, int cursorType, int mu
 {
 	CItem *ent;
 	CPlayer *player;
-	uint8_t buf[24];
+	uint8_t buf[20];
 	uint32_t targetObj;
 	CLocation targetLoc;
 	int targetType;
@@ -5260,7 +5262,7 @@ Script_targetLocMulti(uint32_t serial, uint32_t cursorId, int multiId, int xOff,
 {
 	CItem *ent;
 	CPlayer *player;
-	uint8_t buf[32];
+	uint8_t buf[28];
 	uint32_t targetObj;
 	CLocation targetLoc;
 	int targetType;
@@ -5327,7 +5329,7 @@ Script_targetLocObjList(uint32_t serial, uint32_t cursorId, int multiId, int xOf
 {
 	CItem *ent;
 	CPlayer *player;
-	uint8_t buf[0x2018];
+	uint8_t buf[0x2010];
 	uint32_t targetObj;
 	CLocation targetLoc;
 	int targetType;
@@ -5714,7 +5716,7 @@ static void
 selectTypeImpl(uint32_t playerSerial, uint32_t serial, uint32_t dialogId, CString *title, CList *list, uint32_t withHue)
 {
 	ObjPickerEntry entries[256];
-	uint8_t buf[0x2014];     // packet buffer
+	uint8_t buf[0x2008];     // packet buffer
 	CListNode *node;
 	CPlayer *player;
 	int nodeCount; // dead: tracks consumed list nodes (var_80ch)
@@ -7392,6 +7394,7 @@ Script_animateMobile(uint32_t serial, int animType, int action, int frameCount, 
 	uint8_t seqData[30];
 	uint8_t buf[14];
 	uint8_t *ptr;
+	int deadSeqLen; // Written but never read.
 
 	mob = FindMobileValidated(serial, "animateMobile");
 	if (mob == NULL)
@@ -7402,6 +7405,8 @@ Script_animateMobile(uint32_t serial, int animType, int action, int frameCount, 
 		return;
 
 	if (g_AnimSequence.state) {
+		deadSeqLen = 30;
+		USED(deadSeqLen);
 		CLocation_SetLoc(&tmpLoc, CEntity_GetLocation(&mob->resourceEntity.entity));
 		AnimSequence_AddLocation(tmpLoc);
 		ptr = seqData;
@@ -13041,8 +13046,10 @@ Script_doLocAnimation(CLocation *loc, int effectId, int speed, int duration, int
 	uint8_t seqData[26];
 	uint8_t buf[28];
 	uint8_t *ptr;
+	int seqLen;
 
 	if (g_AnimSequence.state) {
+		seqLen = 26;
 		AnimSequence_AddLocation(*loc);
 		ptr = seqData;
 		memcpy(ptr, &effectId, 4);
@@ -13057,6 +13064,7 @@ Script_doLocAnimation(CLocation *loc, int effectId, int speed, int duration, int
 		ptr += 4;
 		memcpy(ptr, &renderMode, 4);
 		AnimSequence_AddCommand(0, seqData, 26);
+		USED(seqLen);
 	} else {
 		PacketManager_MakePacket_EFFECT(buf, 2, 0, 0, (uint16_t)effectId, loc->x, loc->y, (uint8_t)loc->z, loc->x, loc->y, (uint8_t)loc->z, (uint8_t)speed,
 		        (uint8_t)duration, (uint8_t)hue, (uint8_t)renderMode, 1, 0);
@@ -13566,6 +13574,9 @@ Script_canSeeObj(uint32_t serialA, uint32_t serialB)
  * FIXED: the binary dereferences the exhausted STL end sentinel
  * when copying serials out; the C version reads from the CVector
  * iteration directly.
+ *
+ * FIXED: it also passes an uninitialized stack byte as the CVector type
+ * flag, zeroed here.
  */
 void
 Script_getVisableTargets(CList *list, uint32_t serial)
@@ -13656,7 +13667,7 @@ Script_getFirstVisableTarget(uint32_t serial)
  * 0x004193F6 - getFirstVisableTargetInRange [618]
  *
  * Returns the serial of the first visible, non-hidden combat target
- * within the given range. 445 bytes. Same as getFirstVisableTarget
+ * within the given range. Same as getFirstVisableTarget
  * but adds a CLocation_ChebyshevDistance check before canSeeObj.
  * Binary uses "getTargets" string (shared with getTargets handler).
  */
@@ -20298,7 +20309,7 @@ static void
 BM_BuildGoodSuffixTable(const char *pattern)
 {
 	int len, lastIdx;
-	int suffix[104];
+	int suffix[100];
 	int i, j;
 	int lastJ;
 
@@ -21702,9 +21713,9 @@ Script_findClosestArea(uintptr_t resultName_str, uint32_t *resultLoc, uintptr_t 
 		if (strncasecmp(region->name, CString_GetCStr((CString *)(uintptr_t)namePrefix_str), prefixLen) != 0)
 			goto next;
 
-		centerX = (int)region->x + (int)region->width / 2;
-		centerY = (int)region->y + (int)region->height / 2;
-		centerZ = (int)region->zMin + ((int)region->zMax - (int)region->zMin) / 2;
+		centerX = (int)region->x + ((int)region->width >> 1);
+		centerY = (int)region->y + ((int)region->height >> 1);
+		centerZ = (int)region->zMin + (((int)region->zMax - (int)region->zMin) >> 1);
 
 		dx = centerX - (int)from[0];
 		dy = centerY - (int)from[1];

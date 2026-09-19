@@ -359,6 +359,7 @@ void CItem_AttachTemplate(CItem *item, uint16_t templateId); // 0x00490951
 void TemplateChain_Insert(CItem *item); // 0x00490973
 void TemplateChain_Remove(CItem *item); // 0x004909FB
 int CItem_GetWordProp(CItem *item); // 0x00490AB0
+int CItem_GetByteProp(CItem *ent); // 0x00490AC3
 uint8_t CItem_GetLayerThiscall(CItem *entity); // 0x00490AD6
 int CItem_GetSortKeyQty(CItem *item); // 0x00490DB7
 uint8_t CWorld_GetItemLayer(uint16_t bodyType); // 0x00490AF4

@@ -39,8 +39,6 @@ static CResourceNode *g_ResNodeFreeList;
 
 static void ResourceEntity_NotifyNodeZero(CResourceNode *node); // 0x004853B3
 static void CResourceNode_Init(CResourceNode *node); // 0x004A88BD
-static CResourceNode *CResourceNode_ConstructorWrapper(CResourceNode *this); // 0x004A88FB
-static void CResourceNode_Noop(CResourceNode *this); // 0x004A8A3B
 
 /*
  * 0x00420FA0 - CResourceEntity::GetBodyType
@@ -190,7 +188,7 @@ CResourceEntity_NotifyPreModify(CItem *entity)
  * non-zero value2 are copied instead of moved.
  */
 void
-CResourceEntity_TransferResources(CItem *dest, CItem *source, uint32_t transferAmount, int resTypeFilter)
+CResourceEntity_TransferResources(CItem *dest, CItem *source, int transferAmount, int resTypeFilter)
 {
 	CResourceNode *node, *next;
 
@@ -211,7 +209,7 @@ CResourceEntity_TransferResources(CItem *dest, CItem *source, uint32_t transferA
 			continue;
 		}
 
-		if (resTypeFilter >= 0 && node->id != (uint16_t)resTypeFilter) {
+		if (resTypeFilter >= 0 && (int)node->id != resTypeFilter) {
 			node = next;
 			continue;
 		}
@@ -221,7 +219,7 @@ CResourceEntity_TransferResources(CItem *dest, CItem *source, uint32_t transferA
 			continue;
 		}
 
-		if ((uint32_t)node->value3 <= transferAmount) {
+		if (node->value3 <= transferAmount) {
 			transferAmount -= node->value3;
 
 			// If value2 != 0 AND vtable[0x9C](source)
@@ -889,7 +887,7 @@ CResourceNode_Init(CResourceNode *node)
  *
  * Thiscall wrapper that forwards to CResourceNode_Init.
  */
-static __attribute__((unused)) CResourceNode *
+CResourceNode *
 CResourceNode_ConstructorWrapper(CResourceNode *this)
 {
 	CResourceNode_Init(this);
@@ -946,10 +944,10 @@ ResourceNode_ReturnToPool(CResourceNode *node)
 /*
  * 0x004A8A3B - CResourceNode::Noop
  *
- * Empty destructor referenced by the CResourceNode pool vtable and by
- * AddResourceNodesByCategory.
+ * Empty destructor, referenced by the CResourceNode pool vtable and
+ * called on the scratch node in AddResourceNodesByCategory.
  */
-static __attribute__((unused)) void
+void
 CResourceNode_Noop(CResourceNode *this)
 {
 	USED(this);

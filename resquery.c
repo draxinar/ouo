@@ -43,7 +43,7 @@ __extension__ typedef struct ResQuerySession {
 	int32_t *templateChainCountCache;
 	int32_t regionIndex;
 	uint32_t serial;
-	int32_t timestamp;
+	uint32_t timestamp;
 } ResQuerySession;
 
 /*
@@ -57,7 +57,7 @@ ResQuery_ResetTimestamps(int slotIndex)
 {
 	int i;
 	for (i = 0; i < 8; i++) {
-		if (g_ResSessionSlots[i] != NULL && g_ResSessionSlots[i]->timestamp != -1)
+		if (g_ResSessionSlots[i] != NULL && g_ResSessionSlots[i]->timestamp != (uint32_t)-1)
 			g_ResSessionSlots[i]->timestamp++;
 	}
 	g_ResSessionSlots[slotIndex]->timestamp = 0;
@@ -73,7 +73,7 @@ ResQuery_GetOrCreateSession(CPlayer *player)
 {
 	int i;
 	int emptySlot;
-	int oldestTime;
+	uint32_t oldestTime;
 	ResQuerySession *session;
 
 	// One-time init.
@@ -83,7 +83,8 @@ ResQuery_GetOrCreateSession(CPlayer *player)
 			g_ResSessionSlots[i] = NULL;
 	}
 
-	// Combined search: find existing match or first empty slot.
+	// Combined search: find an existing match, or an empty slot - the
+	// loop keeps the last empty slot it sees, not the first.
 	emptySlot = -1;
 	for (i = 0; i < 8; i++) {
 		if (g_ResSessionSlots[i] == NULL) {

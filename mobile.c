@@ -933,7 +933,7 @@ CMobile_GetWeapon(CMobile *this)
  * 0x0046D812 - CMobile::PruneCombatLists
  *
  * Drops TTL-expired entries from attackerList and combatTargetList.
- * Invoked every 4 ticks from CombatHeartBeat.
+ * Invoked from CombatHeartBeat on the ticks whose bit 2 is set.
  */
 static void
 CMobile_PruneCombatLists(CMobile *mob)
@@ -947,7 +947,7 @@ CMobile_PruneCombatLists(CMobile *mob)
  *
  * Runs SwingResolve on every live mobile each tick (skipping
  * multi-slaves and the all-frozen-NPC case), and prunes combat
- * lists every fourth tick.
+ * lists on the ticks whose bit 2 is set - four of every eight.
  */
 void
 CMobileManager_CombatHeartBeat(uint32_t tickCount)
@@ -1486,9 +1486,13 @@ CMobile_CheckWalkDir(CNPC *npc, int dir)
 	int height;
 	uint32_t serial;
 	CItem *found;
+	int deadLocal; // Written but never read.
 
 	if (!CMobile_IsWalkableBodyType(npc))
 		return 0;
+
+	deadLocal = 0;
+	USED(deadLocal);
 
 	CLocation_SetLoc(&loc, &npc->mobile.container.item.resourceEntity.entity.location);
 	CLocation_MoveDir(&loc, dir);
@@ -2613,9 +2617,7 @@ CMobile_PutMoneyInBank(CMobile *mob, CItem *item, int amount)
 		goto cleanup;
 
 	CLocation_Init(&loc);
-	loc.x = -1;
-	loc.y = -1;
-	loc.z = 0;
+	CLocation_Set(&loc, -1, -1, 0);
 
 	savedSerial = item->serial;
 
@@ -2722,8 +2724,6 @@ FindCorpseBySerial(uint32_t serial)
 {
 	CItem *ent;
 
-	if (serial == 0)
-		return NULL;
 	ent = CWorld_FindBySerial(g_World, serial);
 	if (ent == NULL)
 		return NULL;
@@ -3353,7 +3353,7 @@ CMobile_Destructor(CMobile *mob)
 	CMobile *newMaster;
 	CMobile *cur, *next;
 
-	// Set vtable to CMobile (0x005EEF48)
+	mob->container.item.resourceEntity.entity.vtable = &g_vtable_CMobile;
 
 	// Hide if not removed from world
 	if (mob->container.item.resourceEntity.entity.removedFromWorld == 0)
@@ -3400,7 +3400,7 @@ CMobile_Destructor(CMobile *mob)
 		mob->nextMobile->prevMobile = mob->prevMobile;
 	if (mob->prevMobile != NULL)
 		mob->prevMobile->nextMobile = mob->nextMobile;
-	else if (g_MobileListHead == mob)
+	if (g_MobileListHead == mob)
 		g_MobileListHead = mob->nextMobile;
 
 	// Free name via operator delete
@@ -5593,7 +5593,7 @@ CMobile_ComputeNotoriety(CMobile *subject, CMobile *viewer)
  * their controller) as criminally punishable.
  */
 void
-CMobile_NotifyDamage(CMobile *target, CMobile *attacker)
+CMobile_NotifyDamage(CMobile *target, CMobile *attacker, int flag)
 {
 	CItem *self = &target->container.item;
 	CItem *atk = &attacker->container.item;
@@ -5601,6 +5601,8 @@ CMobile_NotifyDamage(CMobile *target, CMobile *attacker)
 	CLocation *loc;
 	CList localList;
 	CString localStr;
+
+	USED(flag);
 
 	if (atk == NULL)
 		return;
@@ -6141,7 +6143,6 @@ CMobile_WeightRelated_VT(CMobile *self)
 		((void (*)(CItem *))VT_FN(saved[i], VT_WEIGHT_RELATED))(saved[i]);
 	}
 
-	// Refresh container contents (binary: fcn.004e0fd5)
 	CContainer_RefreshContents(self);
 
 	// Re-equip and unlock

@@ -129,7 +129,7 @@ CRandom_ParseAndRoll(const char *str)
 static __attribute__((unused)) int
 CRandom_ParseAndAverage(const char *str)
 {
-	int numValue, numSides, bonus;
+	int numValue, numSides, bonus, result;
 
 	numSides = 0;
 	bonus = 0;
@@ -146,6 +146,8 @@ CRandom_ParseAndAverage(const char *str)
 			numSides = numSides * 10 + (*str - '0');
 			str++;
 		}
+	} else {
+		result = numValue;
 	}
 
 	if (*str == '+') {
@@ -165,5 +167,6 @@ CRandom_ParseAndAverage(const char *str)
 		bonus = -bonus;
 	}
 
-	return (numValue + numValue * numSides) / 2 + bonus;
+	result = (numValue + numValue * numSides) / 2 + bonus;
+	return result;
 }

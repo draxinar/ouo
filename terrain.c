@@ -1158,7 +1158,6 @@ CTerrainManager_MovePlayer(CItem *player, int direction, uint8_t sequence)
  * 0x0046ACC8 - CTerrainManager::GetDistance
  *
  * Chebyshev distance between two locations: max(|dx|, |dy|, |dz|/11).
- * ORPHANED: zero callers in binary.
  */
 int
 CTerrainManager_GetDistance(CTerrainManager *this, CLocation loc1, CLocation loc2)

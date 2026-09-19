@@ -939,6 +939,9 @@ CEScript_ErrorLog(CEScript *ctx, const char *msg)
  * FIXED: the binary formats "../.rundir/escripts/%s.esc" into a 128-byte
  * buffer with no length check on scriptName, smashing the stack on names
  * over 103 chars. Replaced sprintf with snprintf bounded by sizeof(path).
+ *
+ * FIXED: the binary carries on with a null child when the allocation
+ * fails and writes field1414 through it; we return instead.
  */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
@@ -1019,20 +1022,12 @@ CEScript_CmdGetTerr(CEScript *ctx, char *line)
 	idx = CEScript_FindOrCreateVar(ctx, tokenBuf, delim);
 
 	// Parse X
-	{
-		char xBuf[256];
-		char xDelim;
-		line = CEScript_ParseToken(ctx, line, xBuf, &xDelim);
-		x = CEScript_EvalExpression(ctx, xDelim, xBuf);
-	}
+	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
+	x = CEScript_EvalExpression(ctx, delim, tokenBuf);
 
 	// Parse Y
-	{
-		char yBuf[256];
-		char yDelim;
-		line = CEScript_ParseToken(ctx, line, yBuf, &yDelim);
-		y = CEScript_EvalExpression(ctx, yDelim, yBuf);
-	}
+	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
+	y = CEScript_EvalExpression(ctx, delim, tokenBuf);
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
 		CEScript_ErrorLog(ctx, "tried to get terrain off map");
@@ -1078,20 +1073,12 @@ CEScript_CmdGetAlt(CEScript *ctx, char *line)
 	idx = CEScript_FindOrCreateVar(ctx, tokenBuf, delim);
 
 	// Parse X
-	{
-		char xBuf[256];
-		char xDelim;
-		line = CEScript_ParseToken(ctx, line, xBuf, &xDelim);
-		x = CEScript_EvalExpression(ctx, xDelim, xBuf);
-	}
+	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
+	x = CEScript_EvalExpression(ctx, delim, tokenBuf);
 
 	// Parse Y
-	{
-		char yBuf[256];
-		char yDelim;
-		line = CEScript_ParseToken(ctx, line, yBuf, &yDelim);
-		y = CEScript_EvalExpression(ctx, yDelim, yBuf);
-	}
+	line = CEScript_ParseToken(ctx, line, tokenBuf, &delim);
+	y = CEScript_EvalExpression(ctx, delim, tokenBuf);
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, x, y)) {
 		CEScript_ErrorLog(ctx, "tried to get altitude off map");

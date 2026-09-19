@@ -802,7 +802,6 @@ CItem_ProcessEntityTimers(CItem *entity)
 		// Handler may have deleted the entity; if so, free remaining
 		// nodes without firing them.
 		if (CWorld_FindBySerial(g_World, serial) != entity) {
-			ptr++;
 			while (ptr != (uintptr_t *)vec.end) {
 				t = (TimerNode *)*ptr;
 				FreeTimerNode(t);

@@ -218,7 +218,7 @@ ContainerHandle_Flush(ContainerHandle *this)
 
 		if (this->isQFile) {
 			FileManagerEntry *entry = (FileManagerEntry *)this->fp;
-			long saved = FileManager_Ftell(g_FileManager, entry);
+			long saved = (long)entry->curPos;
 			FileManager_Seek(g_FileManager, entry, this->pageFileOff, SEEK_SET);
 			FileManager_Write(g_FileManager, this->pageBuffer, 1, this->pageDataSize, entry);
 			if (this->pageFileOff + this->pageDataSize == this->logicalSize)

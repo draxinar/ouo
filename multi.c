@@ -123,8 +123,6 @@ static void SmartPtr_Destructor_CVector(CSmartPtr *self); // 0x0047C730
 static void SmartPtr_Destructor_CMultiDef(CSmartPtr *self); // 0x0047CF00
 static void InsertionSort_Int(void *first, void *last, int cmpVal, int unused); // 0x0047D0A0
 static void InsertionSort_Dist(void *first, void *last, CLocation cmpLoc); // 0x0047D280
-static void HideItemsInVector(CVector *list);
-static void RestoreItemsInVector(CVector *list);
 static int CMultiSlave_MapSwitchMove_Wrap(CMultiSlave *slave, CLocation *loc);
 
 // 0x005EF190 - CMultiComponent vtable (4 function pointers)
@@ -864,7 +862,7 @@ CMultiSlave_Move(CMultiSlave *slave, CLocation *loc)
 
 	CMultiSlave_GetItems(slave, &itemList);
 
-	HideItemsInVector(&itemList);
+	HideItemsInVector_Raw((uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, 0);
 
 	ownerItem = (CItem *)slave->base.ownerItem;
 	CLocation_SetLoc(&savedLoc, &ownerItem->resourceEntity.entity.location);
@@ -940,7 +938,7 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 
 	CMultiSlave_GetItems(slave, &itemList);
 
-	HideItemsInVector(&itemList);
+	HideItemsInVector_Raw((uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, 0);
 
 	ownerItem = (CItem *)slave->base.ownerItem;
 	CLocation_SetLoc(&savedLoc, &ownerItem->resourceEntity.entity.location);
@@ -959,7 +957,7 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 		((void (*)(void *, void *))VT_FN(ownerItem, VT_DROP_AT_FEET))(ownerItem, &savedLoc);
 
 		// Restore carried items at their original positions
-		RestoreItemsInVector(&itemList);
+		RestoreItems_Raw((uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, 0);
 
 		CVector_Destructor(&itemList);
 		return result;
@@ -2416,6 +2414,10 @@ CMultiManager_MoveMulti(CResManager *this, uint16_t typeId, CMultiSlave *slave, 
  * Hides carried items and the owner, validates the target location,
  * and (on success) reshapes the multi's components via MoveMultiInternal
  * before dropping the owner and restoring carried items.
+ *
+ * FIXED: the binary passes an uninitialized stack byte as the CVector
+ * type flag, and two more as the stateless functors handed to the hide
+ * and restore passes. All three are zeroed here.
  */
 int
 CMultiManager_RecycleMultiCheck(CResManager *this, int bodyType, CMultiSlave *slave, CLocation *loc, int checkFlag, int flags)
@@ -2433,7 +2435,7 @@ CMultiManager_RecycleMultiCheck(CResManager *this, int bodyType, CMultiSlave *sl
 	// If carry, collect and hide items
 	if (slave->carry != 0) {
 		CMultiSlave_GetItems(slave, &itemList);
-		HideItemsInVector(&itemList);
+		HideItemsInVector_Raw((uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, 0);
 	}
 
 	// Hide ownerItem if not removed
@@ -2456,7 +2458,7 @@ CMultiManager_RecycleMultiCheck(CResManager *this, int bodyType, CMultiSlave *sl
 
 	// Restore carried items
 	if (slave->carry != 0) {
-		RestoreItemsInVector(&itemList);
+		RestoreItems_Raw((uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, 0);
 	}
 
 	CVector_Destructor(&itemList);
@@ -3773,7 +3775,7 @@ CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element)
 		mid = (char *)mid + (count * sizeof(CString));
 		CVector_Uninit_Copy16_Fwd2(this, pos, this->end, mid);
 		Destroy16_Range(this, this->begin, this->end);
-		CVector_ClearFreeRaw(this->begin, ((char *)this->capacity - (char *)this->begin) / sizeof(CString));
+		StdDeque_DeallocSI(this, this->begin, (int)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(CString)));
 		this->capacity = (char *)newBuf + (newTotal * sizeof(CString));
 		this->end = (char *)newBuf + (CVector_GetCount16(this) * sizeof(CString)) + (count * sizeof(CString));
 		this->begin = newBuf;
@@ -5216,18 +5218,6 @@ CResManager g_MultiManager; /* 0x006470A0 */
 CResManager g_MultiManagerSlaves;
 
 /*
- * Helper - CVector_ClearFreeRaw
- *
- * Frees a buffer allocated by CVector (operator delete[]).
- */
-void
-CVector_ClearFreeRaw(void *ptr, int count)
-{
-	USED(count);
-	free(ptr);
-}
-
-/*
  * Helper - CMulti_Free
  *
  * Releases a multi: slaves go through their scalar deleting destructor,
@@ -5244,39 +5234,6 @@ CMulti_Free(CMultiComponent *mc)
 		CMultiComponent_Destroy(mc, 1);
 	else
 		CMultiComponentPool_Return(mc);
-}
-
-/*
- * Helper - HideItemsInVector
- *
- * Calls VT_HIDE on every CItem in the vector.
- */
-static void
-HideItemsInVector(CVector *list)
-{
-	uintptr_t *p;
-
-	for (p = (uintptr_t *)list->begin; p != (uintptr_t *)list->end; p++) {
-		CItem *item = (CItem *)*p;
-		((void (*)(void *))VT_FN(item, VT_HIDE))(item);
-	}
-}
-
-/*
- * Helper - RestoreItemsInVector
- *
- * Drops every CItem in the vector at its own entity location.
- */
-static void
-RestoreItemsInVector(CVector *list)
-{
-	uintptr_t *p;
-
-	for (p = (uintptr_t *)list->begin; p != (uintptr_t *)list->end; p++) {
-		CItem *item = (CItem *)*p;
-		CLocation *loc = &item->resourceEntity.entity.location;
-		((void (*)(void *, void *))VT_FN(item, VT_DROP_AT_FEET))(item, loc);
-	}
 }
 
 /*

@@ -108,7 +108,7 @@ int RegionManager_inJusticeRegion(CLocation *loc); // 0x004A5762
 int RegionManager_isGuardedRegion(CLocation *loc); // 0x004A5848
 int RegionManager_IsInRegion(CLocation *loc, const char *prefix); // 0x004A58F4
 int RegionManager_isInCityRegion(CLocation *loc); // 0x004A599F
-void RegionManager_FindLVNRegion(CResManager *rm, int startX, int startY, int endX, int endY, char *outBuf, int maxLen); // 0x004A5A4B
+void RegionManager_FindLVNRegion(int startX, int startY, int endX, int endY, CResManager *rm, char *outBuf, int maxLen); // 0x004A5A4B
 int RegionManager_isHousingOkay(CLocation *loc, int flag); // 0x004A5BBA
 int RegionManager_areSpellsOkay(CLocation *loc); // 0x004A5DF4
 int RegionManager_IsInSpecialArea(CLocation *loc); // 0x004A5EA0

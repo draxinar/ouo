@@ -1070,6 +1070,7 @@ CPlayer_Constructor(CPlayer *this)
 	CPlayerList_AddPlayer(this);
 
 	this->cooldownCounter = 0;
+	// CUSTOM (FEAT_SKILL_LOCK): the lock array has no binary field.
 	memset(this->skillLocks, 0, sizeof(this->skillLocks));
 	mob->combatByte3 = 50;
 	mob->maxHp = 50;
@@ -1167,7 +1168,7 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
 {
 	CItem *item;
 	int speedRate;
-	uint32_t elapsed;
+	int elapsed;
 	int moveRate;
 	int staminaCost;
 
@@ -1175,8 +1176,7 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
 
 	elapsed = CTimeManager_GetTickCount() - this->movementTimers[this->movementIndex];
 
-	// 0x0045102b: vtable[0x214] GetSpeed, compute 500/speed (dead code -
-	// result stored in local but never used)
+	// Dead code: 500/speed is stored in a local and never used.
 	speedRate = 500 / ((int (*)(void *))VT_FN(item, VT_GET_SPEED))(item);
 	USED(speedRate);
 
@@ -1191,7 +1191,7 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
 		}
 	}
 
-	// 0x0045109e: mov ecx,1; test ecx,ecx; je (always-true dead code)
+	// Dead code: an always-true test whose false arm is unreachable.
 	if (1) {
 		if ((sequence & 0xFF) == 0)
 			CPlayer_SetMovePrevented(this, 0);
@@ -1405,7 +1405,6 @@ CPlayer_Heartbeat(CPlayer *this)
 		}
 	}
 
-	// 0x004516B3-0x004516BE: call 0x00454ADD (empty stub in binary).
 	CPlayer_HeartbeatCleanup(this);
 }
 
@@ -2809,7 +2808,7 @@ DoTurn(CItem *this, int direction, int isPlayer, uint8_t sequence)
 {
 	CVector nearbyList;
 	CVector deadList;
-	uint8_t pktBuf[8];
+	uint8_t pktBuf[4];
 	CItem *exclude;
 	uintptr_t *iter;
 	CItem *cur;
@@ -3900,7 +3899,7 @@ CPlayer_Disconnect(CPlayer *this)
 	int i;
 	uintptr_t *iter;
 	CItem *found;
-	uint8_t obuf[16];
+	uint8_t obuf[8];
 
 	CVector_Constructor(&scriptVec, &typeFlag);
 
@@ -5973,7 +5972,7 @@ static __attribute__((unused)) void
 CPlayerList_HandleAssistanceRecordB(CResList *list, uint8_t *buf, int unused)
 {
 	CSkillUseCtx ctx, reply;
-	uint8_t obuf[0x38];
+	uint8_t obuf[0x34];
 	CPlayer *target;
 	uint8_t *saved;
 
@@ -6183,8 +6182,7 @@ fallthrough:
 /*
  * 0x00488209 - CPlayer vtable[0x00C] Hide
  *
- * CPlayer override of VT_HIDE. Removes the player from the entity map
- * (no-op in our C implementation which uses spatial grid filtering),
+ * CPlayer override of VT_HIDE. Removes the player from the entity map,
  * notifies multi detach, removes tracking node, updates contain info,
  * stops combat, cancels trade, builds and broadcasts DESTROY_OBJECT
  * packet, then unlinks from spatial/container chains and marks removed.
@@ -6193,7 +6191,7 @@ void
 CPlayer_HideVT(CItem *self)
 {
 	CContainer *parentCont;
-	uint8_t pktBuf[16];
+	uint8_t pktBuf[8];
 	int blockIdx;
 
 	CItem_AdjustParentWeight(self, self->parent);
@@ -6240,8 +6238,7 @@ CPlayer_HideVT(CItem *self)
  * 0x004886DF - CPlayer vtable[0x010] DetachSpatial
  *
  * CPlayer override of VT_DETACH_SPATIAL. Same as CItem_DetachFromSpatial
- * but first removes the player from the entity map (no-op in our C
- * implementation which uses spatial grid filtering instead of std::multiset).
+ * but first removes the player from the entity map.
  */
 void
 CPlayer_DetachSpatial_VT(CItem *self)
@@ -6397,10 +6394,10 @@ void
 CPlayer_DropAtFeet_VT(CItem *self, CLocation *loc)
 {
 	CPlayer *player = (CPlayer *)self;
-	uint8_t zmoveBuf[0x18];
+	uint8_t zmoveBuf[0x14];
 	uint8_t sunlightBuf[4];
 	uint8_t lightBuf[8];
-	uint8_t zmoveBuf2[0x18];
+	uint8_t zmoveBuf2[0x14];
 	int blockIdx;
 	int lightLevel;
 

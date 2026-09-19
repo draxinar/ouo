@@ -90,7 +90,6 @@ void FileManager_ReadDirectory(FileManager *fm); // 0x004E2A96
 int FileManager_Read(FileManager *fm, void *buf, int elemSize, int elemCount, FileManagerEntry *entry); // 0x004E2CC1
 int FileManager_Seek(FileManager *fm, FileManagerEntry *entry, int offset, int whence); // 0x004E2D97
 int FileManager_Write(FileManager *fm, const void *buf, int elemSize, int elemCount, FileManagerEntry *entry); // 0x004E2E60
-long FileManager_Ftell(FileManager *fm, FileManagerEntry *entry);
 void FileManager_Shutdown(FileManager *fm);
 
 #endif /* FILEMANAGER_H_ */

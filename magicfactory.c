@@ -1637,8 +1637,10 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 	CStringList_GetWeightedRandom(list, &magicCtx);
 
 	// CStringList_HasEntries (0x0043d610): return (*(uint32_t*)this != 0)
-	if (!CStringList_HasEntries((CStringList *)&magicCtx))
+	if (!CStringList_HasEntries((CStringList *)&magicCtx)) {
+		CResBankMagicCtx_PostInit(&magicCtx);
 		return 0;
+	}
 
 	nodeData = CStringList_GetNodeData(list, &magicCtx);
 	CString_CopyConstructor(&nameStr, (CString *)nodeData);
@@ -1649,6 +1651,7 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 		CSearchCtx_Add(&ctxA, &tempCtx);
 
 		if (!CSearchCtx_Find(&ctxA)) {
+			CResBankMagicCtx_PostInit(&magicCtx);
 			CString_Destructor(&nameStr);
 			return 0;
 		}
@@ -1659,6 +1662,7 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 		CResBankMagicCtx_PostInit(&tempMagicCtx);
 
 		if (!CStringList_HasEntries((CStringList *)&magicCtx)) {
+			CResBankMagicCtx_PostInit(&magicCtx);
 			CString_Destructor(&nameStr);
 			return 0;
 		}
@@ -1669,6 +1673,7 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 	}
 
 	result = (uint16_t)CString_GetString(&nameStr);
+	CResBankMagicCtx_PostInit(&magicCtx);
 	CString_Destructor(&nameStr);
 	return result;
 }

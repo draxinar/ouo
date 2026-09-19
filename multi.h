@@ -363,7 +363,6 @@ struct CSearchCtx;
 void *CEntity_BeginIter(struct CSearchCtx *this, void *out); // 0x004CD9E0
 void *CItem_GetType(CItem *this); // 0x004CDA10
 int CItem_IsSameType(struct CSearchCtx *a, struct CSearchCtx *b); // 0x004CDA30
-void CVector_ClearFreeRaw(void *ptr, int count);
 void CMulti_Free(CMultiComponent *mc);
 int IntLessThan(void *a, void *b, int cmp);
 

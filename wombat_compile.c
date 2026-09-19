@@ -824,7 +824,9 @@ ScriptCreation_BeginDefer(void)
 }
 
 /*
- * Coercion helper - check var ref type (cases 2-5).
+ * Helper - CoerceCheckVarRef
+ *
+ * Check var ref type (cases 2-5).
  *
  * Returns 0 when the variable referenced by the current node has
  * typeId == targetType, advancing *chainPtr; returns 1 on mismatch.
@@ -841,8 +843,10 @@ CoerceCheckVarRef(ResultNode **chainPtr, int targetType)
 }
 
 /*
- * Coercion helper - check handler result type (case 0) with
- * oprlist/getObjVar specialization for WTYPE_UNKNOWN handlers.
+ * Helper - CoerceCheckHandler
+ *
+ * Check handler result type (case 0) with oprlist/getObjVar
+ * specialization for WTYPE_UNKNOWN handlers.
  *
  * Returns 0 when the handler's return type matches targetType.
  * For WTYPE_UNKNOWN handlers, rebinds Opr_listuni and
@@ -863,12 +867,9 @@ CoerceCheckHandler(ResultNode **chainPtr, int targetType, const char *oprlistSig
 		return 0;
 	}
 	if (typeId == WTYPE_UNKNOWN) {
-		// oprlist: binary 0x0040E5F6 = Opr_listuni
 		if (handler->handler == (uintptr_t)Opr_listuni) {
 			(*chainPtr)->value = (uintptr_t)LookupHandler("oprlist", oprlistSig);
-		}
-		// getObjVar: binary 0x004115D2 = Script_getObjVar
-		else if (getObjVarSig != NULL && handler->handler == (uintptr_t)Script_getObjVar) {
+		} else if (getObjVarSig != NULL && handler->handler == (uintptr_t)Script_getObjVar) {
 			(*chainPtr)->value = (uintptr_t)LookupHandler("getObjVar", getObjVarSig);
 		}
 		*chainPtr = (*chainPtr)->next;
@@ -878,7 +879,9 @@ CoerceCheckHandler(ResultNode **chainPtr, int targetType, const char *oprlistSig
 }
 
 /*
- * Coercion helper - check script function return type (case 1).
+ * Helper - CoerceCheckFunc
+ *
+ * Check script function return type (case 1).
  *
  * Returns 0 when the function referenced by the current node has
  * return type == targetType, advancing *chainPtr; returns 1 on

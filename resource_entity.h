@@ -63,7 +63,9 @@ void ResourceEntity_NotifyNodeRemoval(CResourceNode *node); // 0x004853B8
 void CResourceEntity_NotifyPostModify(CItem *entity); // 0x004854B2
 void CResourceEntity_NotifyPostModifyIfActive(CItem *entity); // 0x004854BD
 void CResourceEntity_NotifyPreModify(CItem *entity); // 0x004854C8
-void CResourceEntity_TransferResources(CItem *dest, CItem *source, uint32_t transferAmount, int resTypeFilter); // 0x00485523
+void CResourceEntity_TransferResources(CItem *dest, CItem *source, int transferAmount, int resTypeFilter); // 0x00485523
+CResourceNode *CResourceNode_ConstructorWrapper(CResourceNode *node); // 0x004A88FB
+void CResourceNode_Noop(CResourceNode *node); // 0x004A8A3B
 void CResourceEntity_RemoveResource(CItem *entity, int amount, int resTypeId); // 0x004856C8
 void CResourceEntity_TransferAllResources(CItem *dest, CItem *source); // 0x004857E1
 CResourceNode *CResourceEntity_FindNodeByPtr(CItem *this, CResourceNode *target); // 0x0048592F

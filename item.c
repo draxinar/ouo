@@ -2493,8 +2493,8 @@ CItem_SaveText_VT(CItem *item, char *buf, int dynamicFlag)
 
 	sprintf(buf + strlen(buf), " type=%d", CEntity_GetBodyType(item) & 0xFFFF);
 
-	if ((CWorld_GetItemLayer(item->resourceEntity.entity.bodyType) & 0xFF) != 0) {
-		sprintf(buf + strlen(buf), " qual=%d", CWorld_GetItemLayer(item->resourceEntity.entity.bodyType) & 0xFF);
+	if ((CItem_GetByteProp(item) & 0xFF) != 0) {
+		sprintf(buf + strlen(buf), " qual=%d", CItem_GetByteProp(item) & 0xFF);
 	}
 
 	if (item->parent != NULL)
@@ -2619,8 +2619,8 @@ CItem_SetSerial(CItem *item, uint32_t newSerial)
 		g_World->hashTable[bucket] = item->hashNext;
 	}
 
-	// The binary calls a no-op Noop_4851F0(serial) here when the serial
-	// actually changes; omitted since it has no observable effect.
+	if (item->serial != 0 && newSerial != item->serial)
+		Noop_4851F0();
 
 	CItem_SetSerialField(item, newSerial);
 
@@ -3549,7 +3549,7 @@ CItem_NormalizeValue(CItem *self, int value)
 int
 CItem_EquipOnMobile(CItem *item, CMobile *mob, int layer)
 {
-	uint8_t buf[20];
+	uint8_t buf[16];
 	CItem *topMob;
 	uint32_t savedSerial;
 
@@ -4012,7 +4012,7 @@ CItem_SendEntityUpdate_VT(CItem *self, CItem *viewer, int withEquip)
 void
 CItem_SendUpdateToList(CItem *item, CVector *players, int mode)
 {
-	uint8_t buf[512];
+	uint8_t buf[0x18];
 	CMobile *mob;
 	int i;
 	CItem **ptr;
@@ -4547,7 +4547,8 @@ CItem_SplitByAmount(CItem *this, uint16_t amount)
 		CEntity_SetObjVar(newItem, "valueless", 0, 1);
 	}
 
-	CItem_ConsumeAmount(this, newItem, amount & 0xFFFF);
+	if (!CItem_ConsumeAmount(this, newItem, amount & 0xFFFF))
+		return newItem;
 
 	if (savedParent != NULL) {
 		((void (*)(void *, CItem *, CLocation *))VT_FN(this, VT_ADD_TO_CONTAINER))(this, savedParent, &loc);
@@ -5716,6 +5717,17 @@ int
 CItem_GetWordProp(CItem *item)
 {
 	return CItem_GetTiledataQuantity(item);
+}
+
+/*
+ * 0x00490AC3 - CItem::GetByteProp
+ *
+ * Returns CItem::GetLayer().
+ */
+int
+CItem_GetByteProp(CItem *ent)
+{
+	return CItem_GetLayerThiscall(ent);
 }
 
 /*

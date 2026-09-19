@@ -799,7 +799,7 @@ ResBankDistrib_DrawLine(int mode, CEntity *entity, double x, double y)
 
 	if (absDx == 0 && absDy == 0) {
 		ResBankDistrib_MarkBlock(mode, entity, newX, newY);
-		goto done;
+		return;
 	}
 
 	if (absDx >= absDy) {
@@ -828,7 +828,6 @@ ResBankDistrib_DrawLine(int mode, CEntity *entity, double x, double y)
 		}
 	}
 
-done:
 	g_ResBankLineX = newX;
 	g_ResBankLineY = newY;
 }
