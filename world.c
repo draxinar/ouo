@@ -1327,10 +1327,11 @@ CWorld_FindEntityAtXY(CWorld *world, CLocation *loc)
 /*
  * 0x0048DD9B - CWorld::FindEntityAtXYZ
  *
- * As 0x0048DCD9 but also requires the z to match the given value.
+ * As 0x0048DCD9 but also requires the z to match. The location arrives
+ * by value, and all three fields come from it.
  */
 static __attribute__((unused)) CItem *
-CWorld_FindEntityAtXYZ(CWorld *world, CLocation *loc, int16_t z)
+CWorld_FindEntityAtXYZ(CWorld *world, CLocation *loc)
 {
 	int blockIdx;
 	CItem *iter;
@@ -1340,14 +1341,16 @@ CWorld_FindEntityAtXYZ(CWorld *world, CLocation *loc, int16_t z)
 
 	iter = g_SpatialGrid.cells[blockIdx].itemHead;
 	while (iter != NULL) {
-		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y && (int16_t)iter->resourceEntity.entity.location.z == z)
+		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y &&
+		        (int16_t)iter->resourceEntity.entity.location.z == (int16_t)loc->z)
 			return iter;
 		iter = iter->spatialNext;
 	}
 
 	iter = g_SpatialGrid.cells[blockIdx].staticHead;
 	while (iter != NULL) {
-		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y && (int16_t)iter->resourceEntity.entity.location.z == z)
+		if (iter->resourceEntity.entity.location.x == loc->x && iter->resourceEntity.entity.location.y == loc->y &&
+		        (int16_t)iter->resourceEntity.entity.location.z == (int16_t)loc->z)
 			return iter;
 		iter = (CItem *)iter->resourceEntity.nextInContainer;
 	}
@@ -1824,10 +1827,8 @@ CDataManager_InitArtBuffer(CWorld *this)
 
 	this->resEntitySlots = arrayStart;
 
-	if (arrayStart != NULL) {
-		for (i = 0; i < 0x4000; i++) {
-			CEntity_SetBodyType((CItem *)((char *)this->resEntitySlots + i * sizeof(CResourceEntity)), (uint16_t)i);
-		}
+	for (i = 0; i < 0x4000; i++) {
+		CEntity_SetBodyType((CItem *)((char *)this->resEntitySlots + i * sizeof(CResourceEntity)), (uint16_t)i);
 	}
 
 	this->isLoading = 0;

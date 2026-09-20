@@ -42,7 +42,7 @@ CEntity_vtable g_vtable_CResourceMobile;
 CEntity_vtable g_vtable_CNPC;
 CEntity_vtable g_vtable_CPlayer;
 CEntity_vtable g_vtable_CShopkeeper;
-CEntity_vtable g_vtable_CMulti;
+CEntity_vtable g_vtable_CCorpse;
 CEntity_vtable g_vtable_CEgg;
 CEntity_vtable g_vtable_CSignpost;
 CEntity_vtable g_vtable_CGuard;
@@ -74,8 +74,8 @@ VT_ForType(int etype)
 		return &g_vtable_CShopkeeper;
 	case ETYPE_GUARD:
 		return &g_vtable_CGuard;
-	case ETYPE_MULTI:
-		return &g_vtable_CMulti;
+	case ETYPE_CORPSE:
+		return &g_vtable_CCorpse;
 	case ETYPE_EGG:
 		return &g_vtable_CEgg;
 	case ETYPE_SIGNPOST:
@@ -112,8 +112,8 @@ VT_GetType(CEntity_vtable *vt)
 		return ETYPE_SHOPKEEPER;
 	if (vt == &g_vtable_CGuard)
 		return ETYPE_GUARD;
-	if (vt == &g_vtable_CMulti)
-		return ETYPE_MULTI;
+	if (vt == &g_vtable_CCorpse)
+		return ETYPE_CORPSE;
 	if (vt == &g_vtable_CEgg)
 		return ETYPE_EGG;
 	if (vt == &g_vtable_CSignpost)
@@ -854,29 +854,29 @@ VT_Init(void)
 
 	// CMulti: inherits CContainer
 	// Binary 0x005EF7C8: vtable[0xD4]=return_1, vtable[0x124]=CContainer_GetStoredWeight.
-	vt_copy(&g_vtable_CMulti, &g_vtable_CContainer);
+	vt_copy(&g_vtable_CCorpse, &g_vtable_CContainer);
 	// Dtor: slot 0 (0x00) = 0x004912C0 CCorpse_ScalarDelete
-	g_vtable_CMulti.fn[VT_DTOR / 4] = (vfunc_t)CCorpse_ScalarDelete;
+	g_vtable_CCorpse.fn[VT_DTOR / 4] = (vfunc_t)CCorpse_ScalarDelete;
 	// Binary 0xE0: VT_IS_SPATIAL = 0x0044A7D0 (return 0, inherited from CContainer)
-	g_vtable_CMulti.fn[VT_HAS_CORPSE_EQ / 4] = (vfunc_t)vt_stub_return_1;
-	// Save: slot 50 (0xC8) = 0x004C6A7F CMulti_Save
-	g_vtable_CMulti.fn[VT_SAVE / 4] = (vfunc_t)CMulti_Save;
+	g_vtable_CCorpse.fn[VT_HAS_CORPSE_EQ / 4] = (vfunc_t)vt_stub_return_1;
+	// Save: slot 50 (0xC8) = 0x004C6A7F CCorpse_Save
+	g_vtable_CCorpse.fn[VT_SAVE / 4] = (vfunc_t)CCorpse_Save;
 	// ExcludedAmount: slot 64 (0x100) = 0x0044A7D0 (return 0, no exclusion)
-	g_vtable_CMulti.fn[VT_EXCLUDED_AMOUNT / 4] = (vfunc_t)vt_stub_return_0;
+	g_vtable_CCorpse.fn[VT_EXCLUDED_AMOUNT / 4] = (vfunc_t)vt_stub_return_0;
 	// GetValue: slot 9 (0x24) = 0x00489A85 (CMulti override)
-	g_vtable_CMulti.fn[VT_GET_VALUE / 4] = (vfunc_t)CMulti_GetValue_VT;
+	g_vtable_CCorpse.fn[VT_GET_VALUE / 4] = (vfunc_t)CCorpse_GetValue_VT;
 	// NotifyNearby: slot 76 (0x130) = 0x00489BDA (CMulti override)
-	g_vtable_CMulti.fn[VT_NOTIFY_NEARBY / 4] = (vfunc_t)CMulti_NotifyNearby_VT;
+	g_vtable_CCorpse.fn[VT_NOTIFY_NEARBY / 4] = (vfunc_t)CCorpse_NotifyNearby_VT;
 	// SendEntityUpdate: slot 77 (0x134) = 0x00489AD5 (CMulti override)
-	g_vtable_CMulti.fn[VT_SEND_ENTITY_UPDATE / 4] = (vfunc_t)CMulti_SendEntityUpdate_VT;
+	g_vtable_CCorpse.fn[VT_SEND_ENTITY_UPDATE / 4] = (vfunc_t)CCorpse_SendEntityUpdate_VT;
 	// GetDirection: slot 78 (0x138) = 0x0048AB13
-	g_vtable_CMulti.fn[VT_GET_DIRECTION / 4] = (vfunc_t)CMulti_GetDirection_VT;
+	g_vtable_CCorpse.fn[VT_GET_DIRECTION / 4] = (vfunc_t)CCorpse_GetDirection_VT;
 	// GetAmount: slot 90 (0x168) = 0x00489BC7
-	g_vtable_CMulti.fn[VT_GET_AMOUNT / 4] = (vfunc_t)CMulti_GetAmount_VT;
+	g_vtable_CCorpse.fn[VT_GET_AMOUNT / 4] = (vfunc_t)CCorpse_GetAmount_VT;
 	// OnDeath/SetDecayTick: slot 110 (0x1B8) = 0x0048AB27
-	g_vtable_CMulti.fn[VT_ON_DEATH / 4] = (vfunc_t)CMulti_OnDeath_VT;
+	g_vtable_CCorpse.fn[VT_ON_DEATH / 4] = (vfunc_t)CCorpse_OnDeath_VT;
 	// PreDeleteClean: slot 111 (0x1BC) = NULL (no override in CMulti)
-	g_vtable_CMulti.fn[VT_PRE_DELETE_CLEAN / 4] = NULL;
+	g_vtable_CCorpse.fn[VT_PRE_DELETE_CLEAN / 4] = NULL;
 
 	// CEgg: inherits CItem
 	// Binary 0x005EFB38: 105 slots (same count as CItem)

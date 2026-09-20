@@ -1844,14 +1844,15 @@ Stub_Return0(void *self)
  * players near a map border, a zero word, the NPC count, and a final
  * word taken from a stack struct that Stub_Return0 never writes.
  *
- * The binary reads that last word from uninitialised stack. It is zeroed
- * here so the build stays free of -Wuninitialized; the packet is never
- * built, because nothing calls this.
+ * The binary reads that last word from uninitialised stack, at +0x14 of
+ * the struct it hands Stub_Return0. It is zeroed here so the build
+ * stays free of -Wuninitialized; the packet is never built, because
+ * nothing calls this.
  */
 static __attribute__((unused)) void
 PacketManager_MakePacket_SERVERSTATUS(uint8_t *buf)
 {
-	uint16_t detail[8];
+	uint16_t detail[11];
 
 	PutPacketType(buf, PacketType_SERVERSTATUS, 0xD);
 	PutWord(buf, (uint16_t)CPlayerList_GetCount());
@@ -1860,7 +1861,7 @@ PacketManager_MakePacket_SERVERSTATUS(uint8_t *buf)
 	PutWord(buf, (uint16_t)g_NPCCount);
 	memset(detail, 0, sizeof(detail));
 	Stub_Return0(detail);
-	PutWord(buf, detail[6]);
+	PutWord(buf, detail[10]);
 }
 
 /*

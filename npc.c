@@ -789,6 +789,8 @@ CNPC_Destructor(CNPC *npc)
 {
 	CItem *item = &npc->mobile.container.item;
 
+	CEntity_SetType(&item->resourceEntity.entity, ETYPE_GUARD);
+
 	if (item->resourceEntity.entity.removedFromWorld == 0)
 		CNPC_Hide_VT(item);
 
@@ -3131,9 +3133,8 @@ CNPC_HasBankerScript(CNPC *this)
 /*
  * 0x004841EC - CNPC::CheckArmageddon
  *
- * MODIFIED: fires @armageddon (event 0x16) on the NPC with {0, flag} as
- * the sole list entry. Where the binary uses SEH around CList cleanup,
- * this version uses explicit free.
+ * Fires @armageddon (event 0x16) on the NPC with {0, flag} as the sole
+ * list entry, then deletes the list.
  */
 char *
 CNPC_CheckArmageddon(CNPC *npc, int flag)

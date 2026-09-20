@@ -35,6 +35,9 @@
 static void CTemplate_Destructor(NPCTemplate *tmpl); // 0x004C2A10
 static CSearchCtx *CTemplateManager_FindFieldByLabel(CResManager *rm, CSearchCtx *output, CString *label); // 0x004C1B60
 static CResListNode **CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weight, int direction); // 0x004C1220
+static CStringPairListNode *CStringPairListNode_Constructor(CStringPairListNode *this, int weight); // 0x004C1480
+static void CStringPair_Constructor(CStringPairListNode *this); // 0x004C14B0
+static CResListNode *CStringPairList_InsertNode(CStringPairList *sl, void *data, int direction); // 0x004C1D30
 static CResListNode **CStringPairList_GetWeightedRandom(CStringPairList *sl, CResListNode **output); // 0x004C10C0
 static NPCTemplate *CTemplateData_Constructor(NPCTemplate *this); // 0x004C05C0
 static int CTemplateManager_ValidateVendorStock(CItem *vendor); // 0x004C01DE
@@ -77,7 +80,7 @@ static int CTemplateManager_ResolveDefines(CString *input, CString *output); // 
 static int CTemplateManager_LoadDefines(void); // 0x004BA2AA
 static void CTemplateManager_ClearDefines(CTemplateManager *this); // 0x004BA291
 static void CTemplateManager_ClearResManager2(CTemplateManager *this); // 0x004B9C4F
-static void CTemplate_LoadSkillName(CMobile *mob, char *dataCursor); // 0x004B9B77
+static void CTemplate_LoadSex(CMobile *mob, char *dataCursor); // 0x004B9B77
 static void CTemplateResManager_Destructor(CTemplateResManager *rm); // 0x004752FA
 static void CTemplateResManager_Constructor(CTemplateResManager *rm); // 0x00475287
 
@@ -105,13 +108,13 @@ CTemplateResManager_Destructor(CTemplateResManager *rm)
 }
 
 /*
- * 0x004B9B77 - CTemplate::LoadSkillName
+ * 0x004B9B77 - CTemplate::LoadSex
  *
  * Parses a "sex" template value (MALE/FEMALE/OTHER/RANDOM) and sets
  * the mob's sex field. Defaults to OTHER on no match.
  */
 static void
-CTemplate_LoadSkillName(CMobile *mob, char *dataCursor)
+CTemplate_LoadSex(CMobile *mob, char *dataCursor)
 {
 	char buf[128];
 
@@ -1750,7 +1753,7 @@ CTemplateManager_CreateEntity(uint16_t templateId, CLocation *loc, int *amount, 
 			CTemplateManager_ParseStrength(entity, data);
 			break;
 		case 13:
-			CTemplate_LoadSkillName((CMobile *)entity, data);
+			CTemplate_LoadSex((CMobile *)entity, data);
 			break;
 		case 14:
 			CTemplateManager_ParseStamina(entity, data);
@@ -2929,20 +2932,12 @@ CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weig
 
 	flag = 0;
 	raw = (CStringPairListNode *)OperatorNew(sizeof(CStringPairListNode));
-	if (raw != NULL) {
-		CString_DefaultConstructor(&raw->first);
-		CString_DefaultConstructor(&raw->second);
-		raw->type = 1;
-		raw->weight = weight;
-		constructed = raw;
-	} else {
-		constructed = NULL;
-	}
-
-	if (direction == 1)
-		node = CResList_FindOrAddPair(&sl->list, constructed);
+	if (raw != NULL)
+		constructed = CStringPairListNode_Constructor(raw, weight);
 	else
-		node = CResList_AllocForward_Labels(&sl->list, constructed);
+		constructed = NULL;
+
+	node = CStringPairList_InsertNode(sl, constructed, direction);
 	CIterCtx_Set(&pos, node);
 
 	if (CStringList_HasEntries((CStringList *)&pos))
@@ -2954,6 +2949,34 @@ CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weig
 	return output;
 
 	USED(flag);
+}
+
+/*
+ * 0x004C1480 - CStringPairListNode::CStringPairListNode
+ *
+ * Default-constructs the two CStrings through the base constructor,
+ * then marks the node valid and stores its weight.
+ */
+static CStringPairListNode *
+CStringPairListNode_Constructor(CStringPairListNode *this, int weight)
+{
+	CStringPair_Constructor(this);
+	this->type = 1;
+	this->weight = weight;
+	return this;
+}
+
+/*
+ * 0x004C14B0 - CStringPair::CStringPair
+ *
+ * Default-constructs the pair sub-object's two CStrings, at +0x00 and
+ * +0x10 of the node.
+ */
+static void
+CStringPair_Constructor(CStringPairListNode *this)
+{
+	CString_DefaultConstructor(&this->first);
+	CString_DefaultConstructor(&this->second);
 }
 
 /*
@@ -3023,6 +3046,19 @@ CResManager_ApplyTemplateData(CResList *list, CResListNode *valNode, CItem **ent
 	if (valNode == NULL)
 		return;
 	CResListNode_SetDataInt(valNode, entity);
+}
+
+/*
+ * 0x004C1D30 - CStringPairList::InsertNode
+ *
+ * Appends when direction is 1, inserts unordered otherwise.
+ */
+static CResListNode *
+CStringPairList_InsertNode(CStringPairList *sl, void *data, int direction)
+{
+	if (direction == 1)
+		return CResList_FindOrAddPair(&sl->list, data);
+	return CResList_AllocForward_Labels(&sl->list, data);
 }
 
 /*

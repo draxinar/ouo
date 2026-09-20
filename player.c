@@ -4628,7 +4628,7 @@ CPlayerList_StatCheck(CPlayerList *this)
 			CString str;
 			CString_Constructor(&str, "stat combo is ");
 			CString_ConcatInt(&str, CPlayer_GetBugStat((CItem *)player));
-			EventLogger_Log(&g_EventLogger, player->accountNum, player->characterNum, CMobile_GetSerial(&player->mobile),
+			EventLogger_Log(&g_EventLogger, player->accountNum, (uint32_t)(uint8_t)player->characterNum, CMobile_GetSerial(&player->mobile),
 			        ((char *(*)(void *))VT_FN((CItem *)player, VT_GET_NAME))(player), "statcheck", "error", CString_GetBuffer(&str));
 			CPlayer_CapBaseStats(player, 50);
 			CString_Destructor(&str);
@@ -4968,8 +4968,7 @@ CPlayer_TransferResourcesToCorpse(CPlayer *this, CItem *target)
 		node = item->resourceEntity.firstChild;
 		CResourceEntity_RemoveNode(item, node);
 
-		if (node->id == 0 || node->type != 3 || node->id == (uint16_t)g_ResTypeId_Humans || node->id == (uint16_t)g_ResTypeId_Good ||
-		        node->id == (uint16_t)g_ResTypeId_Evil) {
+		if (node->id == 0 || (int8_t)node->type != 3 || (int)node->id == g_ResTypeId_Humans || (int)node->id == g_ResTypeId_Good || (int)node->id == g_ResTypeId_Evil) {
 			ResourceNode_ReturnToPool(node);
 			continue;
 		}

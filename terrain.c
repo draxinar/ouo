@@ -95,7 +95,7 @@ FindEntityByBodyTypeAtXYZ(int x, int y, int z, int bodyType)
 	blockIdx = CBlockManager_GetBlockIndex(&g_SpatialGrid, x, y, 0);
 	walk = g_SpatialGrid.cells[blockIdx].itemHead;
 	while (walk != NULL) {
-		if (CEntity_GetBodyType(walk) == (uint16_t)bodyType) {
+		if (CEntity_GetBodyType(walk) == bodyType) {
 			if ((int16_t)walk->resourceEntity.entity.location.x == x && (int16_t)walk->resourceEntity.entity.location.y == y &&
 			        (int16_t)walk->resourceEntity.entity.location.z == z)
 				return walk;
@@ -930,7 +930,7 @@ Terrain_GetInterpolatedZ(int x, int y, int direction)
 	int cornerIdx, prevIdx;
 	int corner1, corner2;
 
-	if (!Terrain_InBounds(x + 1, y + 1))
+	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, x + 1, y + 1))
 		return Terrain_GetLandZ(x, y);
 
 	cornerIdx = direction >> 1;
@@ -956,7 +956,7 @@ Terrain_GetAvgLandZ(int x, int y)
 	int tl, tr, br, bl;
 	int diffTLBR, diffTRBL;
 
-	if (!Terrain_InBounds(x + 1, y + 1))
+	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, x + 1, y + 1))
 		return Terrain_GetLandZ(x, y);
 
 	tl = Terrain_GetLandZ(x, y);
@@ -986,7 +986,7 @@ Terrain_GetMinLandZ(int x, int y)
 {
 	int tl, tr, br, bl, minZ;
 
-	if (!Terrain_InBounds(x + 1, y + 1))
+	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, x + 1, y + 1))
 		return Terrain_GetLandZ(x, y);
 
 	tl = Terrain_GetLandZ(x, y);
@@ -1015,11 +1015,11 @@ Terrain_GetLandZ(int x, int y)
 	int blockIdx;
 	int localX, localY;
 
-	blockIdx = Terrain_GetBlockIndex(x, y);
+	blockIdx = CBlockManager_GetBlockIndex(&g_SpatialGrid, x, y, 0);
 	if (blockIdx < 0)
 		return 0;
-	localX = (x - g_MapOriginX) & 7;
-	localY = (y - g_MapOriginY) & 7;
+	localX = x & 7;
+	localY = y & 7;
 	return g_MapBlocks[blockIdx].cells[localY * 8 + localX].z;
 }
 
@@ -2198,6 +2198,9 @@ const int g_TerrainDirDY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
 // Number of static items loaded (for diagnostics).
 // Binary: 0x0068B380
 int g_StaticItemCount;
+
+// Set around the static pool refill and read by nothing.
+int g_StaticPoolRefilling; // 0x006CA8F8
 
 // Number of dynamic items in the world.
 // Binary: 0x0068B384

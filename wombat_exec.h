@@ -799,7 +799,7 @@ int CompareTokenType(const char *tokenBuf, int tokenType); // 0x00420DA0
 CExecThread *CExecThread_ScalarDelete(CExecThread *thread, int flags); // 0x0042E160
 void *CVector_At(CVector *vec, int index); // 0x0042E220
 void CHintItem_Destructor(CHintItem *self); // 0x00463B9E
-CHintItem *CHintEntry_Copy(CHintItem *this, CHintItem *src); // 0x00463BA9
+CHintItem *CHintItem_Copy(CHintItem *this, CHintItem *src); // 0x00463BA9
 void CHintManager_Tick(void); // 0x004642A0
 CHintItem *CHintItem_ScalarDelete(CHintItem *this, int flags); // 0x00464350
 void SendMultiMessage(uint32_t serial, uint32_t callerSerial, CString *msgName, intptr_t listArgs); // 0x0047D601

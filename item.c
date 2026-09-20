@@ -1305,8 +1305,9 @@ static CItemTracking *g_TrackingFreeList;
  * 0x00467248 - Item_AllocContainInfo
  *
  * Pool allocator for CItemTracking: pops g_TrackingFreeList, refilling
- * it from a fresh 0x1000-entry block when empty, and returns a zeroed
- * entry.
+ * it from a fresh 0x1000-entry block when empty. The entry it returns
+ * has both locations invalidated to -1, lastMobEqPos set to 0x1A, and
+ * only lastCont and lastMob zeroed.
  */
 CItemTracking *
 Item_AllocContainInfo(void)
@@ -1901,6 +1902,13 @@ CEntity_CheckSurfaceOf_VT(CItem *self, CItem *entity)
  * free list. Everything else, including firstChild and the returned
  * element's own next link, is left for the caller to set, which is what
  * the static loader does before anything walks the chain.
+ *
+ * MODIFIED: the binary's pool element is 0x18 bytes - CEntity plus the
+ * two link words, with no firstChild slot. Ours is a CResourceEntity,
+ * which carries firstChild and is 0x1C on 32-bit, so the block size and
+ * the free-list stride follow sizeof rather than the binary's constant.
+ * The operator new result is also tested; the binary falls into the
+ * refill loop with a null base and faults.
  */
 CItem *
 CreateStaticEntity(void)
@@ -1921,6 +1929,7 @@ CreateStaticEntity(void)
 		VG_MAKE_DEFINED(entity, sizeof(CResourceEntity));
 		g_StaticFreeList = entity->resourceEntity.nextInContainer;
 	} else {
+		g_StaticPoolRefilling = 1;
 		pool = OperatorNew(0x1000 * sizeof(CResourceEntity));
 		if (pool == NULL)
 			return NULL;
@@ -1939,6 +1948,7 @@ CreateStaticEntity(void)
 		}
 		VG_POOL_ALLOC(&g_StaticFreeList, entity, sizeof(CResourceEntity));
 		VG_MAKE_DEFINED(entity, sizeof(CResourceEntity));
+		g_StaticPoolRefilling = 0;
 	}
 
 	g_StaticItemCount++;
@@ -4626,7 +4636,7 @@ CCorpse_Constructor(CCorpse *this)
 	int i;
 
 	CContainer_Constructor(&this->container);
-	this->container.item.resourceEntity.entity.vtable = &g_vtable_CMulti;
+	this->container.item.resourceEntity.entity.vtable = &g_vtable_CCorpse;
 	this->decayTick = 0;
 	for (i = 0; i < 26; i++)
 		this->equipSlots[i] = 0;
@@ -4644,7 +4654,7 @@ CCorpse_Destructor(CCorpse *this)
 {
 	CItem *item = &this->container.item;
 
-	item->resourceEntity.entity.vtable = &g_vtable_CMulti;
+	item->resourceEntity.entity.vtable = &g_vtable_CCorpse;
 
 	if (!item->resourceEntity.entity.removedFromWorld)
 		CItem_HideVT(item);

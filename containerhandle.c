@@ -265,8 +265,6 @@ FindContainerHandle(FILE *fp)
  * Reloads a fresh page buffer at the current file position, decrypting
  * whatever was read. Returns bytes read.
  *
- * MODIFIED: the standalone branch reads through stdio when the file is
- * not inside the container, which the binary has no equivalent for.
  */
 int
 ContainerHandle_AllocPage(ContainerHandle *this, int size)
@@ -299,7 +297,7 @@ ContainerHandle_AllocPage(ContainerHandle *this, int size)
 	}
 	this->pageDataSize = nread;
 
-	if (nread > 0) {
+	if (nread != 0) {
 		Feistel_Decrypt((uint32_t *)this->pageBuffer, (nread + 7) / 8);
 	}
 

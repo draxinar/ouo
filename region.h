@@ -90,7 +90,7 @@ void *WeatherNodeList_ScalarDelete(PathNodeList *this, int flags); // 0x004A3E90
 CRegion *CRegion_Init(CRegion *this); // 0x004A3EC0
 CRegion *CRegion_Assign(CRegion *this, CRegion *src); // 0x004A3ED6
 int CRegion_isCoordInside(CRegion *r, CLocation *loc); // 0x004A3F8F
-void CRegion_CopyFrom(CRegion *this, CRegion *src); // 0x004A4021
+CRegion *CRegion_CopyFrom(CRegion *this, CRegion *src); // 0x004A4021
 uint32_t CRegion_GetArea(CRegion *this); // 0x004A4103
 void CRegion_Destructor(CRegion *this); // 0x004A411F
 int CRegion_ValidateBounds(CRegion *this); // 0x004A412A

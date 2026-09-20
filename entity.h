@@ -56,7 +56,7 @@ enum EntityTypeTag {
 	ETYPE_PLAYER = 6,     // @=P (CPlayer, 0x458 bytes, vtable 0x005EEA50)
 	ETYPE_SHOPKEEPER = 7, // @=S (shopkeeper NPC, 0x480 bytes, vtable 0x005EFDE8)
 	ETYPE_GUARD = 12,     // @=G (guard NPC, same struct as shopkeeper)
-	ETYPE_MULTI = 8,      // @=X (CMulti, 0xCC bytes, vtable 0x005EF7C8)
+	ETYPE_CORPSE = 8,     // @=X (CCorpse, 0xCC bytes, vtable 0x005EF7C8)
 	ETYPE_EGG = 9,        // @=E (CEgg, 0x50 bytes, vtable 0x005EFB38)
 	ETYPE_SIGNPOST = 10,  // @=Z (CSignpost, 0x64 bytes, vtable 0x005EF988)
 	ETYPE_BOAT = 11,      // @=B (CItem variant, 0x64 bytes)

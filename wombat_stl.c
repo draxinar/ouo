@@ -363,12 +363,12 @@ OStream_Put(CBasicFstream *this, char ch)
 
 	Iterator_Constructor(sentry, this);
 
-	// Binary calls thiscall byte-getter at 0x004e0270 (sentry good check)
+	// The binary reads the sentry's good flag through a folded byte getter.
 	unsigned char good = CWeaponDef_GetId((CWeaponDef *)sentry);
 	if (good == 0) {
 		state |= 4;
 	} else {
-		// Binary calls thiscall reader at 0x00472f80 for rdbuf (ios+0x28)
+		// The binary reads rdbuf at ios+0x28 through a folded reader.
 		uintptr_t *vt = (uintptr_t *)p[0];
 		CIosBase *ios = (CIosBase *)((char *)this + vt[FSTREAM_VBT_VBASE]);
 		CStreamBuf *rdbuf = (CStreamBuf *)(intptr_t)CMultiSlave_GetTypeId((CMultiSlave *)ios);
@@ -857,14 +857,15 @@ CString_Erase(CSdbStr *this, unsigned int offset, unsigned int count)
 	unsigned int *pLen = (unsigned int *)&cs->length;
 	unsigned int newLen;
 
-	// The binary asserts when offset > length; we skip the assert.
+	// The binary throws std::out_of_range when offset > length; C99 has no
+	// equivalent, so the range check is dropped.
 
 	String_Freeze(this);
 
 	if (*pLen - offset < count)
 		count = *pLen - offset;
 
-	if (count > 0 && *pData != NULL) {
+	if (count > 0) {
 		Memmove_Wrapper(*pData + offset, *pData + offset + count, *pLen - offset - count);
 
 		newLen = *pLen - count;
@@ -1835,7 +1836,7 @@ OStream_InsertCStr(CBasicFstream *os, const char *str)
 
 	Iterator_Constructor(sentry, os);
 
-	// Binary calls thiscall byte-getter at 0x004e0270 (sentry good check)
+	// The binary reads the sentry's good flag through a folded byte getter.
 	if (CWeaponDef_GetId((CWeaponDef *)sentry) == 0) {
 		state |= IOS_BADBIT;
 	} else {
@@ -1954,9 +1955,9 @@ locale_Getfacet(void *loc, int unused, int allowConstruct)
 static __attribute__((unused)) void *
 CStdioFile_Constructor(CStdioFileBuf *this, int arg)
 {
-	// Binary calls CFile base ctor at 0x004E84F0 first (sets CFile vtable,
-	// allocates name copy, sets refcount); we override it with the CStdioFile
-	// vtable on the next line so the base-ctor effects are no-ops here.
+	// The binary runs the CFile base constructor first - CFile vtable, name
+	// copy, refcount - and we override it with the CStdioFile vtable on the
+	// next line, so those effects are no-ops here.
 	USED(arg);
 	this->base.vtable = (void **)g_vt_CStdioFile;
 	return this;
@@ -2270,7 +2271,7 @@ locale_facet_Init(void *facet)
 static __attribute__((unused)) void *
 CLocaleCategory_ScalarDtor(CLocaleCategory *this, int flags)
 {
-	// Destructor: call CLocaleCategory_DestructorBody (0x00404E60)
+	// Destructor: call CLocaleCategory_DestructorBody.
 	CLocaleCategory_DestructorBody(this);
 
 	// If flags & 1, free the object

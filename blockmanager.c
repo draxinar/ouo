@@ -367,23 +367,6 @@ CBlockManager_GetBlockIndex(CBlockManager *this, int x, int y, int unused)
 }
 
 /*
- * 0x0042F265 - Terrain_GetBlockIndex
- *
- * Column-major block index for world coordinates. X varies slower than Y.
- */
-int
-Terrain_GetBlockIndex(int x, int y)
-{
-	int bx, by;
-
-	if (!Terrain_InBounds(x, y))
-		return -1;
-	bx = (x - g_MapOriginX) >> 3;
-	by = (y - g_MapOriginY) >> 3;
-	return bx * g_MapBlocksH + by;
-}
-
-/*
  * 0x0042F2CF - CBlockManager::GetBlockIndexFromLoc
  *
  * Delegates to GetBlockIndex using loc->x, loc->y.
@@ -464,21 +447,6 @@ CBlockManager_IsValidCoord(CBlockManager *this, int x, int y)
 	if (y < g_mapStartY)
 		return 0;
 	if (y >= g_mapStartY + g_mapHeight)
-		return 0;
-	return 1;
-}
-
-/*
- * 0x0042F43F - Terrain_InBounds
- *
- * True if (x, y) lies within the loaded map.
- */
-int
-Terrain_InBounds(int x, int y)
-{
-	if (x < g_MapOriginX || x >= g_MapOriginX + (g_MapBlocksW * 8))
-		return 0;
-	if (y < g_MapOriginY || y >= g_MapOriginY + (g_MapBlocksH * 8))
 		return 0;
 	return 1;
 }

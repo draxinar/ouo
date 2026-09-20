@@ -60,11 +60,11 @@ static void *StdMap_TreeMin(void *node); // 0x00422FC0
 static void *StdMap_TreeMax(void *node); // 0x00423040
 static void *StdMap_GetRoot(StdMapTree *this); // 0x004230C0
 static void StdMap_TreeSplice2(StdMapTree *this, void *node); // 0x004230E0
-static void *StdMap_IterPostDec(void *iter, void *outIter, int dummy); // 0x00423270
+static void *StdMap_IterPostInc(void *iter, void *outIter, int dummy); // 0x00423270
 static void *StdMap_IterDec(void *iter); // 0x004232A0
 static void *StdTree_Buynode(StdMapTree *this, void *parentNode, int value); // 0x004235B0
 static void StdTree_ConstructorPair(StdAllocator *this, void *node, void *pair); // 0x00423600
-static void *StdMap_LboundWrapper(void *iter); // 0x00423620
+static void *StdMap_IterInc(void *iter); // 0x00423620
 static void StdMap_TreeDec(void *iter); // 0x00423640
 static void *StdAllocator_Ucopy(StdAllocator *this, void *first, void *last, void *dest); // 0x00423750
 static void StdAllocator_UfillN(StdAllocator *this, void *dest, uint32_t count, void *valuePtr); // 0x00423790
@@ -1019,7 +1019,7 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 	void *w;
 	void *tmp;
 
-	tmp = StdMap_IterPostDec(&pos, &postDecOut, 0);
+	tmp = StdMap_IterPostInc(&pos, &postDecOut, 0);
 	y = *(void **)tmp;
 	z = y;
 
@@ -1266,7 +1266,7 @@ erase_loop:
 	while (StdPtrIter_Neq((StdPtrNode **)&beginIter, (StdPtrNode **)&endIter) & 0xFF) {
 		void *decResult;
 
-		decResult = StdMap_IterPostDec(&beginIter, &postDec, 0);
+		decResult = StdMap_IterPostInc(&beginIter, &postDec, 0);
 		StdMap_TreeErase(this, &eraseOut, *(void **)decResult);
 	}
 	*(uintptr_t *)outIter = *(uintptr_t *)&beginIter;
@@ -1716,19 +1716,19 @@ StdMap_TreeSplice2(StdMapTree *this, void *node)
 }
 
 /*
- * 0x00423270 - std::_Tree iterator post-decrement
+ * 0x00423270 - std::_Tree::iterator::operator++(int)
  *
- * Saves the current node, decrements the iterator, and writes the saved
- * node into *outIter. Returns outIter.
+ * Saves the current node, advances the iterator through 0x00423620, and
+ * writes the saved node into *outIter. Returns outIter.
  */
 static void *
-StdMap_IterPostDec(void *iter, void *outIter, int dummy)
+StdMap_IterPostInc(void *iter, void *outIter, int dummy)
 {
 	uintptr_t saved;
 
 	USED(dummy);
 	saved = *(uintptr_t *)iter;
-	StdMap_LboundWrapper(iter);
+	StdMap_IterInc(iter);
 	*(uintptr_t *)outIter = saved;
 	return outIter;
 }
@@ -1808,15 +1808,14 @@ StdTree_ConstructorPair(StdAllocator *this, void *node, void *pair)
 }
 
 /*
- * 0x00423620 - std::_Tree::_Lbound wrapper
+ * 0x00423620 - std::_Tree::iterator::operator++
  *
- * Calls StdTree_LowerBound_Int (0x004237F0) to perform lower-bound search.
- * Returns this.
+ * Advances the iterator through StdMap_TreeInc and returns this.
  */
 static void *
-StdMap_LboundWrapper(void *iter)
+StdMap_IterInc(void *iter)
 {
-	StdTree_LowerBound_Int(iter);
+	StdMap_TreeInc(iter);
 	return iter;
 }
 
@@ -1938,7 +1937,7 @@ StdMap_GetMost(StdMapTree *this)
  * equal the last parent climbed, store parent.
  */
 void
-StdTree_LowerBound_Int(void *iter)
+StdMap_TreeInc(void *iter)
 {
 	void **pNode = (void **)iter;
 	void *node;
@@ -2063,11 +2062,14 @@ SortByZ_Main(uintptr_t *begin, uintptr_t *end, char typeTag, int depth)
 }
 
 /*
- * 0x00423AA0 - GameCentMon::GetPlayerCount
+ * 0x00423AA0 - GameCentMon::GetPlayerCount / std::_Val_type
  *
- * Binary stub: always returns 0. Called from std::sort wrappers (which
- * pass the begin pointer as an arg the function ignores) and from
- * BroadcastAll case 0 for server status packets.
+ * Binary stub: always returns 0. Two honest names at one folded address.
+ * BroadcastAll case 0 calls it for the server status packet's player
+ * count; the std::sort wrappers call it as MSVC's _Val_type, passing the
+ * begin pointer it ignores, and the zero it returns becomes the sorts'
+ * fourth argument - which the parameter name depth describes by position
+ * rather than by meaning.
  */
 int
 GameCentMon_GetPlayerCount(void)
@@ -2513,21 +2515,17 @@ StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos)
 }
 
 /*
- * 0x00424EC0 - StdPtrList::Insert (FIXED)
+ * 0x00424EC0 - StdPtrList::Insert
  *
  * Finds insertion point via CSearchCtx_Find. Allocates node with
  * StdPtrList_Buynode. Links into doubly-linked list. Calls
  * StdPtrList_DoInsert to copy value. Increments size. Sets result.
  *
- * FIXED: MSVC STL's _Insert takes _Val by const reference
- * (const _Ty&), which lowers to a pointer-to-pointer in x86 ABI.
- * DoInsert_4CF610 dereferences its source argument to read the value.
- * The binary's caller (e.g. CScriptInstance_ReturnToPool at 0x00424549)
- * spills the raw pointer into a local then pushes &local. In the C port,
- * the top-level API passes a raw void* so we synthesize the ref here by
- * passing &value. Without this, DoInsert_4CF610 reads the first 4 bytes
- * of the pointed-to object instead of the pointer itself - triggering a
- * crash when CScriptInstance_Clear has poisoned those bytes to 0xABCD.
+ * MSVC STL's _Insert takes _Val by const reference (const _Ty&), which
+ * lowers to a pointer-to-pointer in the x86 ABI, and DoInsert_4CF610
+ * dereferences that reference to read the value. Our top-level API
+ * takes a raw void*, so the reference is synthesized here by passing
+ * &value on.
  */
 static void
 StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value)
@@ -5616,7 +5614,7 @@ SortDist_Dispatch(void *first, void *last, CLocation cmpLoc)
 	first = (char *)first + 16 * sizeof(uintptr_t);
 	while (first != last) {
 		CLocation tmp;
-		CLocation_SetLoc(&tmp, &cmpLoc);
+		CLocation_CopyFromSrc(&tmp, &cmpLoc);
 		InsertionSort_Dist_ShiftDown(first, *(uintptr_t *)first, tmp);
 		first = (char *)first + sizeof(uintptr_t);
 	}
@@ -7214,6 +7212,11 @@ StdTree_LowerBound(StdMapTree *tree, uintptr_t key)
  * Moves to the previous node in key order. Head detection: if node[0x14]
  * == 0 and node->parent->parent == node, this is the head node (end
  * iterator) and we return rightmost.
+ *
+ * The binary brackets the walk in the std::_Lockit critical-section
+ * guard, 0x005C0310 on the way in and 0x005C03D0 on the way out, twice
+ * over. That is MSVC CRT locking and the server is single-threaded, so
+ * it is not reproduced.
  */
 static void
 StdTree_Dec(StdTreeNode **iter)
@@ -7257,6 +7260,11 @@ StdTree_Dec(StdTreeNode **iter)
  * Advances to the next node in key order. If right child exists, finds
  * leftmost in right subtree. Otherwise walks up until we're no longer a
  * right child.
+ *
+ * The binary brackets the walk in the std::_Lockit critical-section
+ * guard, 0x005C0310 on the way in and 0x005C03D0 on the way out, twice
+ * over. That is MSVC CRT locking and the server is single-threaded, so
+ * it is not reproduced.
  */
 static void
 StdTree_Inc(StdTreeNode **iter)

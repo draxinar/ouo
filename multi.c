@@ -309,7 +309,7 @@ MultiComponent_ReturnToPool(CMultiComponent *mc)
  *
  * Base constructor: initializes offset and installs the component vtable.
  * The binary also runs a guarded CResList_ConstructorEmpty on this when
- * g_multiComponentPool.allocated is zero, but both CResList_GetHead and
+ * g_multiComponentPool.allocated is zero, but both CResList_GetCount and
  * CResList_ConstructorEmpty are no-op stubs so the guard has no
  * observable effect and is omitted here.
  */
@@ -646,7 +646,7 @@ CMultiSlave_UpdateComponents(CMultiSlave *slave, CLocation *loc, int flag)
 			continue;
 		}
 
-		tmpLoc = *loc;
+		CLocation_SetLoc(&tmpLoc, loc);
 
 		if (CItem_HasMulti_Filter(ent)) {
 			CMultiComponent *mc = CItem_GetMulti(ent);
@@ -3158,7 +3158,7 @@ CMultiManager_GetComponentsNetwork(CResManager *this, int typeId, int *outSize)
 static __attribute__((unused)) void
 CMulti_SendMultiInfo(CResManager *this, uint32_t serial)
 {
-	uint8_t buf[0x10018];
+	uint8_t buf[0x1000C];
 	int count = 0;
 	char flag = 0;
 	void *result;
@@ -4969,12 +4969,12 @@ InsertionSort_Dist(void *first, void *last, CLocation cmpLoc)
 }
 
 /*
- * 0x00489A85 - CMulti::GetValue (VT_GET_VALUE override)
+ * 0x00489A85 - CCorpse::GetValue (VT_GET_VALUE override)
  *
  * Sums contained item value and optionally normalizes it.
  */
 int
-CMulti_GetValue_VT(CItem *self, int useResource, int normalize)
+CCorpse_GetValue_VT(CItem *self, int useResource, int normalize)
 {
 	int value;
 
@@ -4988,13 +4988,13 @@ CMulti_GetValue_VT(CItem *self, int useResource, int normalize)
 }
 
 /*
- * 0x00489AD5 - CMulti::SendEntityUpdate (VT_SEND_ENTITY_UPDATE override)
+ * 0x00489AD5 - CCorpse::SendEntityUpdate (VT_SEND_ENTITY_UPDATE override)
  *
  * Sends MOVE, CORPSE_EQ, and MULTI_OBJ_TO_OBJ packets for a corpse
  * to a single viewer. No-op if ServerOnly is set.
  */
 void
-CMulti_SendEntityUpdate_VT(CItem *self, CItem *viewer, int unused)
+CCorpse_SendEntityUpdate_VT(CItem *self, CItem *viewer, int unused)
 {
 	uint8_t pktBuf[0x18];
 	uint8_t corpsePkt[0xD0];
@@ -5016,24 +5016,24 @@ CMulti_SendEntityUpdate_VT(CItem *self, CItem *viewer, int unused)
 }
 
 /*
- * 0x00489BC7 - CMulti::GetAmount (VT_GET_AMOUNT override)
+ * 0x00489BC7 - CCorpse::GetAmount (VT_GET_AMOUNT override)
  *
  * Returns the corpse body type.
  */
 uint16_t
-CMulti_GetAmount_VT(CItem *self)
+CCorpse_GetAmount_VT(CItem *self)
 {
 	return CCorpse_GetCorpseBodyType((CCorpse *)self);
 }
 
 /*
- * 0x00489BDA - CMulti::NotifyNearby (VT_NOTIFY_NEARBY override)
+ * 0x00489BDA - CCorpse::NotifyNearby (VT_NOTIFY_NEARBY override)
  *
  * Sends MOVE, CORPSE_EQ, and MULTI_OBJ_TO_OBJ packets for a corpse
  * to a player list. No-op if ServerOnly is set.
  */
 void
-CMulti_NotifyNearby_VT(CItem *self, CVector *playerList, int unused)
+CCorpse_NotifyNearby_VT(CItem *self, CVector *playerList, int unused)
 {
 	uint8_t pktBuf[0x18];
 	uint8_t corpsePkt[0xD0];
@@ -5055,12 +5055,12 @@ CMulti_NotifyNearby_VT(CItem *self, CVector *playerList, int unused)
 }
 
 /*
- * 0x0048AB13 - CMulti::GetDirection (VT_GET_DIRECTION override)
+ * 0x0048AB13 - CCorpse::GetDirection (VT_GET_DIRECTION override)
  *
  * Returns CCorpse.decayTick - corpses repurpose that slot for direction.
  */
 int
-CMulti_GetDirection_VT(CItem *self)
+CCorpse_GetDirection_VT(CItem *self)
 {
 	return ((CCorpse *)self)->decayTick;
 }
@@ -5071,7 +5071,7 @@ CMulti_GetDirection_VT(CItem *self)
  * Stores value in CCorpse.decayTick.
  */
 void
-CMulti_OnDeath_VT(CItem *self, int value)
+CCorpse_OnDeath_VT(CItem *self, int value)
 {
 	((CCorpse *)self)->decayTick = value;
 }

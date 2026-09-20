@@ -3259,7 +3259,7 @@ ScriptTokenizer_MatchToken(const char *stream, int tokenType)
 		return 0;
 
 	// Check if this token type has variant encoding
-	if (g_TokenVariants[tokenType][0] != 0) {
+	if (g_TokenHasVariants[tokenType] != 0) {
 		// Variant-encoded: compare uint16 at stream against all 5 variants
 		memcpy(&streamVal, stream, 2);
 		for (i = 0; i < 5; i++) {
@@ -3269,14 +3269,13 @@ ScriptTokenizer_MatchToken(const char *stream, int tokenType)
 		return 0;
 	}
 
-	// Text-based token (trigger names): compare string
-	if (g_TriggerNames[tokenType] != NULL) {
+	// Text-based token (trigger names): compare string. The seven rows
+	// whose .str points into the zeroed tail of .data compare zero bytes
+	// and so always match.
+	{
 		int len = strlen(g_TriggerNames[tokenType]);
-		if (memcmp(stream, g_TriggerNames[tokenType], len) == 0)
-			return 1;
+		return memcmp(stream, g_TriggerNames[tokenType], len) == 0 ? 1 : 0;
 	}
-
-	return 0;
 }
 
 /*
@@ -4109,8 +4108,9 @@ ExtractEventParams(int eventType, va_list ap, EventParam *params)
 		    * then parses formatStr to read typed args into a list.
 		    * Params: sender (OBJ), _msgName (STRING for filter),
 		    * args (LIST from format string parsing).
-		    * Format chars: c=LOC, i=INT, o=OBJ, s=STRING, p=USTRING,
-		    * x=LIST copy. v/other = skip. */
+		    * Format chars, from the 22-entry index table at 0x0042D8E4:
+		    * c=LOC, i=INT, o=OBJ, q=USTRING, s=STRING, x=LIST copy.
+		    * Everything else, p included, falls to the skip case. */
 		const char *msgName;
 		const char *fmt;
 		CList *argsList;
@@ -4145,10 +4145,17 @@ ExtractEventParams(int eventType, va_list ap, EventParam *params)
 					CList_Append(argsList, WTYPE_OBJ, val);
 					break;
 				}
-				case 's':
-				case 'p': {
+				case 's': {
 					const char *sval = va_arg(ap, const char *);
 					CList_Append(argsList, WTYPE_STRING, (uintptr_t)sval);
+					break;
+				}
+				case 'q': {
+					const void *wval = va_arg(ap, const void *);
+					CUString *ustr = (CUString *)OperatorNew(sizeof(CUString));
+					if (ustr != NULL)
+						CUString_Constructor(ustr, wval);
+					CList_Append(argsList, WTYPE_USTRING, (uintptr_t)ustr);
 					break;
 				}
 				case 'c': {
@@ -4324,35 +4331,58 @@ ExtractEventParams(int eventType, va_list ap, EventParam *params)
 		n++;
 		break;
 
-	case 0x37: /* genericgump - binary: 0x0042C6FB.
-		    * arg1 = gumpID (stored as filter/return value, NOT AddParam).
-		    * arg2 = user serial (AddParam type=4/OBJ).
-		    * arg3 = button ID (AddParam type=0/INT).
-		    * Binary also builds a CList for checkbox/text field data
-		    * but demo scripts only use user + buttonid. */
-	{
+	case 0x37: { /* genericgump - binary: 0x0042C6FB.
+		     * arg1 = gumpID (filter value, not a parameter).
+		     * arg2 = user serial (OBJ), arg3 = button ID (INT).
+		     * arg4 and arg5 are the switch and text-entry lists; the
+		     * binary allocates a fresh CList for each, hands that to
+		     * AddParam, then copies the caller's nodes into it. */
 		uint32_t gumpId = va_arg(ap, uintptr_t);
-		// Store gumpID as filter value for trigger matching
+		int listIdx;
+
 		params[n].name = "_filterValue";
 		params[n].type = WTYPE_INT;
 		params[n].ival = gumpId;
 		params[n].ival2 = 0;
 		params[n].sval = NULL;
 		n++;
-	}
+
 		params[n].name = "user";
 		params[n].type = WTYPE_OBJ;
 		params[n].ival = va_arg(ap, uintptr_t);
 		params[n].ival2 = 0;
 		params[n].sval = NULL;
 		n++;
-		params[n].name = "buttonid";
+		params[n].name = "closeId";
 		params[n].type = WTYPE_INT;
 		params[n].ival = va_arg(ap, int);
 		params[n].ival2 = 0;
 		params[n].sval = NULL;
 		n++;
+
+		for (listIdx = 0; listIdx < 2; listIdx++) {
+			CList *copy = (CList *)OperatorNew(sizeof(CList));
+			CList *src;
+			CListNode *node;
+
+			if (copy != NULL)
+				CList_Constructor(copy);
+
+			params[n].name = (listIdx == 0) ? "selectList" : "entryList";
+			params[n].type = WTYPE_LIST;
+			params[n].ival = (uintptr_t)copy;
+			params[n].ival2 = 0;
+			params[n].sval = NULL;
+			n++;
+
+			src = va_arg(ap, CList *);
+			if (src != NULL && copy != NULL) {
+				for (node = src->head; node != NULL; node = node->next)
+					CList_Append(copy, node->typeTag, node->value);
+			}
+		}
 		break;
+	}
 
 	case 0x44: /* famechanged - binary: events >= 0x44 are beyond jump table,
 		    * DispatchEvent skips to script loop with no params. */
@@ -4788,15 +4818,14 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		params[0].ival2 = 0;
 		params[0].sval = NULL;
 		numParams = 1;
+		// The binary copies the match down to slot 0 rather than swapping;
+		// slot i keeps its own value, which nothing reads once the count
+		// drops to one.
 		for (i = 0; i < numTriggers; i++) {
 			if ((CTrigger *)trigArr[i] == trigPtr) {
 				if (i > 0) {
-					uintptr_t tmpS = scriptArr[0];
-					uintptr_t tmpT = trigArr[0];
+					trigArr[0] = (uintptr_t)trigPtr;
 					scriptArr[0] = scriptArr[i];
-					trigArr[0] = trigArr[i];
-					scriptArr[i] = tmpS;
-					trigArr[i] = tmpT;
 				}
 				break;
 			}
@@ -4850,15 +4879,14 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		params[0].ival2 = 0;
 		params[0].sval = NULL;
 		numParams = 1;
+		// The binary copies the match down to slot 0 rather than swapping;
+		// slot i keeps its own value, which nothing reads once the count
+		// drops to one.
 		for (i = 0; i < numTriggers; i++) {
 			if ((CTrigger *)trigArr[i] == trigPtr) {
 				if (i > 0) {
-					uintptr_t tmpS = scriptArr[0];
-					uintptr_t tmpT = trigArr[0];
+					trigArr[0] = (uintptr_t)trigPtr;
 					scriptArr[0] = scriptArr[i];
-					trigArr[0] = trigArr[i];
-					scriptArr[i] = tmpS;
-					trigArr[i] = tmpT;
 				}
 				break;
 			}

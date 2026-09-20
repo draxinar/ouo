@@ -83,6 +83,10 @@ CChannel_Constructor(CChannel *this)
  *
  * Destroys pending messages, unlinks from the global channel list, and
  * delegates socket teardown to CSocket::Delete.
+ *
+ * As in the constructor, the binary opens by stamping the CChannel
+ * vtable at 0x005EE848 over the base pointer. Our CChannel has no
+ * second vtable object, so there is nothing to stamp.
  */
 static void
 CChannel_Delete(CChannel *this)

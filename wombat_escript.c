@@ -293,9 +293,9 @@ CEScriptStringVar_Clone(CEScriptStringVar *self)
 	int *dstValues;
 	int i;
 	CEScriptStringVar *clone = (CEScriptStringVar *)OperatorNew(sizeof(CEScriptStringVar));
-	if (clone == NULL)
-		return NULL;
-	CEScriptStringVar_Constructor(clone, self->base.name);
+	if (clone != NULL)
+		CEScriptStringVar_Constructor(clone, self->base.name);
+
 	clone->numValues = self->numValues;
 	srcValues = (int *)self->values;
 	dstValues = (int *)clone->values;

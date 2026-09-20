@@ -210,6 +210,7 @@ __extension__ typedef struct CResourceNode CResourceNode;
 
 extern const int g_TerrainCorner[4][2]; // 0x0061BB98
 extern int g_StaticItemCount; // 0x0068B380
+extern int g_StaticPoolRefilling; // 0x006CA8F8
 extern uint32_t g_DynamicItemCount; // 0x0068B384
 extern int g_TerrainDataLoaded; // 0x006982F8
 extern CVector g_arenaPageVec; // 0x00699A30

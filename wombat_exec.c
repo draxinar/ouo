@@ -139,7 +139,7 @@ static int check_IsGuard(CItem *ent);
 static int check_IsSpellbook(CItem *ent);
 static int check_IsRealContainer(CItem *ent);
 static int check_IsInContainer(CItem *ent);
-static const char *VT_GetName(CItem *ent);
+static const char *VT_GetTitledName(CItem *ent);
 static int check_GetMurderCount(CItem *ent);
 static CItem *VT_FindItemByName(CItem *mob, CString *name, uint32_t containerSerial);
 static int check_IsPlayer(CItem *ent);
@@ -693,7 +693,7 @@ Script_trackingTypeSelected(CList *list, uint32_t serial, int trackType, int cat
 		nameStr = (CString *)resultList.tail->value;
 
 		// Assign entity name via vtable[0x4C] dispatch (arg=1).
-		CString_AssignCStr(nameStr, VT_GetName(entity));
+		CString_AssignCStr(nameStr, VT_GetTitledName(entity));
 
 		// Compute direction from player to entity (location at +0x0A).
 		dir = CalcDirection(&player->resourceEntity.entity.location, &entity->resourceEntity.entity.location);
@@ -1257,7 +1257,7 @@ CExecThread_StoreResult(CExecThread *thread, int index, void *data, int size)
 	CNamedScopeEntry *varDef;
 
 	node = (ResultNode *)(uintptr_t)((ResultNode *)thread->stream)->extra;
-	while (index > 0) {
+	while (index != 0) {
 		node = node->next;
 		index--;
 	}
@@ -7447,7 +7447,7 @@ Script_sfx(CLocation *loc, int soundID, int volume)
 		return;
 
 	if (g_AnimSequence.state) {
-		tmpLoc = *loc;
+		CLocation_SetLoc(&tmpLoc, loc);
 		AnimSequence_AddLocation(tmpLoc);
 		memcpy(seqData, loc, 6);
 		memcpy(seqData + 6, &soundID, 4);
@@ -11300,7 +11300,7 @@ Script_getWeaponName(CString *out, uint32_t weaponSerial)
 		CString_Constructor(out, "");
 		return out;
 	}
-	CString_Constructor(out, VT_GetName(weapon));
+	CString_Constructor(out, VT_GetTitledName(weapon));
 	return out;
 }
 
@@ -14791,7 +14791,7 @@ Script_getResourcesOnObj(uint32_t serial, int flags, CList *list)
 		return 0;
 	node = ent->resourceEntity.firstChild;
 	while (node != NULL) {
-		if ((int)node->type == flags) {
+		if ((int8_t)node->type == flags) {
 			if (CResourceNode_GetResourceDef(node) != NULL) {
 				name = CResourceType_GetInternalName(CResourceNode_GetResourceDef(node));
 				CString_AssignCStr((CString *)tmpStr, name);
@@ -16612,8 +16612,8 @@ Script_getObjectsOnMulti(CList *list, uint32_t serial)
  *
  * Sends z-move update packets to nearby players for an entity.
  * Validates player, calls CMobile_NotifyNearbyPlayers, sends update
- * to clients in range, then gets nearby players within range 18 and
- * sends z-move update to each via vtable[0x4C] dispatch.
+ * to clients in range, then collects the players within range 18 and
+ * hands the whole vector to the player's vtable[0x130] notifier.
  */
 void
 Script_sendPlayerZmoveStuff(uint32_t serial)
@@ -17269,13 +17269,13 @@ Script_setLoiterMode(uint32_t serial, int mode)
 }
 
 /*
- * VT_GetName - vtable[0x4C] dispatch wrapper.
+ * VT_GetTitledName - vtable[0x4C] dispatch wrapper.
  *
  * Four overrides, not two: CEntity, CItem, CMobile and CPlayer, the last
  * of which builds a titled name.
  */
 static const char *
-VT_GetName(CItem *ent)
+VT_GetTitledName(CItem *ent)
 {
 	return ((const char *(*)(void *, int))VT_FN(ent, VT_SPEAK_SYS_MSG))(ent, 1);
 }
@@ -18060,11 +18060,11 @@ Script_createGlobalNPCAt(uint32_t templateId, CLocation *loc, int flags)
 	CItem *result;
 
 	CLocation_SetLoc(&resultLoc, loc);
-	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, loc->x, loc->y))
+	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)loc->x, (int16_t)loc->y))
 		return 0;
 	if (!CResBankManager_RequestCreateNPC(&resultLoc, flags, templateId))
 		return 0;
-	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, resultLoc.x, resultLoc.y))
+	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)resultLoc.x, (int16_t)resultLoc.y))
 		return 0;
 	result = CTemplateManager_CreateFromTemplate((uint16_t)templateId, &resultLoc, 0, 2, NULL);
 	if (result == NULL)
@@ -18237,7 +18237,7 @@ Script_defineResource(uint32_t serial, CString *resourceName, int type, int valu
 void
 Script_addConsumer(CLocation *loc, int templateIndex, int amount, int templateValue)
 {
-	CResBankManager_ScheduleRespawnForTemplate(loc, templateIndex, (int16_t)amount, (int16_t)templateValue);
+	CResBankManager_ScheduleRespawnForTemplate(loc, templateIndex, amount, (int16_t)templateValue);
 }
 
 /*
@@ -18865,11 +18865,11 @@ Script_addHelpRequestToQueue(uint32_t serial, int hasLevel, uint8_t level, CStri
 	if (player == NULL)
 		return;
 	if (hasLevel) {
-		CString_Constructor(&nameStr, (const char *)VT_GetName(player));
+		CString_Constructor(&nameStr, ((const char *(*)(void *))VT_FN(player, VT_GET_NAME))(player));
 		CHelpQueue_AddWithLevel(&g_HelpQueue, CMobile_GetSerial((CMobile *)player), &nameStr, level, message);
 		CString_Destructor(&nameStr);
 	} else {
-		CString_Constructor(&nameStr, (const char *)VT_GetName(player));
+		CString_Constructor(&nameStr, ((const char *(*)(void *))VT_FN(player, VT_GET_NAME))(player));
 		CHelpQueue_Add(&g_HelpQueue, CMobile_GetSerial((CMobile *)player), &nameStr, level, message);
 		CString_Destructor(&nameStr);
 	}
@@ -20150,7 +20150,7 @@ CompareTokenType(const char *tokenBuf, int tokenType)
 		return 0;
 
 	// Variant-encoded tokens: compare uint16 (same as MatchToken)
-	if (g_TokenVariants[tokenType][0] != 0) {
+	if (g_TokenHasVariants[tokenType] != 0) {
 		uint16_t streamVal;
 		int i;
 		memcpy(&streamVal, tokenBuf, 2);
@@ -20161,13 +20161,8 @@ CompareTokenType(const char *tokenBuf, int tokenType)
 		return 0;
 	}
 
-	// String tokens: exact strcmp match (binary uses 0x004E8910)
-	if (g_TriggerNames[tokenType] != NULL) {
-		if (strcmp(tokenBuf, g_TriggerNames[tokenType]) == 0)
-			return 1;
-	}
-
-	return 0;
+	// String tokens: exact strcmp match
+	return strcmp(tokenBuf, g_TriggerNames[tokenType]) == 0 ? 1 : 0;
 }
 
 /*
@@ -20484,12 +20479,12 @@ CHintItem_Destructor(CHintItem *self)
 }
 
 /*
- * 0x00463BA9 - CHintEntry::Copy
+ * 0x00463BA9 - CHintItem::Copy
  *
  * Copies every field from src into this. Returns this.
  */
 CHintItem *
-CHintEntry_Copy(CHintItem *this, CHintItem *src)
+CHintItem_Copy(CHintItem *this, CHintItem *src)
 {
 	this->hintId = src->hintId;
 	this->serial = src->serial;
@@ -20725,7 +20720,7 @@ CHintManager_Destructor(CResManager *self)
  * manager's count to pick a starting slot, then uses flags as a window
  * radius to compute a [startIdx, endIdx] range. Picks a random index in
  * that range, iterates forward that many positions through the CResManager,
- * then copies the matching entry via CHintEntry_Copy. Returns 1 on match,
+ * then copies the matching entry via CHintItem_Copy. Returns 1 on match,
  * 0 on miss.
  */
 static int
@@ -20783,7 +20778,7 @@ CHintManager_Find(CResManager *manager, uint32_t serial, int flags, CHintItem *o
 		return 0;
 
 	result = CResManager_GetResultCtx(rm, &ctx);
-	CHintEntry_Copy(outHint, (CHintItem *)result);
+	CHintItem_Copy(outHint, (CHintItem *)result);
 	return 1;
 }
 
@@ -20844,7 +20839,7 @@ CHintManager_Tick(void)
 		result->flags = result->flags + 1;
 
 		result = (CHintItem *)CResManager_GetResult(manager, &ctx);
-		if (result->flags > 6) {
+		if ((uint32_t)result->flags > 6) {
 			CSearchCtx_Add(&ctx, CHintManager_Erase(manager, &tempErase, &ctx, 1));
 		} else {
 			CSearchCtx_Add(&ctx, CHintManager_Next(manager, &tempNext, &ctx));

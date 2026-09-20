@@ -77,7 +77,7 @@ void CMultiComponent_Save(CMultiComponent *mc, CDataBuffer *buf, int isComponent
 void CMultiSlave_Save(CMultiSlave *slave, CDataBuffer *buf, int isComponent); // 0x004C5844
 void CItem_Save(CItem *obj, CDataBuffer *b, int writeMarker); // 0x004C59EF
 void CContainer_Save(CContainer *cont, CDataBuffer *b, int writeMarker); // 0x004C6A1D
-void CMulti_Save(CCorpse *corpse, CDataBuffer *b, int writeMarker); // 0x004C6A7F
+void CCorpse_Save(CCorpse *corpse, CDataBuffer *b, int writeMarker); // 0x004C6A7F
 void CBoard_Save(CContainer *cont, CDataBuffer *b, int writeMarker); // 0x004C6B76
 void CSignpost_Save(CSignpost *sp, CDataBuffer *b, int writeMarker); // 0x004C6BA6
 void CWeapon_Save(CContainer *cont, CDataBuffer *b, int writeMarker); // 0x004C6CC9

@@ -79,8 +79,7 @@ struct CMobile {
 	uint8_t _pad64_eq[4];           // 64-bit alignment pad
 #endif
 	CItem *equipment[30];           // 0x290
-	uint8_t direction;              // 0x308
-	uint8_t _mob_pad_dir[0x03];     // 0x309
+	uint32_t direction;             // 0x308 - the binary reads and writes all four bytes
 	uint32_t statClock;             // 0x30C - save: "stclk"
 	uint32_t notorietyChangeTimer;  // 0x310 - transient
 	uint32_t swingProgress;         // 0x314
@@ -337,7 +336,7 @@ void CMobile_SendEntityUpdate_VT(CItem *self, CItem *viewer, int withEquip); // 
 void CMobile_SendUpdateToList_VT(CItem *self, CVector *players, int mode); // 0x004731FF
 int CMobile_CalcTotalSkillWeight(CMobile *mob); // 0x004734A4
 void CMobile_NotifySkillGain(CMobile *mob, int8_t skillId, int actualGain); // 0x0047379C
-void GetMinMaxZForEntity(CItem *mob, CLocation loc, int moveType, int *outMinZ, int *outMaxZ); // 0x00481815
+void GetMinMaxZForEntity(CItem *mob, CLocation loc, int direction, int *outMinZ, int *outMaxZ); // 0x00481815
 int CMobile_WalkCheck_VT(CItem *self, int direction, int *outZ); // 0x004818FB
 void CMobile_DetachSpatial_VT(CItem *self); // 0x004838FF
 void Entity_BroadcastPacket(CItem *entity, uint32_t serial, uint8_t *buf); // 0x004852D6

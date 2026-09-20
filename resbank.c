@@ -895,7 +895,7 @@ CResBankManager_Init(void)
 	if (g_ResBankManager.noRegion != NULL)
 		CResBankRegion_Constructor(g_ResBankManager.noRegion);
 
-	strcpy(g_ResBankManager.noRegion->name, "No Region");
+	sprintf(g_ResBankManager.noRegion->name, "No Region");
 
 	g_ResBankManager.first = NULL;
 	g_ResBankManager.current = NULL;
@@ -1598,10 +1598,9 @@ CResBankManager_CreateRegion(const char *name, int32_t x1, int32_t y1, int32_t x
 	CResBankRegion *region;
 
 	region = OperatorNew(sizeof(CResBankRegion));
-	if (region == NULL)
-		return NULL;
+	if (region != NULL)
+		CResBankRegion_Constructor(region);
 
-	CResBankRegion_Constructor(region);
 	strcpy(region->name, name);
 	region->x1 = x1;
 	region->y1 = y1;
@@ -2082,7 +2081,7 @@ ResBankResourceCheck(CLocation *loc, int resTypeId, int amount)
  * Script_whoIsLargestConsumer.
  */
 void
-CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, int16_t amount, int16_t templateValue)
+CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, int amount, int16_t templateValue)
 {
 	CResBankRegion *region;
 	int32_t currentPriority, newPriority;
@@ -2097,9 +2096,8 @@ CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, in
 	if (region == g_ResBankManager.noRegion)
 		return;
 
-	// Binary uses movsx for respawnAmount (sign-extend int16) and movzx for
-	// respawnCountdown (zero-extend uint8), then signed imul by the literal
-	// 0x3A (0x004AF165) and stores 0x3A into respawnCountdown (0x004AF19D).
+	// respawnAmount is sign-extended from int16 and respawnCountdown
+	// zero-extended from uint8, then multiplied signed.
 	currentPriority = (int32_t)(int16_t)region->respawnAmount[templateIndex] * (int32_t)region->respawnCountdown[templateIndex];
 	newPriority = (int32_t)amount * 0x3A;
 
@@ -2955,7 +2953,7 @@ CResBankRegion_SpawnForTemplate(CResBankRegion *region, int templateFilter)
 	entry = region->spawnEntries;
 	remaining = region->entryCount;
 
-	while (entry != NULL && remaining > 0) {
+	while (entry != NULL && remaining != 0) {
 		int match = 0;
 
 		if (templateFilter == -1) {
@@ -3944,27 +3942,19 @@ CClassification_InsertEntry(CResBankRegion *region, int entryIdx, uint16_t templ
  *
  * For each spawn entry, indexes it by every type==0 resource-node id
  * on its template, populating the per-template classEntryIndices
- * arrays.
- *
- * FIXED: binary iterates region->entryCount without bounds-checking
- * the node id used as array index. Cap the loop at
- * RESBANK_MAX_TEMPLATES to avoid overflowing the fixed arrays.
+ * arrays. Every array InsertEntry touches is indexed by that node id,
+ * not by the entry index the loop counts.
  */
 void
 CClassification_BuildTable(CResBankRegion *region)
 {
 	int i;
-	int limit;
 	NPCTemplate *tmpl;
 	CResourceNode *node;
 	uint16_t templateId;
 	int entryFreq;
 
-	limit = region->entryCount;
-	if (limit > RESBANK_MAX_TEMPLATES)
-		limit = RESBANK_MAX_TEMPLATES;
-
-	for (i = 0; i < limit; i++) {
+	for (i = 0; i < region->entryCount; i++) {
 		templateId = ((ResSpawnEntry *)region->spawnEntries)[i].templateId;
 		tmpl = CResManager_GetTemplateByID(templateId);
 		node = tmpl->resourceNodes;

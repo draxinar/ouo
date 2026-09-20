@@ -24,7 +24,7 @@
 static void Defcon_StrikeLightning(CItem *entity); // 0x004D7D1F
 static void CDefcon_CheckLevel2(void); // 0x0043733F
 static void CDefcon_CheckLevel3(void); // 0x004371D2
-static void CDefcon_CheckLevel5(void); // 0x00437096
+static int CDefcon_CheckLevel5(void); // 0x00437096
 static void CDefcon_CheckLevel1(void); // 0x00436F1C
 static void CDefcon_Level1Stub(int arg); // 0x00436F0F
 static void CDefcon_CheckLevel4(void); // 0x00436E08
@@ -323,7 +323,7 @@ CDefcon_CheckLevel1(void)
  * DEFCON 5: fires a teleport storm when the player count is well
  * above the threshold.
  */
-static void
+static int
 CDefcon_CheckLevel5(void)
 {
 	int excess;
@@ -339,7 +339,10 @@ CDefcon_CheckLevel5(void)
 		CString_AppendCStr(&str, ")");
 		EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "panic", "gamestatus", CString_GetBuffer(&str));
 		CString_Destructor(&str);
+	} else {
+		excess = 0;
 	}
+	return excess;
 }
 
 /*

@@ -817,13 +817,13 @@ CContainer_Save(CContainer *cont, CDataBuffer *b, int writeMarker)
 }
 
 /*
- * 0x004C6A7F - CMulti::Save (type @=X, corpse container)
+ * 0x004C6A7F - CCorpse::Save (type @=X)
  *
  * Serializes a CCorpse: writes the "@=X" marker, corpse body type,
  * each occupied equipment slot, then the base container payload.
  */
 void
-CMulti_Save(CCorpse *corpse, CDataBuffer *b, int writeMarker)
+CCorpse_Save(CCorpse *corpse, CDataBuffer *b, int writeMarker)
 {
 	char buf[128];
 	int len, i;
@@ -2960,7 +2960,7 @@ CDataBuffer_WriteInt(CDataBuffer *b, const char *key, int value)
  *   CItem::Save       (0x004C6B76) - @=B, calls CContainer::Save
  *   CWeapon::Save     (0x004C6CC9) - @=W + weapon fields
  *   CSignpost::Save   (0x004C6BA6) - @=Z + mapextents/vect
- *   CMulti::Save      (0x004C6A7F) - @=X + corpsetype/corpitem
+ *   CCorpse::Save     (0x004C6A7F) - @=X + corpsetype/corpitem
  *   CMobile::Save     (0x004C6FD1) - @=M + mobile fields
  *   CNPC::Save        (0x004C7D7E) - @=N + NPC fields
  *   CPlayer::Save     (0x004C842C) - @=P + player fields

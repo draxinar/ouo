@@ -178,9 +178,9 @@ enum {
  * One row of g_TokenTypeTable (12 bytes): maps a script token id to its
  * name and a flag indicating whether matching goes through the variant
  * table or falls back to a direct string compare. The table itself
- * (g_TokenTypeTable at 0x00611318) is 138 entries; the C source uses
- * g_TriggerNames as a derived view of the .str column for rows
- * 0x42..0x88.
+ * (g_TokenTypeTable at 0x00611318) is 138 entries; the C source splits
+ * it into two derived views, g_TokenHasVariants for the .hasVariants
+ * column and g_TriggerNames for the .str column.
  */
 __extension__ typedef struct TokenTypeEntry TokenTypeEntry;
 struct TokenTypeEntry {
@@ -875,23 +875,6 @@ __extension__ typedef struct SeqCmdNode SeqCmdNode;
 __extension__ typedef struct AnimSequence AnimSequence;
 __extension__ typedef struct CStringMatcher CStringMatcher;
 
-/*
- * One row of the NPC-hint table used by wombat.c hint built-ins.
- */
-typedef struct {
-	int32_t priority;
-	uint32_t targetObj;
-	int32_t value;
-	char name1[64];
-	char name2[128];
-	int16_t locX;
-	int16_t locY;
-	int16_t locZ;
-	uint32_t sourceObj;
-	char name3[32];
-	int32_t flags;
-} CHintEntry;
-
 __extension__ typedef struct EventLogger EventLogger;
 
 /*
@@ -966,6 +949,7 @@ __extension__ typedef struct SCommandManager SCommandManager;
 __extension__ typedef struct SCommandEntry SCommandEntry;
 
 extern const uint16_t g_TokenVariants[TOKEN_TYPE_COUNT][5]; // 0x00610B40
+extern const int g_TokenHasVariants[TOKEN_TYPE_COUNT];     // 0x0061131C
 extern CScript *g_currentCompileScript; // 0x0063D828
 extern CExecThread *g_globalThreadHead; // 0x0063D82C
 extern StdMapTree g_WombatArrays; // 0x0063D840
@@ -1107,8 +1091,9 @@ void FreeResultChain(ResultNode *chain);
  * 0x00611318 - g_TokenTypeTable
  *
  * Token-type table: 138 entries of TokenTypeEntry (12 bytes each). The
- * .str field (offset +0x08) for rows 0x42..0x88 is exposed by the C
- * source as g_TriggerNames.
+ * .hasVariants field (offset +0x04) is exposed by the C source as
+ * g_TokenHasVariants and the .str field (offset +0x08) as
+ * g_TriggerNames.
  */
 
 /*

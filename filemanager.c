@@ -269,7 +269,7 @@ FileManager_Close(FileManager *fm, FileManagerEntry *entry)
 	if (fm->containerFp != NULL) {
 		FileManagerEntry localBuf;
 		int index;
-		long fileSize;
+		long savedPos;
 
 		if (entry->isOpen)
 			return 0;
@@ -278,13 +278,12 @@ FileManager_Close(FileManager *fm, FileManagerEntry *entry)
 		memcpy(&localBuf, entry, sizeof(FileManagerEntry));
 		Feistel_Encrypt((uint32_t *)&localBuf, 0x23);
 
-		fseek(fm->containerFp, 0, SEEK_END);
-		fileSize = ftell(fm->containerFp);
+		savedPos = ftell(fm->containerFp);
 
 		fseek(fm->containerFp, index * (int)sizeof(FileManagerEntry), SEEK_SET);
 		fwrite(&localBuf, sizeof(FileManagerEntry), 1, fm->containerFp);
 
-		fseek(fm->containerFp, fileSize, SEEK_SET);
+		fseek(fm->containerFp, savedPos, SEEK_SET);
 		return 0;
 	}
 
@@ -365,6 +364,11 @@ FileManager_ReadDirectory(FileManager *fm)
  * MODIFIED: standalone mode - reading loose files under ../.rundir when
  * uodemo.dat is absent - is a custom addition; the binary only ever
  * addresses the container.
+ *
+ * MODIFIED: the binary seeks before it clamps and only skips the read
+ * when elemCount is exactly zero; here the clamp comes first and a
+ * non-positive count returns without seeking. The null test on entry is
+ * ours - the binary dereferences it immediately.
  */
 int
 FileManager_Read(FileManager *fm, void *buf, int elemSize, int elemCount, FileManagerEntry *entry)
@@ -408,6 +412,15 @@ FileManager_Read(FileManager *fm, void *buf, int elemSize, int elemCount, FileMa
  * MODIFIED: standalone mode - reading loose files under ../.rundir when
  * uodemo.dat is absent - is a custom addition; the binary only ever
  * addresses the container.
+ *
+ * MODIFIED: three smaller deviations. The binary has no null test on
+ * entry and dereferences it at 004e2dd3. Its whence switch has no
+ * default arm: an unrecognised whence falls into the shared tail at
+ * 004e2df0 with the new position still uninitialised, clamps that,
+ * stores it and seeks, which C cannot express without undefined
+ * behaviour, so ours returns -1. And it brackets the body with two
+ * calls to the no-op at 0x004E2770, whose result is discarded both
+ * times.
  */
 int
 FileManager_Seek(FileManager *fm, FileManagerEntry *entry, int offset, int whence)
@@ -456,6 +469,11 @@ FileManager_Seek(FileManager *fm, FileManagerEntry *entry, int offset, int whenc
  * MODIFIED: standalone mode - reading loose files under ../.rundir when
  * uodemo.dat is absent - is a custom addition; the binary only ever
  * addresses the container.
+ *
+ * MODIFIED: the binary clamps elemCount so the write cannot run past
+ * entry->allocatedSize at +0x108. Standalone mode repurposes that slot
+ * as the entry's FILE *, so the field the clamp reads does not exist
+ * here and the clamp is absent.
  */
 int
 FileManager_Write(FileManager *fm, const void *buf, int elemSize, int elemCount, FileManagerEntry *entry)
@@ -475,9 +493,12 @@ FileManager_Write(FileManager *fm, const void *buf, int elemSize, int elemCount,
 		fseek(entry->fp, (long)entry->curPos, SEEK_SET);
 		nwritten = (int)fwrite(buf, elemSize, elemCount, entry->fp);
 	}
+	if (elemCount == 0)
+		return 0;
+
 	entry->curPos += (uint32_t)(nwritten * elemSize);
 
-	if (entry->curPos > entry->dataSize)
+	if ((int)entry->curPos > (int)entry->dataSize)
 		entry->dataSize = entry->curPos;
 
 	return nwritten;

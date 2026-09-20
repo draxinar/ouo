@@ -301,9 +301,9 @@ CRegion_isCoordInside(CRegion *r, CLocation *loc)
 /*
  * 0x004A4021 - CRegion::CopyFrom
  *
- * Copies all fields from src into this region.
+ * Copies all fields from src into this region and returns it.
  */
-void
+CRegion *
 CRegion_CopyFrom(CRegion *this, CRegion *src)
 {
 	this->prefix = src->prefix;
@@ -320,6 +320,7 @@ CRegion_CopyFrom(CRegion *this, CRegion *src)
 	this->weatherNight = src->weatherNight;
 	this->type = src->type;
 	this->lightLevel = src->lightLevel;
+	return this;
 }
 
 /*
@@ -832,8 +833,7 @@ RegionManager_PopulateFromRM(CResList *outList, CLocation *loc, CResManager *rm)
 	CRegion *region;
 
 	CSearchCtx_Constructor(&ctx);
-	CResManager_BeginIter(rm, &temp);
-	CSearchCtx_Add(&ctx, &temp);
+	CSearchCtx_Add(&ctx, CResManager_BeginIterWrapper(rm, &temp));
 
 	while (CSearchCtx_Find(&ctx)) {
 		region = *(CRegion **)CResManager_GetResultCtx(rm, &ctx);
@@ -841,8 +841,7 @@ RegionManager_PopulateFromRM(CResList *outList, CLocation *loc, CResManager *rm)
 		if (CRegion_isCoordInside(region, loc))
 			RegionManager_SortedAreaInsert(region, outList);
 
-		CResManager_NextIter(rm, &temp, &ctx);
-		CSearchCtx_Add(&ctx, &temp);
+		CSearchCtx_Add(&ctx, CResManager_NextIterWrapper(rm, &temp, &ctx));
 	}
 
 	return outList->count > 0 ? 1 : 0;

@@ -106,12 +106,12 @@ ArenaAllocator_Alloc(uint32_t size, void **outPtr)
 
 	if (count != 0) {
 		page = (CDequeBlock *)*(uintptr_t *)CVector_At(&g_arenaPageVec, (int)count - 1);
-		if (CDequeBlock_GetRemaining(page) >= size)
+		if ((int)CDequeBlock_GetRemaining(page) >= (int)size)
 			goto reuse_page;
 	}
 
 	pageSize = 0x8000;
-	if (size > 0x8000)
+	if ((int)size > 0x8000)
 		pageSize = (size + 0x1FFF) & 0xFFFFE000;
 
 	newPage = (CDequeBlock *)OperatorNew(sizeof(CDequeBlock));

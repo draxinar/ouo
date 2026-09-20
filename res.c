@@ -168,7 +168,7 @@ static CResListNode *CResList_PushFront_MultiA(CResList *list, CResListNode *aft
 static void CResList_ReplaceData_C(CResListNode *this, void *data); // 0x0047C780
 static void CResList_ClearAll_MultiVal(CResList *list); // 0x0047C6F0
 static void *CResList_BeginIter_MultiC(CResList *list); // 0x0047C640
-static CSearchCtx *CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *searchCtx, CSearchCtx *output, int direction); // 0x0047C560
+static CSearchCtx *CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction); // 0x0047C560
 static void CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047C460
 static void CResList_ReplaceData_B(CResListNode *this, void *data); // 0x0047C400
 static void CResList_ClearAll_MultiB(CResList *list); // 0x0047C3C0
@@ -176,7 +176,7 @@ static CResListNode *CResList_Erase_MultiKey(CResList *list, CResListNode *node,
 static CResListNode *CResList_BeginIter_MultiB(CResList *list); // 0x0047C240
 static void CResList_ClearAll_MultiA(CResList *list); // 0x0047C200
 static CResListNode *CResList_BeginIter_MultiA(CResList *list); // 0x0047C100
-static CSearchCtx *CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *searchCtx, CSearchCtx *output, int direction); // 0x0047C020
+static CSearchCtx *CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction); // 0x0047C020
 static void *CResList_PrependData_C(CResList *this, void *data); // 0x0047BE70
 static CResListNode *CResList_Erase_MultiVal(CResList *list, CResListNode *node, void **outData, int direction); // 0x0047BD80
 static void *CResManager_NextIterInternalMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047BC30
@@ -190,7 +190,7 @@ static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *out
 static CSearchCtx *CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction); // 0x0047B580
 static int CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr); // 0x0047A930
 static void CResListNode_FreeData(CResListNode *node); // 0x0047D460
-static void *CResList_GetHead(CResListNode *this); // 0x004A6FD0
+static int CResList_GetCount(CResList *this); // 0x004A6FD0
 static void *CResList_StoreVal_ByFile(CResList *list, void *value); // 0x004A7E10
 static void *CResList_AdvanceValIter(CResListNode *this, CRegion *src); // 0x004A7D70
 static void CResList_Destructor_ByFileVal(CResList *this); // 0x004A7D50
@@ -280,9 +280,10 @@ CSearchCtx_GetBucket(CSearchCtx *ctx)
 }
 
 /*
- * 0x00421000 - CSearchCtx::Find
+ * 0x00421000 - CSearchCtx accessor (our name: CSearchCtx_Find)
  *
- * Returns entity field (non-zero if found).
+ * Returns the entity field, which the callers read as a found flag.
+ * The binary is a plain [this+0] getter, not a search.
  */
 int
 CSearchCtx_Find(CSearchCtx *ctx)
@@ -2903,9 +2904,11 @@ CResList_DestructorI(CResList *list)
 }
 
 /*
- * 0x0043FC30 - CResManager::CreateBucket
+ * 0x0043FC30 - CSearchCtx::operator= (our name: CResManager_CreateBucket)
  *
- * Copies source CSearchCtx to dst via CSearchCtx_Add.
+ * Thiscall on the destination CSearchCtx: copies src into it through
+ * CSearchCtx_Add and returns this. Not a CResManager method, and it
+ * creates nothing.
  */
 void *
 CResManager_CreateBucket(CSearchCtx *dst, CSearchCtx *src)
@@ -6464,7 +6467,7 @@ CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_Erase_MultiVal(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outData, direction);
 
-	// Check if bucket is empty (CResList_GetHead returns count at +8)
+	// Check if bucket is empty (CResList_GetCount returns count at +8)
 	bucket = CSearchCtx_GetBucket(current);
 	if (rm->keys[bucket]->count == 0) {
 		bucket = CSearchCtx_GetBucket(current);
@@ -6499,6 +6502,7 @@ static CSearchCtx *
 CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction)
 {
 	CSearchCtx ctx;
+	CSearchCtx stepOut;
 
 	CSearchCtx_Constructor(&ctx);
 	if (!CSearchCtx_Find(searchCtx)) {
@@ -6514,7 +6518,7 @@ CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSe
 			CResManager_CreateBucket(output, &ctx);
 			return output;
 		}
-		CSearchCtx *next = CResManager_NextIter_KeyVal_A(this, &ctx, output, direction);
+		CSearchCtx *next = CResManager_NextIter_KeyVal_A(this, &stepOut, &ctx, direction);
 		CSearchCtx_Add(&ctx, next);
 	}
 	CSearchCtx_SetEntity(&ctx, 0);
@@ -6658,7 +6662,7 @@ CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_Erase_MultiKey(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outData, direction);
 
-	// Check if bucket is empty (CResList_GetHead returns count at +8)
+	// Check if bucket is empty (CResList_GetCount returns count at +8)
 	bucket = CSearchCtx_GetBucket(current);
 	if (rm->keys[bucket]->count == 0) {
 		// CResList_ScalarDelete_MultiA(keys[bucket], 1)
@@ -6748,6 +6752,7 @@ static CSearchCtx *
 CResManager_FindByKey_B2(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction)
 {
 	CSearchCtx ctx;
+	CSearchCtx stepOut;
 
 	CSearchCtx_Constructor(&ctx);
 	if (!CSearchCtx_Find(searchCtx)) {
@@ -6763,7 +6768,7 @@ CResManager_FindByKey_B2(CResManager *this, CSearchCtx *output, void *keyPtr, CS
 			CResManager_CreateBucket(output, &ctx);
 			return output;
 		}
-		CSearchCtx *next = CResManager_NextIter_KeyVal_B(this, &ctx, output, direction);
+		CSearchCtx *next = CResManager_NextIter_KeyVal_B(this, &stepOut, &ctx, direction);
 		CSearchCtx_Add(&ctx, next);
 	}
 	CSearchCtx_SetEntity(&ctx, 0);
@@ -6877,7 +6882,8 @@ CResList_Erase_MultiVal(CResList *list, CResListNode *node, void **outData, int 
 
 	*outData = CResListNode_SwapData(node, NULL);
 
-	SmartPtr_CVector_ScalarDelete((CSmartPtr *)node, 1);
+	if (node != NULL)
+		SmartPtr_CVector_ScalarDelete((CSmartPtr *)node, 1);
 
 	list->count--;
 
@@ -6920,7 +6926,7 @@ CResList_PrependData_C(CResList *this, void *data)
  * reports whether the new key node is still valid.
  */
 static CSearchCtx *
-CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *searchCtx, CSearchCtx *output, int direction)
+CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction)
 {
 	CSearchCtx ctx;
 	CSearchCtx *sctx = searchCtx;
@@ -7045,7 +7051,8 @@ CResList_Erase_MultiKey(CResList *list, CResListNode *node, void **outData, int 
 
 	*outData = CResListNode_SwapData(node, NULL);
 
-	SmartPtr_CMultiDef_ScalarDelete((CSmartPtr *)node, 1);
+	if (node != NULL)
+		SmartPtr_CMultiDef_ScalarDelete((CSmartPtr *)node, 1);
 
 	list->count--;
 
@@ -7134,7 +7141,7 @@ CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, uint32_
  * Same as CResManager_NextIter_KeyVal_A.
  */
 static CSearchCtx *
-CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *searchCtx, CSearchCtx *output, int direction)
+CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction)
 {
 	CSearchCtx ctx;
 	CSearchCtx *sctx = searchCtx;
@@ -7697,14 +7704,14 @@ CResList_EraseAndFree_ByNameAll(CResManager *rm, CSearchCtx *output, CSearchCtx 
 }
 
 /*
- * 0x004A6FD0 - CResList::GetHead
+ * 0x004A6FD0 - CResList::GetCount
  *
- * Returns the node's data pointer.
+ * Returns the +0x08 field: count on a CResList, data on a CResListNode.
  */
-static __attribute__((unused)) void *
-CResList_GetHead(CResListNode *this)
+static __attribute__((unused)) int
+CResList_GetCount(CResList *this)
 {
-	return this->data;
+	return this->count;
 }
 
 /*
@@ -8124,13 +8131,14 @@ CResManager_NextIterStep_ByFile(CResManager *rm, CSearchCtx *out, CSearchCtx *cu
 	}
 
 	bucket = CSearchCtx_GetBucket(current);
-	CSearchCtx_SetBucket(&ctx, bucket);
 
 	nextKey = (CResListNode *)CResList_DirectionNext(rm->keys[bucket], (CResListNode *)current->keyNode, (int)direction);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)nextKey);
 
 	nextVal = (CResListNode *)CResList_DirectionNext(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), (int)direction);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)nextVal);
+
+	CSearchCtx_SetBucket(&ctx, bucket);
 
 	valid = CResList_IsValid(rm->keys[bucket], nextKey);
 	CSearchCtx_SetEntity(&ctx, valid);
@@ -10546,7 +10554,8 @@ CResList_UnlinkNode_K(CResList *list, CResListNode *node, void **outData, int di
 
 	*outData = CResListNode_SwapData(node, NULL);
 
-	CResListNode_ScalarDelete(node, 1);
+	if (node != NULL)
+		CResListNode_ScalarDelete(node, 1);
 
 	list->count--;
 

@@ -818,7 +818,7 @@ SetBookPage(CItem *item, int pageNum, int lineCount, char **lines)
 }
 
 /*
- * 0x004357E6 - BookContent_open
+ * 0x004357E6 - CBookContent::open
  *
  * Sends the book header to player and, for writable books, eagerly sends
  * all pages in batches of 50. Read-only books rely on the client

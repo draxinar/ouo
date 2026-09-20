@@ -291,7 +291,7 @@ int ResBankLimitCheck(void *arg1, void *arg2); // 0x004AF03A
 int HasTemplateInManager(int templateId); // 0x004AF0A9
 int ResBankMagicCheck(CLocation *loc, int resTypeId); // 0x004AF0CE
 int ResBankResourceCheck(CLocation *loc, int resTypeId, int amount); // 0x004AF0DD
-void CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, int16_t amount, int16_t templateValue); // 0x004AF0EC
+void CResBankManager_ScheduleRespawnForTemplate(CLocation *loc, int templateIndex, int amount, int16_t templateValue); // 0x004AF0EC
 int CResBankManager_GetRespawnTimer(CLocation *loc, int templateIndex); // 0x004AF1AA
 void CResBankManager_InitRespawn(void); // 0x004AF217
 int CResBankManager_ProcessRespawnChunk(int maxIterations); // 0x004AF2DB

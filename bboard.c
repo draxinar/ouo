@@ -317,6 +317,8 @@ CBulletinBoard_Destructor(CBulletinBoard *bb)
 {
 	CItem *item, *next;
 
+	bb->container.item.resourceEntity.entity.vtable = &g_vtable_CBoard;
+
 	if (g_shutdown)
 		goto unlink;
 

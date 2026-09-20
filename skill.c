@@ -1318,8 +1318,8 @@ CSkillManager_RegisterUsage(int8_t skillId)
 		mgr->allSkillSomeTotal = 0;
 		mgr->allSkillUsageCounter = 0;
 		for (i = 0; i < MAX_SKILLS; i++) {
-			mgr->perSkillUsageCounter[i] >>= 16;
-			mgr->perSkillSomeValue[i] >>= 16;
+			mgr->perSkillUsageCounter[i] = (int32_t)((uint32_t)mgr->perSkillUsageCounter[i] >> 16);
+			mgr->perSkillSomeValue[i] = (int32_t)((uint32_t)mgr->perSkillSomeValue[i] >> 16);
 			mgr->allSkillUsageCounter += mgr->perSkillUsageCounter[i];
 			mgr->allSkillSomeTotal += mgr->perSkillSomeValue[i];
 		}

@@ -421,6 +421,10 @@ CSocketBuffer_Send(CSocketBuffer *this)
 	int result;
 	int n;
 
+	// 0x0047FF0F: when this->socket matches the local client's socket at
+	// [0x00701660], the binary hands the buffer to the client thread's
+	// queue under a critical section instead of sending. CUSTOM: skipped -
+	// main.c never constructs those objects, so the slot stays null.
 	n = send(this->socket->s, &this->buf[this->socket->totalSent], this->size - this->socket->totalSent, MSG_NOSIGNAL);
 	if (n <= 0) {
 		if (n == -1 && errno != EWOULDBLOCK)

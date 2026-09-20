@@ -337,10 +337,10 @@ CSignpost_GetValue_VT(CItem *self, int useResource, int normalize)
 
 	value = CItem_GetValue_VT(self, useResource, 0);
 
-	area = (sp->mapExtent[2] - sp->mapExtent[0]) * (sp->mapExtent[3] - sp->mapExtent[1]);
+	area = ((int)(uint16_t)sp->mapExtent[2] - (int)(uint16_t)sp->mapExtent[0]) * ((int)(uint16_t)sp->mapExtent[3] - (int)(uint16_t)sp->mapExtent[1]);
 	areaVal = (int)(sqrt((double)area) / 100.0);
 
-	zProd = sp->mapExtent[4] * sp->mapExtent[5];
+	zProd = (int)(uint16_t)sp->mapExtent[4] * (int)(uint16_t)sp->mapExtent[5];
 	zVal = (int)(sqrt((double)zProd) / 100.0);
 
 	value += areaVal + zVal;

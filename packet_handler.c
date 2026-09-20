@@ -5365,30 +5365,30 @@ HandlePacket_MAP_COMMAND(CPlayer *this, uint8_t *buf)
 /*
  * 0x00497628 - HandlePacket_SIMPED
  *
- * GM editor tool: updates item appearance properties. Reads 6 fields
- * and delegates to SIMPED_Apply (0x0045B4C0).
+ * GM editor tool: paints a rectangle of terrain from a tile group.
+ * Reads 6 fields and delegates to SIMPED_Apply.
  *
- * Packet fields: serial(DWord), flags(DWord), data(DWord),
- *   artId(Word), hue(Word), tileGroupIdx(DWord)
+ * Packet fields: startX(DWord), startY(DWord), data(DWord),
+ *   extentX(Word), extentY(Word), tileGroupIdx(DWord)
  */
 void
 HandlePacket_SIMPED(CPlayer *this, uint8_t *buf)
 {
 	uint32_t off;
-	uint32_t serial, flags, data, tileGroupIdx;
-	uint16_t artId, hue;
+	uint32_t startX, startY, data, tileGroupIdx;
+	uint16_t extentX, extentY;
 
 	USED(this);
 
 	off = 0;
-	GetDWord(buf, &off, &serial);
-	GetDWord(buf, &off, &flags);
+	GetDWord(buf, &off, &startX);
+	GetDWord(buf, &off, &startY);
 	GetDWord(buf, &off, &data);
-	GetWord(buf, &off, &artId);
-	GetWord(buf, &off, &hue);
+	GetWord(buf, &off, &extentX);
+	GetWord(buf, &off, &extentY);
 	GetDWord(buf, &off, &tileGroupIdx);
 
-	SIMPED_Apply(serial, flags, data, artId, hue, tileGroupIdx);
+	SIMPED_Apply(startX, startY, data, extentX, extentY, tileGroupIdx);
 }
 
 /*
@@ -6934,7 +6934,7 @@ TriggerEdit_FindTagDef(CItem *entity, const char *name)
 	CItem_GetTagDefListRaw(entity, &vec);
 
 	p = (TagNode **)vec.begin;
-	while (p < (TagNode **)vec.end) {
+	while (p != (TagNode **)vec.end) {
 		TagNode *entry = *p;
 		if (strcmp(entry->name, name) == 0) {
 			CVector_Destructor(&vec);
@@ -8958,14 +8958,6 @@ DispatchDoubleClickMobile(CPlayer *player, uint32_t serial, CLocation *loc, CIte
  * touches (wall torches, sconces, lamp posts, lit-frame variants)
  * and the lit-lantern orphans described above.
  */
-#if 0
-// Original binary no-op stub (COMPLETED)
-static void
-UseLight(CItem *entity)
-{
-	USED(entity);
-}
-#else
 static void
 UseLight(CItem *entity)
 {
@@ -8984,7 +8976,6 @@ UseLight(CItem *entity)
 	CEntity_SetBodyType(entity, toggled);
 	((void (*)(void *))VT_FN(entity, VT_RETURN_TO_TRACKED))(entity);
 }
-#endif
 
 /*
  * 0x004DC355 - SendOpenGump

@@ -21,7 +21,7 @@
  *   CNPC:             0x005EECF0
  *   CPlayer:          0x005EEA50
  *   CShopkeeper:      0x005EFDE8
- *   CMulti:           0x005EF7C8
+ *   CCorpse:          0x005EF7C8
  *   CEgg:             0x005EFB38
  *   CSignpost:        0x005EF988
  *   CBulletinBoard:   0x005EE690
@@ -237,7 +237,7 @@ extern CEntity_vtable g_vtable_CResourceMobile;
 extern CEntity_vtable g_vtable_CNPC;
 extern CEntity_vtable g_vtable_CPlayer;
 extern CEntity_vtable g_vtable_CShopkeeper;
-extern CEntity_vtable g_vtable_CMulti;
+extern CEntity_vtable g_vtable_CCorpse;
 extern CEntity_vtable g_vtable_CEgg;
 extern CEntity_vtable g_vtable_CSignpost;
 extern CEntity_vtable g_vtable_CGuard;

@@ -258,7 +258,7 @@ void *StdMap_PairConstructor(uintptr_t *this, void *key, void *value); // 0x0042
 void CEntityMap_RangeQueryToList(CEntityMap *this, CList *list, int x, int y, int range); // 0x00421580
 void *StdTreeNode_Value(StdTreeNode *node); // 0x004227A0
 void *StdTree_FindInsertPos_Int(StdMapTree *tree, int *keyPtr); // 0x004234E0
-void StdTree_LowerBound_Int(void *iter); // 0x004237F0
+void StdMap_TreeInc(void *iter); // 0x004237F0
 void Vector_SortByZ(void *begin, void *end, char typeTag); // 0x00423900
 void Vector_SortByType(void *begin, void *end, uint8_t typeTag); // 0x00423930
 int GameCentMon_GetPlayerCount(void); // 0x00423AA0

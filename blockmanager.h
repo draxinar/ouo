@@ -88,12 +88,10 @@ void CBlockManager_Unlock(CBlockManager *this); // 0x0042F1A4
 void CBlockManager_Setup(CBlockManager *this, int widthTiles, int heightTiles); // 0x0042F1AF
 void CBlockManager_GetBlockOrigin(CBlockManager *this, int blockIdx, int *outX, int *outY); // 0x0042F229
 int CBlockManager_GetBlockIndex(CBlockManager *this, int x, int y, int unused); // 0x0042F265
-int Terrain_GetBlockIndex(int x, int y); // 0x0042F265
 int CBlockManager_GetBlockIndexFromLoc(CBlockManager *this, CLocation *loc, int extra); // 0x0042F2CF
 void CBlockManager_GetNearbyBlocks(CBlockManager *this, CLocation *loc, int range, int *blockBuf, int maxBlocks); // 0x0042F2F7
 int CBlockManager_IsValidCoordAbsolute(CBlockManager *this, int x, int y); // 0x0042F40B
 int CBlockManager_IsValidCoord(CBlockManager *this, int x, int y); // 0x0042F43F
-int Terrain_InBounds(int x, int y); // 0x0042F43F
 int CBlockManager_IsNearBorder(CBlockManager *this, int x, int y); // 0x0042F48C
 int CBlockManager_WrapCoord(CBlockManager *this, CLocation loc); // 0x0042F522
 void CBlockManager_GetItemsAtLocationXY(CBlockManager *this, CVector *list, CLocation *loc); // 0x0042F53D

@@ -5249,7 +5249,7 @@ CMobile_NotifySkillGain(CMobile *mob, int8_t skillId, int actualGain)
  * (moveType 2) get a taller upward range.
  */
 void
-GetMinMaxZForEntity(CItem *mob, CLocation loc, int moveType, int *outMinZ, int *outMaxZ)
+GetMinMaxZForEntity(CItem *mob, CLocation loc, int direction, int *outMinZ, int *outMaxZ)
 {
 	int mt;
 
@@ -5257,7 +5257,7 @@ GetMinMaxZForEntity(CItem *mob, CLocation loc, int moveType, int *outMinZ, int *
 	*outMinZ = *outMaxZ;
 
 	mt = ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF;
-	CTerrainManager_GetMinMaxZ(outMinZ, outMaxZ, loc, moveType, mt, mob, 1);
+	CTerrainManager_GetMinMaxZ(outMinZ, outMaxZ, loc, direction, mt, mob, 1);
 
 	mt = ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF;
 	if (mt == 2)

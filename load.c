@@ -35,6 +35,13 @@
 
 #define MAX_RESOURCE_TYPES 102
 
+// Two entries of the binary's table of literal data-file paths at
+// 0x0061B564. The save paths are read straight out of it; the
+// FileTypeEntry table CFileManager walks holds its own copies of the
+// same text.
+static char *GLOBAL_path_restypes_mul = "../.rundir/restypes.mul"; // 0x0061B57C
+static char *GLOBAL_path_itemres_mul = "../.rundir/itemres.mul";   // 0x0061B58C
+
 /*
  * 0x004DE4D7 - LoadAll_ArtDim
  *
@@ -689,7 +696,7 @@ SaveAll_ItemRes(void)
 	int count;
 	CResourceNode *node;
 
-	fp = fopen_ServerSide(FileManager_GetCategory(0x29)->basePath, "wb");
+	fp = fopen_ServerSide(GLOBAL_path_itemres_mul, "wb");
 
 	for (i = 0; i < 0x4000; i++) {
 		count = 0;
@@ -727,7 +734,7 @@ SaveAll_ResTypes(void)
 	CResourceType *rt;
 
 	count = 0;
-	fp = fopen_ServerSide(FileManager_GetCategory(0x2C)->basePath, "wb");
+	fp = fopen_ServerSide(GLOBAL_path_restypes_mul, "wb");
 
 	for (i = 0; i < 0x66; i++) {
 		if (g_ResTypeEntries[i] != NULL)

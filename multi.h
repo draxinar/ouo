@@ -350,12 +350,12 @@ void InsertionSort_Dist_ShiftDown(void *pos, uintptr_t value, CLocation cmpLoc);
 int CLocation_DistanceComparator2D(CLocation *this, CItem *a, CItem *b); // 0x0047CAC0
 void *SmartPtr_CMultiDef_ScalarDelete(CSmartPtr *this, int flags); // 0x0047CB90
 void *CVector_ScalarDelete(CVector *this, int flags); // 0x0047CBC0
-int CMulti_GetValue_VT(CItem *self, int useResource, int normalize); // 0x00489A85
-void CMulti_SendEntityUpdate_VT(CItem *self, CItem *viewer, int unused); // 0x00489AD5
-uint16_t CMulti_GetAmount_VT(CItem *self); // 0x00489BC7
-void CMulti_NotifyNearby_VT(CItem *self, CVector *playerList, int unused); // 0x00489BDA
-int CMulti_GetDirection_VT(CItem *self); // 0x0048AB13
-void CMulti_OnDeath_VT(CItem *self, int value); // 0x0048AB27
+int CCorpse_GetValue_VT(CItem *self, int useResource, int normalize); // 0x00489A85
+void CCorpse_SendEntityUpdate_VT(CItem *self, CItem *viewer, int unused); // 0x00489AD5
+uint16_t CCorpse_GetAmount_VT(CItem *self); // 0x00489BC7
+void CCorpse_NotifyNearby_VT(CItem *self, CVector *playerList, int unused); // 0x00489BDA
+int CCorpse_GetDirection_VT(CItem *self); // 0x0048AB13
+void CCorpse_OnDeath_VT(CItem *self, int value); // 0x0048AB27
 void CMultiSlave_SetCarry(CMultiSlave *ms, uint32_t carry); // 0x004C0560
 void CMultiComponent_SetFlags(CMultiComponent *mc, uint8_t flags); // 0x004CD940
 uint32_t CMultiSlave_GetCarry(CMultiSlave *ms); // 0x004CD960
