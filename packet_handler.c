@@ -7527,7 +7527,7 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 	}
 
 	entitySerial = ReadInt32LE(&readCur);
-	readCur -= 4; // binary: sub edx, 4 at 0x004b6a9a
+	readCur -= 4; // the binary rewinds over the serial it just read
 	entity = CWorld_FindBySerial(g_World, entitySerial);
 
 	// If entity not found, allow only mode 0x0B (delete multiple)

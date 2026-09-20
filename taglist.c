@@ -83,7 +83,7 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 		inst->memberScope = NULL;
 	}
 
-	// Link into global CScriptInstance list (0x0063D8CC)
+	// Link into the global CScriptInstance list at 0x0063D8CC
 	inst->globalNext = g_scriptInstanceListHead;
 	inst->globalPrev = NULL;
 	if (g_scriptInstanceListHead != NULL)

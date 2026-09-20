@@ -1787,7 +1787,7 @@ CMobile_EmoteCString(CItem *ent, char *text, int hue, int font, int speechType)
 void
 CMobile_SayToEntity_VT(CMobile *self, CItem *target, uint32_t serial, char *text)
 {
-	// The binary calls CItem::SayHuedCString (0x0048D68A) directly rather
+	// The binary calls CItem::SayHuedCString directly rather
 	// than through vtable[0x64]; no class overrides that slot.
 	CItem_SayHuedCString_VT((CItem *)self, target, serial, text, self->speechHue);
 }
@@ -2881,7 +2881,7 @@ free_node:
 	ret = (int)(intptr_t)Entity_ExecuteEvent(&mob->container.item.resourceEntity.entity, 0x04, attackerSerial, corpseSerial);
 
 	if (ret == 0) {
-		// Binary has two consecutive NULL checks (0x0046FE72, 0x0046FE78).
+		// The binary tests the corpse for NULL twice in a row.
 		corpse = FindCorpseBySerial(corpseSerial);
 		if (corpse != NULL)
 			if (corpse != NULL)
@@ -4666,7 +4666,7 @@ CMobile_SetupMasksFromObjVars(CMobile *mob)
 	CItem_GetObjVarResType(&mob->container.item, &meat, g_ResTypeId_Meat, 3, 2);
 	CItem_GetObjVarResType(&mob->container.item, &carnivoreMeat, g_ResTypeId_CarnivoreMeat, 3, 2);
 
-	// ClearAllResistFlags (0x0047273B) + ClearAllVulnFlags (0x004727E1)
+	// ClearAllResistFlags + ClearAllVulnFlags
 	CMobile_ClearResistFlags(mob);
 	CMobile_ClearVulnFlags(mob);
 

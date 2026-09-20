@@ -347,7 +347,7 @@ FileManager_ReadDirectory(FileManager *fm)
 		fm->totalDirSize += (int)sizeof(FileManagerEntry);
 
 		// "@@@.@@@" is the directory-terminator sentinel written by
-		// Init_UODEMODAT at 0x004E532C.
+		// Init_UODEMODAT.
 		if (strcmp(localEntry.filename, "@@@.@@@") == 0)
 			break;
 

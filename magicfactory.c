@@ -1636,7 +1636,7 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 
 	CStringList_GetWeightedRandom(list, &magicCtx);
 
-	// CStringList_HasEntries (0x0043d610): return (*(uint32_t*)this != 0)
+	// CStringList_HasEntries returns (*(uint32_t *)this != 0)
 	if (!CStringList_HasEntries((CStringList *)&magicCtx)) {
 		CResBankMagicCtx_PostInit(&magicCtx);
 		return 0;
@@ -1646,7 +1646,7 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 	CString_CopyConstructor(&nameStr, (CString *)nodeData);
 
 	while (!CString_IsNumeric(&nameStr)) {
-		// FindByStrCtxA (0x0043df40): binary passes CString* directly
+		// FindByStrCtxA: the binary passes the CString* directly
 		CResManager_FindByStrCtxA(incRM, &tempCtx, (CString *)&nameStr, 1);
 		CSearchCtx_Add(&ctxA, &tempCtx);
 

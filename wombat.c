@@ -1685,7 +1685,7 @@ CExecThread_Constructor(CExecThread *thread, void *trigHandler, void *scriptInst
 	// Resize scope buffer for trigger parameters
 	CScope_Resize(&thread->scope, fs->namedScope.totalSize + sizeof(uintptr_t));
 
-	// Link into global thread list at head (0x0063D82C)
+	// Link into the global thread list at 0x0063D82C
 	thread->globalNext = g_globalThreadHead;
 	thread->globalPrev = NULL;
 	if (thread->globalNext != NULL)
@@ -1717,7 +1717,7 @@ CExecThread_Destructor(CExecThread *thread)
 	else
 		g_globalThreadHead = thread->globalNext;
 
-	// Step 2: Unlink from active thread list (0x006482A0)
+	// Step 2: unlink from the active thread list at 0x006482A0
 	ThreadList_Unlink(&g_activeThreadList, thread);
 
 	// Step 3: Poison fields

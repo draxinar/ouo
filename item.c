@@ -3936,7 +3936,7 @@ CItem_ReturnToTracked(CItem *item)
 		goto check_succeeded;
 	}
 
-	// Dead load of item->serial at 0x00489A07 in the binary.
+	// The binary loads the serial here and never uses it.
 	(void)item->serial;
 	if (!((int (*)(void *, void *))VT_FN(item, VT_MERGE_INTO))(item, owner))
 		goto check_succeeded;

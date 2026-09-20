@@ -1730,7 +1730,7 @@ CResBankManager_RemoveRegion(CResBankRegion *region, int freeMemory)
 		CResBankRegion_ScalarDelete(region, 1);
 	}
 
-	// Binary (0x004AE9A2): clear slot at [this + regionCount*4 + 0xC].
+	// The binary clears the slot at [this + regionCount*4 + 0xC].
 	// noRegion (0x0C) is contiguous with hashTable (0x10), so
 	// (&noRegion)[regionCount] == hashTable[regionCount - 1].
 	(&g_ResBankManager.noRegion)[g_ResBankManager.regionCount] = NULL;
@@ -2351,8 +2351,8 @@ CResBankRegion_CanSpawnTemplate(CResBankRegion *region, uint16_t templateId)
 
 		// Dead in the demo (CheckTemplateOverLimit stub returns 1). Under
 		// FEAT_CLOSED_ECONOMY the gate is live: the binary's initial-spawn
-		// path keyed off `g_SpawningInProgress && region->nospawn` (verified
-		// r2 @0x004AF61E), but our shipped resbank.mul carries nospawn=0, so
+		// path keyed off `g_SpawningInProgress && region->nospawn`, but our
+		// shipped resbank.mul carries nospawn=0, so
 		// this is MODIFIED to also take the maxSpawns/16 path under the flag -
 		// a resource stops spawning once its bank drops to 1/16 of capacity.
 		if (g_SpawningInProgress && (region->nospawn || feat(FEAT_CLOSED_ECONOMY))) {
@@ -5491,7 +5491,7 @@ contained_done:;
 		return 0;
 	}
 
-	// after_placement (binary convergence point 0x004BBDFD)
+	// after_placement: where the binary's branches converge
 	if (!CString_IsEmpty(&labelStr)) {
 		CTemplateManager_ApplyLabel((CResManager *)manager, &labelStr, &newEntity);
 	}

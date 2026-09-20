@@ -598,7 +598,7 @@ CNPC_IdleScan(CItem *self)
 	}
 
 #ifdef CUSTOM_ECOLOGY_DEBUG
-	// Binary 0x0043305E calls NPC_DebugState here as a developer aid,
+	// The binary calls NPC_DebugState here as a developer aid,
 	// broadcasting the AI state as overhead speech. Suppressed in
 	// production builds because under CUSTOM_ECOLOGY every idle NPC
 	// would chatter its state every tick. Compile with
@@ -3424,7 +3424,7 @@ CNPC_SetupPath(CNPC *npc, CLocation *loc, int maxSteps)
 	}
 
 	// The binary seeds a discarded temporary with InitFromLoc first
-	// (0x0049E184) and then nodes[0] with SetFromLoc (0x0049E1A9).
+	// and then nodes[0] with SetFromLoc.
 	PathNode_InitFromLoc(&seedTmp, &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
 	PathNode_SetFromLoc((PathNode *)&nodes[0], &mob->resourceEntity.entity.location, (int16_t)(((CMobile *)mob)->direction & 7));
 
@@ -4309,7 +4309,7 @@ CNPC_HandleStates(CNPC *npc)
 			}
 		}
 
-		// All paths fall through to state switch via jmp 0x004a9ce0.
+		// All paths fall through to the state switch.
 		{
 			int roll = GetRandomRange(1, 10);
 			if (roll <= 5) {

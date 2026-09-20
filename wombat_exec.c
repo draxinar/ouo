@@ -2347,23 +2347,23 @@ LookupHandler(const char *name, const char *typeSig)
 				nameMatch = 1;
 		}
 
-		// All entries: strcmp on name (0x0040CFDE)
+		// All entries: strcmp on name
 		if (!nameMatch) {
 			if (strcmp(entry->name, name) != 0)
 				continue;
 		}
 
-		// Name matched - check type signature (0x0040CFFF)
+		// Name matched - check the type signature
 		p = typeSig;
 		q = entry->typeSig;
 
-		// First char check (0x0040D01A)
+		// First char check
 		if (*p != 'u' && *p != *q)
 			continue;
 		p++;
 		q++;
 
-		// Remaining chars (0x0040D060 loop)
+		// Remaining chars
 		match = 1;
 		while (match) {
 			if (*p == '*')
@@ -4118,7 +4118,7 @@ Opr_strindex(CString *dest, CString *source, int index)
 	char ch;
 	char *ptr;
 
-	// CString::operator[] (0x004D37AE)
+	// CString::operator[]
 	ptr = CString_CharAt(source, (unsigned int)index);
 	ch = *ptr;
 
@@ -6985,7 +6985,7 @@ Script_deleteObjectNoFall(uint32_t serial)
 	if (VT_IsMobile(ent) && VT_IsPlayer(ent))
 		return;
 
-	// Redundant NULL check (binary at 0x00411E4C)
+	// The binary checks for NULL a second time here.
 	if (ent == NULL)
 		return;
 
@@ -16211,7 +16211,7 @@ Script_deleteIfValid(uint32_t serial, int bodyType)
 		if (!((int (*)(void *))VT_FN(ent, VT_HAS_CONTAINER))(ent))
 			CItem_GetContainerItems(ent, &contItems);
 
-		// Redundant NULL check (binary at 0x0041C50D)
+		// The binary checks for NULL a second time here.
 		if (ent != NULL)
 			((void (*)(void *))VT_FN(ent, VT_DELETE))(ent);
 
@@ -16236,7 +16236,7 @@ Script_deleteIfValidNoFall(uint32_t serial, int bodyType)
 		return;
 	if ((CEntity_GetBodyType(ent) & 0xFFFF) != (uint32_t)bodyType)
 		return;
-	// Redundant NULL check (binary at 0x0041C579)
+	// The binary checks for NULL a second time here.
 	if (ent == NULL)
 		return;
 	((void (*)(void *))VT_FN(ent, VT_DELETE))(ent);
@@ -19502,7 +19502,7 @@ Script_createStatic(CLocation *loc, int typeID)
 
 	entity = CreateStaticEntity();
 
-	// CEntity_SetBodyType at 0x00420F60
+	// CEntity_SetBodyType
 	CEntity_SetBodyType(entity, (uint16_t)typeID);
 
 	((void (*)(CItem *, CLocation *))VT_FN(entity, VT_DROP_AT_FEET))(entity, loc);
@@ -19530,7 +19530,7 @@ Script_createStaticHued(CLocation *loc, int typeID, int hue)
 
 	entity = CreateStaticEntity();
 
-	// CEntity_SetBodyType at 0x00420F60
+	// CEntity_SetBodyType
 	CEntity_SetBodyType(entity, (uint16_t)typeID);
 
 	// Set hue (offset 0x08 = entity.color)
@@ -21118,7 +21118,7 @@ SendMultiMessage(uint32_t serial, uint32_t callerSerial, CString *msgName, intpt
 	nameLen = (int)strlen(CString_GetBuffer(msgName)) + 1;
 	listCount = CList_GetCount((CList *)(intptr_t)listArgs);
 
-	// Serialize list args to CDataBuffer (0x004C488C)
+	// Serialize list args to CDataBuffer
 	List_SerializeToBuf(&buf, (CList *)(intptr_t)listArgs);
 
 	// Append NUL separator

@@ -5005,7 +5005,7 @@ CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 
 		totalCapacity = curCount + growTo;
 
-		// CVector_Allocate4 (0x0047A350)
+		// CVector_Allocate4
 		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity, 0);
 
 		// Copy elements before pos
@@ -5018,7 +5018,7 @@ CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 		CVector_Ucopy_CC20(this, pos, (uintptr_t *)this->end, newEnd + count);
 
 		CVector_Destroy4_Range(this, this->begin, this->end);
-		// StdDeque_Dealloc (0x0046C9E0)
+		// StdDeque_Dealloc
 		{
 			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
 			StdDeque_DeallocSI(this, this->begin, oldCount);
@@ -6701,7 +6701,7 @@ StdTree_Insert(StdMapTree *tree, uintptr_t key, uintptr_t value)
 	StdTreeNode *x = head->parent; // root
 	int addLeft = 1;
 
-	// Walk tree to find insertion point (binary: 0x004E643D..0x004E6462).
+	// Walk the tree to find the insertion point.
 	while (x != nil) {
 		addLeft = key < x->key;
 		y = x;
@@ -6711,7 +6711,7 @@ StdTree_Insert(StdMapTree *tree, uintptr_t key, uintptr_t value)
 			x = x->right;
 	}
 
-	// Check for duplicate key (binary: 0x004E646D..0x004E64FC).
+	// Check for a duplicate key.
 	if (tree->multi)
 		return StdTree_RBInsert(tree, addLeft, y, key, value);
 
@@ -7070,7 +7070,7 @@ StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t k
 	StdTreeNode *node;
 	StdTreeNode *x;
 
-	// Allocate and initialize new node (binary: 0x004E6CF9..0x004E6D3A).
+	// Allocate and initialize the new node.
 	node = OperatorNew(sizeof(StdTreeNode));
 	node->parent = parent;
 	node->color = 0; // red
@@ -7081,7 +7081,7 @@ StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t k
 
 	tree->size++;
 
-	// Link node into tree (binary: 0x004E6D3D..0x004E6D92).
+	// Link the node into the tree.
 	if (parent == head) {
 		// First node: becomes root.
 		head->left = node;      // leftmost
@@ -7097,7 +7097,7 @@ StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t k
 			head->right = node; // new rightmost
 	}
 
-	// Red-black fixup (binary: 0x004E6DA5..0x004E6FA8).
+	// Red-black fixup.
 	x = node;
 	while (x != head->parent && x->parent->color == 0) {
 		StdTreeNode *p = x->parent;

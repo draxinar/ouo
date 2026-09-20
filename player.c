@@ -1241,7 +1241,7 @@ CPlayer_RegenTick(CPlayer *this)
 	if (mob->actionState > 0)
 		mob->actionState--;
 
-	// Binary dead code at 0x004511ED: fame decay (fame -= fame >> 7) never executes.
+	// Dead code in the binary: fame decay (fame -= fame >> 7) never runs.
 
 	if (VT_IsDead((CItem *)this))
 		return;
@@ -2176,7 +2176,7 @@ CPlayer_LogOut(CPlayer *this, int save)
 
 	// Phase 1: Walk all players and send FRIENDNOTIFY (0x6A) to any player
 	// whose friendList contains this player's serial, if this player allows
-	// that observer. Binary: 0x00452B13-0x00452B9D.
+	// that observer.
 	for (p = g_PlayerList.head; p != NULL; p = p->next) {
 		for (i = 0; i < (int)p->friendCount; i++) {
 			if (p->friendList[i] == serial) {
@@ -2195,7 +2195,7 @@ CPlayer_LogOut(CPlayer *this, int save)
 	this->pflags &= ~PlayerIsOnline;
 
 	// Phase 4: Restore held item (equipment[0]) to locked container or
-	// drop at player's feet. Binary: 0x00452BC5-0x00452C89.
+	// drop at player's feet.
 	if (this->mobile.equipment[0] != NULL) {
 		CItem *entity = this->mobile.equipment[0];
 
@@ -3039,9 +3039,9 @@ DoMove(CItem *this, int direction, int isPlayer, uint8_t sequence)
 	CVector_Constructor(&insertList, "");
 	CVector_Constructor(&overlapList, "");
 
-	// Binary passes the post-move position first, pre-move second
-	// (DoMove @ 0x00454113): insertList then holds players newly in
-	// range and overlapList players no longer in range.
+	// The binary passes the post-move position first and the pre-move
+	// second, so insertList holds players newly in range and overlapList
+	// players no longer in range.
 	CollectMovementVisibilityExclude(
 	        &removeList, &insertList, &overlapList, (int)(int16_t)newLoc.x, (int)(int16_t)newLoc.y, (int)(int16_t)oldLoc.x, (int)(int16_t)oldLoc.y, 0x12, exclude);
 
