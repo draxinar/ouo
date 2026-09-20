@@ -239,10 +239,10 @@ uintptr_t StdKfn_Identity(uintptr_t unused, uintptr_t key); // 0x00403DA0
 void *Construct_Range16(CVector *this, void *dest, void *end, void *src); // 0x00404210
 void *CVector_Allocate16(CVector *this, uint32_t count, int unused); // 0x00404290
 uint32_t CIosBase_Width(CIosBase *this); // 0x00404610
-void *Construct_RangeCopy16(void *first, void *last, void *dest); // 0x004046E0
+void *Copy16_Str(void *first, void *last, void *dest); // 0x004046E0
 uint8_t StdGetByte(uint32_t val); // 0x00404720
-void Destroy_RangeFwd16(void *first, void *last, void *value); // 0x00404730
-void *Destroy_RangeBwd16(void *first, void *last, void *dest); // 0x00404760
+void Fill16_Str(void *first, void *last, void *value); // 0x00404730
+void *CopyBackward16_Str(void *first, void *last, void *dest); // 0x00404760
 char CBasicIos_Fill(CIosBase *this); // 0x00404CA0
 StdPtrNode **StdPtrIter_Constructor(StdPtrNode **iter); // 0x004066F0
 void vector_Fill(void *first, void *last, void *value); // 0x00406A00
@@ -263,7 +263,7 @@ void Vector_SortByZ(void *begin, void *end, char typeTag); // 0x00423900
 void Vector_SortByType(void *begin, void *end, uint8_t typeTag); // 0x00423930
 int GameCentMon_GetPlayerCount(void); // 0x00423AA0
 void StdPtrList_ConstructorWithType(StdPtrList *list, void *typeBytePtr); // 0x00424D30
-void StdPtrList_ScalarDelete_4DD0(StdPtrList *list, void *value); // 0x00424DD0
+void StdPtrList_PushBack_4DD0(StdPtrList *list, void *value); // 0x00424DD0
 void StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00424E00
 void *StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00424F70
 void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740
@@ -313,7 +313,7 @@ void SortSurface_UnguardedInsert(SurfaceInfo *pos, SurfaceInfo *value, char type
 int SortSurface_Compare(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C430
 int CVector_IsEmpty(CVector *vec); // 0x00472FD0
 void CVector_EraseBack(CVector *vec); // 0x00472FF0
-uintptr_t **CVector_PopBack(uint32_t **iter, uintptr_t **out); // 0x00473010
+uintptr_t **CVector_PopBack(uint32_t **iter, uintptr_t **out, int dummy); // 0x00473010
 void *CVector_EraseSingle(CVector *vec, void *pos); // 0x00473040
 void CVector_Swap16(CVector *dst, CVector *src); // 0x004787E0
 void CVector_ClearAndFree16(CVector *vec); // 0x004788B0

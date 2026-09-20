@@ -257,9 +257,10 @@ CEntity_ProcessNotorietyTimer(CItem *this, int timerType)
 /*
  * 0x00491100 - CEntity::`scalar deleting destructor'
  *
- * ORPHANED: zero callers in the binary. MSVC-emitted vtable[0] thunk
- * for the abstract CEntity base; all concrete entities are destroyed
- * through their subclass ScalarDelete thunks.
+ * MSVC-emitted vtable[0] thunk for the abstract CEntity base, wired
+ * into the vtable at 0x005EF448 but never reached: the base is never
+ * directly instantiated, so every concrete entity is destroyed through
+ * its own subclass ScalarDelete thunk.
  */
 static __attribute__((unused)) void *
 CEntity_ScalarDelete(CEntity *this, int flags)

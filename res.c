@@ -167,23 +167,23 @@ static CResListNode *CResList_PushFront_MultiB(CResList *list, CResListNode *aft
 static CResListNode *CResList_PushFront_MultiA(CResList *list, CResListNode *afterNode); // 0x0047CBF0
 static void CResList_ReplaceData_C(CResListNode *this, void *data); // 0x0047C780
 static void CResList_ClearAll_MultiVal(CResList *list); // 0x0047C6F0
-static void *CResList_BeginIter_MultiC(CResList *list); // 0x0047C640
+static void *CResList_AppendNode_C(CResList *list); // 0x0047C640
 static CSearchCtx *CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction); // 0x0047C560
 static void CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047C460
 static void CResList_ReplaceData_B(CResListNode *this, void *data); // 0x0047C400
 static void CResList_ClearAll_MultiB(CResList *list); // 0x0047C3C0
 static CResListNode *CResList_Erase_MultiKey(CResList *list, CResListNode *node, void **outData, int direction); // 0x0047C2F0
-static CResListNode *CResList_BeginIter_MultiB(CResList *list); // 0x0047C240
+static CResListNode *CResList_AppendNode_B(CResList *list); // 0x0047C240
 static void CResList_ClearAll_MultiA(CResList *list); // 0x0047C200
-static CResListNode *CResList_BeginIter_MultiA(CResList *list); // 0x0047C100
+static CResListNode *CResList_AppendNode_A(CResList *list); // 0x0047C100
 static CSearchCtx *CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction); // 0x0047C020
-static void *CResList_PrependData_C(CResList *this, void *data); // 0x0047BE70
+static void *CResList_AppendData_C(CResList *this, void *data); // 0x0047BE70
 static CResListNode *CResList_Erase_MultiVal(CResList *list, CResListNode *node, void **outData, int direction); // 0x0047BD80
 static void *CResManager_NextIterInternalMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047BC30
 static void CResManager_ClearMultiB(CResManager *rm); // 0x0047BB50
 static CSearchCtx *CResManager_FindByKey_B2(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction); // 0x0047BAA0
-static void *CResList_PrependData_B(CResList *this, void *data); // 0x0047BA70
-static void *CResList_PrependInt_A(CResList *this, uint32_t *valuePtr); // 0x0047BA20
+static void *CResList_AppendData_B(CResList *this, void *data); // 0x0047BA70
+static void *CResList_AppendInt_A(CResList *this, uint32_t *valuePtr); // 0x0047BA20
 static void *CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outData, int direction); // 0x0047B880
 static void *CResManager_NextIterInternalMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047B730
 static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047B630
@@ -1772,7 +1772,7 @@ CResManager_FindEntryA(CResManager *rm, CString *name)
 {
 	CSearchCtx localCtx;
 	CResManager_FindByStrCtxA(rm, &localCtx, name, 1);
-	return CResManager_GetResult(rm, &localCtx);
+	return CResManager_GetResultCtx(rm, &localCtx);
 }
 
 /*
@@ -6246,8 +6246,8 @@ CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 			return 0;
 	}
 
-	CResList_PrependInt_A(rm->keys[bucket], keyPtr);
-	CResList_PrependData_B(rm->vals[bucket], valuePtr);
+	CResList_AppendInt_A(rm->keys[bucket], keyPtr);
+	CResList_AppendData_B(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;
 }
@@ -6298,17 +6298,6 @@ CResManager_GetResultCtx(CResManager *rm, CSearchCtx *ctx)
 	valNode = CSearchCtx_GetValNode(ctx);
 	bucket = CSearchCtx_GetBucket(ctx);
 	return CResList_GetData(rm->vals[bucket], (CResListNode *)valNode);
-}
-
-/*
- * 0x0047A800 - CResManager::GetResult
- *
- * Returns the value data at the ctx position.
- */
-void *
-CResManager_GetResult(CResManager *rm, CSearchCtx *ctx)
-{
-	return CResManager_GetResultCtx(rm, ctx);
 }
 
 /*
@@ -6406,7 +6395,7 @@ CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 	}
 
 	CResList_KeyInsert(rm->keys[bucket], keyPtr);
-	CResList_PrependData_C(rm->vals[bucket], valuePtr);
+	CResList_AppendData_C(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;
 }
@@ -6702,16 +6691,16 @@ CResList_Destructor_MultiA(CResList *list)
 }
 
 /*
- * 0x0047BA20 - CResList::PrependInt_A
+ * 0x0047BA20 - CResList::AppendInt_A
  *
- * Allocates a node via CResList_BeginIter_MultiA and stores *valuePtr in it.
+ * Appends a node at the tail and stores *valuePtr in it.
  */
 static void *
-CResList_PrependInt_A(CResList *this, uint32_t *valuePtr)
+CResList_AppendInt_A(CResList *this, uint32_t *valuePtr)
 {
 	CResListNode *node;
 
-	node = CResList_BeginIter_MultiA(this);
+	node = CResList_AppendNode_A(this);
 	if (node != NULL)
 		CResListNode_SetDataInt(node, valuePtr);
 	return node;
@@ -6729,16 +6718,16 @@ CResList_Destructor_MultiB(CResList *list)
 }
 
 /*
- * 0x0047BA70 - CResList::PrependData_B
+ * 0x0047BA70 - CResList::AppendData_B
  *
- * Opens a new leading node on this list and stores data into it.
+ * Appends a new node at the tail of this list and stores data into it.
  */
 static void *
-CResList_PrependData_B(CResList *this, void *data)
+CResList_AppendData_B(CResList *this, void *data)
 {
 	void *node;
 
-	node = CResList_BeginIter_MultiB(this);
+	node = CResList_AppendNode_B(this);
 	if (node != NULL)
 		CResList_ReplaceData_B((CResListNode *)node, data);
 	return node;
@@ -6906,16 +6895,16 @@ CResList_Destructor_MultiVal(CResList *list)
 }
 
 /*
- * 0x0047BE70 - CResList::PrependData_C
+ * 0x0047BE70 - CResList::AppendData_C
  *
- * Opens a new leading node on this list and stores data into it.
+ * Appends a new node at the tail of this list and stores data into it.
  */
 static void *
-CResList_PrependData_C(CResList *this, void *data)
+CResList_AppendData_C(CResList *this, void *data)
 {
 	void *node;
 
-	node = CResList_BeginIter_MultiC(this);
+	node = CResList_AppendNode_C(this);
 	if (node != NULL)
 		CResList_ReplaceData_C((CResListNode *)node, data);
 	return node;
@@ -6947,13 +6936,13 @@ CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *output, CSearchCtx 
 }
 
 /*
- * 0x0047C100 - CResList::BeginIter (multi variant A)
+ * 0x0047C100 - CResList::AppendNode (multi variant A)
  *
  * Returns the tail after ensuring there is one: pushes a new node after tail
  * if the list already has entries, otherwise creates the single node.
  */
 static CResListNode *
-CResList_BeginIter_MultiA(CResList *list)
+CResList_AppendNode_A(CResList *list)
 {
 	CResListNode *node;
 
@@ -7001,12 +6990,12 @@ CResList_ClearAll_MultiA(CResList *list)
 }
 
 /*
- * 0x0047C240 - CResList::BeginIter (multi variant B)
+ * 0x0047C240 - CResList::AppendNode (multi variant B)
  *
  * Same as variant A but uses CResList_PushFront_MultiB.
  */
 static CResListNode *
-CResList_BeginIter_MultiB(CResList *list)
+CResList_AppendNode_B(CResList *list)
 {
 	CResListNode *node;
 
@@ -7162,13 +7151,13 @@ CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *output, CSearchCtx 
 }
 
 /*
- * 0x0047C640 - CResList::BeginIter_MultiC
+ * 0x0047C640 - CResList::AppendNode (multi variant C)
  *
  * Returns the tail after ensuring there is one: pushes a new node after tail
  * if the list already has entries, otherwise creates the single node.
  */
 static void *
-CResList_BeginIter_MultiC(CResList *list)
+CResList_AppendNode_C(CResList *list)
 {
 	CResListNode *node;
 
@@ -8679,7 +8668,7 @@ CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr)
 			return 0;
 	}
 
-	CResList_PrependInt_A(rm->keys[bucket], (uint32_t *)keyPtr);
+	CResList_AppendInt_A(rm->keys[bucket], (uint32_t *)keyPtr);
 
 	CResList_AllocForwardF(rm->vals[bucket], valPtr);
 
@@ -8780,7 +8769,7 @@ CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
 			return 0;
 	}
 
-	CResList_PrependInt_A(rm->keys[bucket], (uint32_t *)keyPtr);
+	CResList_AppendInt_A(rm->keys[bucket], (uint32_t *)keyPtr);
 	CResList_AllocForwardG(rm->vals[bucket], valPtr);
 
 	rm->count++;

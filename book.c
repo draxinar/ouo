@@ -40,7 +40,7 @@ static int GetBookAuthorId(CItem *item); // 0x0043546C
 static int GetBookPageCount(CItem *item); // 0x004354A7
 static char **GetBookPageText(CItem *item, int pageNum, int *outLineCount); // 0x004354FA
 static void ClearBookObjVars(CItem *item); // 0x004358F5
-static CBookContent *CBookContent_Destructor(CBookContent *book, int freeMemory); // 0x00435AB0
+static CBookContent *CBookContent_ScalarDelete(CBookContent *book, int freeMemory); // 0x00435AB0
 
 CBookContent *g_BookTable[BOOK_TABLE_SIZE];
 int g_BookWritable; // 0x0063E700
@@ -164,7 +164,7 @@ BookContent_loadAll(void)
 
 	for (i = 0; i < BOOK_TABLE_SIZE; i++) {
 		if (g_BookTable[i] != NULL) {
-			CBookContent_Destructor(g_BookTable[i], 1);
+			CBookContent_ScalarDelete(g_BookTable[i], 1);
 			g_BookTable[i] = NULL;
 		}
 	}
@@ -944,12 +944,12 @@ CopyBook(CItem *dst, CItem *src)
 }
 
 /*
- * 0x00435AB0 - CBookContent::~CBookContent
+ * 0x00435AB0 - CBookContent::`scalar deleting destructor'
  *
  * Destroys a CBookContent: releases its pages and optionally frees the struct.
  */
 static CBookContent *
-CBookContent_Destructor(CBookContent *book, int freeMemory)
+CBookContent_ScalarDelete(CBookContent *book, int freeMemory)
 {
 	CBookContent_Cleanup(book);
 	if (freeMemory & 1)

@@ -194,6 +194,10 @@ Server_Select(int32_t usec)
  *
  * Outer wrapper that resolves packet size when -1, and
  * hands off to Copy_To_CSocketBuffer.
+ *
+ * MODIFIED: the binary tail-calls CUserSock::SendPacketRaw at
+ * 0047e455; we route through Copy_To_CSocketBuffer, which adds the
+ * Huffman and Twofish paths multi-client support needs.
  */
 CSocket *
 Socket_Copy_To_CSocketBuffer(CSocket *this, uint8_t *buf, size_t size)
@@ -204,27 +208,13 @@ Socket_Copy_To_CSocketBuffer(CSocket *this, uint8_t *buf, size_t size)
 }
 
 /*
- * 0x0047E42D - Copy_To_CSocketBuffer2
- *
- * Uncompressed variant: copies src into a fresh heap buffer, endian-
- * swaps the dynamic-size field, and queues it.
- */
-CSocket *
-Copy_To_CSocketBuffer2(CSocket *this, uint8_t *src, size_t size)
-{
-	uint8_t *dst;
-
-	dst = malloc(size);
-	memcpy(dst, src, size);
-	PacketGetDynamicSize(dst);
-	return Append_To_CSocketBuffer(this, dst, size);
-}
-
-/*
- * 0x0047E42D - Copy_To_CSocketBuffer
+ * Custom - Copy_To_CSocketBuffer
  *
  * Huffman-compresses (when enabled) and optionally Twofish-encrypts
- * src, then queues the resulting bytes for send.
+ * src, then queues the resulting bytes for send. The binary's
+ * 0x0047E42D tail-calls CUserSock::SendPacketRaw (0x0047F222), which
+ * usersock.c decompiles; this stands in for it so the send path can
+ * serve the client versions the demo never had to.
  */
 CSocket *
 Copy_To_CSocketBuffer(CSocket *this, uint8_t *src, size_t size)

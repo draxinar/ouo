@@ -1128,14 +1128,14 @@ CSdbStrVector_InsertN(CScriptStringDB *this, uintptr_t position, CSdbStr *value)
  * 0x004032F0 - std::vector<CSdbStr>::erase range
  *
  * Erases a range of CSdbStr elements: shifts the tail down via
- * Construct_RangeCopy16, destroys the leftover tail, and updates end.
+ * Copy16_Str, destroys the leftover tail, and updates end.
  */
 static void *
 CSdbStrVector_EraseRange(CScriptStringDB *this, int begin, uint32_t count)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	uintptr_t end_count = (uintptr_t)((CVector *)this)->end;
-	uintptr_t *eraseEnd = (uintptr_t *)Construct_RangeCopy16((void *)(uintptr_t)count, (void *)(uintptr_t)end_count, (void *)(uintptr_t)begin);
+	uintptr_t *eraseEnd = (uintptr_t *)Copy16_Str((void *)(uintptr_t)count, (void *)(uintptr_t)end_count, (void *)(uintptr_t)begin);
 	Destroy_Range16((StdAllocator *)this, eraseEnd, ((CVector *)this)->end);
 	p[2] = (uintptr_t)eraseEnd;
 	return (void *)(uintptr_t)begin;
@@ -1184,12 +1184,13 @@ Locale_FacetConstructorAlloc(CLocaleFacet *this)
 /*
  * 0x00403450 - locale::facet::_Incref (refcount increment)
  *
- * Increments the facet refcount, capped at 0xFFFFFFFF.
+ * Increments the facet refcount, capped at 0xFFFFFFFF. The binary
+ * brackets the body in a std::_Lockit critical section, which the
+ * single-threaded server does not need.
  */
 static void
 Locale_Facet_Incref(CLocaleFacet *this)
 {
-	// The binary's critical-section bracket is omitted as elsewhere.
 	CLocaleFacet *f = this;
 	if (f->refs < 0xFFFFFFFF)
 		f->refs += 1;
@@ -2291,7 +2292,7 @@ locale_facet_Init(void *facet)
 }
 
 /*
- * 0x00404E30 - CScript object scalar deleting destructor
+ * 0x00404E30 - CLocaleCategory scalar deleting destructor
  *
  * Runs the destructor body and frees the object when flags&1 is set.
  */

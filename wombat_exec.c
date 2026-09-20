@@ -12677,7 +12677,7 @@ Script_getQuality(uint32_t serial)
 	ent = FindEntityValidated(serial, "getQuality");
 	if (ent == NULL)
 		return 0;
-	return (int)CItem_GetEquipSlot(ent) & 0xff;
+	return (int)CItem_GetByteProp(ent) & 0xff;
 }
 
 /*
@@ -18487,10 +18487,6 @@ Script_overloadWeight(uint32_t serial, int weight)
  * Recomputes the entity's stored weight. Containers walk their
  * children to accumulate weight; plain items pull the base weight
  * from tiledata.
- *
- * MODIFIED: the C version skips the spatial-grid remove / re-insert
- * dance the binary uses to drive recalculation, computing the same
- * value directly.
  */
 void
 Script_recalcWeight(uint32_t serial)
@@ -20838,10 +20834,10 @@ CHintManager_Tick(void)
 		if (!CSearchCtx_Find(&ctx))
 			break;
 
-		result = (CHintItem *)CResManager_GetResult(manager, &ctx);
+		result = (CHintItem *)CResManager_GetResultCtx(manager, &ctx);
 		result->flags = result->flags + 1;
 
-		result = (CHintItem *)CResManager_GetResult(manager, &ctx);
+		result = (CHintItem *)CResManager_GetResultCtx(manager, &ctx);
 		if ((uint32_t)result->flags > 6) {
 			CSearchCtx_Add(&ctx, CHintManager_Erase(manager, &tempErase, &ctx, 1));
 		} else {

@@ -46,7 +46,7 @@ static int CSkillManager_CalcDelay(int8_t skillId, int baseSkill); // 0x004D55D2
 static int CalcStatThreshold(CMobile *mob, int flag, int weight, int advRate, int skillValue, int baseStat); // 0x004D5A2C
 static void CMobile_TryStatGain(CMobile *mob, int8_t skillId, int skillValue, int flag); // 0x004D5A5D
 static int CMobile_GetBaseSkillValue(CMobile *mob, int8_t skillId); // 0x004D60CC
-static void Double3_Clear(CSkillDef *def); // 0x004D6400
+static CSkillDef *Double3_Clear(CSkillDef *def); // 0x004D6400
 static int CSkillDef_GetType(CSkillDef *def); // 0x004D6440
 static const char *CSkillDef_GetScriptName(CSkillDef *def); // 0x004D6460
 static int CSkillManager_GetTotalUsage(CSkillManager *mgr); // 0x004D6480
@@ -1567,12 +1567,13 @@ CMobile_StatDecayCheck(CMobile *this, int chance)
  *
  * Zeroes advA, advB, advC.
  */
-static void
+static CSkillDef *
 Double3_Clear(CSkillDef *def)
 {
 	def->advA = 0.0;
 	def->advB = 0.0;
 	def->advC = 0.0;
+	return def;
 }
 
 /*

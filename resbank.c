@@ -5246,7 +5246,7 @@ parse_color:
 		CSearchCtx_Add(&inSearchCtx, &inOutput);
 
 		if (CSearchCtx_Find(&inSearchCtx)) {
-			ptr = CResManager_GetResult((CResManager *)manager, &inSearchCtx);
+			ptr = CResManager_GetResultCtx((CResManager *)manager, &inSearchCtx);
 			foundContainer = *(CItem **)ptr;
 			if (foundContainer != NULL) {
 				if (VT_IsContainer(foundContainer)) {

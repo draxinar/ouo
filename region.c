@@ -1053,12 +1053,14 @@ RegionManager_GetLocalizedDesc(CString *outStr, int16_t *outLoc, CLocation *inLo
 }
 
 /*
- * 0x004A537F - CRegion scalar deleting destructor
+ * 0x004A537F - RegionManager static-object destructor
  *
- * Invokes both no-op destructors with the region's id word.
+ * Reached only from the MSVC static-destructor thunk at 0x00431373,
+ * which calls it with the global RegionManager as this. Passes the
+ * manager's leading version word to two empty member functions.
  */
 void
-CRegion_ScalarDtor(CRegion *this)
+RegionManager_StaticDestructor(CRegion *this)
 {
 	uint16_t id = *(uint16_t *)this;
 	CRegion_NullDestructor2(this, id);

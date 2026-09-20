@@ -123,7 +123,7 @@ void
 CScriptInstance_ReturnToPool(ScriptAttachNode *node)
 {
 	CScriptInstance_Clear(node);
-	StdPtrList_ScalarDelete_4DD0(&g_pendingReturnB, node);
+	StdPtrList_PushBack_4DD0(&g_pendingReturnB, node);
 }
 
 /*

@@ -80,13 +80,13 @@ GameCentMon_TickAllNPCs(void)
 	}
 }
 /*
- * 0x004B3AC9 - GameCentMon_TickTemplateChains
+ * 0x004B3AC9 - GameCentMon_DeleteTemplateChain
  *
  * Deletes every entity in the given template chain. Returns for
  * out-of-range ids (>= 0x1000).
  */
 void
-GameCentMon_TickTemplateChains(int templateId)
+GameCentMon_DeleteTemplateChain(int templateId)
 {
 	CItem *entity;
 
@@ -833,7 +833,7 @@ GameCentMon_BroadcastEvent(char *data, int len)
 	case 9: { // Event 10: tick template chain.
 		int32_t templateId = *(int32_t *)cursor;
 		cursor += 4;
-		GameCentMon_TickTemplateChains(templateId);
+		GameCentMon_DeleteTemplateChain(templateId);
 		break;
 	}
 

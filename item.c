@@ -2450,8 +2450,14 @@ CItem_Destructor(CItem *item)
 /*
  * 0x00487188 - CItem::SetShopScript
  *
- * Stores the CString as the "afterShopScript" string ObjVar when it is
- * non-empty.
+ * Stores the CString as the "afterShopScript" string ObjVar.
+ *
+ * MODIFIED: the binary guards the store by comparing the string's data
+ * pointer against the private "" literal at 0x006CA90C, which nothing
+ * else in the image references - the classic `!= ""` C++ mistake, so
+ * the early-out never fires. We test the contents instead, which means
+ * a hand-edited empty shopscr= creates no ObjVar where the binary
+ * would create an empty one.
  */
 void
 CItem_SetShopScript(CItem *item, CString *scriptStr)

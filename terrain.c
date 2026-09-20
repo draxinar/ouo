@@ -45,7 +45,7 @@ static void SurfaceInfo_Set(SurfaceInfo *this, uint32_t flags, int16_t z, int16_
 static int SurfaceInfo_GetTopZ(SurfaceInfo *s); // 0x0046B990
 static void *LOSContext_Constructor(LOSContext *this, int zValue, int flags); // 0x0046B9E0
 static SurfaceInfo *SurfaceInfoRevIter_Deref(SurfaceInfo **iter); // 0x0046BAB0
-static SurfaceInfo **SurfaceInfoRevIter_PostDec(SurfaceInfo **iter, SurfaceInfo **result); // 0x0046BAD0
+static SurfaceInfo **SurfaceInfoRevIter_PostDec(SurfaceInfo **iter, SurfaceInfo **result, int dummy); // 0x0046BAD0
 static int LOS_CheckAtLocation(CLocation *loc, int zValue, int flags); // 0x0046BED0
 static int LOS_BlockCheck(LOSContext *ctx, CLocation *loc, CItem *entity); // 0x0046BFC0
 static int LOS_HeightCheck(LOSContext *ctx, CLocation *loc, CItem *entity); // 0x0046C010
@@ -788,7 +788,7 @@ CTerrainManager_CanWalk(CLocation loc, int minZ, int maxZ, int height, int moveT
 				SurfaceInfo *s = SurfaceInfoRevIter_Deref(&rev);
 				int canWalk;
 
-				SurfaceInfoRevIter_PostDec(&rev, &revTmp);
+				SurfaceInfoRevIter_PostDec(&rev, &revTmp, 0);
 
 				if (!(s->flags & 0x600))
 					continue;
@@ -1721,8 +1721,9 @@ SurfaceInfoRevIter_Deref(SurfaceInfo **iter)
  * Post-decrements a reverse iterator, returning the previous value.
  */
 static __attribute__((unused)) SurfaceInfo **
-SurfaceInfoRevIter_PostDec(SurfaceInfo **iter, SurfaceInfo **result)
+SurfaceInfoRevIter_PostDec(SurfaceInfo **iter, SurfaceInfo **result, int dummy)
 {
+	USED(dummy);
 	SurfaceInfo *saved = *iter;
 	*iter = *iter - 1;
 	*result = saved;

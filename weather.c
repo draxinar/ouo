@@ -29,7 +29,7 @@ static int WeatherEffect_RandomOffset(int val, int range); // 0x004A2529
 static void WeatherEffect_UpdateRegions(intptr_t mode, int regionIdx, int baseX, int baseY); // 0x004A2556
 static int WeatherEffect_Tick(int x, int y); // 0x004A2699
 static int WeatherManager_getSeasonModifier(void); // 0x004E0A12
-static int WeatherManager_getLatitudeModifier(int16_t y); // 0x004E0A66
+static int WeatherManager_getLatitudeModifier(int y); // 0x004E0A66
 static void CWeatherRegion_tick(CWeatherRegion *r); // 0x004E0BCE
 static void WeatherEffect_LoadPolygons(FILE *fp, int scale, CItem *region, int isText); // 0x004A275A
 static void WeatherEffect_ApplyAltitude(FILE *fp, CItem *region); // 0x004A304E
@@ -1046,7 +1046,7 @@ WeatherManager_getSeasonModifier(void)
  * Low Y = north (cold), high Y = south (warm).
  */
 static int
-WeatherManager_getLatitudeModifier(int16_t y)
+WeatherManager_getLatitudeModifier(int y)
 {
 	if (y >= 0 && y < 32)
 		return -30;

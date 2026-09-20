@@ -79,7 +79,6 @@ void Socket_Init(void); // 0x0047E01D
 void Socket_Shutdown(void); // 0x0047E09D
 CSocket *Server_Select(int32_t usec); // 0x0047E0A7
 CSocket *Socket_Copy_To_CSocketBuffer(CSocket *this, uint8_t *buf, size_t size); // 0x0047E42D
-CSocket *Copy_To_CSocketBuffer2(CSocket *this, uint8_t *src, size_t size); // 0x0047E42D
 CSocket *Copy_To_CSocketBuffer(CSocket *this, uint8_t *src, size_t size); // 0x0047E42D
 void Noop_47FA00(void); // 0x0047FA00
 void Socket_DestructAll(); // 0x0047FA05

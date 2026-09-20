@@ -113,7 +113,12 @@ SaveAll_MultiManager(void)
 /*
  * 0x0044A820 - CConvoListNode base destructor
  *
- * Resets the vtable pointer to the base class.
+ * Resets the node to the base class.
+ *
+ * MODIFIED: the binary writes the base vtable pointer 0x005EEA40 into
+ * [this+0]; our port models that slot as CConvoLinkedNode.type, so a
+ * destructed node and a CSophLevel node both read as 0 where the
+ * binary can tell them apart.
  */
 static void
 CConvoLinkedNode_BaseDestructor(CConvoLinkedNode *this)
@@ -467,7 +472,7 @@ CFragment_CollectResponses(CFragment *this, int soph, int attitude, int notoriet
 /*
  * 0x0044B2F0 - CConvoLinkedNode::`scalar deleting destructor'
  *
- * ORPHANED: zero callers in the binary.
+ * Reached only through the class vtable's slot 0.
  */
 static __attribute__((unused)) void *
 CConvoLinkedNode_ScalarDelete(CConvoLinkedNode *this, int flags)
@@ -505,7 +510,7 @@ CConvoLinkedNode_DestructorWrapper(CConvoLinkedNode *this)
 /*
  * 0x0044B390 - CConvoLinkedNode_String::`scalar deleting destructor'
  *
- * ORPHANED: zero callers in the binary.
+ * Reached only through the class vtable's slot 0.
  */
 static __attribute__((unused)) void *
 CConvoLinkedNode_String_ScalarDelete(CConvoLinkedNode *this, int flags)

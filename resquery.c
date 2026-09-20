@@ -28,7 +28,7 @@
 #include "time.h"
 #include "vtable.h"
 
-static void ResQuery_SessionDestruct(ResQuerySession *session, int freeMemory); // 0x004B9A80
+static void *ResQuery_SessionDestruct(ResQuerySession *session, int freeMemory); // 0x004B9A80
 static char *ResQuery_WriteResourceData(char *cursor, uint32_t param, uint8_t flags); // 0x004B52DF
 static void ResQuery_SelectRegion(ResQuerySession *session, int hashIndex); // 0x004B36E3
 static void ResQuery_SessionCleanup(ResQuerySession *session); // 0x004B3639
@@ -740,7 +740,7 @@ case9_done:
 
 	case 20: {
 		// Tick template chains for given template ID.
-		GameCentMon_TickTemplateChains(resourceIndex & 0xFFFF);
+		GameCentMon_DeleteTemplateChain(resourceIndex & 0xFFFF);
 		return;
 	}
 
@@ -970,12 +970,14 @@ TracedMemmove(void *dst, const void *src, size_t len, const char *file, int line
 /*
  * 0x004B9A80 - ResQuery_SessionDestruct
  *
- * Destructor: cleans up and optionally frees the session.
+ * Scalar deleting destructor: cleans up, frees the session when
+ * flags&1 is set, and returns it.
  */
-static void
+static void *
 ResQuery_SessionDestruct(ResQuerySession *session, int freeMemory)
 {
 	ResQuery_SessionCleanup(session);
 	if (freeMemory & 1)
 		OperatorDelete(session);
+	return session;
 }

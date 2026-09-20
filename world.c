@@ -1717,6 +1717,7 @@ static void
 CDataManager_InitAnimBuffer(CWorld *this)
 {
 	this->critSectAnimData = ArenaAllocator_Alloc(0x110000, (void **)&this->animData);
+	CCriticalSection_Unlock(this->critSectAnimData);
 }
 
 /*

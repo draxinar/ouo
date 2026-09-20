@@ -209,7 +209,6 @@ void CResManager_ClearMultiA_Thunk(CResManager *rm); // 0x0047A4F0
 int CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valuePtr); // 0x0047A5F0
 CSearchCtx *CResManager_FindByKey_A(CResManager *this, CSearchCtx *output, uint32_t *keyPtr, int direction); // 0x0047A740
 void *CResManager_GetResultCtx(CResManager *rm, CSearchCtx *ctx); // 0x0047A800
-void *CResManager_GetResult(CResManager *rm, CSearchCtx *ctx); // 0x0047A800
 CSearchCtx *CResManager_EraseAndFree_MultiA(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047A840
 CSearchCtx *CResManager_BeginIter_MultiA(CResManager *this, CSearchCtx *output); // 0x0047A8C0
 CSearchCtx *CResManager_NextIter_MultiA(CResManager *this, CSearchCtx *output, CSearchCtx *current); // 0x0047A8E0

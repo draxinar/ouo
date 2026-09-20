@@ -66,7 +66,7 @@ struct CMobile {
 	int32_t staminaLossCounter;     // 0x274 - clock[1]
 	int32_t manaRegenTimer;         // 0x278
 	int32_t hpRegenTimer;           // 0x27C
-	uint32_t actionState;           // 0x280
+	int32_t actionState;            // 0x280
 	uint8_t notoriety;              // 0x284 - save: "not"
 	uint8_t _mob_pad1d_align;       // 0x285
 	int16_t fame;                   // 0x286

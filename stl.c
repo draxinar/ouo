@@ -88,7 +88,7 @@ static uintptr_t *SortByType_Partition(uintptr_t *lo, uintptr_t *hi, uintptr_t p
 static uintptr_t SortByType_MedianOfThree(uintptr_t a, uintptr_t b, uintptr_t c, uint8_t typeTag); // 0x004241D0
 static void SortByType_InsertionSort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth); // 0x00424140
 static void vector_SwapImpl(uintptr_t *a, uintptr_t *b); // 0x00424340
-// 0x00424DD0 - StdPtrList_ScalarDelete_4DD0 exposed in stl.h
+// 0x00424DD0 - StdPtrList_PushBack_4DD0 exposed in stl.h
 static void StdPtrList_ClearAndDestroy_4D70(StdPtrList *list); // 0x00424D70
 static void StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value); // 0x00424EC0
 static void *CVector_ConstructorWrapper(CVector *this); // 0x00426440
@@ -343,7 +343,7 @@ CVector16_Insert(CVector *this, void *pos, uint32_t count, void *val)
 			ConstructN_16((StdAllocator *)this, this->end, fill_count, val);
 
 			// Fill [pos, end) with val (cdecl)
-			Destroy_RangeFwd16(pos, this->end, val);
+			Fill16_Str(pos, this->end, val);
 
 			// Update end
 			this->end = (char *)this->end + count * sizeof(CString);
@@ -353,10 +353,10 @@ CVector16_Insert(CVector *this, void *pos, uint32_t count, void *val)
 			Construct_Range16(this, (char *)this->end - count * sizeof(CString), this->end, this->end);
 
 			// Shift [pos, end - count*16) backward toward end
-			Destroy_RangeBwd16(pos, (char *)this->end - count * sizeof(CString), this->end);
+			CopyBackward16_Str(pos, (char *)this->end - count * sizeof(CString), this->end);
 
 			// Fill [pos, pos + count*16) with val
-			Destroy_RangeFwd16(pos, (char *)pos + count * sizeof(CString), val);
+			Fill16_Str(pos, (char *)pos + count * sizeof(CString), val);
 
 			// Update end
 			this->end = (char *)this->end + count * sizeof(CString);
@@ -423,14 +423,14 @@ CIosBase_Width(CIosBase *this)
 }
 
 /*
- * 0x004046E0 - std::_Constructor range copy (copy 16-byte elements)
+ * 0x004046E0 - std::copy (16-byte basic_string elements)
  *
  * Iterates from first to last in steps of 16, calling
  * String_CopyAssignDispatch on each with dest pointer. Returns final dest
  * pointer.
  */
 __attribute__((unused)) void *
-Construct_RangeCopy16(void *first, void *last, void *dest)
+Copy16_Str(void *first, void *last, void *dest)
 {
 	CSdbStr *f = (CSdbStr *)first;
 	CSdbStr *l = (CSdbStr *)last;
@@ -455,13 +455,13 @@ StdGetByte(uint32_t val)
 }
 
 /*
- * 0x00404730 - std::_Destroy range (forward, 16-byte elements)
+ * 0x00404730 - std::fill (16-byte basic_string elements)
  *
  * Iterates from first to last in steps of 16, calling
  * String_CopyAssignDispatch on each with value.
  */
 void
-Destroy_RangeFwd16(void *first, void *last, void *value)
+Fill16_Str(void *first, void *last, void *value)
 {
 	CSdbStr *f = (CSdbStr *)first;
 	CSdbStr *l = (CSdbStr *)last;
@@ -472,14 +472,14 @@ Destroy_RangeFwd16(void *first, void *last, void *value)
 }
 
 /*
- * 0x00404760 - std::_Destroy range (backward, 16-byte elements)
+ * 0x00404760 - std::copy_backward (16-byte basic_string elements)
  *
  * Iterates backward from last to first in steps of 16, calling
  * String_CopyAssignDispatch on each with dest-16. Returns final dest
  * pointer.
  */
 void *
-Destroy_RangeBwd16(void *first, void *last, void *dest)
+CopyBackward16_Str(void *first, void *last, void *dest)
 {
 	CSdbStr *f = (CSdbStr *)first;
 	CSdbStr *l = (CSdbStr *)last;
@@ -2492,7 +2492,7 @@ StdPtrList_ClearAndDestroy_4D70(StdPtrList *list)
  * calls the local StdPtrList_Insert (0x00424EC0) to insert before it.
  */
 void
-StdPtrList_ScalarDelete_4DD0(StdPtrList *list, void *value)
+StdPtrList_PushBack_4DD0(StdPtrList *list, void *value)
 {
 	StdPtrNode *endIter;
 	StdPtrNode *result;
@@ -5152,8 +5152,9 @@ CVector_EraseBack(CVector *vec)
  * CMultiComponent_GetIterator (via CIterCtx_Set) to vec->end.
  */
 uintptr_t **
-CVector_PopBack(uint32_t **iter, uintptr_t **out)
+CVector_PopBack(uint32_t **iter, uintptr_t **out, int dummy)
 {
+	USED(dummy);
 	*out = (uintptr_t *)*iter;
 	*iter = (uint32_t *)((char *)*iter - 4);
 	return out;

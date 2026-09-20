@@ -86,11 +86,11 @@ static void Uninit_FillN_4v2(CVector *this, void *ptr, uint32_t count, void *sou
 static void *Uninit_Copy6_Fwd(CVector *this, void *first, void *last, void *dest); // 0x0047A430
 static void Uninit_FillN_6(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A470
 static void CLocation_CopySingle(CVector *this, CLocation *dest, CLocation *source); // 0x0047A4D0
-static void HideItemsInVector_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy); // 0x0047ACF0
+static uint8_t HideItemsInVector_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy); // 0x0047ACF0
 static void VT_HIDE_Single(StdAllocator *this, CItem *item); // 0x0047AD20
 static void *RelocateItems_Raw(void *output, uintptr_t *first, uintptr_t *last, CLocationPair extents); // 0x0047AD40
 static void RelocateItem_Single(CLocationPair *this, CItem *item); // 0x0047AD80
-static void RestoreItems_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy); // 0x0047ADE0
+static uint8_t RestoreItems_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy); // 0x0047ADE0
 static void RestoreItem_Single(StdAllocator *this, CItem *item); // 0x0047AE10
 static void SaveMulti_SortInt(void *first, void *last, uint8_t cmpVal); // 0x0047AE40
 static void CollectEntities_SortDist(void *first, void *last, CLocation cmpLoc); // 0x0047AE70
@@ -314,10 +314,10 @@ MultiComponent_ReturnToPool(CMultiComponent *mc)
  * 0x00474414 - CMultiComponent::CMultiComponent (base)
  *
  * Base constructor: initializes offset and installs the component vtable.
- * The binary also runs a guarded CResList_ConstructorEmpty on this when
- * g_multiComponentPool.allocated is zero, but both CResList_GetCount and
- * CResList_ConstructorEmpty are no-op stubs so the guard has no
- * observable effect and is omitted here.
+ * The binary also runs CResList_ConstructorEmpty on this when
+ * CResList_GetCount(&g_multiComponentPool) returns zero, but that
+ * constructor has an empty body, so the guarded call has no observable
+ * effect and is omitted here.
  */
 static void
 CMultiComponent_Constructor_base(CMultiComponent *mc)
@@ -4143,7 +4143,7 @@ CLocation_CopySingle(CVector *this, CLocation *dest, CLocation *source)
  *
  * Calls VT_HIDE on every CItem in [first, last).
  */
-static void
+static uint8_t
 HideItemsInVector_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy)
 {
 	while (first != last) {
@@ -4151,6 +4151,7 @@ HideItemsInVector_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy)
 		VT_HIDE_Single((StdAllocator *)&dummy, item);
 		first++;
 	}
+	return dummy;
 }
 
 /*
@@ -4204,7 +4205,7 @@ RelocateItem_Single(CLocationPair *this, CItem *item)
  *
  * Drops every CItem in [first, last) at its own location.
  */
-static void
+static uint8_t
 RestoreItems_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy)
 {
 	USED(dummy);
@@ -4212,6 +4213,7 @@ RestoreItems_Raw(uintptr_t *first, uintptr_t *last, uint8_t dummy)
 		RestoreItem_Single((StdAllocator *)&dummy, (CItem *)*first);
 		first++;
 	}
+	return dummy;
 }
 
 /*

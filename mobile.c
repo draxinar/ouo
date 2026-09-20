@@ -1684,7 +1684,7 @@ CSkillDecayManager_ProcessVector(CSkillDecayManager *mgr)
 			count++;
 		}
 
-		CVector_PopBack(&iter, &popOut);
+		CVector_PopBack(&iter, &popOut, 0);
 		CVector_EraseBack(&mgr->serials);
 
 		if (count >= 50)
