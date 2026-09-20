@@ -8,6 +8,7 @@ __extension__ typedef struct CEScriptStringVar CEScriptStringVar;
 __extension__ typedef struct CEScriptIntVar CEScriptIntVar;
 char *CEScript_ReadLine(CEScript *ctx); // 0x0045B8D0
 CEScriptVar *CEScriptVar_Constructor(CEScriptVar *self); // 0x0045B977
+extern void *g_CEScriptVar_vtable[]; // 0x005EECA8
 void CEScriptVar_Destructor(CEScriptVar *self); // 0x0045B995
 char *CEScriptVar_GetName(CEScriptVar *self); // 0x0045B9A9
 int CEScriptVar_GetType(CEScriptVar *self); // 0x0045B9BA

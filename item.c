@@ -6362,8 +6362,8 @@ CCorpse_ScalarDelete(CCorpse *corpse, int flags)
 /*
  * 0x004BAAEC - DebugTrap
  *
- * 5-byte int3/nop pad before CTemplateManager_SpawnVendorStock, invoked
- * on unexpected vendor-container state.
+ * Empty function called on unexpected vendor-container state, from two
+ * sites in CTemplateManager::SpawnVendorStock.
  */
 void
 CTemplateManager_SpawnVendorStock_DebugBreak(void)

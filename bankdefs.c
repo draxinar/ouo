@@ -338,7 +338,7 @@ CResBankSet_GetTypeMember(CResBankSet *set, int subtype)
 	if (count == 0)
 		return NULL;
 
-	count = rand() % count;
+	count = CRT_rand() % count;
 
 	result = set->memberTail;
 	while (result != NULL) {
@@ -980,7 +980,7 @@ CResBankManager_ProcessEntry(CDistribEntry *entry, CEntity *entity)
 				while (g_TerrainRules[j].setIndex != -1) {
 					if (zQuad[0] == g_TerrainRules[j].z0 && zQuad[1] == g_TerrainRules[j].z1 && zQuad[2] == g_TerrainRules[j].z2 &&
 					        zQuad[3] == g_TerrainRules[j].z3) {
-						if ((rand() & 3) != 0)
+						if ((CRT_rand() & 3) != 0)
 							SetTerrainTile((intptr_t)entity, x, y, tileTable[g_TerrainRules[j].setIndex - 1], -666);
 						else
 							SetTerrainTile((intptr_t)entity, x, y, tileTable[g_TerrainRules[j].altSetIndex - 1], -666);

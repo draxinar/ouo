@@ -175,7 +175,7 @@ const uint16_t g_NotorietyHueTable[] = {
 /*
  * 0x00616828 - g_JailLocations (10 entries)
  *
- * GetJailLocation picks rand() % 10 from this table.
+ * GetJailLocation picks CRT_rand() % 10 from this table.
  */
 static const struct {
 	int16_t x, _p0;
@@ -197,7 +197,7 @@ static const struct {
 /*
  * 0x006168A0 - g_RecallLocations (14 entries, one per city)
  *
- * GetRandomRecallLocation picks rand() % 14 from this table.
+ * GetRandomRecallLocation picks CRT_rand() % 14 from this table.
  */
 static const struct {
 	int16_t x, _p0;
@@ -671,7 +671,7 @@ DoTeleport(CItem *source, CItem *target, CLocation *loc)
 static void
 GetJailLocation(CLocation *out)
 {
-	int idx = rand() % 10;
+	int idx = CRT_rand() % 10;
 	CLocation_Set(out, g_JailLocations[idx].x, g_JailLocations[idx].y, g_JailLocations[idx].z);
 }
 
@@ -805,7 +805,7 @@ DoRelease(CItem *victim, CItem *commander, const char *locName)
 static void
 GetRandomRecallLocation(CLocation *out)
 {
-	int idx = rand() % 14;
+	int idx = CRT_rand() % 14;
 	CLocation_Set(out, g_RecallLocations[idx].x, g_RecallLocations[idx].y, g_RecallLocations[idx].z);
 }
 
@@ -6986,7 +6986,7 @@ TriggerEdit_DeleteEntity(CItem *entity)
 	if (bodyType != 1) {
 		// Item path: "delete" - save state and set to placehld
 
-		TriggerEdit_SetStringProp(entity, "_objectType");
+		TriggerEdit_DetachScript(entity, "_objectType");
 
 		bodyType = CEntity_GetBodyType(entity) & 0xFFFF;
 		{
@@ -6997,7 +6997,7 @@ TriggerEdit_DeleteEntity(CItem *entity)
 
 		CEntity_SetBodyType(entity, 1);
 
-		TriggerEdit_SetStringProp(entity, "_scripts");
+		TriggerEdit_DetachScript(entity, "_scripts");
 
 		if (!CItem_HasTagDefs(entity) && !CItem_HasScripts(entity))
 			goto item_attach_placehld;
@@ -7071,7 +7071,7 @@ item_attach_placehld:
 			return;
 		}
 
-		TriggerEdit_SetStringProp(entity, "_objectType");
+		TriggerEdit_DetachScript(entity, "_objectType");
 
 		TriggerEdit_Op545E(entity, "placehld");
 
@@ -7095,7 +7095,7 @@ item_attach_placehld:
 			}
 		}
 
-		TriggerEdit_SetStringProp(entity, "_scripts");
+		TriggerEdit_DetachScript(entity, "_scripts");
 
 		if (!CItem_HasTagDefs(entity) && !CItem_HasScripts(entity))
 			goto restore_location;
@@ -7682,7 +7682,7 @@ next_tag_entity:
 
 		case 5: {
 			char *opData = readCur + 4;
-			TriggerEdit_SetStringProp(entity, opData);
+			TriggerEdit_DetachScript(entity, opData);
 			return;
 		}
 
@@ -7699,7 +7699,7 @@ next_tag_entity:
 			if ((int8_t)*varCur != 0) {
 				strcpy(nameBuf, varCur);
 				varCur += strlen(varCur) + 1;
-				TriggerEdit_SetStringProp(entity, nameBuf);
+				TriggerEdit_DetachScript(entity, nameBuf);
 			} else {
 				varCur++;
 			}

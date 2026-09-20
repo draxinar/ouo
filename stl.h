@@ -256,7 +256,7 @@ void *StdMap_EraseWrapper(StdMapTree *this, void *outIter, void *pos); // 0x0042
 void *StdMap_FindWrapper(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421430
 void *StdMap_PairConstructor(uintptr_t *this, void *key, void *value); // 0x00421520
 void CEntityMap_RangeQueryToList(CEntityMap *this, CList *list, int x, int y, int range); // 0x00421580
-void *StdTreeNode_Value(StdTreeNode *node); // 0x004227A0
+void *StdTreeNode_Color(StdTreeNode *node); // 0x004227A0
 void *StdTree_FindInsertPos_Int(StdMapTree *tree, int *keyPtr); // 0x004234E0
 void StdMap_TreeInc(void *iter); // 0x004237F0
 void Vector_SortByZ(void *begin, void *end, char typeTag); // 0x00423900
@@ -268,6 +268,7 @@ void StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); /
 void *StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00424F70
 void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740
 CVector *CVector_Constructor(CVector *list, const char *typeFlag); // 0x00426460
+void *CVector_ConstructorWrapper(CVector *this); // 0x00426440
 void CVector_Destructor(CVector *list); // 0x004264A0
 void *vector_CopyBackward(void *first, void *last, void *dest_end); // 0x00426820
 void *CVector_Allocate1C(CVector *this, int count, int unused_arg); // 0x00479B50

@@ -486,7 +486,9 @@ CConvoLinkedNode_ScalarDelete(CConvoLinkedNode *this, int flags)
 /*
  * 0x0044B350 - CConvoLinkedNode::CConvoLinkedNode (base constructor)
  *
- * Clears the node's type field and returns this.
+ * MODIFIED: the binary writes the base vtable pointer 0x005EEA40 into
+ * [this+0]; our port models that slot as CConvoLinkedNode.type, and the
+ * CSophLevel constructor relies on the zero this leaves behind.
  */
 static CConvoLinkedNode *
 CConvoLinkedNode_BaseConstructor(CConvoLinkedNode *this)

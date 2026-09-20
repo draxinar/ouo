@@ -125,7 +125,7 @@ TimerHandler_SetStringDetach(CItem *entity, int timerType, char *extraData)
 		return;
 	if (entity == NULL)
 		return;
-	TriggerEdit_SetStringProp(entity, extraData);
+	TriggerEdit_DetachScript(entity, extraData);
 	((void (*)(void *))VT_FN(entity, VT_DETACH_SPATIAL))(entity);
 	((void (*)(void *, CLocation *))VT_FN(entity, VT_DROP_AT_FEET))(entity, &entity->resourceEntity.entity.location);
 }
@@ -140,7 +140,7 @@ TimerHandler_SetStringProp(CItem *entity, int timerType, char *extraData)
 {
 	USED(timerType);
 	if (extraData != NULL)
-		TriggerEdit_SetStringProp(entity, extraData);
+		TriggerEdit_DetachScript(entity, extraData);
 }
 
 /*
@@ -165,7 +165,7 @@ TimerHandler_SetChaos(CItem *entity, int timerType, char *extraData)
 {
 	USED(timerType);
 	USED(extraData);
-	TriggerEdit_SetStringProp(entity, "chaos");
+	TriggerEdit_DetachScript(entity, "chaos");
 }
 
 /*
@@ -178,7 +178,7 @@ TimerHandler_SetOrder(CItem *entity, int timerType, char *extraData)
 {
 	USED(timerType);
 	USED(extraData);
-	TriggerEdit_SetStringProp(entity, "order");
+	TriggerEdit_DetachScript(entity, "order");
 }
 
 /*

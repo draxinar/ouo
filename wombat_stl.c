@@ -35,6 +35,7 @@
 #include "region.h"
 #include "stl.h"
 #include "weapon.h"
+#include "wombat_stl.h"
 
 static void CSdbStrVector_Destructor(CScriptStringDB *this); // 0x00401057
 static void *OStream_OperatorVoidPtr(CIosBase *this); // 0x00401400
@@ -54,7 +55,7 @@ static void OFStream_Close(CBasicFstream *this); // 0x00401BF0
 static void BasicFilebuf_Destructor(CStdioFileBuf *this); // 0x00401C20
 static void CStdioFile_ScalarDelete(CLocaleFacet *this); // 0x00401CC0
 static void *Locale_Facet_Decref(CLocaleFacet *this); // 0x00401D10
-static void Tree_NodeDestructor(CStreamBuf *this); // 0x00401D70
+static void StreamBuf_Destructor(CStreamBuf *this); // 0x00401D70
 static void *CharTraits_Copy(void *dest, void *src, uint32_t count); // 0x00401F30
 static uint32_t StdList_DerefOrNil(uint32_t *valPtr); // 0x004022C0
 static unsigned char CharTraits_Find(char val, int count); // 0x004022F0
@@ -73,7 +74,7 @@ static char *String_End(CSdbStr *this); // 0x00402C30
 static void CString_Release_Stl(CSdbStr *this, int doFree); // 0x00402C70
 static void *CString_ConstructorWithInit(CBasicFstream *this, void *subObj, char initData, int hasData, int constructBase); // 0x00402D30
 static void IosBase_SetState2(CIosBase *this, uint32_t state, char excflag); // 0x00402DE0
-static void *Tree_NodeConstructor(CIosBase *this); // 0x00402E20
+static void *IosBase_Constructor(CIosBase *this); // 0x00402E20
 static void *Stream_BaseConstructor(CIosBase *this); // 0x00402E40
 static void *Iterator_Constructor(char *this, void *stream); // 0x00402EB0
 static void Iterator_Destructor(char *this); // 0x00402EE0
@@ -105,7 +106,7 @@ static void *Locale_Facet_InitSrc(CSdbStr *this, void *src); // 0x00403F90
 static uint32_t String_GrowCap(CSdbStr *this); // 0x00403FC0
 static void CString_Reserve(CSdbStr *this, unsigned int requestedCapacity); // 0x00404000
 static void *Locale_Facet_InitCompile(CStreamBuf *this, void *src); // 0x00404110
-static void *Allocator_Allocate(StdAllocator *this, uint32_t count); // 0x004042B0
+static void *Allocator_Allocate(StdAllocator *this, uint32_t count, const void *hint); // 0x004042B0
 static uint32_t String_MaxSize(CSdbStr *this); // 0x004042D0
 static uint32_t CIosBase_SetWidth(CIosBase *this, uint32_t newWidth); // 0x00404630
 static void ScalarDestructor_Flags0(CSdbStr *obj); // 0x00404790
@@ -116,7 +117,6 @@ static void CStdioFile_DestructorBody(CStdioFileBuf *this); // 0x004048F0
 static void *CStdioFile_CopyConstructorBody(CStdioFileBuf *this, CStdioFileBuf *src); // 0x00404970
 static uint32_t Locale_Id_GetOrAlloc(uint32_t *this); // 0x004049A0
 static void *Locale_UseFacet(void *arg1, void *arg2, void *arg3); // 0x004049F0
-static void *OperatorNew_Clamp(int size); // 0x00404A80
 static void *Allocator_Constructor16(void *dest, void *src); // 0x00404AA0
 static void *String_CopyConstructor(CSdbStr *this, void *src); // 0x00404AE0
 static void *String_Stl_Replace(CSdbStr *this, void *src, uint32_t offset, uint32_t count); // 0x00404B20
@@ -515,7 +515,7 @@ OFStream_Constructor(CBasicFstream *this, void *filename, int openMode, int cons
 
 	if (constructBase != 0) {
 		fs->vtable = (uintptr_t *)g_vt_BasicFstream;
-		Tree_NodeConstructor(&fs->ios);
+		IosBase_Constructor(&fs->ios);
 	}
 
 	CString_ConstructorWithInit(fs, &fs->filebuf, 0, 1, 0);
@@ -606,7 +606,7 @@ BasicFilebuf_Destructor(CStdioFileBuf *this)
 		String_ScalarDestructor2((CSdbStr *)this->allocPtr, 1);
 
 	CStdioFile_ScalarDelete((CLocaleFacet *)&this->localeFacet);
-	Tree_NodeDestructor(&this->base);
+	StreamBuf_Destructor(&this->base);
 }
 
 /*
@@ -651,12 +651,12 @@ Locale_Facet_Decref(CLocaleFacet *this)
 }
 
 /*
- * 0x00401D70 - std::_Tree node destructor (set vtable, call ScalarDelete)
+ * 0x00401D70 - std::basic_streambuf::~basic_streambuf
  *
  * Stamps the streambuf vtable and releases the embedded locale facet.
  */
 static void
-Tree_NodeDestructor(CStreamBuf *this)
+StreamBuf_Destructor(CStreamBuf *this)
 {
 	this->vtable = (void **)g_vt_CStreamBuf;
 	CStdioFile_ScalarDelete((CLocaleFacet *)&this->_Ploc);
@@ -981,7 +981,7 @@ done:
  * 0x00402D30 - iostream virtual-base constructor
  *
  * When constructBase is set, installs the two-entry vbtable at
- * 0x005EE090 and builds the base sub-object via Tree_NodeConstructor;
+ * 0x005EE090 and builds the base sub-object via IosBase_Constructor;
  * always stamps the istream vtable at the virtual base the vbtable
  * points to; when hasData is set, runs CStreamBuf_Constructor there.
  *
@@ -997,7 +997,7 @@ CString_ConstructorWithInit(CBasicFstream *this, void *subObj, char initData, in
 
 	if (constructBase != 0) {
 		p[0] = (uintptr_t)g_vt_CString;
-		Tree_NodeConstructor((CIosBase *)&this->filebuf);
+		IosBase_Constructor((CIosBase *)&this->filebuf);
 	}
 
 	uintptr_t *vt = (uintptr_t *)p[0];
@@ -1034,12 +1034,12 @@ IosBase_SetState2(CIosBase *this, uint32_t state, char excflag __attribute__((un
 }
 
 /*
- * 0x00402E20 - std::_Tree node base constructor
+ * 0x00402E20 - std::basic_ios::basic_ios
  *
  * Initializes the stream base and stamps the basic_ios vtable.
  */
 static void *
-Tree_NodeConstructor(CIosBase *this)
+IosBase_Constructor(CIosBase *this)
 {
 	Stream_BaseConstructor(this);
 	this->vtable = (void **)g_vt_IosBase;
@@ -1741,7 +1741,7 @@ CString_Reserve(CSdbStr *this, unsigned int requestedCapacity)
 	if (String_GrowCap(this) < newCap)
 		newCap = requestedCapacity;
 
-	newBuf = (char *)Allocator_Allocate((StdAllocator *)this, newCap + 2);
+	newBuf = (char *)Allocator_Allocate((StdAllocator *)this, newCap + 2, NULL);
 
 	if (*pLen > 0)
 		CharTraits_Copy(newBuf + 1, *pData, *pLen);
@@ -1796,10 +1796,11 @@ ConstructN_16(StdAllocator *this, void *dest, uint32_t count, void *value)
  * Allocates room for count 16-byte elements via OperatorNew_Clamp.
  */
 static void *
-Allocator_Allocate(StdAllocator *this, uint32_t count)
+Allocator_Allocate(StdAllocator *this, uint32_t count, const void *hint)
 {
 	USED(this);
-	return OperatorNew_Clamp(count);
+	USED(hint);
+	return OperatorNew_Clamp(count, NULL);
 }
 
 /*
@@ -2006,8 +2007,9 @@ CStdioFile_ConstructorArg(CStdioFileBuf *this, void *arg)
 /*
  * 0x004048F0 - CStdioFile destructor body
  *
- * Stamps the CStdioFile vtable; the binary's CFile base destructor is a CRT
- * internal that does nothing in our build.
+ * Stamps the CStdioFile vtable. The binary then runs the streambuf base
+ * destructor at 0x004E85C0, an MSVC CRT function we do not decompile: it
+ * re-stamps 0x005F04A4 and frees the get-area buffer.
  */
 static __attribute__((unused)) void
 CStdioFile_DestructorBody(CStdioFileBuf *this)
@@ -2087,9 +2089,10 @@ Locale_UseFacet(void *arg1, void *arg2, void *arg3)
  *
  * Allocates size bytes via malloc, treating negative sizes as zero.
  */
-static void *
-OperatorNew_Clamp(int size)
+void *
+OperatorNew_Clamp(int size, const void *hint)
 {
+	USED(hint);
 	if (size < 0)
 		size = 0;
 	return OperatorNew(size);
@@ -2314,7 +2317,7 @@ CLocaleCategory_ScalarDtor(CLocaleCategory *this, int flags)
 }
 
 /*
- * 0x00404E60 - CScriptObj destructor body (calls locale_facet_Init)
+ * 0x00404E60 - CLocaleCategory destructor body (calls locale_facet_Init)
  *
  * Delegates to locale_facet_Init.
  */
@@ -2325,7 +2328,7 @@ CLocaleCategory_DestructorBody(CLocaleCategory *this)
 }
 
 /*
- * 0x00404F10 - CScriptObj vtable setup + destructor
+ * 0x00404F10 - CLocaleCategory vtable setup + destructor
  *
  * Stamps the LocaleCategory vtable then runs CLocaleCategory_DestructorBody.
  */

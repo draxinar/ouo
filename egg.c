@@ -156,7 +156,7 @@ char g_TemplateNameBuf[64]; // 0x006E2250
  */
 #define MAX_RESOURCE_TYPES 102
 int g_ResourceTypeCount = 1; // 0x006DC1A0 - starts at 1 (index 0 unused)
-CResourceType *g_ResTypeEntries[MAX_RESOURCE_TYPES]; // 0x006DC1A4
+CResourceType *g_ResTypeEntries[MAX_RESOURCE_TYPES]; // heap block at CResourceTypeManager+0x04 (0x006DC1A4)
 CResourceType *g_ResTypeHashTable[RES_TYPE_HASH_SIZE];
 char *g_ResourceTypeNames[MAX_RESOURCE_TYPES]; // compatibility for callers
 

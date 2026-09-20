@@ -20,6 +20,7 @@
 #include "main.h"
 #include "region.h"
 #include "time.h"
+#include "utils.h"
 #include "wombat_exec.h"
 
 CConfig g_Config;
@@ -69,7 +70,7 @@ CConfig_InitAll(CConfig *this)
 	conf = this;
 	ContainerHandle_InitMap();
 	CConfig_Init(conf);
-	srand(GetTickCount_UO());
+	CRT_srand(GetTickCount_UO());
 	return conf;
 }
 

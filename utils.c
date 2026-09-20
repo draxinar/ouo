@@ -13,6 +13,7 @@
 
 #include "dat.h"
 #include "region.h"
+#include "utils.h"
 
 static int64_t GetRandom64(void); // 0x00467D9F
 
@@ -31,7 +32,7 @@ SwapEndian(void *value)
 /*
  * 0x00467D9F - GetRandom64
  *
- * Returns a 64-bit random number assembled from four rand() calls
+ * Returns a 64-bit random number assembled from four CRT rand calls
  * (two 16-bit halves form each of the low and high 32-bit halves).
  */
 static int64_t
@@ -40,11 +41,11 @@ GetRandom64(void)
 	int r1, r2, r3, r4;
 	int32_t lo, hi;
 
-	r1 = rand();
-	r2 = rand();
+	r1 = CRT_rand();
+	r2 = CRT_rand();
 	lo = (r1 << 16) | r2;
-	r3 = rand();
-	r4 = rand();
+	r3 = CRT_rand();
+	r4 = CRT_rand();
 	hi = (r3 << 16) | r4;
 	return ((int64_t)hi << 32) | (int64_t)lo;
 }
@@ -58,7 +59,7 @@ GetRandomRange(int min, int max)
 	int result;
 
 	if (max >= min)
-		result = min + rand() % (max - min + 1);
+		result = min + CRT_rand() % (max - min + 1);
 	else
 		result = 0;
 	return result;
@@ -146,7 +147,7 @@ SwapInt16(int16_t *a, int16_t *b)
 int
 GetRandom(int max)
 {
-	return rand() % max;
+	return CRT_rand() % max;
 }
 
 /*
@@ -162,4 +163,32 @@ SwapBytes(int8_t *a, int8_t *b)
 	tmp = *a;
 	*a = *b;
 	*b = tmp;
+}
+
+// Seed of the MSVC CRT generator, which the binary keeps at +0x14 of the
+// per-thread data block.
+static uint32_t g_CrtRandSeed = 1;
+
+/*
+ * 0x004E9BC0 - MSVC CRT srand
+ */
+void
+CRT_srand(uint32_t seed)
+{
+	g_CrtRandSeed = seed;
+}
+
+/*
+ * 0x004E9BD0 - MSVC CRT rand
+ *
+ * The generator every rand() call in UoDemo.exe runs: a 32-bit LCG whose
+ * output is bits 16..30, so the range is 0..0x7FFF. glibc's rand() has a
+ * different recurrence and a 31-bit range, which changes the modulo bias
+ * at every GetRandom and CRandom site.
+ */
+int
+CRT_rand(void)
+{
+	g_CrtRandSeed = g_CrtRandSeed * 214013u + 2531011u;
+	return (int)((g_CrtRandSeed >> 16) & 0x7FFF);
 }

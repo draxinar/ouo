@@ -59,7 +59,7 @@ int CChannel_Recv(CChannel *this); // 0x0043767F
 void CChannel_ProcessMessages(CChannel *this); // 0x004378F7
 void CChannel_FlushSendBuffer(CChannel *this); // 0x0043792E
 void CChannel_FlushMessages(CChannel *this); // 0x00437A47
-int CChannel_IsCChannel(CChannel *this, int arg); // 0x00437AD1
+int CChannel_FilterMsg(CChannel *this, CChannelMsg *msg); // 0x00437AD1
 void CChannel_Flush(CChannel *this); // 0x00437AE3
 CChannel *CChannel_Destructor(CChannel *this, char freeFlag); // 0x00437C30
 void CChannelMsg_Init(CChannelMsg *this, int id, int size, char *data); // 0x00437C60

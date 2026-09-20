@@ -1003,13 +1003,13 @@ ScriptCreation_RecordDeferred(CItem *entity, uint32_t scriptInstance)
 }
 
 /*
- * 0x00425ECE - TriggerEdit_SetStringProp
+ * 0x00425ECE - TriggerEdit_DetachScript
  *
  * Cdecl wrapper: calls CResourceEntity::DetachScript (0x004CDEAC)
  * which removes named tag from entity->tagList.
  */
 void
-TriggerEdit_SetStringProp(CItem *ent, const char *data)
+TriggerEdit_DetachScript(CItem *ent, const char *data)
 {
 	CResourceEntity_DetachScript(ent, data);
 }
@@ -1190,8 +1190,7 @@ CScriptManager_FindOrLoad(CScriptManager *mgr, const char *name)
 static __attribute__((unused)) void
 ScriptStringDB_InitWrapper(void)
 {
-	char typeByte = 0;
-	CVector_Constructor((CVector *)&g_ScriptStringDB, &typeByte);
+	CVector_ConstructorWrapper((CVector *)&g_ScriptStringDB);
 }
 
 /*

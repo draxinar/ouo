@@ -95,7 +95,7 @@ static int check_IsUsingVirtueShield(CItem *ent); // 0x00472476
 static int check_IsOrderGuard(CItem *ent); // 0x004722C7
 static int check_IsChaosGuard(CItem *ent); // 0x0047235A
 static int check_GetCanCarry(CItem *ent); // 0x00413F5D
-static int check_GetSkillTotal(CItem *ent); // 0x00413F78
+static int check_GetSkillTotal(CItem *ent); // 0x00473450
 static int hasObj_search(CItem *container, uint32_t serial); // 0x00419989
 static int hasObjType_search(CItem *container, int type); // 0x004199EE
 static CItem *containsObj_search(CItem *item, CItem *target); // 0x00419C51
@@ -142,7 +142,7 @@ static int check_IsInContainer(CItem *ent);
 static const char *VT_GetTitledName(CItem *ent);
 static int check_GetMurderCount(CItem *ent);
 static CItem *VT_FindItemByName(CItem *mob, CString *name, uint32_t containerSerial);
-static int check_IsPlayer(CItem *ent);
+static int check_IsPlayer(CItem *ent); // 0x004243C0
 static int check_IsContainer(CItem *ent);
 static int check_IsNPC(CItem *ent);
 static int check_IsShopkeeper(CItem *ent);
@@ -6394,7 +6394,7 @@ static int
 check_IsPlayer(CItem *ent)
 {
 	return VT_IsPlayer(ent);
-}
+} // 0x004243C0
 static int
 check_IsMap(CItem *ent)
 {
@@ -8428,17 +8428,17 @@ Script_makeValueless(uint32_t serial)
 	return 1;
 }
 
-/*
- * 0x0041384E - getWeight
- *
- * Returns the entity's weight (including any contained items).
- */
 static int
 check_GetWeight(CItem *ent) // 0x004243D0
 {
 	return ((int (*)(void *))VT_FN(ent, VT_GET_WEIGHT))(ent);
 }
 
+/*
+ * 0x0041384E - getWeight
+ *
+ * Returns the entity's weight (including any contained items).
+ */
 int
 Script_getWeight(uint32_t serial)
 {
@@ -9058,17 +9058,17 @@ Script_getMaxMana(uint32_t serial)
 	return Script_checkMobile(serial, (int (*)(CItem *))CMobile_GetMaxMana, "getMaxMana");
 }
 
+static int
+check_GetCanCarry(CItem *ent) // 0x00424400
+{
+	return ((int (*)(void *))VT_FN(ent, VT_GET_MAX_WEIGHT))(ent);
+}
+
 /*
  * 0x00413F5D - getCanCarry
  *
  * Returns the mobile's maximum carry weight.
  */
-static int
-check_GetCanCarry(CItem *ent) // 0x00424400
-{
-	return (int)CMobile_GetMaxWeight((CMobile *)ent);
-}
-
 int
 Script_getCanCarry(uint32_t serial)
 {
@@ -9076,7 +9076,7 @@ Script_getCanCarry(uint32_t serial)
 }
 
 /*
- * 0x00413F78 - getSkillTotal
+ * 0x00473450 - CMobile::GetSkillTotal
  *
  * Returns the sum of every base skill on the mobile.
  */
@@ -9093,6 +9093,9 @@ check_GetSkillTotal(CItem *ent)
 	return total;
 }
 
+/*
+ * 0x00413F78 - getSkillTotal
+ */
 int
 Script_getSkillTotal(uint32_t serial)
 {
@@ -15137,7 +15140,7 @@ Script_getSmallestArea(uintptr_t outName_str, uint32_t *loc)
 int
 Script_getTrammelPhase(void)
 {
-	return CTimeManager_GetTrammelPhase();
+	return CLightManager_GetTrammelPhase();
 }
 
 /*
@@ -15148,7 +15151,7 @@ Script_getTrammelPhase(void)
 int
 Script_getFeluccaPhase(void)
 {
-	return CTimeManager_GetFeluccaPhase();
+	return CLightManager_GetFeluccaPhase();
 }
 
 /*
@@ -15235,7 +15238,7 @@ Script_getMoonGateDest(int arg)
 {
 	int diff;
 
-	diff = CTimeManager_GetTrammelPhase() - CTimeManager_GetFeluccaPhase();
+	diff = CLightManager_GetTrammelPhase() - CLightManager_GetFeluccaPhase();
 	return (arg + diff + 8) % 8;
 }
 

@@ -39,7 +39,7 @@ int ResolveGotoLabels(ResultNode *head); // 0x0040788A
 void ScriptCreation_BeginDefer(void); // 0x00425CC0
 void ScriptCreation_FlushDeferred(void); // 0x00425CE3
 void ScriptCreation_RecordDeferred(CItem *entity, uint32_t scriptInstance); // 0x00425E4B
-void TriggerEdit_SetStringProp(CItem *ent, const char *data); // 0x00425ECE
+void TriggerEdit_DetachScript(CItem *ent, const char *data); // 0x00425ECE
 void ObjVar_SetStr(CItem *entity, CString *name, int type, uintptr_t value); // 0x00425EDF
 const char *Entity_AttachScript(CItem *entity, const char *scriptName, int fireCreation); // 0x00425F34
 int ValidateInWorld(CItem *item); // 0x00425FD2

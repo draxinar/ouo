@@ -61,7 +61,7 @@ int g_BBoardBroadcastMode; // 0x006DA938
 static DeferredContainerLink *g_deferredList;
 
 // 0x006E7690 - CVector of serials loaded during LoadDynamic0
-static CVector g_deferredLoadedSerials;
+static CVector g_deferredLoadedSerials; // 0x006E7690
 
 /*
  * 0x004654E0 - CIndexedFileManager::CIndexedFileManager
@@ -1533,7 +1533,7 @@ Dynamic_ParseDeferredSerial(CItem *entity, CSerialList *list, const char *str)
 static __attribute__((unused)) void
 Dynamic_InitDeferredSerials(void)
 {
-	char vecType = 0;
+	char vecType = 0; // the binary leaves this frame slot unwritten
 	CVector_Constructor(&g_deferredLoadedSerials, &vecType);
 }
 

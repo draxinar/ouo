@@ -28,7 +28,7 @@ static CString *CItemEffectDef_GetCategoryStr(CItemEffectDef *def); // 0x0046702
 static CItemEffectDef *CItemEffectDef_Destructor(CItemEffectDef *def); // 0x00466199
 static CItemEffectDef *CItemEffectDef_Constructor(CItemEffectDef *def); // 0x00466040
 static void CEffectTableEntry_Destructor(CEffectTableEntry *this); // 0x00441C70
-static CEffectTableEntry *CEffectTableEntry_DestructorB(CEffectTableEntry *this); // 0x00441C50
+static void CEffectTableEntry_DestructorB(CEffectTableEntry *this); // 0x00441C50
 static CResList *CItemEffectDef_GetList2(CItemEffectDef *def); // 0x0043EA10
 static CResList *CItemEffectDef_GetList1(CItemEffectDef *def); // 0x0043E9F0
 static void CItemEffectDef_SetMaxVal(CItemEffectDef *def, int maxVal); // 0x0043E9D0
@@ -114,9 +114,9 @@ static __attribute__((unused)) void
 CMagicItemFactory_Destructor(CMagicItemFactory *factory)
 {
 	CResManagerT_ScalarDtor(&factory->effectTblRM);
-	CResManagerC_ScalarDtor(&factory->propsRM);
+	CResManagerC_Destructor(&factory->propsRM);
 	CResManagerS_ScalarDtor(&factory->keysRM);
-	CResBook_ScalarDtor(&factory->includeRM);
+	CResBook_Destructor(&factory->includeRM);
 	CResList_DestructorA((CResList *)&factory->itemList);
 	CResList_DestructorA(&factory->globalScripts);
 }
@@ -2481,11 +2481,10 @@ CEffectTableEntry_ScalarDeleteE(CEffectTableEntry *this, int flags)
  *
  * Thin wrapper around CEffectTableEntry_Destructor.
  */
-static CEffectTableEntry *
+static void
 CEffectTableEntry_DestructorB(CEffectTableEntry *this)
 {
 	CEffectTableEntry_Destructor(this);
-	return this;
 }
 
 /*

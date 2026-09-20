@@ -278,15 +278,18 @@ CChannel_FlushMessages(CChannel *this)
 }
 
 /*
- * 0x00437AD1 - CChannel::IsCChannel
+ * 0x00437AD1 - CChannel::FilterMessage
  *
- * Virtual tag returning 1 for any CChannel.
+ * Slot 6 of the CChannel vtable at 0x005EE848, dispatched by
+ * CChannel::Flush: the base filter accepts every message. Our port
+ * builds no CChannel vtable object, as the constructor records, so
+ * nothing reaches this.
  */
 int
-CChannel_IsCChannel(CChannel *this, int arg)
+CChannel_FilterMsg(CChannel *this, CChannelMsg *msg)
 {
 	USED(this);
-	USED(arg);
+	USED(msg);
 	return 1;
 }
 

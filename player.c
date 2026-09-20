@@ -123,16 +123,6 @@ CItem *g_MoveBlocker;
 static CItem *g_DoMoveEntity;
 
 /*
- * 0x004243C0 - CPlayer::IsPlayer
- */
-int
-CPlayer_IsPlayer(CPlayer *this)
-{
-	USED(this);
-	return 1;
-}
-
-/*
  * 0x006173B0 - reputation title lookup table
  *
  * Indexed as g_ReputationTitles[5 - karmaLevel][fameLevel].

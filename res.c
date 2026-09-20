@@ -15,6 +15,8 @@
 
 #include "dat.h"
 
+#include "utils.h"
+
 #include "container.h"
 #include "magicfactory.h"
 #include "magiclist.h"
@@ -264,8 +266,8 @@ static CResListNode *CResList_UnlinkNodeJ2(CResList *list, CResListNode *node, v
 static CResListNode *CResList_AllocTailNodeK(CResList *list, CResListNode *afterNode); // 0x004C34F0
 static CResListNode *CResList_InsertBeforeJ(CResList *list, CResListNode *afterNode); // 0x004C3400
 
-// CRandom - macro mapping to rand() (binary thiscall on CRandom singleton).
-#define CRandom() rand()
+// CRandom - the binary's call sites compile to the CRT rand at 0x004E9BD0.
+#define CRandom() CRT_rand()
 
 /*
  * 0x00401450 - CSearchCtx::GetBucket
@@ -1610,12 +1612,12 @@ CResList_InsertTailDataB(CResList *magicList, CMagicItemListNode *name)
 }
 
 /*
- * 0x0043DCB0 - CResBook scalar dtor wrapper
+ * 0x0043DCB0 - CResBook::~CResBook
  *
  * Thiscall: calls CResManager_ClearI to destroy the book CResManager.
  */
 void
-CResBook_ScalarDtor(CResManager *this)
+CResBook_Destructor(CResManager *this)
 {
 	CResManager_ClearI(this);
 }
@@ -1930,12 +1932,12 @@ CResManager_InsertValueAtCtxS(CResManager *rm, CSearchCtx *ctx, void *value)
 }
 
 /*
- * 0x0043E480 - CResManagerC scalar dtor
+ * 0x0043E480 - CResManagerC::~CResManagerC
  *
  * Thiscall: calls CResManager_ClearC to destroy the props-variant CResManager.
  */
 void
-CResManagerC_ScalarDtor(CResManager *this)
+CResManagerC_Destructor(CResManager *this)
 {
 	CResManager_ClearC(this);
 }

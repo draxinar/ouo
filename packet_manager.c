@@ -1826,8 +1826,7 @@ PacketManager_MakePacket_GAMETIME(uint8_t *buf)
  * 0x0049B77E - Stub_Return0
  *
  * Returns 0 unconditionally. Called from
- * PacketManager::MakePacket_GAMECENTERDETAIL where the result is
- * unused.
+ * PacketManager::MakePacket_SERVERSTATUS where the result is unused.
  */
 int
 Stub_Return0(void *self)

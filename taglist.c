@@ -23,6 +23,7 @@
 #include "time.h"
 #include "vg_pool.h"
 #include "wombat.h"
+#include "utils.h"
 #include "wombat_compile.h"
 #include "wombat_exec.h"
 #include "world.h"
@@ -670,7 +671,7 @@ FindLoadedScriptByPtr(const CScript *target)
  *
  * Walks each attached script's trigger chain for the given event type.
  * Triggers with filter==0x3E8 always match; others use a probability
- * check ((rand() & 0x3FF) < filter). Matching (script, trigger) pairs
+ * check ((CRT_rand() & 0x3FF) < filter). Matching (script, trigger) pairs
  * are pushed into the output vectors. Returns the match count.
  *
  * FIXED: Binary signature is (tagList, scriptVec, trigVec, eventType)
@@ -712,7 +713,7 @@ CTagListManager_GetTriggers(CTagListManager *tagList, CItem *entity, CVector *sc
 		trig = (CTrigger *)bsc->trigHandlers[eventType];
 		while (trig != NULL) {
 			if (trig->filter != 0x3E8) {
-				if ((rand() & 0x3FF) >= trig->filter) {
+				if ((CRT_rand() & 0x3FF) >= trig->filter) {
 					trig = trig->next;
 					continue;
 				}

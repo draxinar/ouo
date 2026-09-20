@@ -20,6 +20,7 @@
 #include "packet_manager.h"
 #include "region.h"
 #include "terrain.h"
+#include "utils.h"
 #include "vtable.h"
 #include "wombat_compile.h"
 #include "wombat_escript.h"
@@ -63,12 +64,12 @@ CEScript_ReadLine(CEScript *ctx)
 /*
  * 0x0045B977 - CEScriptVar::CEScriptVar (base constructor)
  *
- * Thiscall. Sets vtable to base, zeroes name[0].
+ * Thiscall. Sets the base vtable and zeroes name[0].
  */
 __attribute__((unused)) CEScriptVar *
 CEScriptVar_Constructor(CEScriptVar *self)
 {
-	self->vtable = NULL;
+	self->vtable = g_CEScriptVar_vtable;
 	self->name[0] = 0;
 	return self;
 }
@@ -76,14 +77,13 @@ CEScriptVar_Constructor(CEScriptVar *self)
 /*
  * 0x0045B995 - CEScriptVar::~CEScriptVar
  *
- * Thiscall base class destructor. Binary sets vtable to 0x005EECA8
- * (CEScriptVar base vtable). No-op on Linux since we don't track
- * vtable pointers.
+ * Thiscall base class destructor: resets the object to the base
+ * vtable.
  */
 void
 CEScriptVar_Destructor(CEScriptVar *self)
 {
-	USED(self);
+	self->vtable = g_CEScriptVar_vtable;
 }
 
 /*
@@ -325,7 +325,7 @@ CEScriptIntVar_Clone(CEScriptIntVar *self)
 /*
  * 0x0045BF17 - CEScriptStringVar::GetValue (vtable[1])
  *
- * If numValues==0, returns 0. Otherwise returns values[rand() % numValues].
+ * If numValues==0, returns 0. Otherwise returns values[CRT_rand() % numValues].
  */
 int
 CEScriptStringVar_GetValue(CEScriptStringVar *self)
@@ -333,7 +333,7 @@ CEScriptStringVar_GetValue(CEScriptStringVar *self)
 	int *values = (int *)self->values;
 	if (self->numValues == 0)
 		return 0;
-	return values[rand() % self->numValues];
+	return values[CRT_rand() % self->numValues];
 }
 
 /*
@@ -487,7 +487,7 @@ CEScript_EvalExpression(CEScript *ctx, char delim, const char *expr)
 	} else if (delim == '$' || delim == '%') {
 		// Variable reference or _RAND
 		if (strcmp(expr, "_RAND") == 0)
-			return rand();
+			return CRT_rand();
 
 		{
 			int idx = CEScript_FindOrCreateVar(ctx, expr, delim);
@@ -700,7 +700,7 @@ CEScript_CmdRandJump(CEScript *ctx, char *line)
 	if (count == 0)
 		return;
 
-	pick = rand() % count;
+	pick = CRT_rand() % count;
 
 	// Seek to beginning of file
 	fseek_ServerSide(ctx->fp, 0, 0);
@@ -1376,11 +1376,11 @@ CEScriptIntVar_SetFromString(CEScriptIntVar *self, const char *str)
 /*
  * 0x0045E150 - CEScriptVar::`scalar deleting destructor'
  *
- * ORPHANED: zero callers in the binary. Base class thunk emitted by
- * MSVC for the abstract CEScriptVar but never placed in a vtable the
- * demo uses.
+ * Slot 0 of the CEScriptVar base vtable at 0x005EECA8, never reached:
+ * the abstract base is not instantiated, so every variable destroys
+ * through its own subclass thunk.
  */
-static __attribute__((unused)) void *
+static void *
 CEScriptVar_ScalarDelete(CEScriptVar *self, int flags)
 {
 	CEScriptVar_Destructor(self);
@@ -1388,6 +1388,15 @@ CEScriptVar_ScalarDelete(CEScriptVar *self, int flags)
 		OperatorDelete(self);
 	return self;
 }
+
+// CEScriptVar base vtable - binary: 0x005EECA8
+void *g_CEScriptVar_vtable[] = {
+	(void *)(uintptr_t)CEScriptVar_ScalarDelete,
+	(void *)(uintptr_t)vt_stub_return_0,
+	(void *)(uintptr_t)CEScriptStringVar_SetFromInt,
+	(void *)(uintptr_t)CEScriptIntVar_SetFromString,
+	(void *)(uintptr_t)vt_stub_return_0,
+};
 
 /*
  * 0x0045E180 - CEScriptStringVar::CEScriptStringVar

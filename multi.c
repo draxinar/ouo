@@ -4457,8 +4457,9 @@ Uninit_Copy16_Fwd(void *first, void *last, void *dest)
  * Allocates count CString slots; clamps negative to 0.
  */
 void *
-Allocate16_Inner(int count)
+Allocate16_Inner(int count, const void *hint)
 {
+	USED(hint);
 	if (count < 0)
 		count = 0;
 	return OperatorNew(count * sizeof(CString));
@@ -4470,8 +4471,9 @@ Allocate16_Inner(int count)
  * Allocates count CMultiComponentDef slots; clamps negative to 0.
  */
 void *
-Allocate1C(int count)
+Allocate1C(int count, const void *hint)
 {
+	USED(hint);
 	if (count < 0)
 		count = 0;
 	return OperatorNew((uint32_t)count * sizeof(CMultiComponentDef));
@@ -5197,12 +5199,13 @@ CEntity_BeginIter(CSearchCtx *this, void *out)
 }
 
 /*
- * 0x004CDA10 - CItem::GetType
+ * 0x004CDA10 - reverse iterator dereference
  *
- * Returns the type slot (vtable pointer minus one slot).
+ * Returns *(current - 1) over a vector of 4-byte serials. Every caller
+ * passes a stack iterator, not an object.
  */
 void *
-CItem_GetType(CItem *this)
+SerialIter_Deref(CItem *this)
 {
 	return (void *)(*(uintptr_t *)this - sizeof(void *));
 }

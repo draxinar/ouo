@@ -68,8 +68,8 @@ extern CTimeManager g_TimeManager;
 
 void CLightManager_Constructor(void); // 0x00473BD0
 void CLightManager_Destructor(void); // 0x00473C29
-int CTimeManager_GetTrammelPhase(void); // 0x00473C3F
-int CTimeManager_GetFeluccaPhase(void); // 0x00473C74
+int CLightManager_GetTrammelPhase(void); // 0x00473C3F
+int CLightManager_GetFeluccaPhase(void); // 0x00473C74
 void GlobalLightManager_Tick(uint32_t arg); // 0x00473CCD
 void CLightManager_RegisterScript(ScriptAttachNode *scriptNode); // 0x00473DCF
 void CLightManager_UnregisterScript(ScriptAttachNode *scriptNode); // 0x00473DEB

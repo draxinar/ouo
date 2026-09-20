@@ -91,7 +91,7 @@ static int CResBankRegion_AddTemplateDbEntry(CResBankRegion *region, int x1, int
 static void CResBankRegion_AddSpawnEntry(CResBankRegion *region, uint16_t templateId, uint16_t subRegionIdx, uint16_t regionNameIdx); // 0x004B2013
 static void CResBankRegion_AddSubRegionToEntry(CResBankRegion *region, ResSpawnEntry *entry, uint16_t subRegionIdx, uint16_t regionNameIdx); // 0x004B1DC0
 
-#define CRandom() rand()
+#define CRandom() CRT_rand()
 
 #define MAX_RESOURCE_TYPES 102
 

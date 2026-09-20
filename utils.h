@@ -10,6 +10,8 @@ int CRandom_RollDice(int numDice, int numSides); // 0x00468453
 void StringAssign(char **pStr, const char *newStr); // 0x00469410
 void SwapInt16(int16_t *a, int16_t *b); // 0x0046C070
 int GetRandom(int max); // 0x00481805
+void CRT_srand(uint32_t seed); // 0x004E9BC0
+int CRT_rand(void); // 0x004E9BD0
 void SwapBytes(int8_t *a, int8_t *b); // 0x004D63D0
 
 #endif /* UTILS_H_ */

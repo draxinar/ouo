@@ -188,14 +188,14 @@ WeatherEffect_AbsDiff(int a, int b)
  * 0x004A2529 - WeatherEffect_RandomOffset
  *
  * Cdecl, 2 args (val, range). If val is 0 or -15 (0xFFFFFFF1),
- * returns val directly. Otherwise returns val + rand() % (2*range+1) - range.
+ * returns val directly. Otherwise returns val + CRT_rand() % (2*range+1) - range.
  */
 static int
 WeatherEffect_RandomOffset(int val, int range)
 {
 	if (val == 0 || val == -15)
 		return val;
-	return val + rand() % (2 * range + 1) - range;
+	return val + CRT_rand() % (2 * range + 1) - range;
 }
 
 /*
@@ -590,7 +590,7 @@ WeatherEffect_ApplyAltitude(FILE *fp, CItem *region)
  * Reads width/height (uint16_t each) from a binary file, then iterates
  * the tile grid reading color values (uint16_t per tile). For tiles
  * aligned to the scale grid, looks up a CResBankSet by type 3 (TERRAIN)
- * and color, then uses rand() modulo memberCount to pick a random member.
+ * and color, then uses CRT_rand() modulo memberCount to pick a random member.
  * If the member has a valid tileId, calls SetTerrainTile.
  *
  * After the first pass, performs 4 additional passes over the border
@@ -652,7 +652,7 @@ WeatherEffect_ApplyTilePatterns(FILE *fp, int scale, CItem *region)
 				continue;
 
 			member = set->memberTail;
-			memberIdx = rand() % set->memberCount;
+			memberIdx = CRT_rand() % set->memberCount;
 
 			for (loopI = 0; loopI < memberIdx; loopI++) {
 				member = member->prev;

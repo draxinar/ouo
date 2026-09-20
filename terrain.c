@@ -49,7 +49,7 @@ static SurfaceInfo **SurfaceInfoRevIter_PostDec(SurfaceInfo **iter, SurfaceInfo 
 static int LOS_CheckAtLocation(CLocation *loc, int zValue, int flags); // 0x0046BED0
 static int LOS_BlockCheck(LOSContext *ctx, CLocation *loc, CItem *entity); // 0x0046BFC0
 static int LOS_HeightCheck(LOSContext *ctx, CLocation *loc, CItem *entity); // 0x0046C010
-static int Terrain_IsContainerFilter(CItem *entity); // 0x0046C740
+static int Terrain_IsDynamicFilter(CItem *entity); // 0x0046C740
 static void Terrain_LoadStaticsBlock(int extra, int blockIdx, uint8_t *data, int dataLen); // 0x004C4364
 static int LOS_GetFlags(CItem *ent);
 
@@ -400,8 +400,9 @@ CTerrainManager_Constructor(CTerrainManager *this)
 /*
  * 0x00469AC2 - CTerrainManager::CTerrainManager (vtable setup)
  *
- * Sets the CTerrainManager vtable pointer on the global instance.
- * No-op in our C port.
+ * MODIFIED: 00469acc stores the CTerrainManager vtable 0x005EEF40 into
+ * [this+0]. The port builds no vtable object for the manager, and
+ * g_TerrainManager is never deleted or virtual-dispatched.
  */
 static void __attribute__((unused))
 CTerrainManager_ConstructorVTable(void)
@@ -1431,7 +1432,7 @@ CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin
 	}
 
 	for (i = 0; i < 4; i++) {
-		j = rand() & 3;
+		j = CRT_rand() & 3;
 		tmp = g_FindSpawnDirTable[i];
 		g_FindSpawnDirTable[i] = g_FindSpawnDirTable[j];
 		g_FindSpawnDirTable[j] = tmp;
@@ -1585,7 +1586,7 @@ CTerrainManager_FindDoorAtLoc(CLocation *loc, int16_t minZ, int16_t maxZ)
 
 	CVector_Constructor(&localVec, "\x04");
 
-	CTerrainManager_FindEntitiesAtXYZ((int16_t)loc->x, (int16_t)loc->y, minZ, maxZ, &localVec, Terrain_IsContainerFilter);
+	CTerrainManager_FindEntitiesAtXYZ((int16_t)loc->x, (int16_t)loc->y, minZ, maxZ, &localVec, Terrain_IsDynamicFilter);
 
 	iter = (uintptr_t *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)&localVec);
 	while (iter != (uintptr_t *)localVec.end) {
@@ -1886,13 +1887,13 @@ SurfaceInfo_AllocateN(int count)
 }
 
 /*
- * 0x0046C740 - CTerrainManager::IsContainerFilter
+ * 0x0046C740 - CTerrainManager::IsDynamicFilter
  *
  * Filter callback that dispatches to VT_IS_DYNAMIC, used by
  * CTerrainManager_FindDoorAtLoc.
  */
 static int
-Terrain_IsContainerFilter(CItem *entity)
+Terrain_IsDynamicFilter(CItem *entity)
 {
 	return ((int (*)(void *))VT_FN(entity, VT_IS_DYNAMIC))(entity);
 }

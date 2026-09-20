@@ -1771,7 +1771,7 @@ CNPC_WalkToPatrolTarget(CNPC *npc, int arg1, int arg2)
 	altDirCW = (direction + 1) & 7;
 	altDirCCW = (direction + 7) & 7;
 
-	randomChoice = rand() & 1;
+	randomChoice = CRT_rand() & 1;
 
 	walkResult = CMobile_CheckWalkDir(npc, randomChoice == 0 ? altDirCW : altDirCCW);
 	if (walkResult >= 2)
@@ -3230,7 +3230,7 @@ StdPtrList_ScalarDelete_NPC(StdPtrList *this, int flags)
 }
 
 /*
- * 0x00484400 - CNPCManager::GetCountMinus4
+ * 0x00484400 - std::vector<unsigned long>::back
  *
  * Returns a pointer to the last element: end() minus one slot. The
  * binary reads the vector's end pointer through the folded +0x08
@@ -6665,15 +6665,15 @@ PickRandomWorldLocation(CLocation *out)
 	// clang-format on
 	int idx;
 
-	idx = rand() % 137;
+	idx = CRT_rand() % 137;
 	CLocation_Set(out, (int16_t)table[idx].x, (int16_t)table[idx].y, (int16_t)table[idx].z);
 }
 
 /*
  * 0x004D7D1A - Noop_4D7D1A
  *
- * No-op immediately preceding Defcon_StrikeLightning in the binary; no
- * known callers.
+ * No-op immediately preceding Defcon_StrikeLightning in the binary,
+ * called from TimerHandler_NPCTick.
  */
 void
 Noop_4D7D1A(CPlayer *player)

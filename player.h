@@ -152,7 +152,6 @@ extern CItem *g_MoveCurrentPlayer; // 0x00699A4C
 extern CItem *g_MoveBlocker; // 0x00699A50
 extern CPlayer *g_LastCreatedPlayer; // 0x00699B6C
 
-int CPlayer_IsPlayer(CPlayer *this); // 0x004243C0
 void CPlayer_SetColors(CPlayer *this, uint32_t colors); // 0x0044F986
 CPlayer *CPlayerList_FindBySerial(uint32_t serial); // 0x0044F9AF
 void CPlayer_SetIsLoaded(CPlayer *player, uint32_t unused); // 0x0044FA4A

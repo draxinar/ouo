@@ -479,7 +479,7 @@ Defcon_TeleportStorm(int count)
 	if (count > total)
 		count = total;
 	for (i = 0; i < count; i++) {
-		idx = rand() % total;
+		idx = CRT_rand() % total;
 		elems = (uintptr_t *)vec.begin;
 		selected = (CItem *)elems[idx];
 		total -= 1;

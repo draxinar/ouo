@@ -271,7 +271,7 @@ extern CResManager g_MultiManager; // 0x006470A0
 extern CResManager g_MultiManagerSlaves; // 0x006472B8 (CMultiManager+0x218)
 
 void *CLocation_CopyFromSrc(CLocation *this, CLocation *src); // 0x0047B4F0
-void *Allocate16_Inner(int count); // 0x0047B1A0
+void *Allocate16_Inner(int count, const void *hint); // 0x0047B1A0
 void *Allocate6_Inner(int count); // 0x0047B3C0
 void MultiComponentPool_Init(void); // 0x0047423A
 CMultiComponent *MultiComponent_AllocInit3(uint32_t serial, CItem *ownerItem, CLocation *loc); // 0x004743A2
@@ -338,7 +338,7 @@ void CVector_Destroy1C_Single(CVector *this, void *element); // 0x00479B90
 void CVector_Destroy6_Single(CVector *this, void *element); // 0x00479FF0
 void *Uninit_Copy4_Fwd2(CVector *this, void *first, void *last, void *dest); // 0x0047A370
 void *Uninit_Copy16_Fwd(void *first, void *last, void *dest); // 0x0047B160
-void *Allocate1C(int count); // 0x0047B1D0
+void *Allocate1C(int count, const void *hint); // 0x0047B1D0
 void *CResList_ScalarDelete_MultiA(CResList *this, int flags); // 0x0047B430
 void *CResList_ScalarDelete_MultiB(CResList *this, int flags); // 0x0047B460
 void *CResList_ScalarDelete_MultiVal(CResList *this, int flags); // 0x0047B490
@@ -363,7 +363,7 @@ uint16_t CMultiSlave_GetRange(CMultiSlave *ms); // 0x004CD980
 void CMultiSlave_SetRange(CMultiSlave *ms, uint16_t range); // 0x004CD9A0
 struct CSearchCtx;
 void *CEntity_BeginIter(struct CSearchCtx *this, void *out); // 0x004CD9E0
-void *CItem_GetType(CItem *this); // 0x004CDA10
+void *SerialIter_Deref(CItem *this); // 0x004CDA10
 int CSearchCtx_IsNotEqual(struct CSearchCtx *a, struct CSearchCtx *b); // 0x004CDA30
 void CMulti_Free(CMultiComponent *mc);
 int IntLessThan(void *a, void *b, int cmp);

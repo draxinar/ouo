@@ -110,9 +110,9 @@ void CResList_AddResultEntry(CResList *list, CString *name, int flag); // 0x0043
 void CResList_InsertStrCopy(CResList *list, CString *str, int direction, int orderedFlag); // 0x0043DB40
 CResListNode *CResList_FindByStrSorted(CResList *list, CString *key, CResListNode *startNode, int direction, int orderedFlag); // 0x0043DBD0
 void CResList_InsertTailDataB(CResList *magicList, CMagicItemListNode *name); // 0x0043DC80
-void CResBook_ScalarDtor(CResManager *this); // 0x0043DCB0
+void CResBook_Destructor(CResManager *this); // 0x0043DCB0
 void CResManagerS_ScalarDtor(CResManager *this); // 0x0043E0F0
-void CResManagerC_ScalarDtor(CResManager *this); // 0x0043E480
+void CResManagerC_Destructor(CResManager *this); // 0x0043E480
 void CResManagerT_ScalarDtor(CResManager *this); // 0x0043E890
 void CResList_DestructorSLN(CResList *list); // 0x0043F3B0
 void CResManager_ClearJ_Thunk(CResManager *this); // 0x004C0F50

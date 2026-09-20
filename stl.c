@@ -30,6 +30,7 @@
 #include "terrain.h"
 
 #include "weapon.h"
+#include "wombat_stl.h"
 
 static StdPtrIterFull *StdPtrIter_Begin(StdPtrIterFull *this, StdPtrNode *sentinel); // 0x00420E50
 static int StdPtrIter_IsValid(StdPtrIterFull *this); // 0x00420F40
@@ -58,7 +59,7 @@ static void *StdMap_GetHead(StdMapTree *this); // 0x00422E30
 static void StdMap_TreeSplice(StdMapTree *this, void *node); // 0x00422E50
 static void *StdMap_TreeMax(void *node); // 0x00422FC0
 static void *StdMap_TreeMin(void *node); // 0x00423040
-static void *StdMap_GetRoot(StdMapTree *this); // 0x004230C0
+static void *StdMap_GetRmost(StdMapTree *this); // 0x004230C0
 static void StdMap_TreeSplice2(StdMapTree *this, void *node); // 0x004230E0
 static void *StdMap_IterPostInc(void *iter, void *outIter, int dummy); // 0x00423270
 static void *StdMap_IterDec(void *iter); // 0x004232A0
@@ -68,7 +69,7 @@ static void *StdMap_IterInc(void *iter); // 0x00423620
 static void StdMap_TreeDec(void *iter); // 0x00423640
 static void *StdAllocator_Ucopy(StdAllocator *this, void *first, void *last, void *dest); // 0x00423750
 static void StdAllocator_UfillN(StdAllocator *this, void *dest, uint32_t count, void *valuePtr); // 0x00423790
-static void *StdMap_GetMost(StdMapTree *this); // 0x004237D0
+static void *StdMap_GetRoot(StdMapTree *this); // 0x004237D0
 static void *Vector_AllocElements(int count); // 0x00423960
 static void *StdTree_ConstructorNode(void *node, void *pair); // 0x00423990
 static void SortByZ_Main(uintptr_t *begin, uintptr_t *end, char typeTag, int depth); // 0x00423A10
@@ -91,7 +92,6 @@ static void vector_SwapImpl(uintptr_t *a, uintptr_t *b); // 0x00424340
 // 0x00424DD0 - StdPtrList_PushBack_4DD0 exposed in stl.h
 static void StdPtrList_ClearAndDestroy_4D70(StdPtrList *list); // 0x00424D70
 static void StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value); // 0x00424EC0
-static void *CVector_ConstructorWrapper(CVector *this); // 0x00426440
 static void *CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest); // 0x004267A0
 static void CVector_UfillN_67E0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004267E0
 static void *StdPtrList_EraseRange_6DB0(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00426DB0
@@ -408,7 +408,7 @@ CVector_Allocate16(CVector *this, uint32_t count, int unused)
 {
 	USED(this);
 	USED(unused);
-	return Allocate16_Inner((int)count);
+	return Allocate16_Inner((int)count, NULL);
 }
 
 /*
@@ -945,7 +945,7 @@ StdTree_InsertWombat(StdMapTree *this, void *outIter, void *keyPtr)
 	void *node;
 	uint8_t addLeft = 1;
 
-	node = *(void **)StdMap_GetMost(this);
+	node = *(void **)StdMap_GetRoot(this);
 
 	while (node != g_StdTreeNilNode) {
 		where = node;
@@ -1066,8 +1066,8 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 			}
 		}
 
-		if (*(void **)StdMap_GetMost(this) == z) {
-			*(void **)StdMap_GetMost(this) = y;
+		if (*(void **)StdMap_GetRoot(this) == z) {
+			*(void **)StdMap_GetRoot(this) = y;
 		} else {
 			void *zParent = *(void **)StdPtrNode_GetPrev((StdPtrNode *)z);
 			if (*(void **)StdPtrNode_GetNext((StdPtrNode *)zParent) == z) {
@@ -1083,7 +1083,7 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 			*(void **)yPrevAddr = *(void **)zPrevAddr;
 		}
 
-		vector_SwapImpl((uintptr_t *)StdTreeNode_Value(y), (uintptr_t *)StdTreeNode_Value(z));
+		vector_SwapImpl((uintptr_t *)StdTreeNode_Color(y), (uintptr_t *)StdTreeNode_Color(z));
 
 		y = z;
 	} else {
@@ -1093,8 +1093,8 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 			*(void **)xPrevAddr = *(void **)zPrevAddr;
 		}
 
-		if (*(void **)StdMap_GetMost(this) == z) {
-			*(void **)StdMap_GetMost(this) = x;
+		if (*(void **)StdMap_GetRoot(this) == z) {
+			*(void **)StdMap_GetRoot(this) = x;
 		} else {
 			void *zParent = *(void **)StdPtrNode_GetPrev((StdPtrNode *)z);
 			if (*(void **)StdPtrNode_GetNext((StdPtrNode *)zParent) == z) {
@@ -1113,23 +1113,23 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 			}
 		}
 
-		if (*(void **)StdMap_GetRoot(this) == z) {
+		if (*(void **)StdMap_GetRmost(this) == z) {
 			if (*(void **)StdPtrNode_GetNext((StdPtrNode *)z) == g_StdTreeNilNode) {
 				void *zPrevAddr = StdPtrNode_GetPrev((StdPtrNode *)z);
-				*(void **)StdMap_GetRoot(this) = *(void **)zPrevAddr;
+				*(void **)StdMap_GetRmost(this) = *(void **)zPrevAddr;
 			} else {
-				*(void **)StdMap_GetRoot(this) = StdMap_TreeMax(x);
+				*(void **)StdMap_GetRmost(this) = StdMap_TreeMax(x);
 			}
 		}
 	}
 
-	if (*(int *)StdTreeNode_Value(y) != 1)
+	if (*(int *)StdTreeNode_Color(y) != 1)
 		goto done;
 
 	for (;;) {
-		if (x == *(void **)StdMap_GetMost(this))
+		if (x == *(void **)StdMap_GetRoot(this))
 			break;
-		if (*(int *)StdTreeNode_Value(x) != 1)
+		if (*(int *)StdTreeNode_Color(x) != 1)
 			break;
 
 		{
@@ -1137,66 +1137,66 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 			if (x == *(void **)StdPtrNode_GetNext((StdPtrNode *)xParent)) {
 				w = *(void **)StdPtrNode_GetValue((StdPtrNode *)*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 
-				if (*(int *)StdTreeNode_Value(w) == 0) {
-					*(int *)StdTreeNode_Value(w) = 1;
-					*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 0;
+				if (*(int *)StdTreeNode_Color(w) == 0) {
+					*(int *)StdTreeNode_Color(w) = 1;
+					*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 0;
 					StdMap_TreeSplice(this, *(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 					w = *(void **)StdPtrNode_GetValue((StdPtrNode *)*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 				}
 
-				if (*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) == 1 &&
-				        *(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) == 1) {
-					*(int *)StdTreeNode_Value(w) = 0;
+				if (*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) == 1 &&
+				        *(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) == 1) {
+					*(int *)StdTreeNode_Color(w) = 0;
 					x = *(void **)StdPtrNode_GetPrev((StdPtrNode *)x);
 					continue;
 				}
 
-				if (*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) == 1) {
-					*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) = 1;
-					*(int *)StdTreeNode_Value(w) = 0;
+				if (*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) == 1) {
+					*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) = 1;
+					*(int *)StdTreeNode_Color(w) = 0;
 					StdMap_TreeSplice2(this, w);
 					w = *(void **)StdPtrNode_GetValue((StdPtrNode *)*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 				}
 
-				*(int *)StdTreeNode_Value(w) = *(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) = 1;
+				*(int *)StdTreeNode_Color(w) = *(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) = 1;
 				StdMap_TreeSplice(this, *(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 				break;
 			} else {
 				w = *(void **)StdPtrNode_GetNext((StdPtrNode *)*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 
-				if (*(int *)StdTreeNode_Value(w) == 0) {
-					*(int *)StdTreeNode_Value(w) = 1;
-					*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 0;
+				if (*(int *)StdTreeNode_Color(w) == 0) {
+					*(int *)StdTreeNode_Color(w) = 1;
+					*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 0;
 					StdMap_TreeSplice2(this, *(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 					w = *(void **)StdPtrNode_GetNext((StdPtrNode *)*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 				}
 
-				if (*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) == 1 &&
-				        *(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) == 1) {
-					*(int *)StdTreeNode_Value(w) = 0;
+				if (*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) == 1 &&
+				        *(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) == 1) {
+					*(int *)StdTreeNode_Color(w) = 0;
 					x = *(void **)StdPtrNode_GetPrev((StdPtrNode *)x);
 					continue;
 				}
 
-				if (*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) == 1) {
-					*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) = 1;
-					*(int *)StdTreeNode_Value(w) = 0;
+				if (*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) == 1) {
+					*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetValue((StdPtrNode *)w)) = 1;
+					*(int *)StdTreeNode_Color(w) = 0;
 					StdMap_TreeSplice(this, w);
 					w = *(void **)StdPtrNode_GetNext((StdPtrNode *)*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 				}
 
-				*(int *)StdTreeNode_Value(w) = *(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) = 1;
+				*(int *)StdTreeNode_Color(w) = *(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetNext((StdPtrNode *)w)) = 1;
 				StdMap_TreeSplice2(this, *(void **)StdPtrNode_GetPrev((StdPtrNode *)x));
 				break;
 			}
 		}
 	}
 
-	*(int *)StdTreeNode_Value(x) = 1;
+	*(int *)StdTreeNode_Color(x) = 1;
 
 done: {
 	void *kvPtr = StdTreeNode_KeyValuePtr(y);
@@ -1240,10 +1240,10 @@ StdMap_EraseRange(StdMapTree *this, void *outIter, void *beginIter, void *endIte
 	{
 		void *mostPtr;
 
-		mostPtr = StdMap_GetMost(this);
+		mostPtr = StdMap_GetRoot(this);
 		StdMap_EraseRecursive(this, *(void **)mostPtr);
 
-		mostPtr = StdMap_GetMost(this);
+		mostPtr = StdMap_GetRoot(this);
 		*(void **)mostPtr = g_StdTreeNilNode;
 
 		this->size = 0;
@@ -1253,7 +1253,7 @@ StdMap_EraseRange(StdMapTree *this, void *outIter, void *beginIter, void *endIte
 			*(StdTreeNode **)headPtr = this->head;
 		}
 		{
-			void *rootPtr = StdMap_GetRoot(this);
+			void *rootPtr = StdMap_GetRmost(this);
 			*(StdTreeNode **)rootPtr = this->head;
 		}
 
@@ -1354,13 +1354,14 @@ StdMap_IntKeyLess(StdMapTree *this, void *a, void *b)
 }
 
 /*
- * 0x004227A0 - std::_Tree::_Myval
+ * 0x004227A0 - std::_Tree::_Color
  *
- * Returns pointer to the key/value data area within a red-black tree
- * node.
+ * Returns &_Color(node) - the node's +0x14 slot. _Buynode stores its
+ * colour argument through it, the insert rebalance writes 0 and 1, and
+ * _Dec tests it against 0.
  */
 void *
-StdTreeNode_Value(StdTreeNode *node)
+StdTreeNode_Color(StdTreeNode *node)
 {
 	return &node->color;
 }
@@ -1449,7 +1450,7 @@ StdMap_TreeInit(StdMapTree *this)
 		*(void **)headPtr = this->head;
 	}
 	{
-		void *rootPtr = StdMap_GetRoot(this);
+		void *rootPtr = StdMap_GetRmost(this);
 		*(void **)rootPtr = this->head;
 	}
 }
@@ -1485,8 +1486,8 @@ StdTree_RBInsert_Wombat(StdMapTree *this, void *outIter, void *addLeft, void *pa
 link_left:
 	*(void **)StdPtrNode_GetNext((StdPtrNode *)parent) = node;
 	if (parent == this->head) {
-		*(void **)StdMap_GetMost(this) = node;
 		*(void **)StdMap_GetRoot(this) = node;
+		*(void **)StdMap_GetRmost(this) = node;
 	} else {
 		if (parent == *(void **)StdMap_GetHead(this))
 			*(void **)StdMap_GetHead(this) = node;
@@ -1495,15 +1496,15 @@ link_left:
 
 link_right:
 	*(void **)StdPtrNode_GetValue((StdPtrNode *)parent) = node;
-	if (parent == *(void **)StdMap_GetRoot(this))
-		*(void **)StdMap_GetRoot(this) = node;
+	if (parent == *(void **)StdMap_GetRmost(this))
+		*(void **)StdMap_GetRmost(this) = node;
 
 start_fixup:
 	x = node;
 
-	while (x != *(void **)StdMap_GetMost(this)) {
+	while (x != *(void **)StdMap_GetRoot(this)) {
 		void *xParent = *(void **)StdPtrNode_GetPrev((StdPtrNode *)x);
-		if (*(int *)StdTreeNode_Value(xParent) != 0)
+		if (*(int *)StdTreeNode_Color(xParent) != 0)
 			break;
 
 		xParent = *(void **)StdPtrNode_GetPrev((StdPtrNode *)x);
@@ -1512,41 +1513,41 @@ start_fixup:
 		if (xParent == *(void **)StdPtrNode_GetNext((StdPtrNode *)grandparent)) {
 			uncle = *(void **)StdPtrNode_GetValue((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))));
 
-			if (*(int *)StdTreeNode_Value(uncle) == 0) {
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
-				*(int *)StdTreeNode_Value(uncle) = 1;
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
+			if (*(int *)StdTreeNode_Color(uncle) == 0) {
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
+				*(int *)StdTreeNode_Color(uncle) = 1;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
 				x = *(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)));
 			} else {
 				if (x == *(void **)StdPtrNode_GetValue((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) {
 					x = *(void **)StdPtrNode_GetPrev((StdPtrNode *)x);
 					StdMap_TreeSplice(this, x);
 				}
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
 				StdMap_TreeSplice2(this, *(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x))));
 			}
 		} else {
 			uncle = *(void **)StdPtrNode_GetNext((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))));
 
-			if (*(int *)StdTreeNode_Value(uncle) == 0) {
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
-				*(int *)StdTreeNode_Value(uncle) = 1;
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
+			if (*(int *)StdTreeNode_Color(uncle) == 0) {
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
+				*(int *)StdTreeNode_Color(uncle) = 1;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
 				x = *(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)));
 			} else {
 				if (x == *(void **)StdPtrNode_GetNext((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) {
 					x = *(void **)StdPtrNode_GetPrev((StdPtrNode *)x);
 					StdMap_TreeSplice2(this, x);
 				}
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
-				*(int *)StdTreeNode_Value(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)) = 1;
+				*(int *)StdTreeNode_Color(*(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x)))) = 0;
 				StdMap_TreeSplice(this, *(void **)StdPtrNode_GetPrev((StdPtrNode *)(*(void **)StdPtrNode_GetPrev((StdPtrNode *)x))));
 			}
 		}
 	}
 
-	*(int *)StdTreeNode_Value(*(void **)StdMap_GetMost(this)) = 1;
+	*(int *)StdTreeNode_Color(*(void **)StdMap_GetRoot(this)) = 1;
 
 	CIterCtx_Set(outIter, node);
 	return outIter;
@@ -1601,8 +1602,8 @@ StdMap_TreeSplice(StdMapTree *this, void *node)
 	}
 
 	// Update parent's pointer to node -> savedChild
-	if (node == *(void **)StdMap_GetMost(this)) {
-		*(void **)StdMap_GetMost(this) = savedChild;
+	if (node == *(void **)StdMap_GetRoot(this)) {
+		*(void **)StdMap_GetRoot(this) = savedChild;
 	} else {
 		void *parentNode = *(void **)StdPtrNode_GetPrev((StdPtrNode *)node);
 		void *parentNextAddr = StdPtrNode_GetNext((StdPtrNode *)parentNode);
@@ -1666,7 +1667,7 @@ StdMap_TreeMin(void *node)
  * STL the value field of the header node holds the root pointer.
  */
 static void *
-StdMap_GetRoot(StdMapTree *this)
+StdMap_GetRmost(StdMapTree *this)
 {
 	StdTreeNode *head = this->head;
 	return StdPtrNode_GetValue((StdPtrNode *)head);
@@ -1706,8 +1707,8 @@ StdMap_TreeSplice2(StdMapTree *this, void *node)
 	}
 
 	// Update parent's pointer to node -> savedChild
-	if (node == *(void **)StdMap_GetMost(this)) {
-		*(void **)StdMap_GetMost(this) = savedChild;
+	if (node == *(void **)StdMap_GetRoot(this)) {
+		*(void **)StdMap_GetRoot(this) = savedChild;
 	} else {
 		void *parentNode = *(void **)StdPtrNode_GetPrev((StdPtrNode *)node);
 		void *parentValAddr = StdPtrNode_GetValue((StdPtrNode *)parentNode);
@@ -1757,7 +1758,7 @@ StdMap_IterDec(void *iter)
  * 0x004234E0 - std::_Tree::_Lbound (find-insert-position, integer-keyed)
  *
  * Walks the red-black tree to find the insertion position for a key.
- * Sets node = root via StdMap_GetMost+deref, where = head node (tree+4).
+ * Sets node = root via StdMap_GetRoot+deref, where = head node (tree+4).
  * Loops while node is not the sentinel (g_StdTreeNilNode). If node key <
  * search key, go right (via StdPtrNode_GetValue). Otherwise update where
  * and go left (via StdPtrNode_GetNext). Returns where.
@@ -1768,7 +1769,7 @@ StdTree_FindInsertPos_Int(StdMapTree *tree, int *keyPtr)
 	void *node;
 	void *where;
 
-	node = *(void **)StdMap_GetMost(tree);
+	node = *(void **)StdMap_GetRoot(tree);
 	where = tree->head;
 
 	while (node != g_StdTreeNilNode) {
@@ -1798,7 +1799,7 @@ StdTree_Buynode(StdMapTree *this, void *parentNode, int value)
 
 	node = StdPtrList_Charalloc((StdPtrList *)this, sizeof(StdTreeNode));
 	*StdPtrNode_GetPrev((StdPtrNode *)node) = (StdPtrNode *)parentNode;
-	*(int *)StdTreeNode_Value(node) = value;
+	*(int *)StdTreeNode_Color(node) = value;
 	return node;
 }
 
@@ -1845,7 +1846,7 @@ StdMap_TreeDec(void *iter)
 	void *node = *pNode;
 
 	// Case 1: check if header node (color==0 and parent->parent==node)
-	if (*(uint32_t *)StdTreeNode_Value(node) == 0) {
+	if (*(uint32_t *)StdTreeNode_Color(node) == 0) {
 		void *parent = *(void **)StdPtrNode_GetPrev((StdPtrNode *)node);
 		void *grandparent = *(void **)StdPtrNode_GetPrev((StdPtrNode *)parent);
 		if (grandparent == node) {
@@ -1920,14 +1921,13 @@ StdAllocator_UfillN(StdAllocator *this, void *dest, uint32_t count, void *valueP
 }
 
 /*
- * 0x004237D0 - std::_Tree::_Most accessor
+ * 0x004237D0 - std::_Tree::_Root
  *
- * Returns pointer to the prev field of the head node at this[+4]. In MSVC
- * STL the prev field of the header node holds the rightmost (max) node
- * pointer.
+ * Returns &_Parent(_Myhead) - the header node's +0x04 slot, which holds
+ * the tree root. Every caller dereferences it as the root.
  */
 static void *
-StdMap_GetMost(StdMapTree *this)
+StdMap_GetRoot(StdMapTree *this)
 {
 	StdTreeNode *head = this->head;
 	return StdPtrNode_GetPrev((StdPtrNode *)head);
@@ -2597,7 +2597,7 @@ StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source)
  * twin at 0x004A6470, which CMobile::SendUpdateToList hands to the
  * array-constructor iterator.
  */
-static __attribute__((unused)) void *
+void *
 CVector_ConstructorWrapper(CVector *this)
 {
 	char typeByte = 0;
@@ -3218,13 +3218,13 @@ StdPtrNode_GetValue(StdPtrNode *node)
 /*
  * 0x0044F750 - std::list allocator _Charalloc
  *
- * Allocator wrapper. In C: malloc(size).
+ * Allocator wrapper: forwards to the clamping operator new.
  */
 void *
 StdPtrList_Charalloc(StdPtrList *list, uint32_t size)
 {
 	USED(list);
-	return malloc(size);
+	return OperatorNew_Clamp(size, NULL);
 }
 
 /*
@@ -5502,7 +5502,7 @@ CVector_Allocate1C(CVector *this, int count, int unused_arg)
 {
 	USED(this);
 	USED(unused_arg);
-	return Allocate1C(count);
+	return Allocate1C(count, NULL);
 }
 
 /*

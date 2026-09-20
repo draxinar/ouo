@@ -1670,7 +1670,7 @@ CSkillDecayManager_ProcessVector(CSkillDecayManager *mgr)
 		if (CSearchCtx_IsNotEqual((CSearchCtx *)&iter, (CSearchCtx *)&beginIter) == 0)
 			break;
 
-		type = (uint32_t *)CItem_GetType((CItem *)&iter);
+		type = (uint32_t *)SerialIter_Deref((CItem *)&iter);
 		entity = CWorld_FindBySerial(g_World, *type);
 
 		if (entity != NULL && VT_IsMobile(entity)) {
@@ -4233,7 +4233,7 @@ CMobile_OnStatChange_VT(CMobile *self, int statIdx, int delta)
 
 	// Try delta times to randomly reduce stat
 	for (j = 0; j < delta; j++) {
-		if (rand() % 1000 < chance)
+		if (CRT_rand() % 1000 < chance)
 			CMobile_StatAdjust(self, statIdx, -1);
 	}
 

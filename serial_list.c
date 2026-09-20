@@ -80,21 +80,35 @@ CSerialList_Constructor(CSerialList *list)
 /*
  * 0x004429E7 - CSerialList::~CSerialList
  *
- * Frees every node and the sentinel, then resets data/count.
+ * Delegates to the std::list destructor.
  */
 void
 CSerialList_Destructor(CSerialList *list)
 {
-	CSerialNode *sentinel, *node, *next;
+	StdSerialList_Destructor((StdPtrList *)list);
+}
 
-	sentinel = list->data;
-	for (node = sentinel->next; node != sentinel; node = next) {
-		next = node->next;
-		free(node);
-	}
-	free(sentinel);
-	list->data = NULL;
-	list->count = 0;
+/*
+ * 0x00446B20 - std::list<CSerialValue>::~list
+ *
+ * Erases [begin, end), frees the head sentinel and clears the head and
+ * size fields.
+ *
+ * MODIFIED: the binary releases the sentinel through the MSVC CRT
+ * deallocator at 0x004E3DC0, which we do not decompile; free() is what
+ * the rest of this file uses for _Buynode nodes.
+ */
+void
+StdSerialList_Destructor(StdPtrList *list)
+{
+	StdPtrNode *first, *last, *result;
+
+	last = *StdPtrList_End(list, &last);
+	first = *StdPtrList_Begin(list, &first);
+	StdSerialList_EraseRange(list, &result, first, last);
+	free(((CSerialList *)list)->data);
+	((CSerialList *)list)->data = NULL;
+	((CSerialList *)list)->count = 0;
 }
 
 /*
@@ -912,9 +926,11 @@ StdSerialValue_ScalarDelete(CSerialValue *self, int flags)
 /*
  * 0x004473C0 - std::list<CSerialValue>::_Val_init
  *
- * Distance counter init helper. The binary stores the low byte of a stack
- * address (effectively garbage) into *dst; the value gets overwritten by
- * the counting loop, so we just write 0.
+ * Distance counter init helper.
+ *
+ * MODIFIED: 004473c7 reads [EBP-0x4], a frame slot the function reserves
+ * and never writes, and stores that byte into *dst. We write 0; the
+ * counting loop overwrites it either way.
  */
 void *
 StdSerialValue_ValInit(void *dst)

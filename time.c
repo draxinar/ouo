@@ -122,23 +122,23 @@ CLightManager_Destructor(void)
 }
 
 /*
- * 0x00473C3F - CTimeManager::GetTrammelPhase
+ * 0x00473C3F - CLightManager::GetTrammelPhase
  *
  * Returns the current Trammel moon phase derived from game time.
  */
 int
-CTimeManager_GetTrammelPhase(void)
+CLightManager_GetTrammelPhase(void)
 {
 	return ((g_GameHour * 6 + g_GameMinute / 10 + 1) / 3 + 4) & 7;
 }
 
 /*
- * 0x00473C74 - CTimeManager::GetFeluccaPhase
+ * 0x00473C74 - CLightManager::GetFeluccaPhase
  *
  * Returns the current Felucca moon phase derived from game time.
  */
 int
-CTimeManager_GetFeluccaPhase(void)
+CLightManager_GetFeluccaPhase(void)
 {
 	return (g_GameHour * 6 + g_GameMinute / 10 + 4) & 7;
 }
@@ -153,8 +153,8 @@ CLightManager_GetMoonLightContribution(void)
 {
 	int trammel, felucca;
 
-	trammel = CTimeManager_GetTrammelPhase();
-	felucca = CTimeManager_GetFeluccaPhase();
+	trammel = CLightManager_GetTrammelPhase();
+	felucca = CLightManager_GetFeluccaPhase();
 	return g_moonPhaseLightTable[trammel] + g_moonPhaseLightTable[felucca];
 }
 
@@ -336,8 +336,9 @@ CTimeManager_Init(void)
 /*
  * 0x004D8043 - CTimeManager::CTimeManager (vtable setup)
  *
- * Sets the CTimeManager vtable pointer in the binary. No-op here since
- * CTimeManager does not use a vtable in our port.
+ * MODIFIED: 004d804d stores the CTimeManager vtable 0x005F0070 into
+ * [this+0]. The port models that slot as CTimeManager.vtableSlot, an
+ * integer CTimeManager_Init zeroes, and builds no vtable object for it.
  */
 static void __attribute__((unused))
 CTimeManager_ConstructorVTable(void)
@@ -908,8 +909,8 @@ CTimeManager_CheckMoonPhases(void)
 	int feluccaChanged = 0;
 	int trammelPhase, feluccaPhase;
 
-	trammelPhase = CTimeManager_GetTrammelPhase();
-	feluccaPhase = CTimeManager_GetFeluccaPhase();
+	trammelPhase = CLightManager_GetTrammelPhase();
+	feluccaPhase = CLightManager_GetFeluccaPhase();
 
 	if (g_TimeManager.lastTrammelPhase != (uint32_t)trammelPhase) {
 		trammelChanged = 1;

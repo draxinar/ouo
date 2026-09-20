@@ -131,7 +131,7 @@ CTemplate_LoadSex(CMobile *mob, char *dataCursor)
 	} else if (strcasecmp(buf, "OTHER") == 0) {
 		mob->sex = 2;
 	} else if (strcasecmp(buf, "RANDOM") == 0) {
-		mob->sex = (rand() & 1) ? 0 : 1;
+		mob->sex = (CRT_rand() & 1) ? 0 : 1;
 	} else {
 		mob->sex = 2;
 	}
@@ -1148,7 +1148,7 @@ CTemplateManager_ParseColorExpression(char *dataCursor, char *buf1, char *buf2)
 	}
 	CResBankMagicCtx_PostInit(&randCtx);
 
-	CStringPairList_Init(&list);
+	CStringPairList_DestructorWrapper(&list);
 	return dataCursor;
 }
 
@@ -2854,7 +2854,7 @@ CTemplateManager_ApplyLabel(CResManager *this, CString *label, CItem **entity)
  * Forwards to the destructor, which removes every node.
  */
 void
-CStringPairList_Init(CStringPairList *sl)
+CStringPairList_DestructorWrapper(CStringPairList *sl)
 {
 	CStringPairList_Destructor((CResList *)sl);
 }
@@ -2885,7 +2885,7 @@ CStringPairList_GetWeightedRandom(CStringPairList *sl, CResListNode **output)
 		return output;
 	}
 
-	target = rand() % sl->totalWeight + 1;
+	target = CRT_rand() % sl->totalWeight + 1;
 	pos = CResList_Begin(&sl->list);
 	while (CResList_IsValid(&sl->list, pos)) {
 		CStringPairListNode *data = (CStringPairListNode *)CResList_GetData(&sl->list, pos);
