@@ -435,7 +435,7 @@ StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, Resul
 	(*tailPtr)->type = 0;
 	(*tailPtr)->value = (uintptr_t)handler;
 
-	// TK_CASE coercion (0x00406FE0-0x004070F0)
+	// TK_CASE coercion
 	// Scans chain for TK_SWITCH/TK_ENDSWITCH nodes, rearranges for
 	// case/switch nesting.
 	if (handler->handler == (uintptr_t)Handler_SWITCH) {
@@ -474,21 +474,21 @@ StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, Resul
 		return 1;
 	}
 
-	// TK_IF / TK_WHILE / TK_BREAK (0x004070F5-0x00407127)
+	// TK_IF / TK_WHILE / TK_BREAK
 	// Append type=6 (int literal 0) to argChain.
 	if (handler->handler == (uintptr_t)Handler_IF || handler->handler == (uintptr_t)Handler_WHILE || handler->handler == (uintptr_t)Handler_FOR_BODY) {
 		StoreIntLiteral(&argChain, 0);
 		goto check_endwhile_continue;
 	}
 
-	// TK_SWITCH (0x0040712C-0x00407144)
+	// TK_SWITCH
 	// Append type=10 (semi) node to argChain.
 	if (handler->handler == (uintptr_t)Handler_CASE) {
 		StoreSemiResult(&argChain);
 		goto check_endwhile_continue;
 	}
 
-	// TK_ENDFOR coercion (0x00407149-0x00407267)
+	// TK_ENDFOR coercion
 	// Looks up TK_ENDWHILE handler, replaces node's value,
 	// scans for matching TK_WHILE/TK_ENDWHILE nodes,
 	// rearranges chain.
@@ -530,7 +530,7 @@ StoreHandlerResult(ResultNode **chain, const BuiltinHandlerEntry *handler, Resul
 	}
 
 check_endwhile_continue:
-	// TK_ENDWHILE / TK_CONTINUE coercion (0x0040726A-0x0040745A)
+	// TK_ENDWHILE / TK_CONTINUE coercion
 	if (handler->handler == (uintptr_t)Handler_ENDWHILE || handler->handler == (uintptr_t)Handler_ENDFOR) {
 		matchCount = 0;
 		scan = *chain;
@@ -586,7 +586,7 @@ check_endwhile_continue:
 		goto epilogue;
 	}
 
-	// TK_ENDSWITCH coercion (0x0040745F-0x00407634)
+	// TK_ENDSWITCH coercion
 	if (handler->handler == (uintptr_t)Handler_ENDIF2) {
 		matchCount = 0;
 		scan = *chain;
@@ -644,7 +644,7 @@ check_endwhile_continue:
 		goto epilogue;
 	}
 
-	// TK_ELSE / TK_ENDIF coercion (0x00407639-0x00407797)
+	// TK_ELSE / TK_ENDIF coercion
 	if (handler->handler == (uintptr_t)Handler_ELSE || handler->handler == (uintptr_t)Handler_ENDIF) {
 		matchCount = 0;
 		scan = *chain;
@@ -1687,6 +1687,7 @@ ParseFunctionParams(const char *stream, char *sigBuf, char *paramNamesBuf)
 	char delimBuf[128];
 	int paramIndex = 0;
 	int typeId;
+	int deadSlot;
 
 	// Initialize names buffer to empty
 	*paramNamesBuf = '\0';
@@ -1703,6 +1704,9 @@ ParseFunctionParams(const char *stream, char *sigBuf, char *paramNamesBuf)
 			sigBuf[paramIndex + 1] = '\0';
 			return stream;
 		}
+
+		deadSlot = 0;
+		USED(deadSlot);
 
 		// Read parameter name
 		stream = ScriptTokenizer_ReadToken(stream, paramNameBuf);
@@ -1752,6 +1756,7 @@ ParseParamSignature(const char *stream, char *sigBuf)
 	char paramBuf[128];
 	int paramIndex = 0;
 	int typeId;
+	int deadSlot;
 
 	// Read SM_LPAREN '('
 	stream = ScriptTokenizer_ReadToken(stream, lparenBuf);
@@ -1766,6 +1771,9 @@ ParseParamSignature(const char *stream, char *sigBuf)
 			sigBuf[paramIndex + 1] = '\0';
 			return stream;
 		}
+
+		deadSlot = 0;
+		USED(deadSlot);
 
 		// Read next token (could be var name or comma/rparen)
 		stream = ScriptTokenizer_ReadToken(stream, paramBuf);
@@ -2428,7 +2436,7 @@ ParseStatementBlock(const char *stream, CFuncScope *scope, int retTypeId)
 					stream = ScriptTokenizer_ReadToken(stream, tokenBuf2);
 					AddVarToScope(scope, typeLoop, tokenBuf2);
 				} else if (subStmtType != STMT_LOCAL_VAR) {
-					// skip ProcessAssignment (binary: jmp 0x004296C7)
+					// The binary jumps past ProcessAssignment here.
 					goto for_condition;
 				}
 
@@ -3385,6 +3393,10 @@ NodePool_Init(NodePool *pool, int batchSize)
  * to initialize the freelist, so the underlying malloc'd block can
  * never be released. We hand the block to NodePool_TrackBlock so
  * Wombat_FreeNodePoolBlocks can free each batch at shutdown.
+ *
+ * FIXED: on a failed allocation the binary carries on with a null
+ * batch, leaving the pool flagged allocating and running the node
+ * constructor through the null pointer. We return instead.
  */
 ResultNode *
 NodePool_Pop(NodePool *pool)
@@ -3423,8 +3435,8 @@ NodePool_Pop(NodePool *pool)
 		// Binary: batch = block + 4
 		batch = (ResultNode *)(block + sizeof(uintptr_t));
 
-		// Batch constructor (0x004E9090) calls per-element ctor
-		// (0x0042B2DE) which is a no-op (reads pool->flag, discards).
+		// The batch constructor calls a per-element constructor that is a
+		// no-op - it reads pool->flag and discards it.
 
 		pool->flag = 0;
 
@@ -4622,16 +4634,15 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		break;
 	}
 	case 14: {
-		// 0x0E (time). The filter block at 0x0042BC42 has no back edge:
-		// it examines trigger 0, and whether or not the filter matches
-		// it falls into 0x0042BCB0, which sets the count to one. The
-		// comparison is computed and then ignored, so only the first
-		// trigger ever runs.
+		// 0x0E (time). The filter block has no back edge: it examines
+		// trigger 0, and whether or not the filter matches it falls
+		// through to the code that sets the count to one. The comparison
+		// is computed and then ignored, so only the first trigger runs.
 		numTriggers = (numTriggers > 0) ? 1 : 0;
 		break;
 	}
 	// 0x1F, 0x20 and 0x21 keep every match and compact the arrays, ending
-	// `MOV [numTriggers],matchCount` at 0x0042C0C7.
+	// with numTriggers set to the match count.
 	case 31:
 	case 32:
 	case 33: {
@@ -4656,10 +4667,10 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		numTriggers = matchCount;
 		break;
 	}
-	// 0x24, 0x25, 0x37, 0x3A and 0x3D stop at the first match instead:
-	// 0x0042BD74 breaks out of the loop after copying [i] to [0], and the
-	// count becomes the boolean `i < numTriggers` at 0x0042BD89. Only the
-	// first matching trigger runs.
+	// 0x24, 0x25, 0x37, 0x3A and 0x3D stop at the first match instead: the
+	// binary breaks out of the loop after copying [i] to [0], and the count
+	// becomes the boolean `i < numTriggers`. Only the first matching
+	// trigger runs.
 	case 36:
 	case 37:
 	case 55:
@@ -4864,8 +4875,8 @@ DispatchEvent(CItem *entity, int eventType, va_list ap)
 		break;
 	}
 
-	// Binary: some event va_args are read only for filterData matching
-	// and are NOT passed to AddParam (0x0042DF40). Our ExtractEventParams
+	// The binary reads some event va_args only for filterData matching
+	// and never passes them to AddParam. Our ExtractEventParams
 	// stores them with '_'-prefixed names (_scriptInstance, _callbackId,
 	// _filterValue, _msgName, _funcName). Strip them so the remaining
 	// real params align correctly with trigger scope entries.

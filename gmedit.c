@@ -97,7 +97,7 @@ int
 SetTerrSingle(intptr_t mode, int x, int y, int tileID, int elevation)
 {
 	int blockIdx;
-	uint8_t pkt[0xD0];
+	uint8_t pkt[0xCC];
 
 	if (!g_TerrainDataLoaded) {
 		if (mode == 0)

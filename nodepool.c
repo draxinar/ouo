@@ -385,11 +385,15 @@ NodePool_Alloc(TagNodePool *pool)
 	pool->allocated = 1;
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
 	block = (char *)OperatorNew(pool->blockSize * sizeof(TagNode) + sizeof(uintptr_t));
-	*(uint32_t *)block = pool->blockSize;
-	nodes = (TagNode *)(block + sizeof(uintptr_t));
+	if (block != NULL) {
+		*(uint32_t *)block = pool->blockSize;
+		nodes = (TagNode *)(block + sizeof(uintptr_t));
 
-	for (i = 0; i < pool->blockSize; i++)
-		TagNode_PoolInit(&nodes[i]);
+		for (i = 0; i < pool->blockSize; i++)
+			TagNode_PoolInit(&nodes[i]);
+	} else {
+		nodes = NULL;
+	}
 
 	pool->allocated = 0;
 

@@ -50,8 +50,8 @@ CScriptInstance_Constructor(ScriptAttachNode *inst, CScript *scriptClass)
 	if (scriptClass->namedScope.count != 0) {
 		int totalSize = scriptClass->namedScope.totalSize;
 		inst->memberScope = OperatorNew((uint32_t)totalSize);
-		// The binary zeroes the block explicitly through memset
-		// (0x004E8120) rather than relying on the allocator, and the
+		// The binary zeroes the block explicitly through memset rather
+		// than relying on the allocator, and the
 		// zeroing is load-bearing: a script member the loop below does
 		// not construct - anything that is not a string, ustring or
 		// list - is read as whatever the block held.

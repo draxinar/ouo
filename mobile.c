@@ -796,6 +796,10 @@ CMobile_StopFightWith(CMobile *this, uint32_t serial, int removeFromAttackerList
  * For each attacker, removes that attacker's own combat/attacker list
  * entries (keyed on the attacker's serial, matching the binary) and
  * drops war mode on NPCs whose target list becomes empty.
+ *
+ * The binary walks the list through the std::list iterator helpers,
+ * as CMobile::StopCombat below does; the chain is the same layout
+ * either way, so this walks the nodes directly.
  */
 void
 CMobile_DisengageAttackers(CMobile *this)
@@ -1714,24 +1718,24 @@ CMobile_SetSpeechHue(CMobile *this, uint16_t hue)
  * 0x0046E610 - CMobile::SayCString
  *
  * Builds and broadcasts a SPEECH packet within 18 tiles at the
- * speaker's head height. -1 defaults: font=0, hue=speechHue, type=3.
+ * speaker's head height. -1 defaults: speechType=0, hue=speechHue, font=3.
  * A player speaker also wakes nearby NPCs for speech awareness.
  */
 void
-CMobile_SayCString(CItem *ent, char *text, int hue, int type, int font)
+CMobile_SayCString(CItem *ent, char *text, int hue, int font, int speechType)
 {
 	uint8_t obuf[0x42C];
 	CLocation loc;
 	CLocation delta;
 
-	if (font == -1)
-		font = 0;
+	if (speechType == -1)
+		speechType = 0;
 	if (hue == -1)
 		hue = ((CMobile *)ent)->speechHue;
-	if (type == -1)
-		type = 3;
+	if (font == -1)
+		font = 3;
 
-	PacketManager_MakePacket_TEXT(obuf, ent, ent, (uint8_t)font, text, (uint16_t)hue, (uint16_t)type);
+	PacketManager_MakePacket_TEXT(obuf, ent, ent, (uint8_t)speechType, text, (uint16_t)hue, (uint16_t)font);
 
 	CLocation_Constructor3D(&delta, 0, 0, VT_GetHeight(ent) / 2);
 	CLocation_AddWrapped(CEntity_GetLocation(&ent->resourceEntity.entity), &loc, &delta);
@@ -1746,24 +1750,24 @@ CMobile_SayCString(CItem *ent, char *text, int hue, int type, int font)
  * 0x0046E72E - CMobile::EmoteCString
  *
  * Same broadcast path as SayCString but with emote defaults
- * (font=7) and always passing speechHue to the packet regardless
+ * (speechType=7) and always passing speechHue to the packet regardless
  * of the hue argument (matches the binary).
  */
 void
-CMobile_EmoteCString(CItem *ent, char *text, int hue, int type, int font)
+CMobile_EmoteCString(CItem *ent, char *text, int hue, int font, int speechType)
 {
 	uint8_t obuf[0x42C];
 	CLocation loc;
 	CLocation delta;
 
-	if (font == -1)
-		font = 7;
+	if (speechType == -1)
+		speechType = 7;
 	if (hue == -1)
 		hue = ((CMobile *)ent)->speechHue;
-	if (type == -1)
-		type = 3;
+	if (font == -1)
+		font = 3;
 
-	PacketManager_MakePacket_TEXT(obuf, ent, ent, (uint8_t)font, text, ((CMobile *)ent)->speechHue, (uint16_t)type);
+	PacketManager_MakePacket_TEXT(obuf, ent, ent, (uint8_t)speechType, text, ((CMobile *)ent)->speechHue, (uint16_t)font);
 
 	CLocation_Constructor3D(&delta, 0, 0, VT_GetHeight(ent) / 2);
 	CLocation_AddWrapped(CEntity_GetLocation(&ent->resourceEntity.entity), &loc, &delta);
@@ -1939,20 +1943,20 @@ CMobile_ChangeFame(CMobile *this, int fameChange)
 	int newFame;
 
 	if (fameChange >= 0) {
-		currentFame = this->fame;
+		currentFame = (uint16_t)this->fame;
 		result = (void *)((uintptr_t)fameChange - currentFame);
 		fameChange -= currentFame;
 		if (fameChange <= 0)
 			return result;
-		newFame = fameChange / 100 + this->fame;
+		newFame = fameChange / 100 + (uint16_t)this->fame;
 		if (GetRandom(100) < fameChange % 100)
 			newFame++;
 	} else {
 		if (fameChange <= -100)
 			newFame = 0; // dead store in binary, overwritten below
-		newFame = fameChange * this->fame / 100 + this->fame;
+		newFame = fameChange * (uint16_t)this->fame / 100 + (uint16_t)this->fame;
 	}
-	Mobile_SendKarmaFameChangeMessage(this, this->fame, newFame, "fame");
+	Mobile_SendKarmaFameChangeMessage(this, (uint16_t)this->fame, newFame, "fame");
 	CMobile_SetFame(this, newFame);
 	return Entity_ExecuteEvent(&this->container.item.resourceEntity.entity, FameChanged);
 }
@@ -2823,7 +2827,7 @@ death_anim:
 		if (!corpse->container.item.resourceEntity.entity.removedFromWorld)
 			CResourceEntity_NotifyPreModify(&corpse->container.item);
 
-		// 0x0046FC5B: Drain-from-head loop: binary re-reads firstChild
+		// Drain-from-head loop: binary re-reads firstChild
 		// at the top of each iteration after removal.
 		while (mob->container.item.resourceEntity.firstChild != NULL) {
 			node = mob->container.item.resourceEntity.firstChild;
@@ -2906,7 +2910,7 @@ free_node:
 	if (corpse != NULL)
 		corpse = FindCorpseBySerial(corpseSerial);
 
-	// 0x00470200: Binary has two consecutive NULL checks.
+	// Binary has two consecutive NULL checks.
 	if (!dropLoot) {
 		if (corpse != NULL)
 			if (corpse != NULL)
@@ -3323,10 +3327,10 @@ CMobile_PreDeleteCleanup(CMobile *mob)
 		if (mob->equipment[i] == NULL)
 			continue;
 		if (g_WorldActive2 != 0) {
-			// 0x00470D80: place in world with decay reset
+			// Place in world with decay reset
 			CItem_PlaceInWorld(mob->equipment[i], 1);
 		} else {
-			// 0x00470D94: delete via vtable[0x90]
+			// Delete via vtable[0x90]
 			if (mob->equipment[i] != NULL)
 				((void (*)(void *))VT_FN(mob->equipment[i], VT_DELETE))(mob->equipment[i]);
 		}
@@ -4238,7 +4242,7 @@ CMobile_OnStatChange_VT(CMobile *self, int statIdx, int delta)
 
 	// Try delta times to randomly reduce stat
 	for (j = 0; j < delta; j++) {
-		if (GetRandom(1000) < chance)
+		if (rand() % 1000 < chance)
 			CMobile_StatAdjust(self, statIdx, -1);
 	}
 
@@ -4289,7 +4293,7 @@ CMobile_SetStatAbs(CMobile *this, int type, int newValue)
 	delta = newValue - old;
 
 	if (((int (*)(void *, int, int))VT_FN((CItem *)this, VT_ON_STAT_CHANGE))(this, type, delta)) {
-		// 0x00472115: re-GetBaseStat via wrapper (result stored but overwritten)
+		// Re-GetBaseStat via wrapper (result stored but overwritten)
 		result = CMobile_GetBaseStat_Wrap(this, type);
 	}
 
@@ -4985,7 +4989,7 @@ CheckNeedEquipUpdate(CItem *mob, CItem *viewer)
 void
 CMobile_SendEntityUpdate_VT(CItem *self, CItem *viewer, int withEquip)
 {
-	uint8_t pktBuf[0x2040];
+	uint8_t pktBuf[0x2014];
 
 	if (self->itemFlags & 0x10)
 		return;
@@ -5159,7 +5163,7 @@ DecaySkill(CMobile *mob, int8_t skillId, int delta)
 	numCandidates = CVector_GetCount(&candidates);
 
 	if (numCandidates == 0) {
-		// 0x00473737: no candidates - decay the gained skill itself
+		// No candidates - decay the gained skill itself
 		if (CMobile_GetBaseSkill(mob, skillId) >= delta)
 			CMobile_AddToSkill(mob, skillId, -delta);
 		else
@@ -5171,7 +5175,7 @@ DecaySkill(CMobile *mob, int8_t skillId, int delta)
 
 	totalTimePenalty = 0;
 	for (i = 0; i < numCandidates; i++) {
-		uint32_t timeDiff = g_GameTick - mob->skillTimers[(int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i)];
+		uint32_t timeDiff = CRandom_GetGameTick() - mob->skillTimers[(int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i)];
 		totalTimePenalty += timeDiff / 60;
 	}
 
@@ -5180,7 +5184,7 @@ DecaySkill(CMobile *mob, int8_t skillId, int delta)
 		target = GetRandomRange64(0, totalTimePenalty);
 
 	for (i = 0; i < numCandidates - 1; i++) {
-		uint32_t timeDiff = g_GameTick - mob->skillTimers[(int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i)];
+		uint32_t timeDiff = CRandom_GetGameTick() - mob->skillTimers[(int)*(uintptr_t *)CVector_At(&candidates, (uint32_t)i)];
 		target -= timeDiff / 60;
 		if (target <= 0)
 			break;
@@ -5216,7 +5220,7 @@ CMobile_NotifySkillGain(CMobile *mob, int8_t skillId, int actualGain)
 	totalWeight = CMobile_CalcTotalSkillWeight(mob);
 	isPlayer = VT_IsPlayer((CItem *)mob);
 
-	// 0x004737B8: Player path - deterministic excess decay
+	// Player path - deterministic excess decay
 	if (isPlayer && totalWeight > 7000) {
 		int excess = totalWeight - 7000;
 		while (excess > 0) {
@@ -5226,7 +5230,7 @@ CMobile_NotifySkillGain(CMobile *mob, int8_t skillId, int actualGain)
 		return;
 	}
 
-	// 0x004737F9: Probabilistic decay path (players under 7000, all NPCs)
+	// Probabilistic decay path (players under 7000, all NPCs)
 	if (actualGain > 0) {
 		int decayChance = CalcDecayChance(totalWeight);
 		int j;

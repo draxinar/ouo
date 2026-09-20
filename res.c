@@ -169,7 +169,7 @@ static void CResList_ReplaceData_C(CResListNode *this, void *data); // 0x0047C78
 static void CResList_ClearAll_MultiVal(CResList *list); // 0x0047C6F0
 static void *CResList_BeginIter_MultiC(CResList *list); // 0x0047C640
 static CSearchCtx *CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *searchCtx, CSearchCtx *output, int direction); // 0x0047C560
-static void CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, int startBucket, int direction); // 0x0047C460
+static void CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047C460
 static void CResList_ReplaceData_B(CResListNode *this, void *data); // 0x0047C400
 static void CResList_ClearAll_MultiB(CResList *list); // 0x0047C3C0
 static CResListNode *CResList_Erase_MultiKey(CResList *list, CResListNode *node, void **outData, int direction); // 0x0047C2F0
@@ -186,13 +186,13 @@ static void *CResList_PrependData_B(CResList *this, void *data); // 0x0047BA70
 static void *CResList_PrependInt_A(CResList *this, uint32_t *valuePtr); // 0x0047BA20
 static void *CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outData, int direction); // 0x0047B880
 static void *CResManager_NextIterInternalMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047B730
-static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, int startBucket, int direction); // 0x0047B630
+static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047B630
 static CSearchCtx *CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction); // 0x0047B580
 static int CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr); // 0x0047A930
 static void CResListNode_FreeData(CResListNode *node); // 0x0047D460
 static void *CResList_GetHead(CResListNode *this); // 0x004A6FD0
 static void *CResList_StoreVal_ByFile(CResList *list, void *value); // 0x004A7E10
-static void *CResList_AdvanceValIter(CResListNode *this, uint32_t direction); // 0x004A7D70
+static void *CResList_AdvanceValIter(CResListNode *this, CRegion *src); // 0x004A7D70
 static void CResList_Destructor_ByFileVal(CResList *this); // 0x004A7D50
 static void *CResList_RemoveVal_ByFile(CResList *list, uintptr_t valNode, void **outErased, uint32_t direction); // 0x004A7C80
 static void *CResList_InsertAfter_ByFile(CResList *list, CResListNode *position); // 0x004A7B90
@@ -204,7 +204,7 @@ static CSearchCtx *CResManager_FindOrCreate_ByNameAll(CResManager *rm, CSearchCt
 static void CResManager_StrKeyDestructor_Clear_ByNameAll(CResManager *rm); // 0x004A7510
 static void *CResManager_BeginIterInternal_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7460
 static void *CResList_InsertVal_ByFile(CResList *list, void *value); // 0x004A7430
-static void CResList_NextIter_ByFile(CResList *list, uintptr_t valNode, uint32_t direction); // 0x004A7410
+static void CResList_NextIter_ByFile(CResList *list, uintptr_t valNode, CRegion *src); // 0x004A7410
 static void *CResList_GetTailVal_ByFile(CResList *list); // 0x004A7360
 static CSearchCtx *CResManager_InternalErase_ByFile(CResManager *rm, CSearchCtx *eraseOut, CSearchCtx *current, void **outErased, uint32_t direction); // 0x004A71E0
 static void CResManager_IntKeyDestructor_Clear_ByFile(CResManager *rm); // 0x004A7100
@@ -2756,7 +2756,7 @@ CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, const char *key, 
  * writes its head ctx into *output.
  */
 void
-CResManager_BeginIterInternalA(CResManager *rm, CSearchCtx *output, int startBucket, int direction)
+CResManager_BeginIterInternalA(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction)
 {
 	CSearchCtx localCtx;
 	int bucket;
@@ -3112,7 +3112,7 @@ CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, const char *key, 
  * Identical to include variant (0x0043F8F0).
  */
 void
-CResManager_BeginIterInternalB(CResManager *rm, CSearchCtx *output, int startBucket, int direction)
+CResManager_BeginIterInternalB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction)
 {
 	CResManager_BeginIterInternalA(rm, output, startBucket, direction);
 }
@@ -5213,7 +5213,7 @@ CResManager_SearchBucketHint(CResManager *rm, CSearchCtx *output, uint32_t *key,
  * 1 ascending, 0 descending) and writes its head ctx to *output.
  */
 void
-CResManager_BeginSearchHint(CResManager *rm, CSearchCtx *output, int startBucket, int direction)
+CResManager_BeginSearchHint(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction)
 {
 	CSearchCtx localCtx;
 	int bucket;
@@ -6456,11 +6456,11 @@ CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	CResManager_NextIterInternalMultiB(rm, &nextCtx, current, direction);
 	CSearchCtx_Add(&localCtx, &nextCtx);
 
-	// Erase key node via CResList_RemoveKeyNode (0x00464E30)
+	// Erase key node via CResList_RemoveKeyNode
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
 
-	// Erase val node via CResList_Erase_MultiVal (0x0047BD80)
+	// Erase val node via CResList_Erase_MultiVal
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_Erase_MultiVal(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outData, direction);
 
@@ -6529,7 +6529,7 @@ CResManager_FindByKey_B(CResManager *this, CSearchCtx *output, void *keyPtr, CSe
  * seeds *output with its first key/val nodes.
  */
 static void
-CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, int startBucket, int direction)
+CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction)
 {
 	CSearchCtx localCtx;
 	int bucket;
@@ -6650,11 +6650,11 @@ CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	CResManager_NextIterInternalMultiA(rm, &nextCtx, current, direction);
 	CSearchCtx_Add(&localCtx, &nextCtx);
 
-	// Erase key node via CResList_EraseAndFree_MultiA (0x0047C1B0)
+	// Erase key node via CResList_EraseAndFree_MultiA
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_EraseAndFree_MultiA(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
 
-	// Erase val node via CResList_Erase_MultiKey (0x0047C2F0)
+	// Erase val node via CResList_Erase_MultiKey
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_Erase_MultiKey(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outData, direction);
 
@@ -7089,7 +7089,7 @@ CResList_ReplaceData_B(CResListNode *this, void *data)
  * at or before it (direction==0), returning an iterator at that bucket's head.
  */
 static void
-CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, int startBucket, int direction)
+CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction)
 {
 	CSearchCtx localCtx;
 	int bucket;
@@ -7564,7 +7564,7 @@ CResList_BeginIter_ByFile(CResManager *rm, CSearchCtx *output, uint32_t *keyPtr,
  * Advances iterCtx to the next value in its bucket.
  */
 __attribute__((unused)) void
-CResList_GetResultNextIter_ByFile(CResManager *rm, CSearchCtx *iterCtx, uint32_t direction)
+CResList_GetResultNextIter_ByFile(CResManager *rm, CSearchCtx *iterCtx, CRegion *src)
 {
 	uintptr_t valNode;
 	uint32_t bucket;
@@ -7574,7 +7574,7 @@ CResList_GetResultNextIter_ByFile(CResManager *rm, CSearchCtx *iterCtx, uint32_t
 
 	valNode = CSearchCtx_GetValNode(iterCtx);
 	bucket = CSearchCtx_GetBucket(iterCtx);
-	CResList_NextIter_ByFile(rm->vals[bucket], valNode, direction);
+	CResList_NextIter_ByFile(rm->vals[bucket], valNode, src);
 }
 
 /*
@@ -7886,12 +7886,12 @@ CResList_GetTailVal_ByFile(CResList *list)
  * (a template artifact).
  */
 static void
-CResList_NextIter_ByFile(CResList *list, uintptr_t valNode, uint32_t direction)
+CResList_NextIter_ByFile(CResList *list, uintptr_t valNode, CRegion *src)
 {
 	USED(list);
 	if (valNode == 0)
 		return;
-	CResList_AdvanceValIter((CResListNode *)valNode, direction);
+	CResList_AdvanceValIter((CResListNode *)valNode, src);
 }
 
 /*
@@ -8294,9 +8294,8 @@ CResList_Destructor_ByFileVal(CResList *this)
  * an existing CRegion.
  */
 static void *
-CResList_AdvanceValIter(CResListNode *this, uint32_t direction)
+CResList_AdvanceValIter(CResListNode *this, CRegion *src)
 {
-	CRegion *src = (CRegion *)(uintptr_t)direction;
 	CRegion *newRegion;
 	void *raw;
 
@@ -9388,7 +9387,7 @@ CStringPairList_Destructor(CResList *this)
  * seeds *output with its first key/val nodes.
  */
 void
-CResManager_BeginIterInternalK(CResManager *rm, CSearchCtx *output, int startBucket, int direction)
+CResManager_BeginIterInternalK(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction)
 {
 	CSearchCtx localCtx;
 	int bucket;

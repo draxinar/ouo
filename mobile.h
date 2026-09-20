@@ -213,8 +213,8 @@ int CMobile_CheckWalkDir(CNPC *npc, int dir); // 0x0046E1F4
 int CMobile_BecomeTemplate(CMobile *mob, int templateId, int flag); // 0x0046E3B6
 uint16_t CMobile_GetSpeechHue(CMobile *this); // 0x0046E5E0
 void CMobile_SetSpeechHue(CMobile *this, uint16_t hue); // 0x0046E5F5
-void CMobile_SayCString(CItem *ent, char *text, int hue, int type, int font); // 0x0046E610
-void CMobile_EmoteCString(CItem *ent, char *text, int hue, int type, int font); // 0x0046E72E
+void CMobile_SayCString(CItem *ent, char *text, int hue, int font, int speechType); // 0x0046E610
+void CMobile_EmoteCString(CItem *ent, char *text, int hue, int font, int speechType); // 0x0046E72E
 void CMobile_SayToEntity_VT(CMobile *self, CItem *target, uint32_t serial, char *text); // 0x0046E855
 void CMobile_LoseNotoriety(CMobile *mob, int amount); // 0x0046E881
 void CMobile_GainNotoriety(CMobile *mob, int amount); // 0x0046E8BB

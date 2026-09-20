@@ -177,9 +177,9 @@ CTemplateManager_LoadNameTable(void)
 	currentFile = mainFile;
 
 	// The binary falls straight into the body and tests at the bottom on
-	// the pre-increment value (0x004B9FA3 saves idx, 0x004B9FB5 bumps it,
-	// 0x004B9FBE compares the saved copy), so the body runs for
-	// idx = 0 through maxEntries inclusive.
+	// the pre-increment value - it saves idx, bumps it, then compares the
+	// saved copy - so the body runs for idx = 0 through maxEntries
+	// inclusive.
 	for (;;) {
 		if (isMultiFile) {
 			sprintf(filename, "names.%d", nameTableIdx);
@@ -623,11 +623,11 @@ static char *
 CTemplateManager_ParseBracedDefineList(char *dataCursor, CStringList *list)
 {
 	char tokenBuf[128];
-	char weightBuf[128];
 	CString nameStr;
 	CResListNode *iterCtx;
 	int weight;
 
+	weight = 0;
 	CString_Constructor(&nameStr, "");
 
 	while (1) {
@@ -669,11 +669,11 @@ CTemplateManager_ParseBracedDefineList(char *dataCursor, CStringList *list)
 			CStringList_Destroy(&subList);
 		}
 
-		dataCursor = GetValue(dataCursor, weightBuf);
+		dataCursor = GetValue(dataCursor, tokenBuf);
 		if (*dataCursor == '\0')
 			break;
 
-		weight = atoi(weightBuf);
+		weight = atoi(tokenBuf);
 
 		CStringList_AddWeighted(list, &iterCtx, &nameStr, weight, 1);
 		CResBankMagicCtx_PostInit(&iterCtx);

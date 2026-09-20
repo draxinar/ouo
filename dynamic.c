@@ -361,6 +361,10 @@ CIndexedFileManager_WriteBlock(CIndexedFileManager *this, int blockIdx, uint8_t 
  * FIXED: Binary allocates exactly length bytes. On Linux the adjacent
  * heap memory is not NUL, so NUL-scanning parsers read past the buffer.
  * Allocates length+1 to guarantee NUL termination.
+ *
+ * FIXED: the binary leaves the three index-entry locals uninitialized and
+ * byte-swaps whatever the stack held when a fread comes up short; they are
+ * initialized here, so a truncated index file takes the offset == -1 path.
  */
 void
 CIndexedFileManager_ReadBlock(CIndexedFileManager *this, int blockIdx, uint8_t **outData, int *outLen, int *outExtra)
@@ -604,8 +608,8 @@ CItem_Save(CItem *obj, CDataBuffer *b, int writeMarker)
 		}
 	}
 
-	// The binary dispatches through the multi's vtable slot 0xC at
-	// 0x004C6006; our multi system replaces that dispatch with the isOwner
+	// The binary dispatches through the multi's vtable slot 0xC; our
+	// multi system replaces that dispatch with the isOwner
 	// field, which is the documented container replacement. Either way the
 	// two Save functions do the work - inlining them here had already
 	// drifted, printing the serials with %u and dropping mrange's mask.
@@ -2635,11 +2639,11 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 					((void (*)(void *))VT_FN(obj, VT_DELETE))(obj);
 				obj = NULL;
 			} else if (eqpos != -1) {
-				// 0x004CD281: VT_IsMobile (result unused)
+				// VT_IsMobile, result unused.
 				VT_IsMobile(parent);
 				int equipped = ((int (*)(void *, void *, int))VT_FN(obj, VT_EQUIP_ON_MOBILE))(obj, parent, (uint8_t)eqpos);
 				if (!equipped) {
-					// 0x004cd2b5: dead store of parent
+					// Dead store of parent.
 					USED(parent);
 					if (obj != NULL)
 						CItem_SetLockdown(obj, 0);
@@ -2651,7 +2655,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 				((void (*)(void *, void *, void *))VT_FN(obj, VT_ADD_TO_CONTAINER))(obj, parent, &obj->resourceEntity.entity.location);
 			}
 
-			// 0x004CD30A: CEntity_GetBodyType (result unused)
+			// CEntity_GetBodyType, result unused.
 			if (obj != NULL)
 				CEntity_GetBodyType(obj);
 		} else {
@@ -2671,7 +2675,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 					((void (*)(void *))VT_FN(obj, VT_DELETE))(obj);
 				obj = NULL;
 			} else {
-				// 0x004CD3A4: CEntity_GetBodyType (unused)
+				// CEntity_GetBodyType, result unused.
 				if (obj != NULL)
 					CEntity_GetBodyType(obj);
 
@@ -2697,9 +2701,9 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 					if (obj != NULL)
 						((void (*)(void *))VT_FN(obj, VT_DELETE))(obj);
 					g_ProcessingEggs = 0;
-					// FIXED: binary does not set
-					// obj = NULL here (0x004CD479),
-					// causing use-after-free.
+					// FIXED: the binary does not set
+					// obj = NULL here, causing a
+					// use-after-free.
 					obj = NULL;
 				}
 			}

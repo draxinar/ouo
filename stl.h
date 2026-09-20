@@ -328,7 +328,7 @@ void Destroy16_Range(CVector *this, void *first, void *last); // 0x00479450
 void Destroy1C_Range(CVector *this, void *first, void *last); // 0x00479510
 void Destroy6_Range(CVector *this, void *first, void *last); // 0x00479630
 uint32_t CVector_GetCount6(CVector *list); // 0x0047A3F0
-void *CVector_Allocate6(CVector *this, uint32_t count); // 0x0047A4B0
+void *CVector_Allocate6(CVector *this, uint32_t count, int unused); // 0x0047A4B0
 void *Vector_Find(void *begin, void *end, uintptr_t *value); // 0x0047ACC0
 int StdAllocator_Equal(void); // 0x0047B150
 void SortInt_Dispatch(void *first, void *last, uint8_t cmpVal, int unused); // 0x0047BEA0

@@ -209,6 +209,13 @@ CListIterator_Constructor(CList *list)
 }
 
 /*
+ * Every function here that allocates a node tests the result before
+ * linking it. The binary tests it only to decide whether to run the
+ * constructor, then writes through the pointer either way - CList::Append
+ * and CList::InsertAt among them. The tests are ours.
+ */
+
+/*
  * 0x0042546D - CList::Clear
  *
  * Destroys every node and resets head/tail/count.
@@ -424,6 +431,7 @@ CList_RemoveSpecific(CList *list, uint32_t typeTag, uintptr_t value)
 	CListNode temp;
 	CListNode *cur;
 
+	CListNode_BaseConstructor(&temp);
 	temp.typeTag = typeTag;
 	temp.value = value;
 
@@ -439,8 +447,7 @@ CList_RemoveSpecific(CList *list, uint32_t typeTag, uintptr_t value)
 			else
 				list->tail = cur->prev;
 
-			CListNode_Destructor(cur);
-			free(cur);
+			CListNode_ScalarDtor(cur, 1);
 			list->count--;
 			break;
 		}

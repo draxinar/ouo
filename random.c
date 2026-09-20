@@ -12,14 +12,12 @@
 #include "main.h"
 #include "utils.h"
 
-static uint32_t CRandom_GetGameTick(void); // 0x00467DF1
-
 /*
  * 0x00467DF1 - CRandom::GetGameTick
  *
  * Returns the current global game tick. Called by DecaySkill.
  */
-static uint32_t __attribute__((unused))
+uint32_t
 CRandom_GetGameTick(void)
 {
 	return g_GameTick;

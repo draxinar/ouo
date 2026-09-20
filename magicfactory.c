@@ -1399,7 +1399,7 @@ CMagicItemFactory_ReadAndExecuteFile(CMagicItemFactory *factory, CString *filena
 
 	CString_DefaultConstructor(&fileContents);
 
-	node = CResList_FindByStrSorted(readFiles, filename, NULL, 0, 1);
+	node = CResList_FindByStrSorted(readFiles, filename, NULL, 1, 1);
 	if (CResList_IsValid(readFiles, node)) {
 		CString_DefaultConstructor(&logStr);
 		CString_AssignCStr(&logStr, "Already read file ");

@@ -1398,12 +1398,9 @@ DispatchHandler(CExecThread *thread, const BuiltinHandlerEntry *handler)
 
 			switch (subType) {
 			case 0: // int
-			case 4: // obj
-				slot[paramCount].addr = 0;
-				CScope_StoreValue(&thread->scope, &slot[paramCount].addr, sizeof(void *));
-				break;
 			case 1: // string
 			case 2: // ustring
+			case 4: // obj
 			case 5: // list
 				CScope_StoreValue(&thread->scope, &slot[paramCount].addr, sizeof(void *));
 				break;
@@ -1439,9 +1436,10 @@ DispatchHandler(CExecThread *thread, const BuiltinHandlerEntry *handler)
 		retObj = (uintptr_t)strObj;
 	} else if (retType == WTYPE_USTRING) {
 		// Allocate CUString: operator new(16) + CUString::CUString(L"")
+		static const uint16_t emptyWide[] = { 0 };
 		void *ustrObj = OperatorNew(sizeof(CString));
 		if (ustrObj != NULL)
-			CUString_Constructor(ustrObj, NULL);
+			CUString_Constructor(ustrObj, emptyWide);
 		retObj = (uintptr_t)ustrObj;
 	}
 
@@ -7581,7 +7579,7 @@ Script_getDistanceInTiles(const CLocation *loc1, const CLocation *loc2)
 CString *
 Script_getDistance(CString *dest, CLocation *loc1, CLocation *loc2)
 {
-	static const uint8_t distTable[30] = { 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
+	static const uint8_t distTable[30] = { 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
 	int dist, quotient;
 	unsigned int idx;
 
@@ -11465,7 +11463,7 @@ Script_transferGenericToContainer(uint32_t containerSerial, uint32_t mobileSeria
 
 	// Gold fallback for vendors (vtable[0xE8] IsVendor)
 	if (result == NULL) {
-		if (VT_IsVendor(mob) && (uint16_t)itemType == 0xEED)
+		if (VT_IsVendor(mob) && itemType == 0xEED)
 			result = CMobile_SubtractGold((CMobile *)mob, (int)count);
 	}
 
@@ -11823,7 +11821,7 @@ Script_textMessage(uint32_t serial, CString *text, int hue, int font, int speech
  * type, and font. Returns 1 on success.
  */
 int
-Script_superBark(uint32_t serial, CString *text, int hue, int type, int font)
+Script_superBark(uint32_t serial, CString *text, int hue, int font, int speechType)
 {
 	CItem *ent;
 
@@ -11831,7 +11829,7 @@ Script_superBark(uint32_t serial, CString *text, int hue, int type, int font)
 	if (ent == NULL)
 		return 0;
 
-	((void (*)(CItem *, char *, int, int, int))VT_FN(ent, VT_SAY_CSTRING))(ent, CString_GetBuffer(text), hue, type, font);
+	((void (*)(CItem *, char *, int, int, int))VT_FN(ent, VT_SAY_CSTRING))(ent, CString_GetBuffer(text), hue, font, speechType);
 	return 1;
 }
 
@@ -13901,7 +13899,7 @@ Script_replyToMobAbout(uint32_t speakerSerial, uint32_t targetSerial, uint32_t a
 
 	text = CString_GetData(speechStr);
 
-	response = CConversationManager_InternalFindResponse(speaker, target, about, text);
+	response = CConversationManager_InternalFindResponse(&g_ConvoMgr, speaker, target, about, text);
 
 	if (response[0] == '\0')
 		return;
@@ -14280,7 +14278,9 @@ Script_getTopmostContainer(uint32_t serial)
  *
  * Checks if a mobile contains a specific entity. Uses CWorld_FindBySerial
  * for both args, validates IsMobile. Searches equipment slots (pointer
- * comparison + recursive container search), then iterates mob->contents.
+ * comparison + recursive container search), then walks mob->contents - but
+ * the loop body re-searches the mobile rather than the child it is on, so
+ * it repeats one identical search per direct child. Faithful to the binary.
  */
 int
 Script_mobileContainsObj(uint32_t mobSerial, uint32_t targetSerial)
@@ -14324,8 +14324,12 @@ Script_mobileContainsObj(uint32_t mobSerial, uint32_t targetSerial)
  *
  * Searches a mobile for an item of the given bodyType. Uses
  * CWorld_FindBySerial, validates IsMobile. Searches equipment slots
- * (bodyType comparison + recursive container search), then iterates
- * mob->contents. Returns serial of found item, or 0 if not found.
+ * (bodyType comparison + recursive container search), then walks
+ * mob->contents - but the loop body re-searches the mobile rather than the
+ * child it is on, so it repeats one identical search per direct child, and
+ * because the search root is the mobile, a query for the mobile's own body
+ * type returns the mobile. Faithful to the binary. Returns the serial of
+ * the found item, or 0.
  */
 uint32_t
 Script_mobileContainsObjType(uint32_t mobSerial, int type)
@@ -14696,8 +14700,9 @@ Script_doLookAt(uint32_t playerSerial, uint32_t targetSerial)
  *
  * Stores the article prefix for typeId in dest based on the
  * TF_ARTICLE_A / TF_ARTICLE_AN tiledata flags: both set -> "the",
- * only A -> "a", only AN -> "an", neither -> "". Out-of-range
- * typeId stores "BUG!".
+ * only A -> "a", and "" for the other two - the AN-only branch has its
+ * own call site but points at a zeroed .data slot, as the fall-through
+ * does. Out-of-range typeId stores "BUG!".
  */
 CString *
 Script_getArticle(CString *dest, int typeId)
@@ -14722,7 +14727,7 @@ Script_getArticle(CString *dest, int typeId)
 		return dest;
 	}
 	if (flags & TF_ARTICLE_AN) {
-		CString_Constructor(dest, "an");
+		CString_Constructor(dest, "");
 		return dest;
 	}
 	CString_Constructor(dest, "");

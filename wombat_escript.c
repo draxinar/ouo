@@ -754,8 +754,10 @@ CEScript_CmdWhile(CEScript *ctx, char *line, int negate)
 
 	cond = CEScript_EvalCondition(ctx, line, negate);
 	if (cond) {
-		// Condition true: save loop start position
-		ctx->loopLines[ctx->loopDepth] = ctx->lineNo;
+		// Condition true: save loop start position. The binary folds the
+		// post-increment into the displacement and writes one slot up,
+		// which is the slot CmdEndLoop reads back.
+		ctx->loopLines[ctx->loopDepth + 1] = ctx->lineNo;
 		ctx->loopDepth++;
 		return;
 	}

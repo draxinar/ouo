@@ -545,7 +545,7 @@ CPlayerList_BroadcastToTwoLocs(uint8_t *buf, CLocation *loc1, CLocation *loc2, i
 	ptr1 = (uintptr_t *)list1.begin;
 	ptr2 = (uintptr_t *)list2.begin;
 
-	// 0x004501B9: two-pointer merge with duplicate elimination
+	// Two-pointer merge with duplicate elimination
 	while (ptr1 < (uintptr_t *)list1.end && ptr2 < (uintptr_t *)list2.end) {
 		if (*ptr1 < *ptr2) {
 			CVector_PushBack(&merged, *ptr1);
@@ -554,7 +554,7 @@ CPlayerList_BroadcastToTwoLocs(uint8_t *buf, CLocation *loc1, CLocation *loc2, i
 			CVector_PushBack(&merged, *ptr2);
 			ptr2++;
 		} else {
-			// 0x00450219: equal - add once, skip both
+			// Equal - add once, skip both
 			CVector_PushBack(&merged, *ptr1);
 			ptr1++;
 			ptr2++;
@@ -1220,7 +1220,7 @@ CPlayer_HandleMovement(CPlayer *this, uint8_t direction, uint8_t sequence)
 		return 1;
 	}
 
-	// 0x00451186: deny path (unreachable due to if(1) above)
+	// Deny path (unreachable due to if(1) above)
 	CPlayer_SendMoveDeny(this, sequence);
 	return 0;
 }
@@ -1713,7 +1713,7 @@ CPlayer_OnDeath(CPlayer *this, CItem *attacker, int flag)
 		else
 			corpse = NULL;
 
-		// 0x00451e5f: delete corpse (binary has redundant NULL check)
+		// Delete corpse (binary has redundant NULL check)
 		if (corpse != NULL) {
 			if (corpse != NULL)
 				((void (*)(void *))VT_FN(corpse, VT_DELETE))(corpse);
@@ -1855,7 +1855,7 @@ final_section:
 	((void (*)(void *))VT_FN((CItem *)this, VT_HIDE))(this);
 	CPlayer_RestoreOldBodyType(this);
 
-	// 0x004523e7: convert to ghost body type. Binary calls GetBodyType twice.
+	// Convert to ghost body type. Binary calls GetBodyType twice.
 	if ((uint16_t)CResourceEntity_GetBodyType((CItem *)this) == 0x190)
 		CPlayer_SetBodyType(this, 0x192);
 	if ((uint16_t)CResourceEntity_GetBodyType((CItem *)this) == 0x191)
@@ -1867,7 +1867,7 @@ final_section:
 
 	CMobile_SetAllCurrentStats(&this->mobile, 0);
 
-	// 0x00452472: if flag==0, delete corpse (binary has redundant NULL check)
+	// If flag==0, delete corpse (binary has redundant NULL check)
 	if (flag == 0) {
 		if (corpse != NULL) {
 			if (corpse != NULL)
@@ -2386,7 +2386,7 @@ CPlayer_PaperdollTitle_VT(CPlayer *this, CString *title)
 	bestValue = 0;
 	isCriminal = 0;
 
-	// 0x00453036: check notoriety sign (dead code: isCriminal is never read)
+	// Check notoriety sign (dead code: isCriminal is never read)
 	if (CMobile_GetNotoriety(&this->mobile) < 0)
 		isCriminal = 1;
 	USED(isCriminal);
@@ -5234,13 +5234,15 @@ CEntityMap_Constructor(CEntityMap *this, int startX, int startY, int endX, int e
 
 	// Custom: 64-bit - sizeof(uintptr_t) header for alignment
 	raw = (uint8_t *)OperatorNew(totalBlocks * sizeof(StdPtrList) + sizeof(uintptr_t));
-	*(uint32_t *)raw = totalBlocks;
-	this->blocks = (StdPtrList *)(raw + sizeof(uintptr_t));
-
-	{
+	if (raw != NULL) {
 		uint8_t initByte = 0;
+
+		*(uint32_t *)raw = totalBlocks;
 		for (i = 0; i < totalBlocks; i++)
-			StdPtrList_Init(&this->blocks[i], &initByte);
+			StdPtrList_Init((StdPtrList *)(raw + sizeof(uintptr_t)) + i, &initByte);
+		this->blocks = (StdPtrList *)(raw + sizeof(uintptr_t));
+	} else {
+		this->blocks = NULL;
 	}
 
 	this->count = 0;

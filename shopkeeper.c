@@ -803,7 +803,8 @@ CShopkeeper_GetStockTarget(CMobile *vendor, uint16_t bodyType)
  * Computes the vendor buy price:
  *   basePriceAdj = max(baseVal + VendorAdjustment(vendor, item, baseVal/4), baseVal)
  *   surplus = CurrentStock - StockTarget
- *   markupPct = clamp((-surplus)/StockTarget * 100, 0, 100)   (0 if StockTarget <= 0)
+ *   markupPct = min((-surplus)/StockTarget * 100, 100)   (0 if StockTarget <= 0)
+ *     - there is no lower clamp, so a surplus gives a negative markup
  *   price = max(basePriceAdj + basePriceAdj * markupPct / 100, basePriceAdj, 1)
  *   if price > price*2: price *= 2   (overflow guard)
  */
@@ -924,7 +925,7 @@ Shopkeeper_ScanBackpack(CMobile *vendor, CContainer *container, int count, CVend
 void
 CShopkeeper_OpenSellWindow(CPlayer *player, CMobile *vendor)
 {
-	uint8_t obuf[0x10000];
+	uint8_t obuf[0x10008];
 	CVendorSellEntry *sellBuf;
 	int count;
 

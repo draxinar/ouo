@@ -551,7 +551,7 @@ WeatherEffect_LoadPolygons(FILE *fp, int scale, CItem *region, int isText)
  *
  * Reads altitude data from a binary file and applies it to the terrain.
  * Seeks to end of file to determine size, computes grid dimension as
- * (int)(sqrt((double)fileSize) + 0.5). Then iterates region->y to
+ * (int)(sqrt((double)fileSize) + 0.01), truncated. Then iterates region->y to
  * region->y + gridDim (outer) and region->x to region->x + gridDim
  * (inner), reading one byte per tile from the file. For each valid
  * coordinate, sets terrain elevation to (byte & 0xFF) - 0x80 (signed
@@ -572,7 +572,7 @@ WeatherEffect_ApplyAltitude(FILE *fp, CItem *region)
 	fileSize = ftell_ServerSide(fp);
 	fseek_ServerSide(fp, 0, 0);
 
-	gridDim = (int)(sqrt((double)fileSize) + 0.5);
+	gridDim = (int)(sqrt((double)fileSize) + 0.01);
 
 	for (outerY = region->resourceEntity.entity.location.y; outerY < region->resourceEntity.entity.location.y + gridDim; outerY++) {
 		for (innerX = region->resourceEntity.entity.location.x; innerX < region->resourceEntity.entity.location.x + gridDim; innerX++) {
@@ -989,7 +989,7 @@ WeatherManager_startup(void)
 		r->extremeTempChance = extremeTempChance;
 		r->extremeWeatherChance = extremeWeatherChance;
 
-		// 0x004E09A3 WeatherManager_addRegionToList - append to tail
+		// WeatherManager_addRegionToList - append to tail.
 		r->prev = g_WeatherManager.last;
 		if (r->prev != NULL)
 			r->prev->next = r;

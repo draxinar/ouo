@@ -432,7 +432,11 @@ LoadAll_LVNData(void)
 
 	dest = g_LVNDestBuf;
 	*dest = '\0';
-	strcpy(buf, "lvn");
+	// The binary copies from a zeroed BSS global, not a literal. Reading
+	// the PUSH's own immediate bytes as a string is where the name LVN in
+	// this function, g_LVNDestBuf and RegionManager_FindLVNRegion came
+	// from; the binary contains no such string.
+	strcpy(buf, "");
 
 	RegionManager_FindLVNRegion(g_mapStartX, g_mapStartY, g_mapStartX + g_mapWidth, g_mapStartY + g_mapHeight, &g_RegionRM, buf, 0x80);
 
@@ -452,7 +456,7 @@ LoadAll_LVNData(void)
 
 	CString_DefaultConstructor(&str);
 	LoadAll_LVN_Hostname(&str);
-	EventLogger_Log(&g_EventLogger, 0, 0, 0, "pvn", "name", "misc", CString_GetBuffer(&str));
+	EventLogger_Log(&g_EventLogger, 0, 0, 0, "", "name", "misc", CString_GetBuffer(&str));
 	CString_Destructor(&str);
 }
 
@@ -984,8 +988,8 @@ GameCentMon_BroadcastEvent(char *data, int len)
 	}
 
 	default:
-		// 0x004B8BA0 - the bounds check jumps into send_response, not
-		// the epilogue, so an out-of-range eventType still answers.
+		// The bounds check jumps into send_response, not the epilogue, so
+		// an out-of-range eventType still answers.
 		goto send_response;
 	}
 

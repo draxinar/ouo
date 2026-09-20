@@ -485,7 +485,7 @@ void Script_makeVulnerable(uint32_t serial); // 0x00416700
 int Script_isCorpse(uint32_t serial); // 0x00416732
 int Script_getCorpseBodyType(uint32_t serial); // 0x0041675D
 int Script_textMessage(uint32_t serial, CString *text, int hue, int font, int speechType); // 0x00416790
-int Script_superBark(uint32_t serial, CString *text, int hue, int type, int font); // 0x004167D8
+int Script_superBark(uint32_t serial, CString *text, int hue, int font, int speechType); // 0x004167D8
 void Script_getMobsInRangeOld(CList *list, CLocation *loc, int range); // 0x00416823
 void Script_getMobsInRange(CList *list, CLocation *loc, int range); // 0x0041690A
 int Script_objIsInRange(CLocation *loc, int range); // 0x0041695B

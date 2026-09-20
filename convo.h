@@ -161,6 +161,6 @@ int CConversationManager_LoadDefines(CConversationManager *this); // 0x0044BBC4
 int CConversationManager_LoadFragments(CConversationManager *this); // 0x0044BDE2
 int CConversationManager_LoadFragment(CConversationManager *this, const char *fragName); // 0x0044C0BB
 CFragment *CConversationManager_FindFragByName(CConversationManager *this, const char *name); // 0x0044CC58
-char *CConversationManager_InternalFindResponse(CItem *npc, CItem *speaker, CItem *about, char *text); // 0x0044D45C
+char *CConversationManager_InternalFindResponse(CConversationManager *this, CItem *npc, CItem *speaker, CItem *about, char *text); // 0x0044D45C
 
 #endif /* CONVO_H_ */

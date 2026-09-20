@@ -80,7 +80,7 @@ extern int g_isLoadingWorld; // 0x00699B64
 extern int g_hasLoadedWorld; // 0x00699B68
 extern GumpDimEntry g_GumpDimTable[TILEDATA_MAX_ITEMS]; // 0x006F0618
 extern CWorld *g_World;
-extern TileDataEntry *g_ItemTileData;
+extern TileDataEntry *g_ItemTileData; // 0x0064B364
 
 uint8_t CWorld_GetHomeDecayRate(void); // 0x00421240
 uint8_t CWorld_GetNonHomeDecayRate(void); // 0x00421260

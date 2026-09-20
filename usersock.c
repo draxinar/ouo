@@ -70,7 +70,7 @@ UserSock_DoHandlePacket(CUserSock *this)
 	uint8_t *buf;
 
 	// MODIFIED: seed consumption for multi-client support.
-	// Binary (0x0047EB43) has no seed handling - UO Demo uses unencrypted
+	// The binary has no seed handling - UO Demo uses unencrypted
 	// packets. Clients >= 1.25.35 send a 4-byte login seed before the first packet.
 	if (this->seedConsumed == 0) {
 		uint32_t seed;
@@ -448,7 +448,13 @@ CUserSock_Delete(CUserSock *this)
  *
  * MODIFIED: reads through POSIX recv, whose zero return means the peer
  * closed where Winsock's means no data was buffered, so the two are not
- * interchangeable.
+ * interchangeable, and a -1 closes the socket only when errno is not
+ * EAGAIN or EWOULDBLOCK, where the binary closes unconditionally.
+ *
+ * MODIFIED: the multi-client layer the demo binary has none of - the
+ * Twofish/Blowfish/XOR decrypt, the four-byte login seed the binary
+ * never consumes, and a per-connection packet size table in place of
+ * the fixed global one.
  */
 int16_t
 CUserSock_Handle_Input(CUserSock *this)
@@ -459,7 +465,7 @@ CUserSock_Handle_Input(CUserSock *this)
 	uint8_t *buf;
 
 	n = recv(this->socket.s, &this->buf[this->curr], 0x10000 - this->curr, 0);
-	// Binary uses a buffered WinSock wrapper (0x004E730E) where recv==0
+	// The binary uses a buffered WinSock wrapper where recv==0
 	// means "no data buffered". On Linux, POSIX recv()==0 means the
 	// client closed the connection (EOF). We must close the socket to
 	// prevent select() from spinning on the perpetually-readable fd.

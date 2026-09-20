@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+uint32_t CRandom_GetGameTick(void); // 0x00467DF1
 uint32_t CRandom_GetDefaultSeed(void); // 0x00467E01
 int CRandom_ParseAndRoll(const char *str); // 0x0046849E
 

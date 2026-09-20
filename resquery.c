@@ -301,9 +301,8 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 		int changeFlags;
 		int32_t spawnedCount, quantity, field103D8Val;
 
-		// These guards return without sending. The binary jumps to
-		// 0x004B4C36, a bare RET, where its success path jumps to
-		// 0x004B4BEF and builds the reply.
+		// These guards return without sending: the binary jumps to a bare
+		// RET where its success path goes on to build the reply.
 		if (g_ResQueryTypeCount == 0)
 			return;
 
@@ -498,8 +497,8 @@ HandlePacket_ResourceQuery(CPlayer *this, uint8_t *buf)
 		USED(found);
 
 case9_done:
-		// Check template limit. The binary's test at 0x004B4446 is JC,
-		// so the comparison is unsigned.
+		// Check template limit. The binary's test is JC, so the
+		// comparison is unsigned.
 		if ((uint32_t)(param + 1) >= (uint32_t)g_ResQueryTemplateLimit)
 			return;
 

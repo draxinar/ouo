@@ -714,7 +714,7 @@ CWorld_SCommand_Set(CWorld *world, CPlayer *player, const char *text)
 	intValue = atoi(valueBuf);
 
 	// Find target: try by name first
-	// Binary calls CPlayer_FindByName (0x00450B20, static in player.c).
+	// The binary calls CPlayer_FindByName, static in player.c.
 	target = (CItem *)CPlayer_FindByName(g_PlayerList.head, targetNameBuf);
 	if (target != NULL) {
 		if (target->resourceEntity.entity.removedFromWorld)
@@ -1358,37 +1358,51 @@ CWorld_FindEntityAtXYZ(CWorld *world, CLocation *loc, int16_t z)
 /*
  * 0x0048DF7B - CWorld::GetItemTileDataCopy
  *
- * Copies the tiledata entry for id into a static TileDataEntry and
- * returns it. The layer byte is refreshed from CWorld_GetItemLayer
- * rather than taken from the table, and the 21-byte name is copied one
- * byte at a time - only 0x14 of the 21, so the last byte of the static
- * copy keeps whatever the previous call left there.
+ * Copies the tiledata entry for id into a static record and returns it.
+ * The layer byte is refreshed from CWorld_GetItemLayer rather than taken
+ * from the table, and the 21-byte name is copied one byte at a time -
+ * only 0x14 of the 21, so the last byte of the static copy keeps
+ * whatever the previous call left there.
+ *
+ * The destination is written through a running cursor, so it is packed:
+ * the two padding bytes the source carries after layer are not there,
+ * and everything from miscData on sits two bytes lower than in
+ * TileDataEntry. The record is 37 bytes, not 40.
  */
-static __attribute__((unused)) TileDataEntry *
+static __attribute__((unused)) void *
 CWorld_GetItemTileDataCopy(int id)
 {
 	// 0x006CA8B8 - static tiledata record returned to the caller
-	static TileDataEntry copy;
+	static uint8_t copy[37];
 	TileDataEntry *src;
-	char *dst;
+	uint8_t *dst;
 	int i;
 
+	dst = copy;
 	src = &g_ItemTileData[id];
-	copy.flags = src->flags;
-	copy.weight = src->weight;
-	copy.layer = (uint8_t)CWorld_GetItemLayer((uint16_t)id);
-	copy.miscData = src->miscData;
-	copy.value1 = src->value1;
-	copy.value2 = src->value2;
-	copy.height = src->height;
-	copy.quantity = src->quantity;
 
-	dst = copy.name;
+	memcpy(dst, &src->flags, 4);
+	dst += 4;
+	*dst = src->weight;
+	dst += 1;
+	*dst = (uint8_t)CWorld_GetItemLayer((uint16_t)id);
+	dst += 1;
+	memcpy(dst, &src->miscData, 4);
+	dst += 4;
+	memcpy(dst, &src->value1, 2);
+	dst += 2;
+	memcpy(dst, &src->value2, 2);
+	dst += 2;
+	memcpy(dst, &src->height, 2);
+	dst += 2;
+	*dst = src->quantity;
+	dst += 1;
+
 	for (i = 0; i < 0x14; i++) {
-		*dst = src->name[i];
+		*dst = (uint8_t)src->name[i];
 		dst++;
 	}
-	return &copy;
+	return copy;
 }
 
 /*

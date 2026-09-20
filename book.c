@@ -891,10 +891,15 @@ ClearBookObjVars(CItem *item)
  *
  * Copies book content from src into dst. The binary reads title, author,
  * and pages from the second argument and writes them to the first, so the
- * first argument is the destination. The GetBookPages/SetBookPages pair
- * near the top reads the current page count from dst and stores it back
- * on src; that write is overwritten immediately after by the bookPages
- * ObjVar store on dst, matching the binary exactly.
+ * first argument is the destination.
+ *
+ * The GetBookPages/SetBookPages pair near the top is a binary bug,
+ * reproduced here. ClearBookObjVars has just removed dst's bookPages tag,
+ * so GetBookPages(dst) falls back to the tiledata default for dst's art,
+ * and SetBookPages writes that number into src. Nothing overwrites it -
+ * the ObjVar store below targets dst - so the page loop runs to dst's
+ * tiledata page count instead of src's real one, and src's stored count
+ * is left corrupted.
  */
 void
 CopyBook(CItem *dst, CItem *src)

@@ -311,10 +311,10 @@ void CCorpse_Destructor(CCorpse *this); // 0x0048AAAE
 void CCorpse_SetLookAtText(CItem *corpse, CString *name); // 0x0048AB40
 void CCorpse_SetPlayerLookAtText(CItem *corpse, CString *playerName); // 0x0048ACC2
 void CItem_ClearScriptsAndTags(CItem *self); // 0x0048B625
-void CEntity_SayCString_VT(CItem *self, char *text, int hue, int type, int font); // 0x0048D192
-void CItem_SayCUString_VT(CItem *self, uint16_t *text, int hue, int type, int font); // 0x0048D2A5
-void CItem_EmoteCString_VT(CItem *self, char *text, int hue, int type, int font); // 0x0048D3BC
-void CItem_EmoteCUString_VT(CItem *self, uint16_t *text, int hue, int type, int font); // 0x0048D4CF
+void CEntity_SayCString_VT(CItem *self, char *text, int hue, int font, int speechType); // 0x0048D192
+void CItem_SayCUString_VT(CItem *self, uint16_t *text, int hue, int font, int speechType); // 0x0048D2A5
+void CItem_EmoteCString_VT(CItem *self, char *text, int hue, int font, int speechType); // 0x0048D3BC
+void CItem_EmoteCUString_VT(CItem *self, uint16_t *text, int hue, int font, int speechType); // 0x0048D4CF
 void CItem_SayToEntity_VT(CItem *self, CItem *target, uint32_t serial, char *text); // 0x0048D5E6
 void CItem_SayToCUString_VT(CItem *self, CItem *target, uint32_t serial, uint16_t *text); // 0x0048D60F
 void CItem_EmoteToEntity_VT(CItem *self, CItem *target, uint32_t serial, char *text); // 0x0048D638

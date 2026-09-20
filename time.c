@@ -355,7 +355,7 @@ CTimeManager_LogEntityStats(int arg)
 {
 	int playerCount, npcCount, normalNPCCount, nonnormalCount;
 	int dynamicCount;
-	int timingVal1, timingVal2;
+	int timingVal1, timingVal2, timingVal3, timingVal4;
 	CString str;
 
 	playerCount = CPlayerList_GetCount() & 0xFFFF;
@@ -365,8 +365,12 @@ CTimeManager_LogEntityStats(int arg)
 	dynamicCount = (int)g_DynamicItemCount;
 	timingVal1 = (int)g_TimingField9F0;
 	timingVal2 = (int)g_TimingField9EC;
+	timingVal3 = 0;
+	timingVal4 = 0;
 	USED(timingVal1);
 	USED(timingVal2);
+	USED(timingVal3);
+	USED(timingVal4);
 
 	if (arg != 0)
 		return;

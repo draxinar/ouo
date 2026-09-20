@@ -4240,8 +4240,8 @@ FinalizeClassification(void)
 				region = region->next;
 			}
 
-			// 0x004B26B9 leaves the tag loop rather than advancing ni:
-			// only the first matching tag builds a sub-region.
+			// The binary leaves the tag loop rather than advancing ni: only
+			// the first matching tag builds a sub-region.
 			break;
 		}
 	}

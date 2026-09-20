@@ -157,6 +157,7 @@ List_SerializeToBuf(CDataBuffer *buf, CList *list)
 		case 1: // str (CString pointer)
 		{
 			char *escaped = ObjVar_EscapeStr(CString_GetData((CString *)(uintptr_t)node->value));
+			(void)strlen(escaped);
 			sprintf(tmp, " %3s %s", g_tagTypeNames[node->typeTag], escaped);
 			CDataBuffer_Append(buf, tmp, strlen(tmp));
 			break;
@@ -164,6 +165,7 @@ List_SerializeToBuf(CDataBuffer *buf, CList *list)
 		case 2: // ust (CUString pointer)
 		{
 			char *escaped = ObjVar_EscapeUStr((const uint16_t *)(uintptr_t)CUString_GetData((CUString *)(uintptr_t)node->value));
+			(void)strlen(escaped);
 			sprintf(tmp, "%3s %s", g_tagTypeNames[node->typeTag], escaped);
 			CDataBuffer_Append(buf, tmp, strlen(tmp));
 			break;
@@ -226,6 +228,7 @@ List_SerializeToString(char *outStr, CList *list, uint32_t maxLen)
 		case 1: // str (CString pointer)
 		{
 			escaped = ObjVar_EscapeStr(CString_GetData((CString *)(uintptr_t)node->value));
+			(void)strlen(escaped);
 			sprintf(tmp, " %3s %s", g_tagTypeNames[node->typeTag], escaped);
 			strcat(outStr, tmp);
 			break;
@@ -233,6 +236,7 @@ List_SerializeToString(char *outStr, CList *list, uint32_t maxLen)
 		case 2: // ust (CUString pointer)
 		{
 			escaped = ObjVar_EscapeUStr((const uint16_t *)(uintptr_t)CUString_GetData((CUString *)(uintptr_t)node->value));
+			(void)strlen(escaped);
 			sprintf(tmp, " %3s %s", g_tagTypeNames[node->typeTag], escaped);
 			strcat(outStr, tmp);
 			break;

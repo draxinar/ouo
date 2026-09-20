@@ -12,9 +12,8 @@
 char g_CorpseNameBuf[256];
 
 /*
- * Binary lookup table at 0x0048ACAD: maps (firstChar - 'a') to case index.
- * Cases 0-4 -> "an "; case 5/default -> "a ".
- * a=0, e=1, i=2, n=3, s=4 -> "an "; all others -> "a ".
- * Binary table is 19 bytes; indices 19-20 overlap into next function code.
+ * Maps (firstChar - 'a') to a case index: 0-4 give "an ", 5 and the
+ * default give "a ". The non-5 entries are the five vowels - a, e, i, o
+ * and u.
  */
-const uint8_t g_articleLookup[21] = { 0, 5, 5, 5, 1, 5, 5, 5, 2, 5, 5, 5, 5, 3, 5, 5, 5, 5, 4, 5, 5 };
+const uint8_t g_articleLookup[21] = { 0, 5, 5, 5, 1, 5, 5, 5, 2, 5, 5, 5, 5, 5, 3, 5, 5, 5, 5, 5, 4 }; // 0x0048ACAD

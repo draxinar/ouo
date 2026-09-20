@@ -26,7 +26,7 @@ __extension__ typedef struct CFragmentList CFragmentList;
 struct CNPC {
 	CMobile mobile; // 0x000-0x37B
 
-	// CResourceMobile fields (0x0048104C)
+	// CResourceMobile fields.
 	CNPC *npcHashNext;         // 0x37C (hash by serial & 0x3F, table at 0x00698868)
 	CNPC *npcHashPrev;         // 0x380
 	uint32_t behaviorFlags;    // 0x384 (init 0, 0x1003F = all behaviors disabled)
@@ -77,7 +77,7 @@ struct CNPC {
 	uint32_t _pad64_rtp0;         // 64-bit alignment pad
 #endif
 	// Resource template data pointers (0x410-0x434):
-	// Allocated during template resource node processing (0x004A8E15).
+	// Allocated during template resource node processing.
 	// Freed and cleared on rescan. Unused in our code (template data
 	// is applied directly in CTemplateManager_CreateFromTemplate).
 	void *resTplPtr0;      // 0x410 (heap ptr, freed in rescan)
@@ -98,7 +98,7 @@ struct CNPC {
 	void *resTplPtr7;      // 0x434 (heap ptr, freed in rescan)
 	// NPC difficulty-level doubly-linked list (0x438-0x440):
 	// Global heads at g_NPCLevelList[4] (0x0069A794).
-	// Managed by InsertIntoLevelList (0x004816A1), RemoveFromLevelList (0x00481728).
+	// Managed by InsertIntoLevelList and RemoveFromLevelList.
 	CNPC *levelListPrev;         // 0x438 (prev NPC at same difficulty level)
 	CNPC *levelListNext;         // 0x43C (next NPC at same difficulty level)
 	uint8_t npcLevel;            // 0x440 (difficulty level 0-3, index into g_NPCLevelList)
@@ -130,7 +130,7 @@ struct CNPC {
 	int32_t pathSpeed;           // 0x46C (init -1, pathfinding movement speed, set by walkTo)
 	uint32_t pathStepsRemaining; // 0x470 (init 0, remaining steps in path)
 
-	// CNPC fields (0x004617B4)
+	// CNPC fields.
 	// Offset 0x474: dual-purpose field.
 	// CShopkeeper uses this as restockCounter (save: "restockCounter").
 	// Regular CNPC uses this as NPC list link (runtime only, not saved).

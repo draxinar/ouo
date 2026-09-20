@@ -730,9 +730,9 @@ CResBankVertex_LinkConnections(CResBankVertex *vertex)
  * 0x60 on the cell, and for cells inside the circular radius calls
  * SetTerrainTile with elevation -666.
  *
- * Note: the binary passes vertex (arg 2) instead of mode (arg 1) as the
- * first argument to SetTerrainTile - apparent bug in UoDemo.exe.
- * Preserved here.
+ * The first argument to SetTerrainTile is the entity, not the mode the
+ * caller passed in; SetTerrainTile reads it as a CPlayer * for its
+ * read-only error, so mode goes unread here.
  */
 void
 ResBankDistrib_MarkBlock(int mode, CEntity *entity, int x, int y)

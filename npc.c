@@ -821,8 +821,8 @@ CNPC_DropAtFeet_VT(CItem *self, CLocation *loc)
 	CVector nearbyList;
 	uintptr_t *iter;
 
-	if ((int16_t)self->resourceEntity.entity.location.x == -1) {
-		CLocation_SetLoc(&self->resourceEntity.entity.location, loc);
+	if (*(int16_t *)&self->resourceEntity.nextInContainer == -1) {
+		CLocation_SetLoc((CLocation *)&self->resourceEntity.nextInContainer, loc);
 	}
 
 	CItem_InternalMove(self, loc, 0);
@@ -859,8 +859,8 @@ CNPC_DropAtFeet_VT(CItem *self, CLocation *loc)
 void
 CNPC_SetLocation_VT(CItem *self, CLocation *loc)
 {
-	if ((int16_t)self->resourceEntity.entity.location.x == -1) {
-		CLocation_SetLoc(&self->resourceEntity.entity.location, loc);
+	if (*(int16_t *)&self->resourceEntity.nextInContainer == -1) {
+		CLocation_SetLoc((CLocation *)&self->resourceEntity.nextInContainer, loc);
 	}
 
 	if (CItem_IsValueless(self)) {
@@ -3392,7 +3392,7 @@ Path_StepCheck(CNPC *npc, PathNode *node, int dir, PathNode *result)
 		return 0;
 
 	walkZ = CTerrainManager_CanWalkWrapper(
-	        newLoc, (int)(int16_t)newLoc.z - height, (int)(int16_t)newLoc.z + height, ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF, height, mob, 0);
+	        newLoc, (int)(int16_t)newLoc.z - height, (int)(int16_t)newLoc.z + height, height, ((int (*)(void *))VT_FN(mob, VT_GET_MOVEMENT_TYPE))(mob) & 0xFF, mob, 0);
 
 	if (walkZ == -128)
 		return 0;
@@ -4029,8 +4029,6 @@ CMobile_NPC_AI_CombatStart(CMobile *this)
 	CSerialList_FindNearestMobile((StdPtrList *)&this->attackerList, &resultIter, &this->container.item.resourceEntity.entity.location);
 	if (!(StdPtrIter_Neq(&resultIter, StdPtrList_End((StdPtrList *)&this->attackerList, &endTemp)) & 0xFF))
 		return 0;
-	nearestSerial = (uint32_t)CSearchCtx_Find((CSearchCtx *)StdPtrIter_Deref(&resultIter));
-
 	npc = (CNPC *)this;
 
 	if (this->hasFollowers != 0) {
@@ -4041,6 +4039,7 @@ CMobile_NPC_AI_CombatStart(CMobile *this)
 	}
 
 	// No followers: resolve nearest attacker
+	nearestSerial = (uint32_t)CSearchCtx_Find((CSearchCtx *)StdPtrIter_Deref(&resultIter));
 	targetEnt = CWorld_FindBySerial(g_World, nearestSerial);
 	if (targetEnt == NULL)
 		return 1;
@@ -4797,9 +4796,13 @@ CNPC_WanderStep(CMobile *mob, int range)
 
 	npc->lastWanderQuadrant = quadrant;
 
-	npc->patrolTarget.x = (uint16_t)(curX + dx);
-	npc->patrolTarget.y = (uint16_t)(curY + dy);
-	npc->patrolTarget.z = 0;
+	{
+		CLocation target;
+
+		CLocation_Init(&target);
+		CLocation_Set(&target, (int16_t)(curX + dx), (int16_t)(curY + dy), 0);
+		CLocation_SetLoc(&npc->patrolTarget, &target);
+	}
 
 	npc->isWalking = 1;
 }
@@ -4819,7 +4822,7 @@ CNPC_WanderTick(CNPC *npc)
 	int roll;
 
 	if (((int (*)(void *))VT_FN((CItem *)mob, VT_CHECK_EC))(mob)) {
-		if (npc->wanderSteps > 7)
+		if ((int32_t)npc->wanderSteps > 7)
 			npc->wanderSteps = 7;
 	}
 
@@ -4930,7 +4933,7 @@ CNPC_FindNearestPrey(CNPC *self, int startLevel, int actionType)
 	for (level = startLevel; level < 4; level++) {
 		cur = g_NPCLevelList[level];
 		while (cur != NULL) {
-			dist = DistBetween(&cur->mobile.container.item.resourceEntity.entity.location, &self->mobile.container.item.resourceEntity.entity.location);
+			dist = DistBetween(&self->mobile.container.item.resourceEntity.entity.location, &cur->mobile.container.item.resourceEntity.entity.location);
 			if (dist < bestDist && cur != self && !CNPC_IsPackCompatible((CItem *)self, (CItem *)cur)) {
 				bestDist = dist;
 				bestNPC = cur;
@@ -6227,8 +6230,6 @@ ResourceQuery_Stub(void)
  * Records that this NPC has fed from the corpse by appending its name to
  * the corpse's "users" ObjVar list (or creating the list first).
  *
- * MODIFIED: where the binary wraps ObjVar_SetStr around a by-value CString,
- * we call CEntity_SetObjVar directly and destruct manually.
  */
 static void
 CNPC_HandleCorpseEat(CNPC *npc, CItem *corpse)
@@ -6519,8 +6520,6 @@ CMobile_NPC_SetAIState(CMobile *mob, int state)
 int
 NPC_CalcDirectionSimple(CItem *target, CItem *source)
 {
-	static const int32_t dirX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 }; // 0061BB28
-	static const int32_t dirY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 }; // 0061BB50
 	int dx, dy;
 	CLocation *srcLoc, *tgtLoc;
 	int i;
@@ -6559,7 +6558,7 @@ NPC_CalcDirectionSimple(CItem *target, CItem *source)
 		dy = 0;
 
 	for (i = 0; i < 8; i++) {
-		if (dirX[i] == dx && dirY[i] == dy)
+		if (g_DirDeltaX[i] == dx && g_DirDeltaY[i] == dy)
 			return i;
 	}
 
@@ -6577,8 +6576,6 @@ NPC_CalcDirectionSimple(CItem *target, CItem *source)
 static __attribute__((unused)) int
 NPC_CalcDirectionBetweenLocs(CLocation target, CLocation source)
 {
-	static const int32_t dirX[8] = { 0, 1, 1, 1, 0, -1, -1, -1 }; // 0061BB28
-	static const int32_t dirY[8] = { -1, -1, 0, 1, 1, 1, 0, -1 }; // 0061BB50
 	int dx, dy;
 	int i;
 
@@ -6599,7 +6596,7 @@ NPC_CalcDirectionBetweenLocs(CLocation target, CLocation source)
 		dy = 0;
 
 	for (i = 0; i < 8; i++) {
-		if (dirX[i] == dx && dirY[i] == dy)
+		if (g_DirDeltaX[i] == dx && g_DirDeltaY[i] == dy)
 			return i;
 	}
 

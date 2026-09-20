@@ -319,7 +319,7 @@ EventRingBuffer_Pop(void)
 
 	oldCur = self->front.cur;
 	self->front.cur = self->front.cur + DEQUE_ELEM_SIZE;
-	// Binary: call CVector_Destroy6_Single (0x00479FF0) - no-op destructor
+	// The binary calls CVector_Destroy6_Single, a no-op destructor.
 	USED(oldCur);
 
 	self->size = self->size - 1;
@@ -355,8 +355,8 @@ StdDeque_push_back(StdDeque_TimeEvent *self, TimeEvent *src)
 	dest = self->back.cur;
 	self->back.cur = self->back.cur + DEQUE_ELEM_SIZE;
 
-	// Binary: call SurfaceInfo_ConstructorAlloc (0x0046BE80) -> AllocNode (0x004D9710)
-	// -> StdKfn_Identity (placement new) -> 12-byte copy.
+	// The binary goes SurfaceInfo_ConstructorAlloc -> AllocNode ->
+	// StdKfn_Identity (placement new) -> 12-byte copy.
 	d = (TimeEvent *)dest;
 	s = src;
 	d->serial = s->serial;

@@ -941,7 +941,7 @@ Terrain_GetInterpolatedZ(int x, int y, int direction)
 
 	prevIdx = ((direction - 1) >> 1) & 3;
 	corner2 = Terrain_GetLandZ(x + g_TerrainCorner[prevIdx][0], y + g_TerrainCorner[prevIdx][1]);
-	return (corner1 + corner2) / 2;
+	return (corner1 + corner2) >> 1;
 }
 
 /*
@@ -972,8 +972,8 @@ Terrain_GetAvgLandZ(int x, int y)
 		diffTRBL = -diffTRBL;
 
 	if (diffTLBR > diffTRBL)
-		return (tr + bl) / 2;
-	return (tl + br) / 2;
+		return (tr + bl) >> 1;
+	return (tl + br) >> 1;
 }
 
 /*

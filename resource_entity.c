@@ -277,7 +277,7 @@ CResourceEntity_RemoveResource(CItem *entity, int amount, int resTypeId)
 		if (cur->id == 0)
 			goto cont;
 
-		if (cur->id != (uint16_t)resTypeId)
+		if ((int)cur->id != resTypeId)
 			goto cont;
 
 		if ((int8_t)cur->type != 3)

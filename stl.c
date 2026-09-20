@@ -41,7 +41,7 @@ void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
 static void *StdTree_Lbound(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421AC0
 static void *StdTree_RBInsert_Wombat(StdMapTree *this, void *outIter, void *addLeft, void *parent, void *pair); // 0x00422970
 static void StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos); // 0x00421CC0
-static void *StdMap_Insert(StdMapTree *this, void *outIter, void *beginIter, void *endIter); // 0x00422510
+static void *StdMap_EraseRange(StdMapTree *this, void *outIter, void *beginIter, void *endIter); // 0x00422510
 static void *StdMap_FindImpl(StdMapTree *this, void *outIter, void *keyPtr); // 0x00422650
 static uintptr_t SortMulti_NoOp(uintptr_t arg); // 0x00422770
 static int StdMap_IntKeyLess(StdMapTree *this, void *a, void *b); // 0x00422780
@@ -744,7 +744,7 @@ StdMap_FindWrapper(StdMapTree *this, void *outIter, void *keyPtr)
 /*
  * 0x00421450 - std::map::destructor
  *
- * Gets begin/end iterators, runs StdMap_Insert to clear the tree, frees
+ * Gets begin/end iterators, runs StdMap_EraseRange to clear the tree, frees
  * the head node, and decrements the global tree reference count.
  */
 static void
@@ -754,7 +754,7 @@ StdMap_Destructor(StdMapTree *this)
 
 	StdPtrList_End((StdPtrList *)this, (StdPtrNode **)&endIter);
 	StdMap_Begin(this, &beginIter);
-	StdMap_Insert(this, &insertIter, *(uint32_t **)&beginIter, *(uint32_t **)&endIter);
+	StdMap_EraseRange(this, &insertIter, *(uint32_t **)&beginIter, *(uint32_t **)&endIter);
 	free(this->head);
 	this->head = NULL;
 	this->size = 0;
@@ -1220,7 +1220,7 @@ done: {
  * loops erasing individual elements via StdMap_TreeErase.
  */
 static void *
-StdMap_Insert(StdMapTree *this, void *outIter, void *beginIter, void *endIter)
+StdMap_EraseRange(StdMapTree *this, void *outIter, void *beginIter, void *endIter)
 {
 	uintptr_t localBegin, localEnd;
 	uintptr_t postDec;
@@ -5524,12 +5524,11 @@ CVector_GetCount6(CVector *list)
  * Allocates room for count CLocation elements.
  */
 __attribute__((unused)) void *
-CVector_Allocate6(CVector *this, uint32_t count)
+CVector_Allocate6(CVector *this, uint32_t count, int unused)
 {
 	USED(this);
-	if ((int)count < 0)
-		count = 0;
-	return malloc(count * sizeof(CLocation));
+	USED(unused);
+	return Allocate6_Inner((int)count);
 }
 
 /*
@@ -5674,18 +5673,18 @@ SortMultiDist_Quicksort(void *first, void *last, CLocation cmpLoc, int unused)
 		count = ((char *)last - (char *)first) / sizeof(uintptr_t);
 		if (count <= 16)
 			return;
-		CLocation_SetLoc(&tmp1, &cmpLoc);
-		CLocation_SetLoc(&tmp2, &cmpLoc);
+		CLocation_CopyFromSrc(&tmp1, &cmpLoc);
+		CLocation_CopyFromSrc(&tmp2, &cmpLoc);
 		pivot = SortMultiDist_Median3(*(uintptr_t *)first, *(uintptr_t *)((char *)first + (count / 2) * sizeof(uintptr_t)), *((uintptr_t *)last - 1), tmp1);
 		part = SortMultiDist_Partition(first, last, pivot, tmp2);
 		if (((char *)last - (char *)part) / sizeof(uintptr_t) <= ((char *)part - (char *)first) / sizeof(uintptr_t)) {
 			CLocation tmp3;
-			CLocation_SetLoc(&tmp3, &cmpLoc);
+			CLocation_CopyFromSrc(&tmp3, &cmpLoc);
 			SortMultiDist_Quicksort(part, last, tmp3, GameCentMon_GetPlayerCount());
 			last = part;
 		} else {
 			CLocation tmp4;
-			CLocation_SetLoc(&tmp4, &cmpLoc);
+			CLocation_CopyFromSrc(&tmp4, &cmpLoc);
 			SortMultiDist_Quicksort(first, part, tmp4, GameCentMon_GetPlayerCount());
 			first = part;
 		}

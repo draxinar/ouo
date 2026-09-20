@@ -70,10 +70,8 @@ InitContainerHandle(ContainerHandle *this, void *fp, int writable, int isQFile)
 	if (bytesRead != 0) {
 		int lastPageOff = fileSize - pageAligned;
 		int trailer = *(int *)(this->pageBuffer + lastPageOff - 4);
-		if (trailer > 0) {
-			this->logicalSize = trailer;
-			this->logicalEnd = trailer;
-		}
+		this->logicalSize = trailer;
+		this->logicalEnd = trailer;
 	}
 
 	if (isQFile) {
@@ -148,7 +146,7 @@ ContainerHandle_InitMap(void)
 	int idx;
 	int hi, lo;
 
-	// 0x004E51C4: build the four 256-entry S-boxes from the eight
+	// Build the four 256-entry S-boxes from the eight
 	// 16-entry permutation tables, each pre-shifted to its byte lane.
 	for (idx = 0; idx < 256; idx++) {
 		hi = idx >> 4;
@@ -538,10 +536,12 @@ ContainerHandle_Seek(ContainerHandle *this, int offset, int whence)
 
 		this->pageFileOff = pageStart;
 
-		if ((target & 0xFFF) && pageStart + this->pageCurOff <= this->logicalSize)
-			ContainerHandle_AllocPage(this, 0x1000);
+		if (target & 0xFFF) {
+			if (pageStart + this->pageCurOff <= this->logicalSize)
+				ContainerHandle_AllocPage(this, 0x1000);
 
-		this->pageCurOff = target - this->pageFileOff;
+			this->pageCurOff = target - this->pageFileOff;
+		}
 	}
 
 	return 0;

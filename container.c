@@ -172,10 +172,11 @@ CItem_CancelTrade(CItem *container)
  * either places each back in the world (when g_WorldActive2 is set) or
  * deletes it.
  *
- * FIXED: the binary wraps the walk in an SEH frame that catches access
- * violations from corrupted chain pointers. Linux emulates this with a
- * mincore() readability check plus a sigsetjmp/siglongjmp SIGSEGV
- * handler as a backup.
+ * MODIFIED: the walk is bracketed by a mincore() readability probe and a
+ * sigsetjmp/SIGSEGV handler, so a chain crossing an unmapped page breaks
+ * the loop instead of faulting. The binary has no such guard - its SEH
+ * frame carries no try block and exists only to destroy the stack-local
+ * vector while unwinding.
  */
 __attribute__((no_sanitize("address"))) void
 CContainer_PreDeleteCleanup(CItem *item)
@@ -197,7 +198,7 @@ CContainer_PreDeleteCleanup(CItem *item)
 	walk = ((CContainer *)item)->contents;
 	if (sigsetjmp(s_seh_predelete_jmpbuf, 1) == 0) {
 		while (walk != NULL) {
-			// Check 0x24 bytes: serial (0x04) and spatialNext (0x20).
+			// Covers spatialNext at 0x20; serial at 0x40 is read below.
 			if (!seh_ptr_readable(walk, 0x24))
 				break;
 			if (CWorld_FindBySerial(g_World, walk->serial) != walk)

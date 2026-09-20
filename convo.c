@@ -84,7 +84,7 @@ char *
 CConversationManager_MatchSpeech(CConversationManager *this, CItem *npc, CItem *target, char *text)
 {
 	USED(this);
-	return CConversationManager_InternalFindResponse(npc, target, target, text);
+	return CConversationManager_InternalFindResponse(this, npc, target, target, text);
 }
 
 /*
@@ -1484,7 +1484,7 @@ Convo_ComputeNotoriety(CPlayer *speaker)
  * through SubstituteResponse.
  */
 char *
-CConversationManager_InternalFindResponse(CItem *npc, CItem *speaker, CItem *about, char *text)
+CConversationManager_InternalFindResponse(CConversationManager *this, CItem *npc, CItem *speaker, CItem *about, char *text)
 {
 	CFragmentList *container;
 	CFragment *frag;
@@ -1530,7 +1530,7 @@ CConversationManager_InternalFindResponse(CItem *npc, CItem *speaker, CItem *abo
 			StdPtrIter_CopyConstructor(&stlEndCopy, StdPtrList_End((StdPtrList *)container, &stlEndTemp));
 			if (!(StdPtrIter_Neq(&stlIter, &stlEndCopy) & 0xFF))
 				break;
-			frag = CConversationManager_FindFragByName(&g_ConvoMgr, CString_GetData((CString *)StdPtrIter_Deref(&stlIter)));
+			frag = CConversationManager_FindFragByName(this, CString_GetData((CString *)StdPtrIter_Deref(&stlIter)));
 			if (frag == NULL)
 				goto next;
 
@@ -1559,13 +1559,13 @@ next:
 		}
 	}
 
-	if (g_responseCount == 0 && g_ConvoMgr.defaultFrag != NULL)
-		CFragment_CollectResponses(g_ConvoMgr.defaultFrag, soph, attitude, notoriety);
+	if (g_responseCount == 0 && this->defaultFrag != NULL)
+		CFragment_CollectResponses(this->defaultFrag, soph, attitude, notoriety);
 
 	if (g_responseCount == 0)
 		return &g_emptyStr3;
 
 	idx = GetRandomRange(0, g_responseCount - 1);
 
-	return CConversationManager_SubstituteResponse(&g_ConvoMgr, g_responseKeys[idx], npc, speaker, about, text, g_responseTexts[idx]);
+	return CConversationManager_SubstituteResponse(this, g_responseKeys[idx], npc, speaker, about, text, g_responseTexts[idx]);
 }

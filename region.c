@@ -511,28 +511,28 @@ RegionManager_EraseByPrefix(uint32_t prefix)
 	CSearchCtx_Constructor(&ctx1);
 	CSearchCtx_Constructor(&ctx2);
 
-	// BeginIter on ByFile RM (this+0x04). Binary: 0x004A6B70.
+	// BeginIter on ByFile RM (this+0x04).
 	CSearchCtx_Add(&ctx1, CResList_BeginIter_ByFile(&g_RegionByFileRM, &out1, &prefix, 1));
 
 	if (!CSearchCtx_Find(&ctx1))
 		return 0;
 
-	// EraseAndFree on ByFile RM. Binary: 0x004A6C70.
+	// EraseAndFree on ByFile RM.
 	CResList_EraseAndFree_ByFile(&g_RegionByFileRM, &out2, &ctx1, 1);
 
-	// BeginIter on ByName RM (this+0x21C). Binary: 0x004A6D80.
+	// BeginIter on ByName RM (this+0x21C).
 	CSearchCtx_Add(&ctx2, CResList_BeginIter_ByNameAll(&g_RegionByNameRM, &out3, &prefix, 1));
 
 	if (CSearchCtx_Find(&ctx2)) {
-		// EraseAndFree on ByName RM. Binary: 0x004A6E40.
+		// EraseAndFree on ByName RM.
 		CResList_EraseAndFree_ByNameAll(&g_RegionByNameRM, &out4, &ctx2, 1);
 	}
 
-	// BeginIter on All RM (this+0x434). Binary: 0x004A6D80.
+	// BeginIter on All RM (this+0x434).
 	CSearchCtx_Add(&ctx2, CResList_BeginIter_ByNameAll(&g_RegionRM, &out5, &prefix, 1));
 
 	if (CSearchCtx_Find(&ctx2)) {
-		// EraseAndFree on All RM. Binary: 0x004A6E40.
+		// EraseAndFree on All RM.
 		CResList_EraseAndFree_ByNameAll(&g_RegionRM, &out6, &ctx2, 1);
 	}
 
@@ -562,7 +562,7 @@ RegionManager_AddRegion(CRegion *region)
 	if (strcmp(region->name, "") == 0)
 		strcpy(region->name, "NONE");
 
-	// FindByKey on ByFile RM. Binary: 0x004A69E0.
+	// FindByKey on ByFile RM.
 	// Passes region as uint32_t* keyPtr (prefix is at offset 0).
 	CSearchCtx_Constructor(&iterCtx);
 	CSearchCtx_Add(&iterCtx, CResManager_FindByKey_ByFile(&g_RegionByFileRM, &output, (uint32_t *)region));
@@ -570,14 +570,14 @@ RegionManager_AddRegion(CRegion *region)
 	if (!CSearchCtx_Find(&iterCtx))
 		goto rebuild;
 
-	// GetResult+NextIter on ByFile RM. Binary: 0x004A6C30.
-	// Binary passes region pointer as direction (nonzero = forward).
-	CResList_GetResultNextIter_ByFile(&g_RegionByFileRM, &iterCtx, 1);
+	// GetResult+NextIter on ByFile RM, which copies region into the
+	// node's CRegion, allocating it on the first pass.
+	CResList_GetResultNextIter_ByFile(&g_RegionByFileRM, &iterCtx, region);
 
 	// GetResultCtx returns the CRegion* stored in the RM entry.
 	found = (CRegion *)CResManager_GetResultCtx(&g_RegionByFileRM, &iterCtx);
 
-	// Insert into ByName RM. Binary: 0x004A6D10 on this+0x21C.
+	// Insert into ByName RM on this+0x21C.
 	// Passes found as uint32_t* keyPtr (prefix at offset 0), &found as valuePtr.
 	CResList_Insert_ByNameAll(&g_RegionByNameRM, (uint32_t *)found, (void **)&found);
 
@@ -586,7 +586,7 @@ RegionManager_AddRegion(CRegion *region)
 			goto rebuild;
 	}
 
-	// Insert into All RM. Binary: 0x004A6D10 on this+0x434.
+	// Insert into All RM on this+0x434.
 	CResList_Insert_ByNameAll(&g_RegionRM, (uint32_t *)found, (void **)&found);
 
 rebuild:
@@ -1805,31 +1805,22 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 		uint32_t rd_prefix;
 
 		for (i = 0; i < 0x2000; i++) {
-			// 0x005569F3
 			if (fread(rd_name, 0x28, 1, fp) != 1)
 				break;
-			// 0x00556A10
 			if (fread(&rd_slot, 2, 1, fp) != 1)
 				break;
-			// 0x00556A2D
 			if (fread(&rd_x, 2, 1, fp) != 1)
 				break;
-			// 0x00556A4A
 			if (fread(&rd_y, 2, 1, fp) != 1)
 				break;
-			// 0x00556A63
 			if (fread(&rd_w, 2, 1, fp) != 1)
 				break;
-			// 0x00556A7C
 			if (fread(&rd_h, 2, 1, fp) != 1)
 				break;
-			// 0x00556A95
 			if (fread(&rd_zMin, 2, 1, fp) != 1)
 				break;
-			// 0x00556AAE
 			if (fread(&rd_zMax, 2, 1, fp) != 1)
 				break;
-			// 0x00556AC7
 			if (fread(&rd_prefix, 4, 1, fp) != 1)
 				break;
 
@@ -1887,58 +1878,42 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 		CRegionFileRecord_FACE temp;
 
 		for (i = 0; i < 0x2000; i++) {
-			// 0x00556C5B
 			if (fread(temp.name, 0x28, 1, fp) != 1)
 				break;
-			// 0x00556C7B
 			if (fread(&temp.slot, 2, 1, fp) != 1)
 				break;
-			// 0x00556C9B
 			if (fread(&temp.x, 2, 1, fp) != 1)
 				break;
-			// 0x00556CBB
 			if (fread(&temp.y, 2, 1, fp) != 1)
 				break;
-			// 0x00556CDB
 			if (fread(&temp.width, 2, 1, fp) != 1)
 				break;
-			// 0x00556CFB
 			if (fread(&temp.height, 2, 1, fp) != 1)
 				break;
-			// 0x00556D1B
 			if (fread(&temp.zMin, 2, 1, fp) != 1)
 				break;
-			// 0x00556D3B
 			if (fread(&temp.zMax, 2, 1, fp) != 1)
 				break;
-			// 0x00556D5B
 			if (fread(&temp.prefix, 4, 1, fp) != 1)
 				break;
-			// 0x00556D77
 			if (fread(temp.name2, 0x28, 1, fp) != 1)
 				break;
-			// 0x00556D93
 			if (fread(&temp.weatherSeason, 2, 1, fp) != 1)
 				break;
-			// 0x00556DAF
 			if (fread(&temp.weatherDay, 2, 1, fp) != 1)
 				break;
-			// 0x00556DCB
 			if (fread(&temp.type, 1, 1, fp) != 1)
 				break;
 
-			// 0x00556DEC
 			int16_t slot = temp.slot;
 
-			// 0x00556DF9
 			if (regions[slot] != NULL)
 				OperatorDelete(regions[slot]);
 
-			// 0x00556E24
 			CRegion_Client *region;
 			CRegion_Client *raw = (CRegion_Client *)OperatorNew(sizeof(CRegion_Client));
 			if (raw != NULL) {
-				// CRegion_Constructor_Client (0x005562B4 -> 0x005565B6)
+				// CRegion_Constructor_Client
 				memset(raw->name, 0, 0x28);
 				raw->x = 0;
 				raw->y = 0;
@@ -1957,7 +1932,6 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 				region = NULL;
 			}
 
-			// 0x00556E6E
 			regions[slot] = region;
 
 			strncpy(region->name, temp.name, 0x28);
@@ -1979,64 +1953,46 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 		CRegionFileRecord_NEW temp;
 
 		for (i = 0; i < 0x2000; i++) {
-			// 0x00556EF5
 			if (fread(temp.name, 0x28, 1, fp) != 1)
 				break;
-			// 0x00556F15
 			if (fread(&temp.slot, 2, 1, fp) != 1)
 				break;
-			// 0x00556F35
 			if (fread(&temp.x, 2, 1, fp) != 1)
 				break;
-			// 0x00556F55
 			if (fread(&temp.y, 2, 1, fp) != 1)
 				break;
-			// 0x00556F75
 			if (fread(&temp.width, 2, 1, fp) != 1)
 				break;
-			// 0x00556F95
 			if (fread(&temp.height, 2, 1, fp) != 1)
 				break;
-			// 0x00556FB5
 			if (fread(&temp.zMin, 2, 1, fp) != 1)
 				break;
-			// 0x00556FD5
 			if (fread(&temp.zMax, 2, 1, fp) != 1)
 				break;
-			// 0x00556FF5
 			if (fread(&temp.prefix, 4, 1, fp) != 1)
 				break;
-			// 0x00557015
 			if (fread(temp.name2, 0x28, 1, fp) != 1)
 				break;
-			// 0x00557035
 			if (fread(&temp.weatherSeason, 2, 1, fp) != 1)
 				break;
-			// 0x00557051
 			if (fread(&temp.weatherDay, 2, 1, fp) != 1)
 				break;
-			// 0x0055706D
 			if (fread(&temp.weatherNight, 2, 1, fp) != 1)
 				break;
-			// 0x00557089
 			if (fread(&temp.type, 1, 1, fp) != 1)
 				break;
-			// 0x005570A5
 			if (fread(&temp.lightLevel, 2, 1, fp) != 1)
 				break;
 
-			// 0x005570C6
 			int16_t slot = temp.slot;
 
-			// 0x005570D3
 			if (regions[slot] != NULL)
 				OperatorDelete(regions[slot]);
 
-			// 0x005570FE
 			CRegion_Client *region;
 			CRegion_Client *raw = (CRegion_Client *)OperatorNew(sizeof(CRegion_Client));
 			if (raw != NULL) {
-				// CRegion_Constructor_Client (0x005562B4 -> 0x005565B6)
+				// CRegion_Constructor_Client
 				memset(raw->name, 0, 0x28);
 				raw->x = 0;
 				raw->y = 0;
@@ -2055,7 +2011,6 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 				region = NULL;
 			}
 
-			// 0x00557148
 			regions[slot] = region;
 
 			strncpy(region->name, temp.name, 0x28);
@@ -2075,6 +2030,5 @@ RegionManager_readRegionsIntoMemory(CRegion_Client **regions)
 		}
 	}
 
-	// 0x005571A0
 	fclose(fp);
 }

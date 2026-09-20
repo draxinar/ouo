@@ -121,9 +121,9 @@ uint32_t g_gcmState;              // 0x006E7658: monitor state (0=idle, 1=active
 CItem *g_gcmTarget;       // 0x006E765C: pointer to monitored player
 uint32_t g_gcmTimestamp;          // 0x006E7660: timestamp from timeGetTime
 
-// Binary global at 0x00621A18: GCM version/identifier, init 0xFFFFFFFF.
-// Set by fcn.004b83d6, read in BroadcastAll case 0 and BroadcastEvent case 3.
-uint32_t g_gcmVersion = 0xFFFFFFFF;
+// GCM version/identifier, read in BroadcastAll case 0 and BroadcastEvent
+// case 3.
+uint32_t g_gcmVersion = 0xFFFFFFFF; // 0x00621A18
 
 // Binary global at 0x0061D67C: NPC AI timer reset value, default 15.
 // Set by BroadcastEvent case 10 (event 11).
@@ -486,14 +486,18 @@ ShowIds(CItem *player)
 {
 	int blockBuf[0x400];
 	CLocation loc;
+	int maxBlocks;
 	int range;
 	int i;
 	CItem *ent;
 	char buf[128];
 
-	range = 18;
+	maxBlocks = 0x400;
 	CLocation_SetLoc(&loc, CEntity_GetLocation(&player->resourceEntity.entity));
-	CBlockManager_GetNearbyBlocks(&g_SpatialGrid, &loc, range, blockBuf, 0x400);
+	range = 18;
+	USED(maxBlocks);
+	USED(range);
+	CBlockManager_GetNearbyBlocks(&g_SpatialGrid, &loc, 0x12, blockBuf, 0x400);
 
 	for (i = 0; blockBuf[i] != -1; i++) {
 		ent = g_MapBlocks[blockBuf[i]].itemHead;
@@ -975,8 +979,8 @@ CEditorObj_HandleEdit(CPlayer *player, int type, int16_t x, int16_t y, int8_t z,
 
 		isDynamic = ((type & 0xFF) != 4) ? 1 : 0;
 
-		// AllocateItem validates the resource at 0x0048E185, ahead of the
-		// static branch at 0x0048E195, so it gates both paths.
+		// AllocateItem validates the resource ahead of the static branch,
+		// so it gates both paths.
 		if (!CWorld_LookupItemResource(id))
 			item = NULL;
 		else if (isDynamic && g_EditorStaticCreateFlag)
@@ -2144,7 +2148,7 @@ ValidateEntityAccess(CPlayer *player, uint32_t *serialPtr, int useCheck)
 	return;
 
 range_check:
-	if (CLocation_ChebyshevDistance(&player->mobile.container.item.resourceEntity.entity.location, &root->resourceEntity.entity.location) > 0x12)
+	if (CLocation_ChebyshevDistance(&root->resourceEntity.entity.location, &player->mobile.container.item.resourceEntity.entity.location) > 0x12)
 		*serialPtr = 0;
 }
 
@@ -2213,7 +2217,7 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 {
 	uint8_t obuf[0x4C0];
 
-	// Phase 0 (0x00492776): SetIsLoaded via 0x0044FA4A
+	// Phase 0: SetIsLoaded
 	CPlayer_SetIsLoaded(this, addr);
 
 	if (!(this->pflags & PlayerIsLoaded)) {
@@ -2222,20 +2226,20 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 		return;
 	}
 
-	// Phase 1 (0x004927A8): Send LOGIN_CONFIRM (0x1B)
+	// Phase 1: Send LOGIN_CONFIRM (0x1B)
 	PacketManager_MakePacket_LOGIN_CONFIRM(&obuf[0], this);
 	SendPacketToPlayer(this, &obuf[0], -1);
 
-	// Phase 2 (0x004927CB): Set [usersock + 0x00010034] = 1 (seedConsumed)
+	// Phase 2: Set [usersock + 0x00010034] = 1 (seedConsumed)
 	this->usersock->seedConsumed = 1;
 
 	if (this->pflags & 0x2000)
 		EntityManager_RestoreBySerial(this->mobile.container.item.serial);
 
-	// Phase 3 (0x00492800): SendAppearance
+	// Phase 3: SendAppearance
 	CPlayer_SendAppearance(this);
 
-	// Phase 4 (0x00492808): Restore cursor item (equipment[0]).
+	// Phase 4: Restore cursor item (equipment[0]).
 	if (this->mobile.equipment[0] != NULL) {
 		CItem *cursor = this->mobile.equipment[0];
 
@@ -2260,25 +2264,25 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 		}
 	}
 
-	// Phase 5 (0x00492951): Send COMBAT (0x72) with 4 combat bytes
+	// Phase 5: Send COMBAT (0x72) with 4 combat bytes
 	PacketManager_MakePacket_COMBAT(&obuf[0], this->mobile.combatByte1, this->mobile.combatByte2, this->mobile.combatByte3, this->mobile.combatByte4);
 	SendPacketToPlayer(this, &obuf[0], -1);
 
-	// Phase 6 (0x00492975): NotifyNearby
+	// Phase 6: NotifyNearby
 	NotifyNearby(&this->mobile.container.item);
 
-	// Phase 7 (0x0049297A): SetHP/SetMana/SetStamina with current values.
+	// Phase 7: SetHP/SetMana/SetStamina with current values.
 	((uint32_t (*)(void *, int))VT_FN(&this->mobile.container.item, VT_SET_HP))(&this->mobile.container.item, (int)this->mobile.hp);
 	((uint32_t (*)(void *, int))VT_FN(&this->mobile.container.item, VT_SET_MANA))(&this->mobile.container.item, (int)this->mobile.mana);
 	((uint32_t (*)(void *, int))VT_FN(&this->mobile.container.item, VT_SET_STAMINA))(&this->mobile.container.item, (int)this->mobile.stamina);
 
-	// Phase 8 (0x004929C7): Send GODMODE (0x2B) if editing
+	// Phase 8: Send GODMODE (0x2B) if editing
 	if (CPlayer_IsEditing(this)) {
 		PacketManager_MakePacket_GODMODE(&obuf[0], 1);
 		SendPacketToPlayer(this, &obuf[0], -1);
 	}
 
-	// Phase 9 (0x004929F0): Restore trade windows.
+	// Phase 9: Restore trade windows.
 	{
 		CTradeSession *session;
 
@@ -2310,7 +2314,7 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 		}
 	}
 
-	// Phase 10 (0x00492BA1): MOTD from login.txt.
+	// Phase 10: MOTD from login.txt.
 	{
 		char *motd;
 
@@ -2321,20 +2325,20 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 		}
 	}
 
-	// Phase 11 (0x00492BFE): Send LOGIN_COMPLETE (0x55)
+	// Phase 11: Send LOGIN_COMPLETE (0x55)
 	PacketManager_MakePacket_LOGIN_COMPLETE(&obuf[0]);
 	SendPacketToPlayer(this, &obuf[0], -1);
 
-	// Phase 12 (0x00492C1E): CheckGuardZone
+	// Phase 12: CheckGuardZone
 	CPlayer_CheckGuardZone(this);
 
-	// Phase 13 (0x00492C30): SetFightTarget
+	// Phase 13: SetFightTarget
 	CPlayer_SetFightTarget(this, this->combatTargetSerial);
 
-	// Phase 14 (0x00492C3E): SendWeather
+	// Phase 14: SendWeather
 	WeatherManager_sendWeatherToPlayer(&this->mobile.container.item);
 
-	// Phase 15 (0x00492C4A): Send GAMETIME (0x5B)
+	// Phase 15: Send GAMETIME (0x5B)
 	PacketManager_MakePacket_GAMETIME(&obuf[0]);
 	SendPacketToPlayer(this, &obuf[0], -1);
 }
@@ -3236,7 +3240,7 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 			CPlayer_SystemMessage(this, "This item needs resources.");
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x00);
 			SendToClient((CItem *)this, obuf, -1);
-			// The binary re-tests item at 0x004944A8, though 0x0049439B has
+			// The binary re-tests item, though an earlier branch has
 			// already returned on NULL.
 			if (item != NULL) {
 				if (((int (*)(void *))VT_FN(item, VT_HAS_CORPSE_EQ))(item))
@@ -3347,9 +3351,9 @@ HandlePacket_REQ_GETOBJ(CPlayer *this, uint8_t *buf)
 
 	if (isStealing != 0 && !CPlayer_IsEditing(this)) {
 		int acc = (int)(intptr_t)Entity_ExecuteEvent((CEntity *)topContainer, 0x3D, 5, CMobile_GetSerial(mob), item->serial);
-		// Subcode 5 has the opposite polarity to subcode 4 below: at
-		// 0x0049485F a zero result jumps past the failure, so a non-zero
-		// result is what blocks the steal.
+		// Subcode 5 has the opposite polarity to subcode 4 below: a zero
+		// result jumps past the failure, so a non-zero result is what
+		// blocks the steal.
 		if (acc != 0) {
 			PacketManager_MakePacket_GETOBJ_FAILED(obuf, 0x00);
 			SendToClient((CItem *)this, obuf, -1);
@@ -3693,7 +3697,7 @@ HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf)
 
 	if (contSerial == 0xFFFFFFFF) {
 		// Editing plus a valid coordinate skips both checks: the binary
-		// jumps past them at 0x00495160. Editing with an invalid
+		// jumps past them. Editing with an invalid
 		// coordinate falls into the common path and fails it there.
 		if (CPlayer_IsEditing(this)) {
 			if (CBlockManager_IsValidCoord(&g_SpatialGrid, dropLoc.x, dropLoc.y))
@@ -3730,7 +3734,7 @@ ground_drop_main:
 		goto success;
 	}
 
-	// Container drop path (0x0049529F)
+	// Container drop path.
 	if (contEntity == NULL || !VT_IsMobile2(contEntity))
 		goto non_container;
 
@@ -4201,7 +4205,7 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 		break;
 	}
 	case 0x43: {
-		// 0x00447F24: OpenDoor_Equipment
+		// 0x00447F24 - OpenDoor_Equipment
 		int i;
 		CItem *item;
 
@@ -4229,13 +4233,13 @@ opendoor_done:
 		break;
 	}
 	case 0x56: {
-		// CastSpellByID (0x00448047): spell-by-ID handler.
+		// CastSpellByID: spell-by-ID handler.
 		int spellId, i;
 		CMobile *mob = &this->mobile;
 		CItem *found;
 
 		sscanf(text, "%d", &spellId);
-		// Step 1: search equipped items (0x00448065-0x004480F0)
+		// Step 1: search equipped items
 		for (i = 0; i < 26; i++) {
 			CItem *equip = mob->equipment[i];
 			if (equip == NULL)
@@ -4248,7 +4252,7 @@ opendoor_done:
 				goto castspell_done;
 			}
 		}
-		// Step 2: search backpack contents (0x004480F5-0x00448185)
+		// Step 2: search backpack contents
 		if (mob->equipment[21] != NULL) {
 			CItem *bp = mob->equipment[21];
 			if (VT_IsMobile2(bp)) {
@@ -4320,7 +4324,7 @@ castspell_done:
 		LastSpell(this);
 		break;
 	case 0x5C: {
-		// OpenClose / SetCombatBytes (0x00447C40): parses "%d %d %d",
+		// OpenClose / SetCombatBytes: parses "%d %d %d",
 		// sets combatBytes at offsets 0x33D, 0x33E, 0x33F
 		int combatByte2, combatByte3, combatByte4;
 		sscanf(text, "%d %d %d", &combatByte2, &combatByte3, &combatByte4);
@@ -4695,7 +4699,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 
 	switch (subtype) {
 	case 0x02: {
-		// Region music query (0x00496524).
+		// Region music query.
 		// Demo regions have empty music lists so no packets are actually sent.
 		if (!CPlayer_IsLoaded(this))
 			break;
@@ -4705,13 +4709,13 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 		break;
 	}
 	case 0x03:
-		// Resource type query (0x004965A6) - GM editing tool.
+		// Resource type query - GM editing tool.
 		if (!CPlayer_IsLoaded(this))
 			break;
 		CResourceTypeManager_SendAll((CItem *)this);
 		break;
 	case 0x04: {
-		// Status request (0x004965C5) - send MOBILESTAT (0x11) for target entity.
+		// Status request - send MOBILESTAT (0x11) for target entity.
 		CMobile *mob;
 		CItem *entity;
 		uint8_t extended;
@@ -4735,7 +4739,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 		break;
 	}
 	case 0x05: {
-		// Full skill list (0x004966EA)
+		// Full skill list
 		// MODIFIED: Extended format for 1.26.2+ clients.
 		uint8_t obuf[0x404];
 		int numSkills;
@@ -4750,7 +4754,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 		break;
 	}
 	case 0x06: {
-		// Single skill update (0x0049669F)
+		// Single skill update
 		// MODIFIED: Extended format for 1.26.2+ clients.
 		uint8_t obuf[0x404];
 		int ver06 = Version_GetConnVer(this->usersock, CLIENT_12602);
@@ -4770,7 +4774,7 @@ HandlePacket_CLIENTQUERY(CPlayer *this, uint8_t *buf)
 		break;
 	}
 	case 0xFD: {
-		// Resource node query (0x00496657)
+		// Resource node query
 		CItem *entity;
 		if (!CPlayer_IsLoaded(this))
 			break;
@@ -4982,7 +4986,7 @@ HandlePacket_OFFERACCEPT(CPlayer *this, uint8_t *buf)
 /*
  * 0x00496D55 - HandlePacket_SHOP_OFFER
  *
- * Parses the client's sell list (up to 252 serial+amount entries) and
+ * Parses the client's sell list (up to 250 serial+amount entries) and
  * forwards it to the targeted vendor via CMobile_ProcessSellOffer.
  */
 void
@@ -4996,7 +5000,7 @@ HandlePacket_SHOP_OFFER(CPlayer *this, uint8_t *buf)
 	// Binary: 0xC-byte padded struct array on stack (0xBCC bytes total).
 	// GetDWord writes serial at base + i*0xC + 4, GetWord writes
 	// amount at base + i*0xC + 8. ProcessSellOffer reads same offsets.
-	SellEntry entries[252];
+	SellEntry entries[250];
 
 	off = 0;
 	GetDWord(buf, &off, &vendorSerial);
@@ -5066,7 +5070,7 @@ HandlePacket_DESTROY_OBJECT(CPlayer *this, uint8_t *buf)
 	if (VT_IsPlayer(entity))
 		return;
 
-	// 0x00496ECA: redundant NULL check (binary artifact)
+	// Redundant NULL check the binary also makes.
 	if (entity == NULL)
 		return;
 
@@ -5222,7 +5226,7 @@ HandlePacket_NEW_ART(CPlayer *this, uint8_t *buf)
 
 	GetString(buf, &off, &artData, 0x10000);
 
-	// 0x00497245: compute art size based on tile type
+	// Compute art size based on tile type.
 	int size;
 	if ((int)artId < 0x4000) {
 		size = 0x800;
@@ -5684,15 +5688,15 @@ HandlePacket_BBOARD(CPlayer *this, uint8_t *buf)
 		GetDWord(buf, &off, &replySerial);
 
 		// Read subject
-		// FIXED: binary uses strcpy (0x00497CE3) - overflow if tempByte > 0x4F
+		// FIXED: binary uses strcpy - overflow if tempByte > 0x4F
 		GetByte(buf, &off, &tempByte);
 		GetString(buf, &off, &tempStr, tempByte & 0xFF);
 		strncpy(subject, tempStr, sizeof(subject) - 1);
 		subject[sizeof(subject) - 1] = '\0';
 
 		// Read lines
-		// FIXED: binary allocates tempByte bytes (0x00497D6C) then strcpy
-		// (0x00497D90) - heap overflow if string lacks NUL within allocation
+		// FIXED: binary allocates tempByte bytes then strcpy
+		// - heap overflow if string lacks NUL within allocation
 		GetByte(buf, &off, &numLines);
 		for (i = 0; i < (numLines & 0xFF); i++) {
 			GetByte(buf, &off, &tempByte);
@@ -5848,7 +5852,7 @@ HandlePacket_RENAME_MOB(CPlayer *this, uint8_t *buf)
 
 		oldName = ((char *(*)(void *))VT_FN(entity, VT_GET_NAME))(entity);
 
-		// FIXED: binary uses sprintf (0x00498133) - overflow if oldName is long
+		// FIXED: binary uses sprintf - overflow if oldName is long
 		snprintf(msg, sizeof(msg), "Pet %s renamed to %s.", oldName, newName);
 
 		CMobile_SetName(mob, newName);
@@ -5981,7 +5985,7 @@ HandlePacket_BRITANNIA_SELECT(CUserSock *this, uint8_t *buf)
 	if (g_NoCrypt) {
 		// -nocrypt: no game cipher, standard port.
 	} else if (g_ClientVersion == CLIENT_GOD208 || this->detectedGodClient) {
-		// GodClient 0x8C handler (0x0043CCA0) adds 1000 to the port.
+		// The GodClient's 0x8C handler adds 1000 to the port.
 		// Send port - 1000 so client connects back to the right port.
 		// No Blowfish/Twofish: GodClient game connection is plaintext.
 		port = g_ServerPort - 1000;
@@ -6676,7 +6680,6 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 	uint32_t offset;
 	uint8_t subtype;
 	uint8_t pktBuf[0x2006];
-	uint8_t dataBuf[0x2000];
 	uint8_t *dataPtr;
 	int count;
 	int i;
@@ -6690,7 +6693,7 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 	if (subtype != 0)
 		return;
 
-	dataPtr = dataBuf;
+	dataPtr = pktBuf + 6;
 	count = 0;
 
 	for (i = 0; i < g_SpatialGrid.totalBlocks; i++) {
@@ -6728,8 +6731,8 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 				continue;
 			}
 
-			// Binary: fcn.004b3841/004b395c call SwapEndian on
-			// stack copies then memcpy - no-op on LE.
+			// The binary swaps into stack copies then memcpys - a
+			// no-op on little-endian.
 			{
 				uint32_t tmpSerial = entity->serial;
 				SwapEndian(&tmpSerial);
@@ -6758,11 +6761,11 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 			count++;
 
 			if (count > 0x320) {
-				dataLen = (int)(dataPtr - dataBuf);
-				BuildGodViewPacket(pktBuf, (uint8_t)(category & 0xFFFF), (uint16_t)count, dataLen, dataBuf);
+				dataLen = (int)(dataPtr - (pktBuf + 6));
+				BuildGodViewPacket(pktBuf, (uint8_t)(category & 0xFFFF), (uint16_t)count, dataLen, pktBuf + 6);
 				SendToClient((CItem *)this, pktBuf, -1);
 				count = 0;
-				dataPtr = dataBuf;
+				dataPtr = pktBuf + 6;
 			}
 
 			entity = entity->spatialNext;
@@ -6770,11 +6773,11 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 	}
 
 	if (count > 0) {
-		dataLen = (int)(dataPtr - dataBuf);
-		BuildGodViewPacket(pktBuf, (uint8_t)(subtype & 0xFF), (uint16_t)count, dataLen, dataBuf);
+		dataLen = (int)(dataPtr - (pktBuf + 6));
+		BuildGodViewPacket(pktBuf, (uint8_t)(subtype & 0xFF), (uint16_t)count, dataLen, pktBuf + 6);
 		SendToClient((CItem *)this, pktBuf, -1);
 	} else {
-		BuildGodViewPacket(pktBuf, 0xFF, count, 0, dataBuf);
+		BuildGodViewPacket(pktBuf, 0xFF, count, 0, pktBuf + 6);
 		SendToClient((CItem *)this, pktBuf, -1);
 	}
 }
@@ -7183,8 +7186,8 @@ HandlePacket_TriggerEdit(CPlayer *this, uint8_t *buf)
 			while (cur != NULL) {
 				entX = (int16_t)cur->resourceEntity.entity.location.x;
 				entY = (int16_t)cur->resourceEntity.entity.location.y;
-				// The binary's four bounds tests are JC/JNC - unsigned - against
-				// the sign-extended coordinate at 0x004B5F3E onward.
+				// The binary's four bounds tests are JC/JNC - unsigned -
+				// against the sign-extended coordinate.
 				if ((uint32_t)entX >= (uint32_t)x1 && (uint32_t)entX < (uint32_t)x2 && (uint32_t)entY >= (uint32_t)y1 && (uint32_t)entY < (uint32_t)y2) {
 					bucketCounts[i]++;
 				}
@@ -8107,7 +8110,7 @@ check_underscore:
 // Set by mobileWillBuy when a bodyType match is found; read by
 // CShopkeeper_OpenSellWindow to distinguish "nothing I want" from
 // "I can't afford that".
-int g_VendorSawMatch;
+int g_VendorSawMatch; // 0x006EFEC8
 
 /*
  * 0x004D3387 - CString::GetCString
@@ -8447,7 +8450,7 @@ DoorOpen(CItem *door)
 
 	((void (*)(void *, CLocation *))VT_FN(door, VT_DROP_AT_FEET))(door, &loc);
 
-	// Play open sound based on bodyType ranges (0x004DB3F0-0x004DB6A8)
+	// Play open sound based on bodyType ranges.
 	bodyType = door->resourceEntity.entity.bodyType & 0xFFFF;
 	if ((bodyType >= 0x334 && bodyType <= 0x353) || (bodyType >= 0x695 && bodyType <= 0x6B4) || (bodyType >= 0x6D5 && bodyType <= 0x6E4) ||
 	        (bodyType >= 0x839 && bodyType <= 0x848) || (bodyType >= 0x866 && bodyType <= 0x875)) {
@@ -8538,7 +8541,7 @@ DoorClose(CItem *door, int unused)
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)loc.x, (int)(int16_t)loc.y))
 		return;
 
-	// 0x004DB7D5-0x004DB86F: check for blocking mobiles at closed position.
+	// Check for blocking mobiles at the closed position.
 	// Iterates dynamic item chain at the closed position's block.
 	// For each item at same x/y/z: checks vtable[0xD0] (IsMobile) and
 	// vtable[0x40](0) & 0x40 (impassable movement flag).
@@ -9169,7 +9172,6 @@ DoDoubleClick(CPlayer *this, uint32_t playerSerial, CLocation *playerLoc, CItem 
 		goto parent_walk;
 
 cant_reach:
-	// 0x004dc780
 	Entity_SendSystemMessage((CItem *)this, playerSerial, "I can't reach that.");
 	return;
 

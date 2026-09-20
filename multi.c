@@ -77,7 +77,7 @@ static void CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *elem
 static void CDeque1C_Insert(CVector *this, void *pos, uint32_t count, void *element); // 0x004798D0
 static void *CVector_Uninit_Copy1C_Fwd2(CVector *this, void *first, void *last, void *dest); // 0x00479B10
 static void CopyFrom1C(CVector *this, void *src, void *dst); // 0x00479B70
-static void CDeque6_Insert(void *deque, void *pos, int count, void *element); // 0x0047A010
+static void CDeque6_Insert(void *deque, void *pos, uint32_t count, void *element); // 0x0047A010
 static void Uninit_FillN_16(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A250
 static void Uninit_FillN_1C(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A290
 static void *Uninit_Copy4_Fwd(CVector *this, void *first, void *last, void *dest); // 0x0047A2D0
@@ -113,10 +113,9 @@ static void CopyFrom1C_Inner(void *src, void *dst); // 0x0047B310
 static void Destroy1C_Inner(void *element); // 0x0047B350
 static void FillCopy6_Fwd(void *first, void *last, void *element); // 0x0047B360
 static void *CopyBackward6(void *first, void *last, void *dest); // 0x0047B390
-static void *Allocate6_Inner(int count); // 0x0047B3C0
 static void CopySingle6_Inner(void *dest, void *source); // 0x0047B3F0
 static void *CLocationPair_CopyAssign(CLocationPair *dst, CLocationPair *src); // 0x0047B4C0
-static void *CLocation_CopyFromSrc(CLocation *this, CLocation *src); // 0x0047B4F0
+void *CLocation_CopyFromSrc(CLocation *this, CLocation *src); // 0x0047B4F0
 static void *CLocationPair_CopyFromSrc(CLocationPair *this, CLocationPair *src); // 0x0047B510
 static void *CMultiComponent_ScalarDelete(CMultiComponentDef *this, int flags); // 0x0047B550
 static void SmartPtr_Destructor_CVector(CSmartPtr *self); // 0x0047C730
@@ -874,7 +873,7 @@ CMultiSlave_Move(CMultiSlave *slave, CLocation *loc)
 
 	((void (*)(void *, void *))VT_FN(ownerItem, VT_DROP_AT_FEET))(ownerItem, loc);
 
-	// 0x00474E1B-0x00474E4B: relocate carried items
+	// Relocate carried items.
 	{
 		// The binary builds a 12-byte {oldLoc, newLoc} pair on the
 		// stack through CMultiDef::SetExtents and passes it by value.
@@ -948,11 +947,11 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 		((void (*)(void *))VT_FN(ownerItem, VT_HIDE))(ownerItem);
 	}
 
-	// 0x00474F0F-0x00474F27: validate move via 0x00474FF1
+	// Validate the move.
 	result = CMultiSlave_ValidateMove(slave, &itemList, loc, checkFlag, 0, 0);
 
 	if (result <= 0) {
-		// 0x00474F30-0x00474F7B: check failed, restore everything
+		// Check failed, restore everything.
 		ownerItem = (CItem *)slave->base.ownerItem;
 		((void (*)(void *, void *))VT_FN(ownerItem, VT_DROP_AT_FEET))(ownerItem, &savedLoc);
 
@@ -963,7 +962,7 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 		return result;
 	}
 
-	// 0x00474F80-0x00474FDE: check passed, commit the move
+	// Check passed, commit the move.
 	ownerItem = (CItem *)slave->base.ownerItem;
 	((void (*)(void *, void *))VT_FN(ownerItem, VT_DROP_AT_FEET))(ownerItem, loc);
 
@@ -993,12 +992,10 @@ CMultiSlave_ValidateMove(CMultiSlave *slave, CVector *itemList, CLocation *loc, 
 {
 	int result;
 
-	// 0x00474ffa-0x0047500f: CanExistAt(slave, loc, checkFlag, unused1, 0, unused2)
 	result = CMultiSlave_CanExistAt(slave, loc, checkFlag, unused1, 0, unused2);
 	if (result <= 0)
 		return result;
 
-	// 0x00475022-0x0047503a: CMultiSlave_CheckCarriedItemMoves(slave, itemList, loc, checkFlag, unused2)
 	result = CMultiSlave_CheckCarriedItemMoves(slave, itemList, loc, checkFlag, unused2);
 	if (result <= 0)
 		return result;
@@ -1095,6 +1092,8 @@ CMultiSlave_CheckCarriedItemMoves(CMultiSlave *slave, CVector *itemList, CLocati
 	USED(unused);
 	CLocation savedLoc;
 	CLocation compLoc;
+	CLocation unusedLoc;
+	CLocation delta;
 	uintptr_t *iter;
 	int height;
 
@@ -1102,7 +1101,8 @@ CMultiSlave_CheckCarriedItemMoves(CMultiSlave *slave, CVector *itemList, CLocati
 
 	iter = (uintptr_t *)itemList->begin;
 
-	CLocation_Init(&compLoc);
+	CLocation_Init(&unusedLoc);
+	USED(unusedLoc);
 
 	for (;;) {
 		CItem *item;
@@ -1114,7 +1114,7 @@ CMultiSlave_CheckCarriedItemMoves(CMultiSlave *slave, CVector *itemList, CLocati
 
 		CLocation_SetLoc(&compLoc, &item->resourceEntity.entity.location);
 
-		CLocation_ComputeDelta(&compLoc, &compLoc, &savedLoc);
+		CLocation_SetLoc(&compLoc, CLocation_ComputeDelta(&compLoc, &delta, &savedLoc));
 
 		CLocation_Add(&compLoc, loc);
 
@@ -1192,7 +1192,7 @@ CMultiManager_SaveToMul(CResManager *this)
 	uint16_t deadWord;
 	int deadCount;
 
-	// Two dead stores the binary makes at 0x00475370 and 0x004753AE.
+	// Two stores the binary makes and never reads.
 	deadWord = 6;
 	deadCount = 0xC;
 	USED(deadWord);
@@ -3490,6 +3490,8 @@ CMultiDef_Constructor(CMultiDef *def)
 static void *
 CMultiComponentPool_Alloc(void)
 {
+	// The binary ends both exits with an empty CResList constructor on
+	// the pool, omitted here as at CMultiComponent's own constructor.
 	CMultiComponent *mc;
 	char *block;
 	CMultiComponent *nodes;
@@ -3769,7 +3771,7 @@ CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element)
 		curCount = CVector_GetCount16(this);
 		newTotal = (count >= curCount) ? count : curCount;
 		newTotal += curCount;
-		newBuf = CVector_Allocate16(NULL, newTotal, 0);
+		newBuf = CVector_Allocate16(this, newTotal, 0);
 		mid = CVector_Uninit_Copy16_Fwd2(this, this->begin, pos, newBuf);
 		Uninit_FillN_16(this, mid, count, element);
 		mid = (char *)mid + (count * sizeof(CString));
@@ -3782,9 +3784,9 @@ CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element)
 		return;
 	}
 
-	if ((int32_t)(((char *)this->end - (char *)pos) / sizeof(CString)) < (int32_t)count) {
+	if ((uint32_t)(((char *)this->end - (char *)pos) / sizeof(CString)) < count) {
 		CVector_Uninit_Copy16_Fwd2(this, pos, this->end, (char *)pos + (count * sizeof(CString)));
-		Uninit_FillN_16(this, this->end, count - (int32_t)(((char *)this->end - (char *)pos) / sizeof(CString)), element);
+		Uninit_FillN_16(this, this->end, count - (uint32_t)(((char *)this->end - (char *)pos) / sizeof(CString)), element);
 		FillCopy16_Fwd(pos, this->end, element);
 		this->end = (char *)this->end + (count * sizeof(CString));
 		return;
@@ -3936,21 +3938,21 @@ CVector_Destroy6_Single(CVector *this, void *element)
  * when capacity is exhausted.
  */
 static void
-CDeque6_Insert(void *deque, void *pos, int count, void *element)
+CDeque6_Insert(void *deque, void *pos, uint32_t count, void *element)
 {
 	CVector *this = (CVector *)deque;
-	int avail, suffix, minCount, totalCount, oldCount;
+	uint32_t avail, suffix, minCount, totalCount, oldCount;
 	void *newBuf, *mid;
 
 	avail = ((char *)this->capacity - (char *)this->end) / sizeof(CLocation);
 	if (avail < count) {
-		int curCount = CVector_GetCount6(this);
+		uint32_t curCount = (uint32_t)CVector_GetCount6(this);
 		if (count < curCount)
 			minCount = curCount;
 		else
 			minCount = count;
 		totalCount = CVector_GetCount6(this) + minCount;
-		newBuf = CVector_Allocate6(this, totalCount);
+		newBuf = CVector_Allocate6(this, totalCount, 0);
 		mid = Uninit_Copy6_Fwd(this, this->begin, pos, newBuf);
 		Uninit_FillN_6(this, mid, count, element);
 		Uninit_Copy6_Fwd(this, pos, this->end, (char *)mid + count * sizeof(CLocation));
@@ -3967,7 +3969,7 @@ CDeque6_Insert(void *deque, void *pos, int count, void *element)
 			Uninit_FillN_6(this, this->end, count - suffix, element);
 			FillCopy6_Fwd(pos, this->end, element);
 			this->end = (char *)this->end + count * sizeof(CLocation);
-		} else if (count > 0) {
+		} else if (count != 0) {
 			Uninit_Copy6_Fwd(this, (char *)this->end - count * sizeof(CLocation), this->end, this->end);
 			CopyBackward6(pos, (char *)this->end - count * sizeof(CLocation), this->end);
 			FillCopy6_Fwd(pos, (char *)pos + count * sizeof(CLocation), element);
@@ -4619,7 +4621,7 @@ CopyBackward6(void *first, void *last, void *dest)
  *
  * Allocates count CLocation slots; clamps negative to 0.
  */
-static __attribute__((unused)) void *
+void *
 Allocate6_Inner(int count)
 {
 	if (count < 0)
@@ -4702,7 +4704,7 @@ CLocationPair_CopyAssign(CLocationPair *dst, CLocationPair *src)
  *
  * Copies a CLocation from src into this.
  */
-static void *
+void *
 CLocation_CopyFromSrc(CLocation *this, CLocation *src)
 {
 	CLocation_SetLoc(this, src);

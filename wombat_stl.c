@@ -359,7 +359,7 @@ OStream_Put(CBasicFstream *this, char ch)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	uint32_t state = 0;
-	char sentry[16];
+	char sentry[8];
 
 	Iterator_Constructor(sentry, this);
 
@@ -1561,10 +1561,9 @@ CStdioFile_Setptr(CStdioFileBuf *this, uintptr_t filePtr, uint32_t openFlag)
 }
 
 /*
- * 0x00403DB0 - CScript::CompileExpression
+ * 0x00403DB0 - Stream_PostOpenLocaleSetup
  *
- * Wires up the MSVC STL locale facets that the wombat compiler needs after
- * a stream is opened: looks up a facet, copy/replace-assigns it into the
+ * Wires up the MSVC STL locale facets a stream needs after it is opened: looks up a facet, copy/replace-assigns it into the
  * filebuf's slot, clears the pointer when the facet reports empty, and
  * allocates the auxiliary src object on first use.
  */

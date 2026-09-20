@@ -2857,7 +2857,6 @@ Item_IsSpecialBodyType(CItem *item)
 static __attribute__((unused)) int
 Item_IsBodyTypeInList_487A47(CItem *item)
 {
-	// 0x0061DA88
 	static const uint32_t bodyTypes[12] = { 0x12C, 0x121, 0x120, 0x122, 0x123, 0x39, 0x2FF, 0x11, 0x136, 0x137, 0x2F9, 0x2FA };
 	int i;
 
@@ -2877,7 +2876,6 @@ Item_IsBodyTypeInList_487A47(CItem *item)
 static __attribute__((unused)) int
 Item_IsBodyTypeInList_487A90(CItem *item)
 {
-	// 0x0061DAB8
 	static const uint32_t bodyTypes[8] = { 0x3D5D, 0x3D5E, 0x3D5F, 0x3D60, 0x3D54, 0x3D55, 0x3D56, 0x3D57 };
 	int i;
 
@@ -3969,7 +3967,7 @@ CCorpse_SetCorpseBodyType(CCorpse *this, uint16_t bodyType)
 void
 CItem_SendEntityUpdate_VT(CItem *self, CItem *viewer, int withEquip)
 {
-	uint8_t pktBuf[0x48];
+	uint8_t pktBuf[0x18];
 	CMobile *parentMob;
 	int slot;
 
@@ -4665,7 +4663,7 @@ CCorpse_Destructor(CCorpse *this)
 void
 CCorpse_SetLookAtText(CItem *corpse, CString *name)
 {
-	char buf[160];
+	char buf[128];
 	CString lookAtName;
 	CString tag;
 	int firstChar;
@@ -4741,21 +4739,21 @@ CItem_ClearScriptsAndTags(CItem *self)
  * also triggers the nearby-NPC speech hook. CMobile overrides this.
  */
 void
-CEntity_SayCString_VT(CItem *self, char *text, int hue, int type, int font)
+CEntity_SayCString_VT(CItem *self, char *text, int hue, int font, int speechType)
 {
 	uint8_t obuf[0x42C];
 	CLocation loc;
 	CLocation delta;
 	int height;
 
-	if (font == -1)
-		font = 0;
+	if (speechType == -1)
+		speechType = 0;
 	if (hue == -1)
 		hue = 0x3B2;
-	if (type == -1)
-		type = 3;
+	if (font == -1)
+		font = 3;
 
-	PacketManager_MakePacket_TEXT(obuf, self, self, (uint8_t)font, text, (uint16_t)hue, (uint16_t)type);
+	PacketManager_MakePacket_TEXT(obuf, self, self, (uint8_t)speechType, text, (uint16_t)hue, (uint16_t)font);
 
 	height = ((int (*)(void *))VT_FN(self, VT_GET_HEIGHT))(self);
 	CLocation_Constructor3D(&delta, 0, 0, (int16_t)(height / 2));
@@ -4774,21 +4772,21 @@ CEntity_SayCString_VT(CItem *self, char *text, int hue, int type, int font)
  * Unicode SayCString: identical flow with a TEXT_UNICODE packet.
  */
 void
-CItem_SayCUString_VT(CItem *self, uint16_t *text, int hue, int type, int font)
+CItem_SayCUString_VT(CItem *self, uint16_t *text, int hue, int font, int speechType)
 {
 	uint8_t obuf[0x830];
 	CLocation loc;
 	CLocation delta;
 	int height;
 
-	if (font == -1)
-		font = 0;
+	if (speechType == -1)
+		speechType = 0;
 	if (hue == -1)
 		hue = 0x3B2;
-	if (type == -1)
-		type = 3;
+	if (font == -1)
+		font = 3;
 
-	PacketManager_MakePacket_TEXT_UNICODE(obuf, self, self, (uint8_t)font, text, (uint16_t)hue, (uint16_t)type, 0);
+	PacketManager_MakePacket_TEXT_UNICODE(obuf, self, self, (uint8_t)speechType, text, (uint16_t)hue, (uint16_t)font, 0);
 
 	height = ((int (*)(void *))VT_FN(self, VT_GET_HEIGHT))(self);
 	CLocation_Constructor3D(&delta, 0, 0, (int16_t)(height / 2));
@@ -4803,24 +4801,24 @@ CItem_SayCUString_VT(CItem *self, uint16_t *text, int hue, int type, int font)
 /*
  * 0x0048D3BC - CItem::EmoteCString (vtable[0x5C])
  *
- * Emote variant of SayCString, defaulting the font to 7.
+ * Emote variant of SayCString, defaulting the speech type to 7.
  */
 void
-CItem_EmoteCString_VT(CItem *self, char *text, int hue, int type, int font)
+CItem_EmoteCString_VT(CItem *self, char *text, int hue, int font, int speechType)
 {
 	uint8_t obuf[0x42C];
 	CLocation loc;
 	CLocation delta;
 	int height;
 
-	if (font == -1)
-		font = 7;
+	if (speechType == -1)
+		speechType = 7;
 	if (hue == -1)
 		hue = 0x3B2;
-	if (type == -1)
-		type = 3;
+	if (font == -1)
+		font = 3;
 
-	PacketManager_MakePacket_TEXT(obuf, self, self, (uint8_t)font, text, (uint16_t)hue, (uint16_t)type);
+	PacketManager_MakePacket_TEXT(obuf, self, self, (uint8_t)speechType, text, (uint16_t)hue, (uint16_t)font);
 
 	height = ((int (*)(void *))VT_FN(self, VT_GET_HEIGHT))(self);
 	CLocation_Constructor3D(&delta, 0, 0, (int16_t)(height / 2));
@@ -4835,24 +4833,24 @@ CItem_EmoteCString_VT(CItem *self, char *text, int hue, int type, int font)
 /*
  * 0x0048D4CF - CItem::EmoteCUString (vtable[0x58])
  *
- * Unicode emote variant, font 7 by default.
+ * Unicode emote variant, speech type 7 by default.
  */
 void
-CItem_EmoteCUString_VT(CItem *self, uint16_t *text, int hue, int type, int font)
+CItem_EmoteCUString_VT(CItem *self, uint16_t *text, int hue, int font, int speechType)
 {
 	uint8_t obuf[0x830];
 	CLocation loc;
 	CLocation delta;
 	int height;
 
-	if (font == -1)
-		font = 7;
+	if (speechType == -1)
+		speechType = 7;
 	if (hue == -1)
 		hue = 0x3B2;
-	if (type == -1)
-		type = 3;
+	if (font == -1)
+		font = 3;
 
-	PacketManager_MakePacket_TEXT_UNICODE(obuf, self, self, (uint8_t)font, text, (uint16_t)hue, (uint16_t)type, 0);
+	PacketManager_MakePacket_TEXT_UNICODE(obuf, self, self, (uint8_t)speechType, text, (uint16_t)hue, (uint16_t)font, 0);
 
 	height = ((int (*)(void *))VT_FN(self, VT_GET_HEIGHT))(self);
 	CLocation_Constructor3D(&delta, 0, 0, (int16_t)(height / 2));

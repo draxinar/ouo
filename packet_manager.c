@@ -537,7 +537,7 @@ PacketManager_MakePacket_MOVE(uint8_t *buf, CItem *item)
 
 	PutPacketType(buf, 0x1A, 0x15);
 
-	// 0x0049944E-0x0049946D: GetGraphic, check tiledata TF_STACKABLE
+	// GetGraphic, check tiledata TF_STACKABLE
 	graphic = item->resourceEntity.entity.bodyType;
 	if (g_ItemTileData[graphic].flags & TF_STACKABLE) {
 		// TF_STACKABLE: use CItem_GetMinResourceRatio
@@ -547,17 +547,17 @@ PacketManager_MakePacket_MOVE(uint8_t *buf, CItem *item)
 		amount = (uint16_t)((int (*)(void *))VT_FN(item, VT_GET_AMOUNT))(item);
 	}
 
-	// 0x00499494-0x0049949A: clamp to min 1
+	// clamp to min 1
 	if (amount == 0)
 		amount = 1;
 
-	// 0x004994A1-0x004994D2: serial, bit 31 set if amount != 1
+	// serial, bit 31 set if amount != 1
 	if (amount != 1)
 		PutDWord(buf, item->serial | 0x80000000);
 	else
 		PutDWord(buf, item->serial);
 
-	// 0x004994D5-0x00499514: graphic from multi typeId or GetGraphic
+	// graphic from multi typeId or GetGraphic
 	if (CItem_IsMultiOwner(item) == 1 && !VT_IsMobile(item)) {
 		graphic = (uint16_t)CMultiSlave_GetTypeId(CItem_GetMultiSlave(item));
 		graphic |= 0x4000;
@@ -565,12 +565,12 @@ PacketManager_MakePacket_MOVE(uint8_t *buf, CItem *item)
 		graphic = item->resourceEntity.entity.bodyType;
 	}
 
-	// 0x00499518-0x00499530: if IsStackable, set graphic bit 15
+	// if IsStackable, set graphic bit 15
 	if (CItem_IsStackable(item))
 		graphic |= 0x8000;
 	PutWord(buf, graphic);
 
-	// 0x00499545-0x00499568: if IsStackable, write stack byte
+	// if IsStackable, write stack byte
 	if (CItem_IsStackable(item))
 		PutByte(buf, CItem_IsStackable(item));
 
@@ -583,29 +583,29 @@ PacketManager_MakePacket_MOVE(uint8_t *buf, CItem *item)
 		graphic |= 0x8000;
 	PutWord(buf, graphic);
 
-	// 0x004995C0-0x004995DF: y coordinate with hue and facing flags
+	// y coordinate with hue and facing flags
 	graphic = item->resourceEntity.entity.location.y;
 	if (item->resourceEntity.entity.color != 0)
 		graphic |= 0x8000;
 
-	// 0x004995E3-0x004995F0: GetStatusFlagsWrapper (0x00490E4D)
+	// GetStatusFlagsWrapper
 	facing = GetStatusFlagsWrapper(item);
 	if (facing != 0)
 		graphic |= 0x4000;
 	PutWord(buf, graphic);
 
-	// 0x00499615-0x00499628: direction byte (if non-zero)
+	// direction byte (if non-zero)
 	if (amount != 0)
 		PutByte(buf, (uint8_t)amount);
 
-	// 0x0049962B-0x0049963B: z coordinate
+	// z coordinate
 	PutByte(buf, (uint8_t)item->resourceEntity.entity.location.z);
 
-	// 0x0049963E-0x0049965C: hue word (if color != 0)
+	// hue word (if color != 0)
 	if (item->resourceEntity.entity.color != 0)
 		PutWord(buf, item->resourceEntity.entity.color);
 
-	// 0x0049965F-0x00499672: facing byte (if non-zero)
+	// facing byte (if non-zero)
 	if (facing != 0)
 		PutByte(buf, (uint8_t)facing);
 }
@@ -850,7 +850,7 @@ PacketManager_MakePacket_OBJ_TO_OBJ(uint8_t *buf, CItem *item, CItem *container)
 
 	// Amount: 3-way dispatch matching binary
 	if (((int (*)(void *))VT_FN(container, VT_EXCLUDED_AMOUNT))(container)) {
-		PutWord(buf, (uint16_t)CItem_GetTiledataQuantity(item));
+		PutWord(buf, (uint16_t)CItem_GetSortKeyQty(item));
 	} else if (g_ItemTileData[item->resourceEntity.entity.bodyType].flags & TF_STACKABLE) {
 		PutWord(buf, (uint16_t)CItem_GetMinResourceRatio(item));
 	} else {
