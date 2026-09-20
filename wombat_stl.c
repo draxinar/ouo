@@ -51,7 +51,7 @@ static void *OFStream_Constructor(CBasicFstream *this, void *filename, int openM
 static void Stream_SubDestructor(CIosBase *this); // 0x00401B60
 static void Stream_SetVbptr(CStdioFileBuf *this); // 0x00401BD0
 static void OFStream_Close(CBasicFstream *this); // 0x00401BF0
-static void CSdbStr_VectorDtor(CStdioFileBuf *this); // 0x00401C20
+static void BasicFilebuf_Destructor(CStdioFileBuf *this); // 0x00401C20
 static void CStdioFile_ScalarDelete(CLocaleFacet *this); // 0x00401CC0
 static void *Locale_Facet_Decref(CLocaleFacet *this); // 0x00401D10
 static void Tree_NodeDestructor(CStreamBuf *this); // 0x00401D70
@@ -93,7 +93,7 @@ static int String_Grow(CSdbStr *this, uint32_t newcap, int flag); // 0x004036C0
 static uintptr_t PtrAdd_NullCheck(uintptr_t base, uintptr_t offset); // 0x00403800
 static void String_Freeze(CSdbStr *this); // 0x00403850
 static unsigned char Stream_GoodCheck(CBasicFstream *this); // 0x004038C0
-static unsigned char Stream_OpenCheck(CIosBase *this); // 0x00403930
+static unsigned char Stream_GoodFlag(CIosBase *this); // 0x00403930
 static void Iterator_CheckAdvance(CBasicFstream *this); // 0x00403950
 static void StreamBuf_BaseConstructor(CStreamBuf *this); // 0x00403A10
 static void CStdioFile_Setptr(CStdioFileBuf *this, uintptr_t filePtr, uint32_t openFlag); // 0x00403CC0
@@ -148,7 +148,11 @@ static uintptr_t g_vt_BasicFstream[] = {
 static uintptr_t g_vt_IStream[] = { 0 };             /* 0x005EE010 */
 static uintptr_t g_vt_BasicFilebuf[14] = { 0 };      /* 0x005EE018 - 14 entries */
 static uintptr_t g_vt_CStreamBuf[12] = { 0 };        /* 0x005EE050 - 12 entries */
-static uintptr_t g_vt_CString[] = { 0 };             /* 0x005EE090 */
+static uintptr_t g_vt_CString[] = {
+	/* 0x005EE090 - two-entry vbtable */
+	0, // [0] offset to self
+	4  // [1] offset from vbptr to the virtual base
+};
 // 0x005EE088 - empty string buffer returned by basic_string<char>::_Nullstr
 static char g_NullStr[4];
 static uintptr_t g_vt_LocaleCategoryBase[] = { 0 };           /* 0x005EE098 */
@@ -545,7 +549,7 @@ Stream_SubDestructor(CIosBase *this)
 	uintptr_t offset = vt[FSTREAM_VBT_VBASE];
 	*(uintptr_t *)((char *)fs + offset) = (uintptr_t)g_vt_BasicFstream_Vbptr;
 
-	CSdbStr_VectorDtor(&fs->filebuf);
+	BasicFilebuf_Destructor(&fs->filebuf);
 	Stream_SetVbptr(&fs->filebuf);
 }
 
@@ -584,13 +588,14 @@ OFStream_Close(CBasicFstream *this)
 }
 
 /*
- * 0x00401C20 - CSdbStr vector element destructor
+ * 0x00401C20 - basic_filebuf::~basic_filebuf
  *
- * basic_filebuf destructor: closes the file when open, releases the buffer,
- * destroys the locale facet, and runs the tree-node base destructor.
+ * Stamps the basic_filebuf vtable, closes the file when open, releases
+ * the buffer, destroys the locale facet, and runs the tree-node base
+ * destructor.
  */
 static void
-CSdbStr_VectorDtor(CStdioFileBuf *this)
+BasicFilebuf_Destructor(CStdioFileBuf *this)
 {
 	this->base.vtable = (void **)g_vt_BasicFilebuf;
 
@@ -786,6 +791,11 @@ String_ScalarDestructor2(CSdbStr *this, int flags)
  * 0x00402A50 - basic_string<char>::append (n copies of char)
  *
  * Appends count copies of ch to the string, growing storage as needed.
+ *
+ * The binary throws std::length_error through 0x005C03F0 when the
+ * result would exceed max_size; C99 has no equivalent, so the check
+ * returns instead. The bound in the image is 0xffffffff, which makes
+ * it unreachable.
  */
 static __attribute__((unused)) void *
 String_AppendN(CSdbStr *this, uint32_t count, char ch)
@@ -968,12 +978,16 @@ done:
 }
 
 /*
- * 0x00402D30 - CString::CString (with init)
+ * 0x00402D30 - iostream virtual-base constructor
  *
- * basic_string-with-init constructor. When constructBase is set, builds the
- * full base sub-object via Tree_NodeConstructor; always stamps the istream
- * vbptr vtable; when hasData is set, runs CStreamBuf_Constructor to install
- * the initData byte into the virtual base string.
+ * When constructBase is set, installs the two-entry vbtable at
+ * 0x005EE090 and builds the base sub-object via Tree_NodeConstructor;
+ * always stamps the istream vtable at the virtual base the vbtable
+ * points to; when hasData is set, runs CStreamBuf_Constructor there.
+ *
+ * The body touches no string data, so the "basic_string with init"
+ * reading the name carried does not hold. What class it belongs to is
+ * not established; 0x005EE090 is a vbtable, not a vtable.
  */
 static void *
 CString_ConstructorWithInit(CBasicFstream *this, void *subObj, char initData, int hasData, int constructBase)
@@ -1002,6 +1016,10 @@ CString_ConstructorWithInit(CBasicFstream *this, void *subObj, char initData, in
  * 0x00402DE0 - std::ios_base::setstate (state + exception handling)
  *
  * Stores the new ios state, ORing in badbit when the streambuf is NULL.
+ *
+ * MODIFIED: the binary tail-calls 0x005BFC50, which stores the state
+ * and then throws ios_base::failure when the exception mask matches.
+ * Ours inlines only the store, so an enabled mask is ignored.
  */
 static __attribute__((unused)) void
 IosBase_SetState2(CIosBase *this, uint32_t state, char excflag __attribute__((unused)))
@@ -1012,8 +1030,6 @@ IosBase_SetState2(CIosBase *this, uint32_t state, char excflag __attribute__((un
 		finalstate = state | 4;
 	else
 		finalstate = state;
-	// The binary stores finalstate & 7 through a helper whose exception
-	// path is omitted here.
 	ios->state = finalstate & 7;
 }
 
@@ -1442,37 +1458,44 @@ String_Freeze(CSdbStr *this)
 /*
  * 0x004038C0 - Stream good-bit check (via iterator state)
  *
- * Returns the stream's open state. When the stream is open and the event
- * ring has pending entries, runs OStream_Flush to advance past them first.
+ * std::ostream::sentry: when the stream is good and has a tied stream,
+ * flushes the tied stream first, then re-reads good().
+ *
+ * 0x00403980 is COMDAT-folded with EventRingBuffer_Count, which reads
+ * the same +0x2C offset off the global deque; here the object is the
+ * CIosBase virtual base and the field is its tie pointer.
  */
 static unsigned char
 Stream_GoodCheck(CBasicFstream *this)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	uintptr_t *vt = (uintptr_t *)p[0];
-	void *sub = (char *)this + vt[FSTREAM_VBT_VBASE];
-	unsigned char isOpen = Stream_OpenCheck(sub);
-	if (isOpen) {
-		uint32_t count = EventRingBuffer_Count();
-		if (count != 0) {
-			uint32_t count2 = EventRingBuffer_Count();
-			OStream_Flush((void *)(uintptr_t)count2);
+	CIosBase *ios = (CIosBase *)((char *)this + vt[FSTREAM_VBT_VBASE]);
+
+	if (Stream_GoodFlag(ios)) {
+		ios = (CIosBase *)((char *)this + ((uintptr_t *)p[0])[FSTREAM_VBT_VBASE]);
+		if (ios->tiestream != NULL) {
+			ios = (CIosBase *)((char *)this + ((uintptr_t *)p[0])[FSTREAM_VBT_VBASE]);
+			OStream_Flush(ios->tiestream);
 		}
 	}
-	sub = (char *)this + ((uintptr_t *)p[0])[FSTREAM_VBT_VBASE];
-	return Stream_OpenCheck(sub);
+
+	ios = (CIosBase *)((char *)this + ((uintptr_t *)p[0])[FSTREAM_VBT_VBASE]);
+	return Stream_GoodFlag(ios);
 }
 
 /*
- * 0x00403930 - Stream open check (non-NULL bucket)
+ * 0x00403930 - std::ios_base::good
  *
- * Returns 1 when the search context's bucket is non-zero.
+ * Returns 1 when the state word at +0x04 is zero. The binary's
+ * NEG/SBB/INC on the accessor result is that test; the accessor itself
+ * is COMDAT-folded with CSearchCtx::GetBucket.
  */
 static unsigned char
-Stream_OpenCheck(CIosBase *this)
+Stream_GoodFlag(CIosBase *this)
 {
 	int val = CSearchCtx_GetBucket((CSearchCtx *)this);
-	return val != 0;
+	return val == 0;
 }
 
 /*
@@ -2016,7 +2039,7 @@ Locale_Id_GetOrAlloc(uint32_t *this)
 {
 	// The binary's critical-section bracket is omitted as elsewhere.
 	uint32_t *p = this;
-	static uint32_t s_idCounter = 49; // initial value at [0x9a3a80]
+	static uint32_t s_idCounter; // 0x009A3A80, past the initialized .data tail
 	if (p[0] == 0) {
 		s_idCounter++;
 		p[0] = s_idCounter;
@@ -2027,9 +2050,13 @@ Locale_Id_GetOrAlloc(uint32_t *this)
 /*
  * 0x004049F0 - locale use_facet wrapper
  *
- * Looks up a facet from the locale (stubbed to NULL on Linux) and copies it
- * into the destination via Locale_Facet_CopyAssign, then tears down the
- * temporary at arg2.
+ * Looks up a facet from the locale and copies it into the destination
+ * via Locale_Facet_CopyAssign, then tears down the temporary at arg2.
+ *
+ * MODIFIED: the binary's std::use_facet call at 0x005C1440 has no
+ * counterpart here - we do not model MSVC's locale facet table - so the
+ * copy always assigns NULL. The CRT _Lockit guard around the body is
+ * dropped with it.
  */
 static void *
 Locale_UseFacet(void *arg1, void *arg2, void *arg3)

@@ -24,6 +24,7 @@ int fclose_ServerSide(FILE *f); // 0x004E5F5A
 char *fgets_ServerSide(char *buf, int maxLen, FILE *f); // 0x004E5F9A
 int feof_ServerSide(FILE *f); // 0x004E5FDA
 long ftell_ServerSide(FILE *f); // 0x004E600A
+int ungetc_ServerSide(int c, FILE *f); // 0x004E603A
 int fgetc_ServerSide(FILE *f); // 0x004E606A
 
 #endif /* IO_H_ */

@@ -613,8 +613,8 @@ CResourceType_Constructor(CResourceType *this)
 	this->_typeId_pad64 = 0;
 #endif
 
-	CResourceType_SetField288(this, 1);
-	CResourceType_SetField28C(this, 0);
+	this->field_288 = 1;
+	this->field_28C = 0;
 	return this;
 }
 
@@ -652,8 +652,12 @@ CResourceType_Save(CResourceType *this, FILE *fp)
 /*
  * 0x004A85E4 - CResourceTypeManager::CResourceTypeManager
  *
- * Zeroes entries/hashTable and seeds count=1. Decomposed into globals in
- * our code and inlined into LoadResTypes.
+ * Zeroes entries/hashTable and seeds count=1.
+ *
+ * MODIFIED: the binary heap-allocates both arrays - operator new of
+ * 0x198 at 004a85f9 and of 0x800 at 004a8622, each then memset - and
+ * stores them at +0x04 and +0x08. Ours are .bss arrays of the same
+ * element counts, so the two allocations are dropped.
  */
 static void
 CResourceTypeManager_Constructor(void)
@@ -702,7 +706,7 @@ void
 CResourceTypeManager_SendAll(CItem *player)
 {
 	int i;
-	uint8_t buf[0x298];
+	uint8_t buf[0x290];
 	CResourceType *entry;
 
 	for (i = 0; i < 0x66; i++) {

@@ -79,7 +79,7 @@ static void CNPCManager_DrainActiveList(void); // 0x00483F6A
 __extension__ typedef struct CNPCManagerBlock CNPCManagerBlock;
 static void *CNPCManagerBlock_ScalarDelete(CNPCManagerBlock *this, int flags); // 0x00484320
 static void *StdPtrList_ScalarDelete_NPC(StdPtrList *this, int flags); // 0x00484380
-static int CNPCManager_GetCountMinus4(StdPtrList *this); // 0x00484400
+static uintptr_t *CNPCActiveList_Back(CVector *this); // 0x00484400
 static void CNPCManagerBlock_Destructor(CNPCManagerBlock *this); // 0x00484560
 static int Path_AtStep(PathNode *step, CLocation *loc, int dir); // 0x00484C50
 static void Path_GetCurrentStep(CNPC *npc, PathNode *out); // 0x0049DF20
@@ -1019,6 +1019,12 @@ CNPCMap_Init(void)
  *
  * Zeros all 64 NPC hash buckets, clears the iteration cursor and
  * g_NPCMap, and constructs the deferred heartbeat queue.
+ *
+ * FIXED: the binary hands CVector_Constructor the address of a stack
+ * slot it never writes - 004809d8 takes &[EBP-8] and 0042646a
+ * dereferences it - so g_NPCActiveList.type gets a garbage byte.
+ * Initialised to 0, as TimerManager_ProcessTimers does for the same
+ * bug.
  */
 void
 CNPCHash_Constructor(void)
@@ -1102,7 +1108,7 @@ CNPCManager_CreateMobileAt(int16_t x, int16_t y)
  * 8 hash buckets (cursor-based, round-robin across calls) for NPCs
  * present in the world and not inside a container.
  */
-void
+int
 CNPCHash_HeartbeatTick(void)
 {
 	int i;
@@ -1124,6 +1130,7 @@ CNPCHash_HeartbeatTick(void)
 		g_NPCHashCursor = (g_NPCHashCursor + 1) & 0x3F;
 	}
 	g_NPCHashIterNext = NULL;
+	return 0;
 }
 
 /*
@@ -1261,8 +1268,8 @@ CNPC_InitFields(CNPC *npc)
  * 0x0048104C - CResourceMobile::CResourceMobile
  *
  * No-args CResourceMobile constructor: chains CMobile_Constructor,
- * clears behaviorFlags and the five CLocation waypoints, and runs
- * CNPC_InitFields. Used for guard NPCs.
+ * clears behaviorFlags, runs CLocation_Init on the five waypoints, and
+ * then runs CNPC_InitFields. Used for guard NPCs.
  */
 void
 CResourceMobile_Init(CMobile *mob)
@@ -1272,21 +1279,11 @@ CResourceMobile_Init(CMobile *mob)
 	CMobile_Constructor(mob);
 	npc->behaviorFlags = 0;
 
-	npc->patrolTarget.x = 0xFFFF;
-	npc->patrolTarget.y = 0xFFFF;
-	npc->patrolTarget.z = (int16_t)0xFFFF;
-	npc->desireLoc.x = 0xFFFF;
-	npc->desireLoc.y = 0xFFFF;
-	npc->desireLoc.z = (int16_t)0xFFFF;
-	npc->lastDesireLoc.x = 0xFFFF;
-	npc->lastDesireLoc.y = 0xFFFF;
-	npc->lastDesireLoc.z = (int16_t)0xFFFF;
-	npc->loiterLoc.x = 0xFFFF;
-	npc->loiterLoc.y = 0xFFFF;
-	npc->loiterLoc.z = (int16_t)0xFFFF;
-	npc->homeLoc.x = 0xFFFF;
-	npc->homeLoc.y = 0xFFFF;
-	npc->homeLoc.z = (int16_t)0xFFFF;
+	CLocation_Init(&npc->patrolTarget);
+	CLocation_Init(&npc->desireLoc);
+	CLocation_Init(&npc->lastDesireLoc);
+	CLocation_Init(&npc->loiterLoc);
+	CLocation_Init(&npc->homeLoc);
 
 	npc->convoFragList = NULL;
 	npc->pathArray = 0;
@@ -1310,21 +1307,11 @@ CResourceMobile_Constructor(CMobile *mob, uint16_t bodyType, uint8_t flag, CLoca
 	CMobile_Constructor(mob);
 	npc->behaviorFlags = 0;
 
-	npc->patrolTarget.x = 0xFFFF;
-	npc->patrolTarget.y = 0xFFFF;
-	npc->patrolTarget.z = (int16_t)0xFFFF;
-	npc->desireLoc.x = 0xFFFF;
-	npc->desireLoc.y = 0xFFFF;
-	npc->desireLoc.z = (int16_t)0xFFFF;
-	npc->lastDesireLoc.x = 0xFFFF;
-	npc->lastDesireLoc.y = 0xFFFF;
-	npc->lastDesireLoc.z = (int16_t)0xFFFF;
-	npc->loiterLoc.x = 0xFFFF;
-	npc->loiterLoc.y = 0xFFFF;
-	npc->loiterLoc.z = (int16_t)0xFFFF;
-	npc->homeLoc.x = 0xFFFF;
-	npc->homeLoc.y = 0xFFFF;
-	npc->homeLoc.z = (int16_t)0xFFFF;
+	CLocation_Init(&npc->patrolTarget);
+	CLocation_Init(&npc->desireLoc);
+	CLocation_Init(&npc->lastDesireLoc);
+	CLocation_Init(&npc->loiterLoc);
+	CLocation_Init(&npc->homeLoc);
 
 	npc->convoFragList = NULL;
 	npc->pathArray = 0;
@@ -2403,7 +2390,7 @@ walk_done:
 				memset(nameBuf + 8, 0, 0x78);
 
 				if (g_npcMoveTargetEnt != NULL) {
-					if (((int (*)(void *))VT_ENT_FN(&g_npcMoveTargetEnt->resourceEntity.entity, VT_IS_CONTAINER))(g_npcMoveTargetEnt)) {
+					if (((int (*)(void *))VT_ENT_FN(&g_npcMoveTargetEnt->resourceEntity.entity, VT_IS_DYNAMIC))(g_npcMoveTargetEnt)) {
 						sprintf(nameBuf, "%s (%d)",
 						        ((char *(*)(void *))VT_ENT_FN(&g_npcMoveTargetEnt->resourceEntity.entity, VT_GET_NAME))(g_npcMoveTargetEnt),
 						        g_npcMoveTargetEnt->serial);
@@ -3029,7 +3016,7 @@ CNPCManager_DrainActiveList(void)
 	CNPC *npc;
 
 	while (CVector_GetCount(&g_NPCActiveList) > 0) {
-		serial = (uint32_t)*((uintptr_t *)g_NPCActiveList.end - 1);
+		serial = (uint32_t)*CNPCActiveList_Back(&g_NPCActiveList);
 		npc = (CNPC *)CWorld_FindNPCBySerial(g_World, serial);
 		if (npc != NULL)
 			CNPC_Heartbeat(npc);
@@ -3245,12 +3232,14 @@ StdPtrList_ScalarDelete_NPC(StdPtrList *this, int flags)
 /*
  * 0x00484400 - CNPCManager::GetCountMinus4
  *
- * Returns the list size minus 4 (sentinel/header slot count).
+ * Returns a pointer to the last element: end() minus one slot. The
+ * binary reads the vector's end pointer through the folded +0x08
+ * accessor and subtracts one element width.
  */
-static __attribute__((unused)) int
-CNPCManager_GetCountMinus4(StdPtrList *this)
+static uintptr_t *
+CNPCActiveList_Back(CVector *this)
 {
-	return StdList_GetSize(this) - 4;
+	return (uintptr_t *)this->end - 1;
 }
 
 /*
@@ -3668,7 +3657,7 @@ CNPC_StartCombatAI(CMobile *npc, CMobile *target)
 	int i;
 	uint32_t npcSerial, targetSerial;
 
-	if (g_CombatAIDepth >= NPC_COMBAT_AI_MAX_DEPTH)
+	if (g_CombatAIDepth == NPC_COMBAT_AI_MAX_DEPTH)
 		return;
 
 	npcSerial = npc->container.item.serial;
@@ -5366,10 +5355,10 @@ CMobile_IsCreatureBody(CMobile *this)
 int
 CMobile_IsHumanNPC(CMobile *this)
 {
-	uint16_t ti;
-
-	ti = (uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this);
-	return (ti >= 0x1F4 && ti <= 0x2BB);                    /* 500-699 */
+	/* 500-699; the binary re-reads the accessor for the upper bound */
+	if ((uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) < 0x1F4)
+		return 0;
+	return (uint16_t)CResourceEntity_GetTemplateIndex((CItem *)this) <= 0x2BB;
 }
 
 /*
@@ -6340,8 +6329,9 @@ CNPC_WalkAnimDispatch(CMobile *mob, int unused)
 /*
  * 0x004AC9F5 - Broadcast an animation packet to nearby players
  *
- * Builds and broadcasts the ANIM packet (0x6E, 14 bytes) to players
- * within 20 tiles of mob.
+ * Builds and broadcasts the ANIM packet (0x6E, 14 bytes) through
+ * BroadcastToNearby, whose third argument is a recipient cap of 20 -
+ * the range is the hardcoded 12 of its own spatial query.
  */
 void
 BroadcastAnimation(uint32_t serial, CLocation loc, uint16_t action, uint16_t frameCount, uint16_t repeatCount, uint8_t backward, uint8_t repeat, uint8_t delay)

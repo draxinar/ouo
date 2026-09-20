@@ -37,11 +37,11 @@ RecordTickTiming(uint32_t startTime)
 	g_TimingField9EC = 0;
 	g_TimingField9F0 = 0;
 	for (i = 0; i < 128; i++) {
-		if (g_TimingBuffer[i] > g_TimingField9F0)
+		if ((int32_t)g_TimingBuffer[i] > (int32_t)g_TimingField9F0)
 			g_TimingField9F0 = g_TimingBuffer[i];
 		g_TimingField9EC += g_TimingBuffer[i];
 	}
-	g_TimingField9EC >>= 7;
+	g_TimingField9EC = (uint32_t)((int32_t)g_TimingField9EC >> 7);
 }
 
 /*

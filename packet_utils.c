@@ -16,7 +16,7 @@
 #include "utils.h"
 
 uint16_t g_PacketOffset;
-uint16_t g_PacketSize;
+uint32_t g_PacketSize = PacketDynamicSize; // 0x0061F9C0
 
 /*
  * 0x004923FC - PutPacketType

@@ -11,7 +11,7 @@ enum {
 extern uint16_t g_PacketTable[]; // 0x0061F138
 extern const size_t g_PacketTableSize;
 extern uint16_t g_PacketOffset;
-extern uint16_t g_PacketSize;
+extern uint32_t g_PacketSize; // 0x0061F9C0
 extern uint16_t g_PacketTable_12535[];
 
 uint16_t PutPacketType(uint8_t *buf, uint8_t packetType, int size); // 0x004923FC

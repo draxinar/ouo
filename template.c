@@ -1549,7 +1549,7 @@ CTemplateManager_GetNextEqValue(char *dataCursor, CString *out)
 static void
 Template_LoadNamedValue(CMobile *mob, char *dataCursor)
 {
-	char buf[128];
+	char buf[52];
 	CString fragStr;
 
 	if (!VT_IsNPC((CItem *)mob))
@@ -2624,7 +2624,7 @@ CTemplateManager_ValidateVendorStock(CItem *vendor)
 	if (((CMobile *)vendor)->equipment[26] == NULL)
 		return 0;
 
-	if (!VT_IsMobile2(((CMobile *)vendor)->equipment[26]))
+	if (!VT_IsContainer(((CMobile *)vendor)->equipment[26]))
 		return 0;
 
 	stockContainer = ((CMobile *)vendor)->equipment[26];

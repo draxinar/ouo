@@ -314,7 +314,7 @@ loop:
  *
  * MODIFIED: accepts through POSIX sockets rather than Winsock.
  */
-int
+CUserSock *
 CUserSock_Accept(CListenSocket *this)
 {
 	CUserSock *res;
@@ -323,15 +323,15 @@ CUserSock_Accept(CListenSocket *this)
 	uint32_t addr;
 
 	s = CListenSocket_Accept(this, &addr);
-	if (s != -1) {
-		socket = (CUserSock *)OperatorNew(sizeof(*socket));
-		if (socket)
-			res = CUserSock_Constructor(socket, s, addr);
-		else
-			res = 0;
-		s = (res != NULL);
-	}
-	return s;
+	if (s == -1)
+		return (CUserSock *)(intptr_t)s;
+
+	socket = (CUserSock *)OperatorNew(sizeof(*socket));
+	if (socket)
+		res = CUserSock_Constructor(socket, s, addr);
+	else
+		res = 0;
+	return res;
 }
 
 /*
@@ -344,6 +344,10 @@ CUserSock_Accept(CListenSocket *this)
  * MODIFIED: the per-connection packet table comes from the detected client
  * version, which the demo binary - serving one client build - has no need
  * for.
+ *
+ * MODIFIED: the CUserSock_GetServerIP call between SetBlock and the
+ * global store is ours; the binary's tail is three stores and the two
+ * CSocket calls.
  */
 CUserSock *
 CUserSock_Constructor(CUserSock *this, int s, int addr)

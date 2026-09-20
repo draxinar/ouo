@@ -57,10 +57,15 @@ static void StdDeque_Dealloc(StdDeque_TimeEvent *self, void *ptr, uint32_t count
 StdDeque_TimeEvent g_eventRingBuffer;
 
 /*
- * 0x00404660 - std::deque<TimeEvent>::_Unget
+ * 0x00404660 - stream pushback helper
  *
- * Walks backward through buf calling ungetc for each character.
- * Returns 1 if all characters were ungotten, 0 otherwise.
+ * Walks backward through buf calling ungetc_ServerSide for each
+ * character. Returns 1 if all characters were ungotten, 0 otherwise.
+ *
+ * The deque attribution the name carried does not hold: the signature
+ * is (char *, FILE *, unsigned), the callees are the stdio wrappers,
+ * and the one caller drives CStreamBuf's get pointer. What class it
+ * belongs to is not established.
  */
 static __attribute__((unused)) int
 CDeque_Unget(char *buf, FILE *stream, unsigned int count)
@@ -71,7 +76,7 @@ CDeque_Unget(char *buf, FILE *stream, unsigned int count)
 	ptr += count;
 	while (count > 0) {
 		ptr--;
-		if (ungetc((unsigned char)*ptr, stream) == -1)
+		if (ungetc_ServerSide((unsigned char)*ptr, stream) == -1)
 			break;
 		count--;
 	}
@@ -719,7 +724,12 @@ StdDeque_AllocNodeSI(void *dest, void *src)
 	return dest;
 }
 
-// Iterator dereference - returns cur pointer.
+/*
+ * 0x00403280 - std::deque<TimeEvent>::iterator::operator*
+ *
+ * Returns the cur pointer. COMDAT-folded with StdList_GetSize, which
+ * reads the same +0x08 field.
+ */
 TimeEvent *
 StdDequeIter_Deref(StdDequeIter *self)
 {

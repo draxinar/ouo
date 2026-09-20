@@ -45,7 +45,7 @@ __extension__ typedef void (*vfunc_t)(void);
 #define VT_DETACH_SPATIAL          0x010
 #define VT_ATTACH_SPATIAL          0x014
 #define VT_IS_PLAYER               0x018
-#define VT_IS_CONTAINER            0x01C
+#define VT_IS_DYNAMIC              0x01C
 #define VT_HAS_RESOURCE_FLAG       0x020
 #define VT_GET_VALUE               0x024
 #define VT_GET_HEIGHT              0x028
@@ -90,7 +90,7 @@ __extension__ typedef void (*vfunc_t)(void);
 #define VT_SAVE                    0x0C8
 #define VT_GET_MONETARY_VAL        0x0CC
 #define VT_IS_MOBILE               0x0D0
-#define VT_IS_MOBILE2              0x0D4
+#define VT_IS_CONTAINER            0x0D4
 #define VT_HAS_ACCESSIBLE_CONTENTS 0x0D8
 #define VT_CHECK_DC                0x0DC
 #define VT_IS_SPATIAL              0x0E0
@@ -203,10 +203,10 @@ __extension__ typedef void (*vfunc_t)(void);
  * Parameter must be CItem* (uses VT_FN).
  */
 #define VT_IsPlayer(e)    (((int (*)(void *))VT_FN(e, VT_IS_PLAYER))(e))
-#define VT_IsContainer(e) (((int (*)(void *))VT_FN(e, VT_IS_CONTAINER))(e))
+#define VT_IsDynamic(e)   (((int (*)(void *))VT_FN(e, VT_IS_DYNAMIC))(e))
 #define VT_IsHair(e)      (((int (*)(void *))VT_FN(e, VT_IS_HAIR))(e))
 #define VT_IsMobile(e)    (((int (*)(void *))VT_FN(e, VT_IS_MOBILE))(e))
-#define VT_IsMobile2(e)   (((int (*)(void *))VT_FN(e, VT_IS_MOBILE2))(e))
+#define VT_IsContainer(e) (((int (*)(void *))VT_FN(e, VT_IS_CONTAINER))(e))
 #define VT_IsSpatial(e)   (((int (*)(void *))VT_FN(e, VT_IS_SPATIAL))(e))
 #define VT_IsNPC(e)       (((int (*)(void *))VT_FN(e, VT_IS_NPC))(e))
 #define VT_IsVendor(e)    (((int (*)(void *))VT_FN(e, VT_IS_VENDOR))(e))

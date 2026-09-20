@@ -437,7 +437,7 @@ CResBankDistrib_ProcessEntity(CResBankDistrib *this, CItem *entity)
 		node = node->next;
 	}
 
-	if (VT_IsMobile2(entity)) {
+	if (VT_IsContainer(entity)) {
 		CItem *child = ((CContainer *)entity)->contents;
 		while (child != NULL) {
 			CResBankDistrib_ProcessEntity(this, child);
@@ -1440,7 +1440,7 @@ CResBankRegion_SpawnAttempt(CResBankRegion *region, int spawnFilter)
 
 		if (!g_IsInitialSpawn) {
 			uint32_t now = GetTickCount_UO();
-			if (now - startTime > 75)
+			if ((int32_t)(now - startTime) > 75)
 				break;
 		}
 
@@ -4647,7 +4647,7 @@ ProcessDynamicItemForSpawn(CItem *item)
 		}
 	}
 
-	if (VT_IsMobile2(item)) {
+	if (VT_IsContainer(item)) {
 		CItem *child = ((CContainer *)item)->contents;
 		while (child != NULL) {
 			ProcessDynamicItemForSpawn(child);
@@ -4778,7 +4778,7 @@ ProcessBlockItemsForSpawn(CItem *head)
 
 		tdFlags = g_ItemTileData[(uint16_t)CEntity_GetBodyType(cur)].flags;
 
-		if (((tdFlags & 0x200000) && !VT_IsMobile2(cur)) || (!(tdFlags & 0x200000) && VT_IsWeapon(cur))) {
+		if (((tdFlags & 0x200000) && !VT_IsContainer(cur)) || (!(tdFlags & 0x200000) && VT_IsWeapon(cur))) {
 			CLocation savedLoc;
 			uint32_t savedBody;
 			uint32_t savedHue;
@@ -4819,7 +4819,7 @@ ProcessBlockItemsForSpawn(CItem *head)
 			USED(savedLayer);
 			USED(savedAmount);
 
-		} else if (((tdFlags & 0x8000002) && !VT_IsWeapon(cur)) || (!(tdFlags & 0x8000002) && VT_IsMobile2(cur))) {
+		} else if (((tdFlags & 0x8000002) && !VT_IsWeapon(cur)) || (!(tdFlags & 0x8000002) && VT_IsContainer(cur))) {
 			CLocation savedLoc;
 			uint32_t savedBody;
 			uint32_t savedHue;
@@ -4859,7 +4859,7 @@ ProcessBlockItemsForSpawn(CItem *head)
 			USED(savedLayer);
 			USED(savedAmount);
 
-		} else if (VT_IsMobile2(cur)) {
+		} else if (VT_IsContainer(cur)) {
 			CContainer *cont = (CContainer *)cur;
 			ProcessBlockItemsForSpawn(cont->contents);
 		}
@@ -5249,7 +5249,7 @@ parse_color:
 			ptr = CResManager_GetResult((CResManager *)manager, &inSearchCtx);
 			foundContainer = *(CItem **)ptr;
 			if (foundContainer != NULL) {
-				if (VT_IsMobile2(foundContainer)) {
+				if (VT_IsContainer(foundContainer)) {
 					targetContainer = foundContainer;
 				}
 			}
@@ -5298,7 +5298,7 @@ parse_color:
 
 	if (isSelfContained == 1) {
 		if (mob != NULL) {
-			if (VT_IsMobile2(mob)) {
+			if (VT_IsContainer(mob)) {
 				targetContainer = mob;
 			} else {
 				isSelfContained = 0;
@@ -5575,9 +5575,11 @@ CResBankMagicCtx_CopyConstructor(CResListNode **obj, CResListNode **src)
 }
 
 /*
- * Helper - Spawn_GetTemplatesRM
+ * Custom - Spawn_GetTemplatesRM
  *
- * Returns the CResManager holding all loaded templates.
+ * Returns the CResManager holding all loaded templates. The binary
+ * materializes 0x6933F8 into ECX at each use; this wrapper exists so
+ * the global stays private to resbank.c.
  */
 CResManager *
 Spawn_GetTemplatesRM(void)

@@ -76,7 +76,7 @@ static void *CDeque1C_Insert1(CVector *this, void *pos, void *element); // 0x004
 static void CDeque16_Insert(CVector *this, void *pos, uint32_t count, void *element); // 0x00479660
 static void CDeque1C_Insert(CVector *this, void *pos, uint32_t count, void *element); // 0x004798D0
 static void *CVector_Uninit_Copy1C_Fwd2(CVector *this, void *first, void *last, void *dest); // 0x00479B10
-static void CopyFrom1C(CVector *this, void *src, void *dst); // 0x00479B70
+static void CopyFrom1C(CVector *this, void *dst, void *src); // 0x00479B70
 static void CDeque6_Insert(void *deque, void *pos, uint32_t count, void *element); // 0x0047A010
 static void Uninit_FillN_16(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A250
 static void Uninit_FillN_1C(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A290
@@ -109,7 +109,7 @@ static void CopyFrom16_Inner(void *dst, void *src); // 0x0047B260
 static void Destroy16_Inner(void *element); // 0x0047B2A0
 static void FillCopy1C_Fwd(void *first, void *last, void *element); // 0x0047B2B0
 static void *CopyBackward1C(void *first, void *last, void *dest); // 0x0047B2E0
-static void CopyFrom1C_Inner(void *src, void *dst); // 0x0047B310
+static void CopyFrom1C_Inner(void *dst, void *src); // 0x0047B310
 static void Destroy1C_Inner(void *element); // 0x0047B350
 static void FillCopy6_Fwd(void *first, void *last, void *element); // 0x0047B360
 static void *CopyBackward6(void *first, void *last, void *dest); // 0x0047B390
@@ -212,12 +212,18 @@ CMultiComponent_Constructor(CMultiComponentDef *def)
 /*
  * 0x0047428A - CMultiComponentDef::CMultiComponentDef (copy)
  *
- * Copy constructor: runs the base ctor, then copies fields from source.
+ * Copy constructor: constructs the location and script vector, then
+ * copies every field from source. Unlike the default constructor it
+ * does not pre-zero bodyType or invisible, because CopyFrom overwrites
+ * both.
  */
 static CMultiComponentDef *
 CMultiComponent_CopyConstructor(CMultiComponentDef *def, CMultiComponentDef *src)
 {
-	CMultiComponent_Constructor(def);
+	char typeFlag = 0;
+
+	CLocation_Init(&def->offset);
+	CVector_Constructor((CVector *)&def->scriptHead, &typeFlag);
 	CMultiComponent_CopyFrom(def, src);
 	return def;
 }
@@ -405,7 +411,7 @@ CMultiComponent_NotifyOwnerRemoval(CMultiComponent *mc, uint32_t serial)
 	if (!CItem_IsMultiOwner(owner))
 		return;
 	slave = CItem_GetMultiSlave(owner);
-	CMultiSlave_NotifyComponentCount(slave, &serial);
+	CMultiSlave_NotifyComponentCount(slave, serial);
 }
 
 /*
@@ -497,10 +503,10 @@ CMultiSlave_AddComponent(CMultiSlave *ms, uint32_t serial)
  * the slave's own base serial.
  */
 void
-CMultiSlave_NotifyComponentCount(CMultiSlave *ms, uint32_t *serialRef)
+CMultiSlave_NotifyComponentCount(CMultiSlave *ms, uint32_t serial)
 {
 	uintptr_t *pos;
-	uintptr_t serialVal = *serialRef;
+	uintptr_t serialVal = serial;
 
 	pos = Vector_Find(ms->components.begin, ms->components.end, &serialVal);
 
@@ -552,7 +558,7 @@ CMultiSlave_IterateComponents(CMultiSlave *ms, int hideFlag, int skipOwnerSerial
 
 	while (iter != (uintptr_t *)ms->components.end) {
 		serial = (uint32_t)*iter;
-		if (skipOwnerSerial && serial == ms->base.serial) {
+		if (skipOwnerSerial == 1 && serial == ms->base.serial) {
 			iter++;
 			continue;
 		}
@@ -1515,7 +1521,7 @@ static CItem *
 CEntityMap_SpatialNext(CEntityMap *this, CItem *item)
 {
 	USED(this);
-	if (((int (*)(void *))VT_FN(item, VT_IS_CONTAINER))(item))
+	if (((int (*)(void *))VT_FN(item, VT_IS_DYNAMIC))(item))
 		return (CItem *)item->spatialNext;
 	if (((int (*)(void *))VT_FN(item, VT_ATTACH_SPATIAL))(item))
 		return (CItem *)item->resourceEntity.nextInContainer;
@@ -1538,7 +1544,7 @@ CMultiSlave_CollectEntities(CEntityMap *this, CItem *startItem, int x1, int y1, 
 	item = startItem;
 	while (item != NULL) {
 		// Skip entities removed from world or that are mobiles
-		if (((int (*)(void *))VT_FN(item, VT_IS_CONTAINER))(item)) {
+		if (((int (*)(void *))VT_FN(item, VT_IS_DYNAMIC))(item)) {
 			if (VT_IsMobile(item)) {
 				item = CEntityMap_SpatialNext(this, item);
 				continue;
@@ -1667,7 +1673,7 @@ CMultiManager_DefineFromArea(CResManager *this, uint32_t typeId, int x1, int y1,
 
 	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
 	if (CSearchCtx_Find(&ctx))
-		CResManager_CreateOrFind_R(this, &erased, &ctx, 1);
+		CResManager_EraseAndFree_MultiA(this, &erased, &ctx, 1);
 
 	startX = x1 / 8;
 	endX = x2 / 8;
@@ -1745,7 +1751,7 @@ CMultiManager_DefineFromArea(CResManager *this, uint32_t typeId, int x1, int y1,
 
 	for (iter = (uintptr_t *)entities.begin; iter != (uintptr_t *)entities.end; iter++) {
 		item = (CItem *)*iter;
-		if (((int (*)(void *))VT_FN(item, VT_IS_CONTAINER))(item)) {
+		if (((int (*)(void *))VT_FN(item, VT_IS_DYNAMIC))(item)) {
 			CVector_PushBack(&mobileSerials, CMobile_GetSerial((CMobile *)item));
 		} else if (((int (*)(void *))VT_FN(item, VT_ATTACH_SPATIAL))(item)) {
 			CVector_PushBack(&staticItems, (uintptr_t)item);
@@ -2786,9 +2792,8 @@ CMultiManager_GetExtents(CResManager *this, int typeId, CLocation *minLoc, CLoca
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
-	CMultiDef *def = (CMultiDef *)CResManager_GetResultCtx(this, &ctx);
-	CLocation_SetLoc(minLoc, &def->minExtent);
-	CLocation_SetLoc(maxLoc, &def->maxExtent);
+	CLocation_SetLoc(minLoc, &((CMultiDef *)CResManager_GetResultCtx(this, &ctx))->minExtent);
+	CLocation_SetLoc(maxLoc, &((CMultiDef *)CResManager_GetResultCtx(this, &ctx))->maxExtent);
 	return 1;
 }
 
@@ -2964,7 +2969,7 @@ static void
 CMulti_BroadcastSlaveMove(CMultiSlave *slave, CLocation *loc)
 {
 	CItem *ownerItem;
-	uint8_t buf[0x14];
+	uint8_t buf[0x18];
 
 	ownerItem = (CItem *)slave->base.ownerItem;
 	if (CItem_IsServerOnly(ownerItem))
@@ -3008,7 +3013,7 @@ static void
 CMultiComponent_SendItemUpdate(CMultiComponent *mc, CItem *player)
 {
 	CItem *item;
-	uint8_t buf[0x14];
+	uint8_t buf[0x18];
 
 	item = mc->ownerItem;
 	if (CItem_IsServerOnly(item))
@@ -3901,10 +3906,10 @@ CVector_Uninit_Copy1C_Fwd2(CVector *this, void *first, void *last, void *dest)
  * CopyFrom1C_Inner.
  */
 static void
-CopyFrom1C(CVector *this, void *src, void *dst)
+CopyFrom1C(CVector *this, void *dst, void *src)
 {
 	USED(this);
-	CopyFrom1C_Inner(src, dst);
+	CopyFrom1C_Inner(dst, src);
 }
 
 /*
@@ -4003,9 +4008,9 @@ static void
 Uninit_FillN_1C(CVector *this, void *ptr, uint32_t count, void *source)
 {
 	CMultiComponentDef *p = (CMultiComponentDef *)ptr;
-	USED(this);
+
 	while (count > 0) {
-		CopyFrom1C_Inner(p, source);
+		CopyFrom1C(this, p, source);
 		count--;
 		p++;
 	}
@@ -4023,9 +4028,8 @@ Uninit_Copy4_Fwd(CVector *this, void *first, void *last, void *dest)
 	uintptr_t *src = (uintptr_t *)first;
 	uintptr_t *end = (uintptr_t *)last;
 	uintptr_t *dst = (uintptr_t *)dest;
-	USED(this);
 	while (src != end) {
-		*dst = *src;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
 		dst++;
 		src++;
 	}
@@ -4041,10 +4045,9 @@ static __attribute__((unused)) void
 Uninit_FillN_4(CVector *this, void *ptr, uint32_t count, void *source)
 {
 	uint32_t *p = (uint32_t *)ptr;
-	uint32_t val = *(uint32_t *)source;
-	USED(this);
+
 	while (count > 0) {
-		*p = val;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, p, source);
 		count--;
 		p++;
 	}
@@ -4061,9 +4064,8 @@ Uninit_Copy4_Fwd2(CVector *this, void *first, void *last, void *dest)
 	uintptr_t *src = (uintptr_t *)first;
 	uintptr_t *end = (uintptr_t *)last;
 	uintptr_t *dst = (uintptr_t *)dest;
-	USED(this);
 	while (src != end) {
-		*dst = *src;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
 		dst++;
 		src++;
 	}
@@ -4079,10 +4081,9 @@ static __attribute__((unused)) void
 Uninit_FillN_4v2(CVector *this, void *ptr, uint32_t count, void *source)
 {
 	uint32_t *p = (uint32_t *)ptr;
-	uint32_t val = *(uint32_t *)source;
-	USED(this);
+
 	while (count > 0) {
-		*p = val;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, p, source);
 		count--;
 		p++;
 	}
@@ -4249,7 +4250,7 @@ CollectEntities_SortDist(void *first, void *last, CLocation cmpLoc)
 	int size = GameCentMon_GetPlayerCount();
 	USED(size);
 	CLocation tmp;
-	CLocation_SetLoc(&tmp, &cmpLoc);
+	CLocation_CopyFromSrc(&tmp, &cmpLoc);
 	SortDist_Dispatch(first, last, tmp);
 }
 
@@ -4560,14 +4561,16 @@ CopyBackward1C(void *first, void *last, void *dest)
 /*
  * 0x0047B310 - CopyFrom1C_Inner
  *
- * Placement copy-construct of one CMultiComponentDef from src into dst.
+ * Placement copy-construct of one CMultiComponentDef from src into
+ * dst. StdKfn_Identity is the placement operator new, which returns
+ * its second argument, so the first parameter is the destination.
  */
 static void
-CopyFrom1C_Inner(void *src, void *dst)
+CopyFrom1C_Inner(void *dst, void *src)
 {
-	void *ptr = (void *)StdKfn_Identity(sizeof(CMultiComponentDef), (uintptr_t)src);
+	void *ptr = (void *)StdKfn_Identity(sizeof(CMultiComponentDef), (uintptr_t)dst);
 	if (ptr != NULL)
-		CMultiComponent_CopyConstructor((CMultiComponentDef *)ptr, (CMultiComponentDef *)dst);
+		CMultiComponent_CopyConstructor((CMultiComponentDef *)ptr, (CMultiComponentDef *)src);
 }
 
 /*
@@ -4736,7 +4739,7 @@ CMultiComponent_ScalarDelete(CMultiComponentDef *this, int flags)
 	CMultiComponent_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

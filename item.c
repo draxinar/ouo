@@ -185,7 +185,7 @@ CItem_AddToContainerVT(CItem *item, CItem *container, CLocation *loc)
 	((CContainer *)container)->contents = item;
 	item->parent = container;
 
-	if (VT_IsMobile2(item)) {
+	if (VT_IsContainer(item)) {
 		if (CItem_IsInBankBox(item))
 			CContainer_RecalcStoredWeight(item);
 	}
@@ -288,7 +288,7 @@ CItem_AddToContB8_VT(CItem *self, CItem *container, CLocation *loc)
 	}
 
 	if (((CContainer *)container)->lockOwner == NULL) {
-		if (VT_IsMobile2(self)) {
+		if (VT_IsContainer(self)) {
 			if (((CContainer *)self)->lockOwner == NULL)
 				goto broadcast;
 		} else {
@@ -373,7 +373,7 @@ CItem_AddToContBC_VT(CItem *self, CItem *container, CLocation *loc)
 	}
 
 	if (((CContainer *)container)->lockOwner == NULL) {
-		if (VT_IsMobile2(self)) {
+		if (VT_IsContainer(self)) {
 			if (((CContainer *)self)->lockOwner == NULL)
 				goto bc2;
 		} else {
@@ -531,7 +531,7 @@ CItem_DecayTick(CItem *item)
 
 	if (!CItem_IsMultiOwner(item)) {
 		// CUSTOM (FEAT_CLOSED_ECONOMY): the binary's weight gate
-		// excludes items whose CItem_GetDecayMax score is >= 0xFF,
+		// excludes items whose CItem_GetWeight_VT score is >= 0xFF,
 		// intended to skip statues / multis / houses. Sheep and other
 		// NPC corpses land at exactly 0xFF because CContainer is
 		// Mobile2 (so the gate adds GetStoredWeight) and the corpse's
@@ -665,7 +665,7 @@ CItem_PlaceInWorld(CItem *item, int placeFlag)
 
 	if (CItem_HasHome(item)) {
 		if (placeFlag == 0 && item->resourceEntity.entity.removedFromWorld == 0) {
-			if (VT_IsMobile2(item)) {
+			if (VT_IsContainer(item)) {
 				if (!VT_IsMobile(item)) {
 					if (!Item_IsSpecialBodyType(item)) {
 						void *loc = ((void *(*)(void *))VT_FN(item, VT_GET_LOCATION))(item);
@@ -680,7 +680,7 @@ CItem_PlaceInWorld(CItem *item, int placeFlag)
 
 	if (placeFlag == 0) {
 		if (item->resourceEntity.entity.removedFromWorld == 0) {
-			if (VT_IsMobile2(item)) {
+			if (VT_IsContainer(item)) {
 				if (!VT_IsMobile(item)) {
 					if (!Item_IsSpecialBodyType(item)) {
 						void *loc = ((void *(*)(void *))VT_FN(item, VT_GET_LOCATION))(item);
@@ -1038,8 +1038,8 @@ finalize:
 /*
  * 0x0045EB18 - CItem::TransferResourcesByTemplate
  *
- * Transfers value1 * amount of each type-3 resource from dest into
- * source, keyed by source's template slot. The first two
+ * Transfers value1 * amount of each type-3 resource from source into
+ * dest, keyed by source's template slot. The first two
  * CEntity_GetBodyType calls are dead code in the binary - preserved to
  * match disassembly.
  */
@@ -1686,7 +1686,7 @@ CItem_Setup(CItem *item, int type, CLocation *loc, int flags, int expand)
 
 		if (flags == 0)
 			goto fallback;
-		if (VT_IsContainer(item) == 0)
+		if (VT_IsDynamic(item) == 0)
 			goto fallback;
 		{
 			uint16_t tid = (uint16_t)(CResourceEntity_GetTemplateIndex(item) & 0xFFFF);
@@ -1822,7 +1822,7 @@ CItem_GetSurfaceFlags_VT(CItem *self, int moveType)
 			if (bodyType == 0x692 || (bodyType >= 0x6F5 && bodyType <= 0x6F6) || bodyType == 0x846 || bodyType == 0x873) {
 				result &= ~0x40;
 			} else {
-				if (VT_IsContainer(self) && ((int (*)(void *, int))VT_FN(self, VT_IS_MOVEABLE))(self, 0)) {
+				if (VT_IsDynamic(self) && ((int (*)(void *, int))VT_FN(self, VT_IS_MOVEABLE))(self, 0)) {
 					result &= ~0x40;
 				} else if (flags & 0x20000000) {
 					result &= ~0x40;
@@ -2277,7 +2277,9 @@ CItem_DetachMulti(CItem *item)
 
 	mc = item->multiPtr;
 	if (CMultiComponent_IsOwner(mc)) {
-		CMultiComponent_Destroy(mc, 1);
+		CMultiComponent *owned = mc;
+		if (owned != NULL)
+			CMultiComponent_Destroy(owned, 1);
 	} else {
 		MultiComponent_ReturnToPool(mc);
 	}
@@ -2719,7 +2721,7 @@ CItem_ReturnToHome(CItem *item)
 	CLocation_Init(&tmpLoc);
 	CItem_GetHomeLocation(item, &tmpLoc);
 
-	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, tmpLoc.x, tmpLoc.y))
+	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int16_t)tmpLoc.x, (int16_t)tmpLoc.y))
 		return;
 
 	if (item->resourceEntity.entity.removedFromWorld == 0)
@@ -2778,7 +2780,7 @@ CItem_IsInBankBox(CItem *item)
 {
 	CItem *walk;
 
-	if (VT_IsMobile2(item))
+	if (VT_IsContainer(item))
 		walk = item;
 	else
 		walk = item->parent;
@@ -2799,14 +2801,14 @@ CItem_IsInBankBox(CItem *item)
  * 0x00487962 - CItem::HasSecuredAncestor
  *
  * Returns 1 when any container in the parent chain (starting at the
- * item itself for mobiles) has a non-NULL lockOwner.
+ * item itself when it is a container) has a non-NULL lockOwner.
  */
 int
 CItem_HasSecuredAncestor(CItem *this)
 {
 	CItem *walk;
 
-	if (VT_IsMobile2(this))
+	if (VT_IsContainer(this))
 		walk = this;
 	else
 		walk = this->parent;
@@ -2823,14 +2825,14 @@ CItem_HasSecuredAncestor(CItem *this)
  * 0x004879B5 - CItem::FindSecuredContainer
  *
  * Returns the first non-NULL lockOwner found walking up the parent
- * chain (starting at the item for mobiles), or NULL.
+ * chain (starting at the item when it is a container), or NULL.
  */
 void *
 CItem_FindSecuredContainer(CItem *item)
 {
 	CItem *walk;
 
-	if (VT_IsMobile2(item))
+	if (VT_IsContainer(item))
 		walk = item;
 	else
 		walk = item->parent;
@@ -3095,7 +3097,7 @@ CItem_HideVT(CItem *item)
 
 	bankFlag = 0;
 
-	if (VT_IsMobile2(item)) {
+	if (VT_IsContainer(item)) {
 		if (CItem_IsInBankBox(item)) {
 			bankFlag = 1;
 		}
@@ -3918,7 +3920,7 @@ CItem_ReturnToTracked(CItem *item)
 	if (owner == NULL)
 		goto check_succeeded;
 
-	if (VT_IsMobile2(owner)) {
+	if (VT_IsContainer(owner)) {
 		((void (*)(void *, void *, void *))VT_FN(item, VT_ADD_TO_CONTAINER))(item, owner, &tr->lastContLoc);
 		succeeded = 1;
 		goto check_succeeded;
@@ -4113,14 +4115,14 @@ CItem_GetLayer_VT(CItem *item)
 }
 
 /*
- * 0x00489FAB - CItem::GetDecayMax (vtable[0x120])
+ * 0x00489FAB - CItem::GetWeight (vtable[0x120])
  *
- * Weight-based decay score: bodyType 0 returns 0xFF (never decays);
- * otherwise combines the item's resource weight, amount, and any
- * stored weight into a single score used by CItem_DecayTick.
+ * bodyType 0 returns 0xFF; otherwise combines the item's resource
+ * weight, its amount and any stored weight into the single figure the
+ * encumbrance and decay paths both read.
  */
 int
-CItem_GetDecayMax(CItem *item)
+CItem_GetWeight_VT(CItem *item)
 {
 	uint16_t bodyType;
 	int overWeight;
@@ -4159,7 +4161,7 @@ got_weight:
 		overWeight = overWeight * amount;
 	}
 
-	if (VT_IsMobile2(item) || VT_IsMobile(item)) {
+	if (VT_IsContainer(item) || VT_IsMobile(item)) {
 		overWeight += ((int (*)(void *))VT_FN(item, VT_GET_STORED_WEIGHT))(item);
 	}
 
@@ -4179,10 +4181,10 @@ CItem_GetDirectionVT(CItem *item)
 
 	flags = ((int (*)(void *))VT_FN(item, VT_GET_FLAGS))(item);
 	if (flags & 0x800000) {
-		return CWorld_GetItemLayer(item->resourceEntity.entity.bodyType) & 0xFF;
+		return CItem_GetByteProp(item) & 0xFF;
 	}
 	if (((int (*)(void *))VT_FN(item, VT_HAS_CORPSE_EQ))(item)) {
-		return CWorld_GetItemLayer(item->resourceEntity.entity.bodyType) & 0xFF;
+		return CItem_GetByteProp(item) & 0xFF;
 	}
 	return 0;
 }
@@ -4771,7 +4773,7 @@ CEntity_SayCString_VT(CItem *self, char *text, int hue, int font, int speechType
 	BroadcastToNearbyWithLOS(obuf, &loc, 18);
 
 	// Dead code for CEntity/CContainer: CPlayer overrides slot 0x54.
-	if (VT_IsContainer(self) && VT_IsPlayer(self)) {
+	if (VT_IsDynamic(self) && VT_IsPlayer(self)) {
 		CWorld_SpeechNotifyNearby(self, self->serial, &self->resourceEntity.entity.location, text, 18);
 	}
 }
@@ -4803,7 +4805,7 @@ CItem_SayCUString_VT(CItem *self, uint16_t *text, int hue, int font, int speechT
 	CLocation_AddWrapped(CEntity_GetLocation(&self->resourceEntity.entity), &loc, &delta);
 	BroadcastToNearbyWithLOS(obuf, &loc, 18);
 
-	if (VT_IsContainer(self) && VT_IsPlayer(self)) {
+	if (VT_IsDynamic(self) && VT_IsPlayer(self)) {
 		CWorld_SpeechNotifyNearbyUnicode(g_World, self->serial, &self->resourceEntity.entity.location, text, 0, 18);
 	}
 }
@@ -4835,7 +4837,7 @@ CItem_EmoteCString_VT(CItem *self, char *text, int hue, int font, int speechType
 	CLocation_AddWrapped(CEntity_GetLocation(&self->resourceEntity.entity), &loc, &delta);
 	BroadcastToNearbyWithLOS(obuf, &loc, 18);
 
-	if (VT_IsContainer(self) && VT_IsPlayer(self)) {
+	if (VT_IsDynamic(self) && VT_IsPlayer(self)) {
 		CWorld_SpeechNotifyNearby(self, self->serial, &self->resourceEntity.entity.location, text, 18);
 	}
 }
@@ -4867,7 +4869,7 @@ CItem_EmoteCUString_VT(CItem *self, uint16_t *text, int hue, int font, int speec
 	CLocation_AddWrapped(CEntity_GetLocation(&self->resourceEntity.entity), &loc, &delta);
 	BroadcastToNearbyWithLOS(obuf, &loc, 18);
 
-	if (VT_IsContainer(self) && VT_IsPlayer(self)) {
+	if (VT_IsDynamic(self) && VT_IsPlayer(self)) {
 		CWorld_SpeechNotifyNearbyUnicode(g_World, self->serial, &self->resourceEntity.entity.location, text, 0, 18);
 	}
 }
@@ -6238,12 +6240,12 @@ StaticEntity_ScalarDelete(CItem *self, int flags)
 			StaticEntity_Destructor(cur);
 		}
 		OperatorDelete((char *)self - sizeof(uintptr_t));
-		return NULL;
+		return self;
 	}
 	StaticEntity_Destructor(self);
 	if (flags & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*
@@ -6257,7 +6259,7 @@ CItem_ScalarDelete(CItem *item, int flags)
 	CItem_Destructor(item);
 	if (flags & 1)
 		OperatorDelete(item);
-	return NULL;
+	return item;
 }
 
 /*
@@ -6600,7 +6602,7 @@ CItem_DeleteContents_Nop(CItem *item)
 int
 CItem_IsContainer(CItem *item)
 {
-	return VT_IsMobile2(item);
+	return VT_IsContainer(item);
 }
 
 /*

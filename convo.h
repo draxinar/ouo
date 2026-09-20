@@ -133,13 +133,13 @@ struct CConvoLinkedNode {
 };
 // clang-format on
 
-extern char *g_responseTexts[];   // 0x00642990 (max 0x800 entries)
-extern char *g_responseKeys[];    // 0x0063f988 (max 0x800 entries)
+extern char *g_responseKeys[];   // 0x00642990 (max 0x800 entries)
+extern char *g_responseTemplates[];    // 0x0063f988 (max 0x800 entries)
 
 extern CStringMatcher g_StringMatcher; // 0x0063F978
-extern char *g_responseKeys[0x800]; // 0x0063f988
+extern char *g_responseTemplates[0x800]; // 0x0063f988
 extern const char *g_speechText; // 0x00642988
-extern char *g_responseTexts[0x800]; // 0x00642990
+extern char *g_responseKeys[0x800]; // 0x00642990
 extern int g_responseCount; // 0x00644990
 extern CConversationManager g_ConvoMgr; // 0x0064b338
 

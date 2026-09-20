@@ -424,7 +424,7 @@ SpawnClientThread(CChannel *this)
 }
 
 // 0x0063F850 - ReadTokenFromStream scratch buffer
-static char g_readTokenBuf[512];
+static char g_readTokenBuf[280];
 
 /*
  * 0x0043828F - CChannel::ReadTokenFromStream

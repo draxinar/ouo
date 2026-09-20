@@ -66,7 +66,7 @@ extern uint8_t g_ServerAddr[4];
 extern uint16_t g_ServerPort;
 
 uint16_t UserSock_DoHandlePacket(CUserSock *this); // 0x0047EB43
-int CUserSock_Accept(CListenSocket *this); // 0x0047EF0C
+CUserSock *CUserSock_Accept(CListenSocket *this); // 0x0047EF0C
 CUserSock *CUserSock_Constructor(CUserSock *this, int s, int addr); // 0x0047EF93
 CSocket *CUserSock_Delete(CUserSock *this); // 0x0047F060
 int16_t CUserSock_Handle_Input(CUserSock *this); // 0x0047F0FF

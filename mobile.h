@@ -256,7 +256,7 @@ CCorpse *CMobile_CreateCorpse(CMobile *mob, CMobile *attacker, int dropLoot); //
 int CMobile_PreDeleteClean_VT(CItem *self); // 0x0047022A
 int CMobile_GetValue_VT(CItem *self, int useResource, int normalize); // 0x00470253
 CItem *CMobile_FindEquippedItem(CMobile *this, uint32_t serial); // 0x004703F8
-void NotifyNearby(CItem *self); // 0x004704B8
+void NotifyNearby(CItem *self, CItem *unused); // 0x004704B8
 int CMobile_GetTotalQuantityOfType(CMobile *this, uint16_t bodyType); // 0x00470531
 CItem *CMobile_FindItemInEquipment(CMobile *mob, uint16_t bodyType, int targetAmount); // 0x004705B9
 void CMobile_SetCorpseLookAtText(CMobile *mob, CItem *corpse); // 0x0047065F

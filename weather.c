@@ -1200,7 +1200,7 @@ void
 WeatherManager_sendWeatherToPlayer(CItem *entity)
 {
 	int temp;
-	uint8_t obuf[8];
+	uint8_t obuf[4];
 
 	temp = WeatherManager_getAverageWeather(&entity->resourceEntity.entity.location);
 

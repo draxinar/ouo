@@ -104,6 +104,11 @@ FileManager_GetCategory(int category)
  *
  * MODIFIED: the binary's timing accumulator at 0x0069A788 is not
  * replicated.
+ *
+ * MODIFIED: the binary has no null test on the category lookup and
+ * dereferences its result at 004808a2, so a category outside the four
+ * ranges 0x00480800 recognises faults. Ours returns NULL. Every call
+ * site passes a constant inside those ranges.
  */
 FILE *
 FileManager_OpenByType(int category, const char *filename, const char *mode)

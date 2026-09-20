@@ -107,7 +107,7 @@ wcsncpy16(void *dst, const void *src, int count)
 int
 wcstoi16(const uint16_t *src)
 {
-	char buf[0x1004];
+	char buf[0x1000];
 	char *dst;
 	uint16_t ch;
 
@@ -915,12 +915,14 @@ CUString_Right(CUString *s, int start, int count)
 /*
  * 0x004DDD1C - CUString::GetPtr
  *
- * Returns the first field of the object by dereference.
+ * Returns the first field of the object by dereference. The binary's
+ * dword read is the whole data pointer on a 32-bit build; here it is
+ * the pointer at whatever width the build uses.
  */
-uint32_t
+char *
 CUString_GetPtr(CUString *s)
 {
-	return *(uint32_t *)s;
+	return s->data;
 }
 
 /*

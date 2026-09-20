@@ -1664,7 +1664,7 @@ PacketManager_MakePacket_CHG_CHAR_RESULT(uint8_t *buf, uint8_t reason)
  * Builds an ALL_CHARACTERS (0x86) packet: count byte then
  * count x 60-byte name entries.
  */
-uint16_t
+void
 PacketManager_MakePacket_ALL_CHARACTERS(uint8_t *buf, uint8_t numCharacters, char *characterNames)
 {
 	int i;
@@ -1674,7 +1674,6 @@ PacketManager_MakePacket_ALL_CHARACTERS(uint8_t *buf, uint8_t numCharacters, cha
 	for (i = 0; i < numCharacters; i++) {
 		PutString(buf, &characterNames[60 * i], 60);
 	}
-	return 0;
 }
 
 /*
@@ -2622,7 +2621,7 @@ void
 PlaySoundAtEntity(CItem *entity, uint16_t soundID, uint16_t volume)
 {
 	CLocation loc;
-	uint8_t buf[20];
+	uint8_t buf[12];
 
 	CLocation_Init(&loc);
 	CLocation *entLoc = ((CLocation * (*)(void *)) VT_FN(entity, VT_GET_LOCATION))(entity);
@@ -2634,8 +2633,8 @@ PlaySoundAtEntity(CItem *entity, uint16_t soundID, uint16_t volume)
 /*
  * 0x0049D07F - PlaySoundAtLocation
  *
- * Broadcasts a SOUND packet at the given location to clients within
- * range 0x28.
+ * Broadcasts a SOUND packet at the given location, capped at 0x28
+ * recipients; the range is the callee's hardcoded 12.
  */
 void
 PlaySoundAtLocation(CLocation *loc, uint16_t soundID, uint16_t volume)
@@ -2679,6 +2678,10 @@ SendSoundAtEntity(CItem *entity, int soundId, int volume)
 
 /*
  * 0x0049D130 - PlayMusicToNearby
+ *
+ * The real entry is 0x0049D12D; the Ghidra export starts at the
+ * SUB ESP that follows the prologue, and the tooling is keyed on that
+ * address.
  *
  * Broadcasts a MUSIC packet at the entity's location to clients within
  * range 0x12. Dead code in the binary (no callers).

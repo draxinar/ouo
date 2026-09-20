@@ -209,13 +209,6 @@ CListIterator_Constructor(CList *list)
 }
 
 /*
- * Every function here that allocates a node tests the result before
- * linking it. The binary tests it only to decide whether to run the
- * constructor, then writes through the pointer either way - CList::Append
- * and CList::InsertAt among them. The tests are ours.
- */
-
-/*
  * 0x0042546D - CList::Clear
  *
  * Destroys every node and resets head/tail/count.
@@ -246,10 +239,8 @@ CList_Append(CList *list, uint32_t typeTag, uintptr_t value)
 	CListNode *node;
 
 	node = (CListNode *)OperatorNew(sizeof(CListNode));
-	if (node == NULL)
-		return;
-
-	CListNode_Constructor(node, typeTag, value);
+	if (node != NULL)
+		CListNode_Constructor(node, typeTag, value);
 
 	node->prev = list->tail;
 	node->next = NULL;
@@ -272,10 +263,8 @@ CList_Prepend(CList *list, uint32_t typeTag, uintptr_t value)
 	CListNode *node;
 
 	node = (CListNode *)OperatorNew(sizeof(CListNode));
-	if (node == NULL)
-		return;
-
-	CListNode_Constructor(node, typeTag, value);
+	if (node != NULL)
+		CListNode_Constructor(node, typeTag, value);
 
 	node->next = list->head;
 	node->prev = NULL;
@@ -309,10 +298,8 @@ CList_InsertAt(CList *list, uint32_t typeTag, uintptr_t value, int index)
 		cur = cur->next;
 
 	node = (CListNode *)OperatorNew(sizeof(CListNode));
-	if (node == NULL)
-		return;
-
-	CListNode_Constructor(node, typeTag, value);
+	if (node != NULL)
+		CListNode_Constructor(node, typeTag, value);
 
 	node->next = cur;
 	node->prev = cur->prev;

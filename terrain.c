@@ -1887,13 +1887,13 @@ SurfaceInfo_AllocateN(int count)
 /*
  * 0x0046C740 - CTerrainManager::IsContainerFilter
  *
- * Filter callback that dispatches to VT_IS_CONTAINER, used by
+ * Filter callback that dispatches to VT_IS_DYNAMIC, used by
  * CTerrainManager_FindDoorAtLoc.
  */
 static int
 Terrain_IsContainerFilter(CItem *entity)
 {
-	return ((int (*)(void *))VT_FN(entity, VT_IS_CONTAINER))(entity);
+	return ((int (*)(void *))VT_FN(entity, VT_IS_DYNAMIC))(entity);
 }
 
 // File-scope global CVector at binary 0x00699A30, stores arena page pointers.

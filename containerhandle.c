@@ -104,8 +104,10 @@ ContainerHandle_Unregister(ContainerHandle *this)
 	uintptr_t key = (uintptr_t)this->fp;
 
 	node = StdTree_LowerBound(g_HandleMap, key);
-	if (node != g_HandleMap->head && node->key == key)
-		StdTree_RBErase(g_HandleMap, node);
+	if (node == g_HandleMap->head || node->key != key)
+		node = g_HandleMap->head;
+
+	StdTree_RBErase(g_HandleMap, node);
 }
 
 /*

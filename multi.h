@@ -284,7 +284,7 @@ void CMultiComponent_NotifyOwnerRemoval(CMultiComponent *mc, uint32_t serial); /
 void CMultiSlave_Constructor_args(CMultiSlave *ms, CItem *ownerItem, CLocation *offset); // 0x0047458E
 void CMultiSlave_Constructor(CMultiSlave *ms, CItem *ownerItem); // 0x00474627
 void CMultiSlave_AddComponent(CMultiSlave *ms, uint32_t serial); // 0x00474720
-void CMultiSlave_NotifyComponentCount(CMultiSlave *ms, uint32_t *serialRef); // 0x0047473C
+void CMultiSlave_NotifyComponentCount(CMultiSlave *ms, uint32_t serial); // 0x0047473C
 void CMultiSlave_AddComponents(CMultiSlave *ms, int skipOwnerSerial); // 0x0047479E
 void CMultiSlave_RemoveComponents(CMultiSlave *ms, int skipOwnerSerial); // 0x004747B9
 void CMultiSlave_IterateComponents(CMultiSlave *ms, int hideFlag, int skipOwnerSerial); // 0x004747D4

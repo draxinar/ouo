@@ -489,10 +489,12 @@ World_RestoreUpdates(void)
 void
 Player_StepInDirection(CItem *entity, int direction)
 {
+	CLocation initLoc;
 	CLocation outLoc;
 	CItem *player;
 
-	CLocation_Init(&outLoc);
+	CLocation_Init(&initLoc);
+	USED(initLoc);
 
 	if (!VT_IsPlayer(entity))
 		return;

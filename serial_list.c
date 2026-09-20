@@ -39,8 +39,13 @@ static StdPtrNode **StdSerialList_Find(StdPtrNode **result, StdPtrNode *begin, S
 /*
  * 0x00442960 - CSerialNode::DecrementTTL
  *
- * Thiscall on CSerialNode value. If flags (TTL) is zero, returns 0.
- * Otherwise decrements flags by 1 and returns 1.
+ * If flags (TTL) is zero, returns 0. Otherwise decrements flags by 1
+ * and returns 1.
+ *
+ * The binary's this is the value at node+8 and it reads the TTL at
+ * +0x04, so the absolute offset is node+0x0C. CSerialNode merges node
+ * and value, so the TTL sits at +0x0C from the node and the node is
+ * what we pass - the same memory either way.
  */
 int
 CSerialNode_DecrementTTL(CSerialNode *node)
@@ -203,6 +208,11 @@ CSerialList_Remove(CSerialList *list, uint32_t serial)
  * Decrements the TTL of every entry; entries that hit zero are erased.
  * The iterator advances past the entry before the erase, so the walk
  * survives the node being destroyed. Drives combat-list aging.
+ *
+ * The binary dereferences the iterator first and hands DecrementTTL
+ * the value at node+8; our CSerialNode merges node and value, so the
+ * TTL sits at +0x0C from the node and the node is what we pass. The
+ * memory reached is the same.
  */
 void
 CSerialList_PruneExpired(CSerialList *list)
@@ -214,9 +224,6 @@ CSerialList_PruneExpired(CSerialList *list)
 	for (;;) {
 		if (!(StdPtrIter_Neq(&iter, StdPtrList_End(l, &endTemp)) & 0xFF))
 			break;
-		// The binary derefs first and hands DecrementTTL the value at
-		// node+8; our CSerialNode merges node and value, so the TTL sits
-		// at +0x0C from the node itself and the node is what we pass.
 		if (CSerialNode_DecrementTTL((CSerialNode *)iter)) {
 			StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 		} else {

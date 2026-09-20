@@ -1147,7 +1147,8 @@ CHelpQueue_GotoEntity(CHelpQueue *q, uint32_t gmSerial, uint32_t victimSerial)
 /*
  * 0x0044E4A2 - CHelpQueue::FindNextPending
  *
- * Returns the first entry with level == 'n' (new/pending), or NULL.
+ * Returns an iterator to the first entry whose type is 'n'
+ * (new/pending), or end() when there is none - never NULL.
  */
 StdPtrNode **
 CHelpQueue_FindNextPending(CHelpQueue *q, StdPtrNode **result)

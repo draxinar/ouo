@@ -58,11 +58,11 @@ static void CResList_SortedInsert(CResList *list, void *data, int direction, int
 static void CResList_DestructorI(CResList *list); // 0x0043FC10
 static void CResList_SetValueOnNodeI(CResList *list, CResListNode *node, void *value); // 0x0043FBF0
 static CResListNode *CResList_AllocTailNodeI(CResList *list); // 0x0043FB40
-static void CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction); // 0x0043FC50
+static void CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction); // 0x0043FC50
 static void CResList_DestructorS(CResList *list); // 0x0043FDD0
 static void CResList_SetValueOnNodeS(CResList *list, CResListNode *node, void *value); // 0x0043FDB0
 static CResListNode *CResList_AllocTailNodeS(CResList *list); // 0x0043FD00
-static void CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction); // 0x0043FDF0
+static void CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction); // 0x0043FDF0
 static void CResList_DestructorC(CResList *list); // 0x0043FF70
 static void CResList_SetValueOnNodeC(CResList *list, CResListNode *node, void *value); // 0x0043FF50
 static CResListNode *CResList_AllocTailNodeC(CResList *list); // 0x0043FEA0
@@ -202,13 +202,13 @@ static void *ScalarDestructor_ByFileVal(CResList *this, int flag); // 0x004A7900
 static CSearchCtx *CResManager_InternalErase_ByNameAll(CResManager *rm, CSearchCtx *eraseOut, CSearchCtx *current, void **outErased, uint32_t direction); // 0x004A7780
 static CSearchCtx *CResManager_FindOrCreate_ByNameAll(CResManager *rm, CSearchCtx *findCtx, uint32_t *keyPtr); // 0x004A75F0
 static void CResManager_StrKeyDestructor_Clear_ByNameAll(CResManager *rm); // 0x004A7510
-static void *CResManager_BeginIterInternal_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7460
+static void *CResManager_SearchBucket_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7460
 static void *CResList_InsertVal_ByFile(CResList *list, void *value); // 0x004A7430
 static void CResList_NextIter_ByFile(CResList *list, uintptr_t valNode, CRegion *src); // 0x004A7410
 static void *CResList_GetTailVal_ByFile(CResList *list); // 0x004A7360
 static CSearchCtx *CResManager_InternalErase_ByFile(CResManager *rm, CSearchCtx *eraseOut, CSearchCtx *current, void **outErased, uint32_t direction); // 0x004A71E0
 static void CResManager_IntKeyDestructor_Clear_ByFile(CResManager *rm); // 0x004A7100
-static void *CResManager_BeginIterInternal_ByFile(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7050
+static void *CResManager_SearchBucket_ByFile(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7050
 static void *CResListNode_GetData(CResListNode *node); // 0x004A7E70
 static void *CResManager_NextIterStep_ByNameAll(CResManager *rm, CSearchCtx *out, CSearchCtx *current, uint32_t direction); // 0x004A7E90
 static void CResList_ClearAll_ByFileVal(CResList *this); // 0x004A80A0
@@ -229,7 +229,7 @@ static CResListNode *CResList_BeginIterF(CResList *list); // 0x004C2330
 static void *CResManager_NextIterInternal_TemplatesB(CResManager *rm, CSearchCtx *output, CSearchCtx *ctx, int direction); // 0x004C2250
 static void *CResList_ScalarDelete_TemplatesVar(CResList *this, int flags); // 0x004C2220
 static void CResList_ClearInternal_TemplatesVal(CResList *this); // 0x004C23E0
-static CResListNode *CResList_BeginIterG(CResList *list); // 0x004C2560
+static CResListNode *CResList_AllocTailNodeG(CResList *list); // 0x004C2560
 static void *CResManager_NextIterInternal_NameTable(CResManager *rm, CSearchCtx *output, CSearchCtx *ctx, int direction); // 0x004C2480
 static void CResListNode_ReplaceDataF(CResListNode *node, void *newData); // 0x004C2420
 static void CResList_ClearInternal_NameTableVal(CResList *this); // 0x004C2610
@@ -244,7 +244,7 @@ static CResListNode *CResList_AllocTailNode_LabelsVal(CResList *list); // 0x004C
 static CResListNode *CResList_AllocTailNode_TemplatesKey(CResList *list); // 0x004C2F30
 static void CResList_ClearAll_NameTable(CResList *this); // 0x004C2EF0
 static CResListNode *CResList_RecycleNodeJ(CResList *list, CResListNode *afterNode); // 0x004C2E00
-static CResListNode *CResList_RecycleNodeG(CResList *list, CResListNode *afterNode); // 0x004C2CB0
+static CResListNode *CResList_InsertNodeAfterG(CResList *list, CResListNode *afterNode); // 0x004C2CB0
 static CResListNode *CResList_RecycleNodeF(CResList *list, CResListNode *afterNode); // 0x004C2B60
 static void CResList_ValNodeDestructor_NameTable(CNameEntry *this); // 0x004C2B40
 static void *CResListValNode_ScalarDelete_NameTbl(CNameEntry *this, int flags); // 0x004C2B10
@@ -1701,13 +1701,13 @@ CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *ke
  * Empty bucket returns an empty ctx.
  */
 void *
-CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, const char *key, int direction)
+CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, CString *key, int direction)
 {
 	CSearchCtx localCtx;
 	uint32_t bucket;
 
 	CSearchCtx_Constructor(&localCtx);
-	bucket = ResManager_HashStrA((CString *)key, 0x41);
+	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
 		CResManager_CreateBucket(output, &localCtx);
@@ -1771,7 +1771,7 @@ void *
 CResManager_FindEntryA(CResManager *rm, CString *name)
 {
 	CSearchCtx localCtx;
-	CResManager_FindByStrCtxA(rm, &localCtx, (const char *)name, 1);
+	CResManager_FindByStrCtxA(rm, &localCtx, name, 1);
 	return CResManager_GetResult(rm, &localCtx);
 }
 
@@ -1882,13 +1882,13 @@ CResManager_FindOrInsertSecond(CResManager *rm, CSearchCtx *output, CString *key
  * Used by CMagicItemFactory_FindNameInKeys for keysRM (+0x230) lookups.
  */
 void *
-CResManager_FindByStrCtxD(CResManager *rm, CSearchCtx *output, const char *key, int direction)
+CResManager_FindByStrCtxD(CResManager *rm, CSearchCtx *output, CString *key, int direction)
 {
 	CSearchCtx localCtx;
 	uint32_t bucket;
 
 	CSearchCtx_Constructor(&localCtx);
-	bucket = ResManager_HashStrA((CString *)key, 0x41);
+	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
 		CResManager_CreateBucket(output, &localCtx);
@@ -2014,13 +2014,13 @@ CResManager_FindOrInsertC(CResManager *rm, CSearchCtx *output, CString *key)
  * Seeds a ctx for key and delegates to SearchBucketC (props variant).
  */
 void *
-CResManager_FindByStrCtxC(CResManager *rm, CSearchCtx *output, const char *key, int direction)
+CResManager_FindByStrCtxC(CResManager *rm, CSearchCtx *output, CString *key, int direction)
 {
 	CSearchCtx localCtx;
 	uint32_t bucket;
 
 	CSearchCtx_Constructor(&localCtx);
-	bucket = ResManager_HashStrA((CString *)key, 0x41);
+	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
 		CResManager_CreateBucket(output, &localCtx);
@@ -2146,13 +2146,13 @@ CResManager_FindOrInsertEffects(CResManager *rm, CSearchCtx *output, CString *ke
  * Seeds a ctx for key and delegates to SearchBucketB (magic variant).
  */
 void *
-CResManager_FindByStrCtxB(CResManager *rm, CSearchCtx *output, const char *key, int direction)
+CResManager_FindByStrCtxB(CResManager *rm, CSearchCtx *output, CString *key, int direction)
 {
 	CSearchCtx localCtx;
 	uint32_t bucket;
 
 	CSearchCtx_Constructor(&localCtx);
-	bucket = ResManager_HashStrA((CString *)key, 0x41);
+	bucket = ResManager_HashStrA(key, 0x41);
 
 	if (rm->keys[bucket] == NULL) {
 		CResManager_CreateBucket(output, &localCtx);
@@ -2724,7 +2724,7 @@ CResListNode_InsertDataB(CResListNode *node, void *srcData)
  * ctx or an empty ctx into *output.
  */
 void
-CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction)
+CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction)
 {
 	CSearchCtx localCtx;
 	CSearchCtx nextCtx;
@@ -2739,7 +2739,7 @@ CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, const char *key, 
 	CSearchCtx_Add(&localCtx, startCtx);
 
 	while (CSearchCtx_Find(&localCtx)) {
-		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), (CString *)key)) {
+		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), key)) {
 			CResManager_CreateBucket(output, &localCtx);
 			return;
 		}
@@ -2923,7 +2923,7 @@ CResManager_CreateBucket(CSearchCtx *dst, CSearchCtx *src)
  * Linear scan of the bucket for key, advancing via NextEntryD.
  */
 static void __attribute__((unused))
-CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction)
+CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction)
 {
 	CSearchCtx localCtx;
 	CSearchCtx nextCtx;
@@ -2938,7 +2938,7 @@ CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, const char *key, 
 	CSearchCtx_Add(&localCtx, startCtx);
 
 	while (CSearchCtx_Find(&localCtx)) {
-		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), (CString *)key)) {
+		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), key)) {
 			CResManager_CreateBucket(output, &localCtx);
 			return;
 		}
@@ -3003,7 +3003,7 @@ CResList_DestructorS(CResList *list)
  * Linear scan of the bucket for key, advancing via NextEntryC.
  */
 static void __attribute__((unused))
-CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction)
+CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction)
 {
 	CSearchCtx localCtx;
 	CSearchCtx nextCtx;
@@ -3018,7 +3018,7 @@ CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, const char *key, 
 	CSearchCtx_Add(&localCtx, startCtx);
 
 	while (CSearchCtx_Find(&localCtx)) {
-		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), (CString *)key)) {
+		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), key)) {
 			CResManager_CreateBucket(output, &localCtx);
 			return;
 		}
@@ -3083,7 +3083,7 @@ CResList_DestructorC(CResList *list)
  * Linear scan of the bucket for key, advancing via NextEntryB.
  */
 void
-CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction)
+CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction)
 {
 	CSearchCtx localCtx;
 	CSearchCtx nextCtx;
@@ -3098,7 +3098,7 @@ CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, const char *key, 
 	CSearchCtx_Add(&localCtx, startCtx);
 
 	while (CSearchCtx_Find(&localCtx)) {
-		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), (CString *)key)) {
+		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), key)) {
 			CResManager_CreateBucket(output, &localCtx);
 			return;
 		}
@@ -5108,7 +5108,7 @@ ResManager_HashStr(const char *str, uint32_t bucketCount)
 	uint32_t h = 0, g;
 
 	while (*str) {
-		h = (h << 4) + (uint8_t)tolower((unsigned char)*str);
+		h = (h << 4) + (int8_t)tolower((unsigned char)*str);
 		g = h & 0xF0000000;
 		if (g) {
 			h ^= g >> 24;
@@ -5484,7 +5484,8 @@ CResManager_NextEntryHint(CResManager *rm, CSearchCtx *output, CSearchCtx *curre
 /*
  * 0x00464D80 - CResList::AllocTailNode (hint val variant)
  *
- * Recycles a tail slot, or allocates the first node when empty.
+ * Splices a fresh node in after the tail, or allocates the first node
+ * when empty. Both paths call operator new.
  */
 CResListNode *
 CResList_AllocTailNodeHintVal(CResList *list)
@@ -6311,21 +6312,22 @@ CResManager_GetResult(CResManager *rm, CSearchCtx *ctx)
 }
 
 /*
- * 0x0047A840 - CResManager::CreateOrFind_R
+ * 0x0047A840 - CResManager::EraseAndFree (MultiA)
  *
  * Erases the entry at current (freeing any owned CMultiDef) and writes
  * the successor ctx to *output.
  */
 CSearchCtx *
-CResManager_CreateOrFind_R(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction)
+CResManager_EraseAndFree_MultiA(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction)
 {
 	CSearchCtx ctx;
+	CSearchCtx erasedCtx;
 	void *erasedData = NULL;
 	void *result;
 	void *temp;
 
 	CSearchCtx_Constructor(&ctx);
-	result = CResManager_EraseMultiA(this, output, current, &erasedData, direction);
+	result = CResManager_EraseMultiA(this, &erasedCtx, current, &erasedData, direction);
 	CSearchCtx_Add(&ctx, result);
 	if (erasedData != NULL) {
 		temp = erasedData;
@@ -7075,7 +7077,7 @@ CResList_ClearAll_MultiB(CResList *list)
 }
 
 /*
- * 0x0047C400 - CResList::ReplaceData_B
+ * 0x0047C400 - CResListNode::ReplaceData (B)
  *
  * Replaces the CMultiDef owned by this node.
  */
@@ -7561,7 +7563,7 @@ CResList_BeginIter_ByFile(CResManager *rm, CSearchCtx *output, uint32_t *keyPtr,
 	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)CResList_DirectionBegin(rm->keys[bucket], (int)direction));
 	CSearchCtx_SetValNode(&localCtx, (uintptr_t)CResList_DirectionBegin(rm->vals[bucket], (int)direction));
 
-	CResManager_BeginIterInternal_ByFile(rm, output, keyPtr, &localCtx, direction);
+	CResManager_SearchBucket_ByFile(rm, output, keyPtr, &localCtx, direction);
 	return output;
 }
 
@@ -7673,7 +7675,7 @@ CResList_BeginIter_ByNameAll(CResManager *rm, CSearchCtx *output, uint32_t *keyP
 	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)CResList_DirectionBegin(rm->keys[bucket], (int)direction));
 	CSearchCtx_SetValNode(&localCtx, (uintptr_t)CResList_DirectionBegin(rm->vals[bucket], (int)direction));
 
-	CResManager_BeginIterInternal_ByNameAll(rm, output, keyPtr, &localCtx, direction);
+	CResManager_SearchBucket_ByNameAll(rm, output, keyPtr, &localCtx, direction);
 	return output;
 }
 
@@ -7754,7 +7756,7 @@ CSearchCtx_SetValNode(CSearchCtx *ctx, uintptr_t val)
  * found ctx into *out. Writes a no-entity ctx if the scan runs off the end.
  */
 static void *
-CResManager_BeginIterInternal_ByFile(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction)
+CResManager_SearchBucket_ByFile(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction)
 {
 	CSearchCtx ctx;
 	CSearchCtx nextCtx;
@@ -7924,7 +7926,7 @@ CResList_InsertVal_ByFile(CResList *list, void *value)
  * *keyPtr. Writes the matching ctx or an empty ctx to *out.
  */
 static void *
-CResManager_BeginIterInternal_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction)
+CResManager_SearchBucket_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction)
 {
 	CSearchCtx ctx;
 	CSearchCtx nextCtx;
@@ -9217,14 +9219,14 @@ CResList_Destructor_NameTableVal(CResList *this)
 /*
  * 0x004C1760 - CResList::AllocForward (name table)
  *
- * Allocates a node via CResList_BeginIterG and stores srcData in it.
+ * Allocates a node via CResList_AllocTailNodeG and stores srcData in it.
  */
 static CResListNode *
 CResList_AllocForwardG(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_BeginIterG(list);
+	node = CResList_AllocTailNodeG(list);
 	if (node != NULL)
 		CResListNode_ReplaceDataG(node, srcData);
 	return node;
@@ -9714,18 +9716,19 @@ CResManager_NextIterInternal_NameTable(CResManager *rm, CSearchCtx *output, CSea
 }
 
 /*
- * 0x004C2560 - CResList::BeginIter (name table val)
+ * 0x004C2560 - CResList::AllocTailNode (name table val)
  *
- * Returns the tail, recycling it via CResList_RecycleNodeG, or allocates a
- * fresh node as head/tail when the list is empty.
+ * Splices a fresh node in after the tail, or allocates the first node
+ * as head and tail when the list is empty. Both paths call operator
+ * new; nothing is reused.
  */
 static CResListNode *
-CResList_BeginIterG(CResList *list)
+CResList_AllocTailNodeG(CResList *list)
 {
 	CResListNode *node;
 
 	if (list->tail != NULL)
-		return CResList_RecycleNodeG(list, list->tail);
+		return CResList_InsertNodeAfterG(list, list->tail);
 
 	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
 	if (node != NULL)
@@ -10012,12 +10015,12 @@ CResList_ReplaceDataJ2(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x004C2CB0 - CResList::RecycleNode (name table val)
+ * 0x004C2CB0 - CResList::InsertNodeAfter (name table val)
  *
  * Allocates a new node and splices it in after afterNode.
  */
 static CResListNode *
-CResList_RecycleNodeG(CResList *list, CResListNode *afterNode)
+CResList_InsertNodeAfterG(CResList *list, CResListNode *afterNode)
 {
 	CResListNode *head, *newNode;
 

@@ -118,7 +118,7 @@ void CResList_DestructorSLN(CResList *list); // 0x0043F3B0
 void CResManager_ClearJ_Thunk(CResManager *this); // 0x004C0F50
 void CResManager_ClearI(CResManager *rm); // 0x0043DCD0
 CSearchCtx *CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *key); // 0x0043DDB0
-void *CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, const char *key, int direction); // 0x0043DF40
+void *CResManager_FindByStrCtxA(CResManager *rm, CSearchCtx *output, CString *key, int direction); // 0x0043DF40
 void CResManager_InsertValueAtCtxI(CResManager *rm, CSearchCtx *ctx, void *value); // 0x0043E000
 void CResManager_BeginIterA(CResManager *rm, CSearchCtx *output); // 0x0043E040
 void CResManager_NextIterA(CResManager *rm, CSearchCtx *output, CSearchCtx *current); // 0x0043E060
@@ -126,15 +126,15 @@ void *CResManager_FindEntryA(CResManager *rm, CString *name); // 0x0043E090
 void CResManager_Constructor(CResManager *rm, int flags); // 0x0043E0C0
 void CResManager_ClearS(CResManager *rm); // 0x0043E110
 CSearchCtx *CResManager_FindOrInsertSecond(CResManager *rm, CSearchCtx *output, CString *key); // 0x0043E1F0
-void *CResManager_FindByStrCtxD(CResManager *rm, CSearchCtx *output, const char *key, int direction); // 0x0043E380
+void *CResManager_FindByStrCtxD(CResManager *rm, CSearchCtx *output, CString *key, int direction); // 0x0043E380
 void CResManager_InsertValueAtCtxS(CResManager *rm, CSearchCtx *ctx, void *value); // 0x0043E440
 void CResManager_ClearC(CResManager *rm); // 0x0043E4A0
 CSearchCtx *CResManager_FindOrInsertC(CResManager *rm, CSearchCtx *output, CString *key); // 0x0043E580
-void *CResManager_FindByStrCtxC(CResManager *rm, CSearchCtx *output, const char *key, int direction); // 0x0043E710
+void *CResManager_FindByStrCtxC(CResManager *rm, CSearchCtx *output, CString *key, int direction); // 0x0043E710
 void CResManager_InsertValueAtCtxC(CResManager *rm, CSearchCtx *ctx, void *value); // 0x0043E7D0
 void CResManager_ClearT(CResManager *rm); // 0x0043E8D0
 CSearchCtx *CResManager_FindOrInsertEffects(CResManager *rm, CSearchCtx *output, CString *key); // 0x0043EA30
-void *CResManager_FindByStrCtxB(CResManager *rm, CSearchCtx *output, const char *key, int direction); // 0x0043EC00
+void *CResManager_FindByStrCtxB(CResManager *rm, CSearchCtx *output, CString *key, int direction); // 0x0043EC00
 void CResManager_InsertValueAtCtxEffects(CResManager *rm, CSearchCtx *ctx, void *value); // 0x0043ECC0
 void CResManager_BeginIterB(CResManager *rm, CSearchCtx *output); // 0x0043ED00
 void CResManager_NextIterB(CResManager *rm, CSearchCtx *output, CSearchCtx *current); // 0x0043ED20
@@ -154,11 +154,11 @@ CResListNode *CResList_FindByString(CResList *list, void *keyStr, CResListNode *
 void CResListNode_SetString(CResListNode *node, CString *src); // 0x0043F670
 CResListNode *CResList_AllocTailNodeB(CResList *list); // 0x0043F700
 void CResListNode_InsertDataB(CResListNode *node, void *srcData); // 0x0043F7B0
-void CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction); // 0x0043F840
+void CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction); // 0x0043F840
 void CResManager_BeginIterInternalA(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0043F8F0
 void CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0043F9F0
 void *CResManager_CreateBucket(CSearchCtx *dst, CSearchCtx *src); // 0x0043FC30
-void CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, const char *key, CSearchCtx *startCtx, int direction); // 0x0043FF90
+void CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction); // 0x0043FF90
 void CResManager_BeginIterInternalB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x00440040
 void CResManager_NextIterInternalB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00440140
 CResListNode *CResList_DirectionBegin(CResList *list, int direction); // 0x00440380
@@ -210,7 +210,7 @@ int CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valu
 CSearchCtx *CResManager_FindByKey_A(CResManager *this, CSearchCtx *output, uint32_t *keyPtr, int direction); // 0x0047A740
 void *CResManager_GetResultCtx(CResManager *rm, CSearchCtx *ctx); // 0x0047A800
 void *CResManager_GetResult(CResManager *rm, CSearchCtx *ctx); // 0x0047A800
-CSearchCtx *CResManager_CreateOrFind_R(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047A840
+CSearchCtx *CResManager_EraseAndFree_MultiA(CResManager *this, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047A840
 CSearchCtx *CResManager_BeginIter_MultiA(CResManager *this, CSearchCtx *output); // 0x0047A8C0
 CSearchCtx *CResManager_NextIter_MultiA(CResManager *this, CSearchCtx *output, CSearchCtx *current); // 0x0047A8E0
 void CResManager_ClearMultiB_Thunk(CResManager *rm); // 0x0047A910

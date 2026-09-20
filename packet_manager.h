@@ -233,7 +233,7 @@ uint16_t PacketManager_MakePacket_LOGIN_REJECT(uint8_t *buf, uint8_t reason); //
 uint16_t PacketManager_MakePacket_LOGIN_COMPLETE(uint8_t *buf); // 0x0049B3F5
 uint16_t PacketManager_MakePacket_ACCT_LOGIN_OK(uint8_t *buf, uint8_t numCharacters, uint8_t v, char *characterNames, char *characterPasswords); // 0x0049B40A
 uint16_t PacketManager_MakePacket_CHG_CHAR_RESULT(uint8_t *buf, uint8_t reason); // 0x0049B5A0
-uint16_t PacketManager_MakePacket_ALL_CHARACTERS(uint8_t *buf, uint8_t numCharacters, char *characterNames); // 0x0049B5C8
+void PacketManager_MakePacket_ALL_CHARACTERS(uint8_t *buf, uint8_t numCharacters, char *characterNames); // 0x0049B5C8
 void PacketManager_MakePacket_MAP_COMMAND(uint8_t *buf, uint32_t serial, uint8_t command, uint8_t arg, uint16_t plotX, uint16_t plotY); // 0x0049B632
 uint16_t PacketManager_MakePacket_SOUND(uint8_t *buf, uint8_t flags, uint16_t soundID, CLocation *location, uint16_t volume); // 0x0049B699
 uint16_t PacketManager_MakePacket_GAMETIME(uint8_t *buf); // 0x0049B71B

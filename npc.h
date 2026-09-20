@@ -259,7 +259,7 @@ void CNPCMap_Init(void); // 0x00480920
 void CNPCHash_Constructor(void); // 0x004809C2
 void CNPCManager_Destructor(void); // 0x00480A25
 CNPC *NPC_FindBySerial(uint32_t serial); // 0x00480A9B
-void CNPCHash_HeartbeatTick(void); // 0x00480B7A
+int CNPCHash_HeartbeatTick(void); // 0x00480B7A
 void CNPCHash_RegenMoveTick(void); // 0x00480C34
 void CResourceMobile_SetBodyAndPlace(CMobile *mob, uint16_t bodyType, uint8_t flag, CLocation loc); // 0x00480CD6
 void CNPC_InitFields(CNPC *npc); // 0x00480CFF

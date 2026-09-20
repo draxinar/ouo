@@ -369,11 +369,12 @@ Server_Loop(void)
  * binary reaches WinMain. Server_Loop itself handles the phase-A setup
  * the binary does inline in 0x00467FF0.
  *
- * OMITTED WinMain allocations, all Win32-only with no Linux equivalent:
- *   - CDebugConsole::CDebugConsole (0x004D02E0, 16 bytes) - riched32
- *     dialog + message-pump thread for a GUI debug window.
- *   - Two CCriticalSection objects (0x004E7200, 32 bytes each) - single-
- *     thread no-ops; the lock/unlock stubs in stl.c cover the use sites.
+ * OMITTED WinMain allocation, Win32-only with no Linux equivalent:
+ * CDebugConsole::CDebugConsole (0x004D02E0, 16 bytes), a riched32
+ * dialog plus message-pump thread for a GUI debug window. The two
+ * CCriticalSection objects are allocated further down, in Server_Loop,
+ * and are single-thread no-ops here; the lock and unlock stubs in
+ * stl.c cover their use sites.
  */
 int
 main(int argc, char **argv)

@@ -271,8 +271,11 @@ CStreamBuf_Pninc(CStreamBuf *sb)
  *
  * Initializes the streambuf pointer, null-fill character, and calls
  * base init. If streambuf is NULL, sets error state via IosBase_SetState.
- * MSVC STL ios_base base-init (0x005C0280) and TLS registration
- * (0x005C0230, conditional on initFlag) are omitted.
+ *
+ * MODIFIED: the binary's two MSVC STL internals - the ios_base base-init
+ * at 0x005C0280, called unconditionally at 004039cf, and the TLS
+ * registration at 0x005C0230, called under initFlag at 004039f8 - have
+ * no Linux counterpart and are both dropped.
  */
 __attribute__((unused)) void
 CStreamBuf_Constructor(CStreamBuf *this, void *streambuf, char initFlag)

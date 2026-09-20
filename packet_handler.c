@@ -942,11 +942,11 @@ CEditorObj_HandleEdit(CPlayer *player, int type, int16_t x, int16_t y, int8_t z,
 
 		item = FindHighestItemAtXY(g_World, loc.x, loc.y);
 		if (item != NULL) {
-			if (VT_IsContainer(item)) {
+			if (VT_IsDynamic(item)) {
 				if (VT_IsPlayer(item))
 					break;
 			}
-			if (VT_IsContainer(item)) {
+			if (VT_IsDynamic(item)) {
 				// Delete container via destructor
 				CItem *mob = item;
 				if (mob != NULL) {
@@ -1006,7 +1006,7 @@ CEditorObj_HandleEdit(CPlayer *player, int type, int16_t x, int16_t y, int8_t z,
 			item->resourceEntity.entity.color = g_ItemTileData[id & 0xFFFF].value2;
 		}
 
-		if (VT_IsContainer(item)) {
+		if (VT_IsDynamic(item)) {
 			CLocation_SetLoc((CLocation *)&item->resourceEntity.nextInContainer, &loc);
 			CItem_Setup(item, 0, &loc, 0, 1);
 		}
@@ -2045,7 +2045,7 @@ Handle_LookAt(CPlayer *this, uint32_t targetSerial)
 container_addendum:
 	if (CWorld_FindBySerial(g_World, savedSerial) != target)
 		return;
-	if (!VT_IsMobile2(target))
+	if (!VT_IsContainer(target))
 		return;
 	if (VT_IsMobile(target))
 		return;
@@ -2131,7 +2131,7 @@ ValidateEntityAccess(CPlayer *player, uint32_t *serialPtr, int useCheck)
 		return;
 	}
 
-	if (VT_IsMobile2(entity)) {
+	if (VT_IsContainer(entity)) {
 		if (!CItem_HasSecuredAncestor(entity))
 			goto range_check;
 		// Secured ancestor found - fall through to backpack check
@@ -2254,7 +2254,7 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 			CLocation_Init(&tmpLoc);
 			CLocation_Set(&tmpLoc, -1, -1, 0);
 			CItem *cont = CWorld_FindBySerial(g_World, (uint32_t)lockSerial);
-			if (cont != NULL && VT_IsMobile2(cont)) {
+			if (cont != NULL && VT_IsContainer(cont)) {
 				((void (*)(void *, CItem *, CLocation *))VT_FN(cursor, VT_ADD_TO_CONTAINER))(cursor, cont, &tmpLoc);
 			} else {
 				((void (*)(void *, CLocation *))VT_FN(cursor, VT_DROP_AT_FEET))(cursor, &savedLoc);
@@ -2269,7 +2269,7 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
 	SendPacketToPlayer(this, &obuf[0], -1);
 
 	// Phase 6: NotifyNearby
-	NotifyNearby(&this->mobile.container.item);
+	NotifyNearby(&this->mobile.container.item, &this->mobile.container.item);
 
 	// Phase 7: SetHP/SetMana/SetStamina with current values.
 	((uint32_t (*)(void *, int))VT_FN(&this->mobile.container.item, VT_SET_HP))(&this->mobile.container.item, (int)this->mobile.hp);
@@ -2349,13 +2349,15 @@ Player_LoginSequence(CPlayer *this, uint32_t addr)
  * Reads toggleByte: non-zero runs the IsLoaded check then EnableEditing,
  * zero runs DisableEditing. Always sends a GODMODE packet to the client.
  *
- * FIXED: the binary has no privilege check - any client can toggle god
- * mode. Added an account plevel >= 2 (GM) check before enabling editing.
+ * MODIFIED: the binary has no privilege check - any client can toggle
+ * god mode - and adding one means testing CAccount.plevel, a field of a
+ * structure the demo binary does not have. The gate is ours, not a fix
+ * to UoDemo.exe.
  */
 void
 HandlePacket_GODMODE_TOGGLE(CPlayer *this, uint8_t *buf)
 {
-	uint8_t obuf[0x10];
+	uint8_t obuf[4];
 	uint32_t off;
 	uint8_t toggleByte;
 
@@ -2363,7 +2365,7 @@ HandlePacket_GODMODE_TOGGLE(CPlayer *this, uint8_t *buf)
 	GetByte(buf, &off, &toggleByte);
 
 	if ((toggleByte & 0xFF) != 0) {
-		// FIXED: require GM account privilege to enable editing
+		// MODIFIED: require GM account privilege to enable editing
 		CAccount *acct = NULL;
 		if (this->usersock)
 			acct = this->usersock->account;
@@ -3108,7 +3110,7 @@ Steal_CheckAndResolve(CItem *item, CPlayer *player, CItem *owner)
 		return 0;
 	}
 
-	if (((int (*)(void *))VT_FN(item, VT_IS_MOBILE2))(item) && (player->pflags & PlayerIsEditing) == 0) {
+	if (((int (*)(void *))VT_FN(item, VT_IS_CONTAINER))(item) && (player->pflags & PlayerIsEditing) == 0) {
 		CPlayer_SystemMessage(player, "You can not pick that up.");
 		PacketManager_MakePacket_GETOBJ_FAILED(obuf, 1);
 		SendToClient((CItem *)player, obuf, -1);
@@ -3623,7 +3625,7 @@ HandlePacket_REQ_DROPOBJ(CPlayer *this, uint8_t *buf)
 			DropObj_Bounce((CItem *)this, item, &dropLoc);
 			return;
 		}
-		if (VT_IsMobile2(item)) {
+		if (VT_IsContainer(item)) {
 			if (CContainer_ContainsEntity((CContainer *)item, contEntity, 1)) {
 				DropObj_Bounce((CItem *)this, item, &dropLoc);
 				return;
@@ -3735,7 +3737,7 @@ ground_drop_main:
 	}
 
 	// Container drop path.
-	if (contEntity == NULL || !VT_IsMobile2(contEntity))
+	if (contEntity == NULL || !VT_IsContainer(contEntity))
 		goto non_container;
 
 	if (CEntity_IsAtHome(contEntity)) {
@@ -4217,7 +4219,7 @@ HandlePacket_GODCOMMAND(CPlayer *this, uint8_t *buf)
 				DoDoubleClick(this, this->mobile.container.item.serial, CEntity_GetLocation((CEntity *)&this->mobile.container.item), item, 0);
 				goto opendoor_done;
 			}
-			if (!VT_IsMobile2(item))
+			if (!VT_IsContainer(item))
 				goto opendoor_nextslot;
 			item = ((CContainer *)item)->contents;
 			while (item != NULL) {
@@ -4255,7 +4257,7 @@ opendoor_done:
 		// Step 2: search backpack contents
 		if (mob->equipment[21] != NULL) {
 			CItem *bp = mob->equipment[21];
-			if (VT_IsMobile2(bp)) {
+			if (VT_IsContainer(bp)) {
 				CItem *bpchild = ((CContainer *)bp)->contents;
 				while (bpchild != NULL) {
 					if (((int (*)(void *))VT_FN(bpchild, VT_EXCLUDED_AMOUNT))(bpchild) != 0) {
@@ -5798,7 +5800,7 @@ HandlePacket_OK_MOVE(CPlayer *this, uint8_t *buf)
 {
 	uint32_t off;
 	uint8_t dummy;
-	uint8_t obuf[32];
+	uint8_t obuf[20];
 
 	off = 0;
 	GetByte(buf, &off, &dummy);
@@ -8758,7 +8760,7 @@ UseSpellbook(CPlayer *player, CItem *spellbook)
 	uint32_t contSerial;
 	int i;
 
-	if (!VT_IsMobile2(spellbook))
+	if (!VT_IsContainer(spellbook))
 		CastToContainer(&spellbook);
 
 	cont = (CContainer *)spellbook;
@@ -8839,7 +8841,7 @@ UseScrollCase(CPlayer *player, CItem *scrollcase)
 	uint32_t contSerial;
 	int i;
 
-	if (!VT_IsMobile2(scrollcase))
+	if (!VT_IsContainer(scrollcase))
 		CastToContainer(&scrollcase);
 
 	cont = (CContainer *)scrollcase;
@@ -9173,7 +9175,7 @@ parent_walk:
 			parentItem = parentItem->parent;
 	}
 
-	if (VT_IsMobile2(entity)) {
+	if (VT_IsContainer(entity)) {
 		if (!((int (*)(void *))VT_FN(entity, VT_EXCLUDED_AMOUNT))(entity))
 			goto event_0x3d_8;
 	}
@@ -9249,7 +9251,7 @@ event_0x17:
 		return;
 	}
 
-	if (!VT_IsMobile2(entity)) {
+	if (!VT_IsContainer(entity)) {
 		UseItem_Default(this, entity);
 		return;
 	}

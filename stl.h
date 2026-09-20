@@ -250,7 +250,7 @@ void StdPtrList_Destructor(StdPtrList *this); // 0x00420D30
 StdPtrNode **StdPtrIter_CopyConstructor(StdPtrNode **dest, StdPtrNode **source); // 0x00421360
 void *StdMap_InsertWrapper(StdMapTree *this, void *arg1, void *arg2); // 0x00421380
 void *StdMap_End(StdMapTree *this, void *outIter); // 0x004213B0
-void *StdMap_LowerBound(StdMapTree *this, void *outIter, void *keyPtr); // 0x004213D0
+void *StdMap_Insert(StdMapTree *this, void *outIter, void *keyPtr); // 0x004213D0
 void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
 void *StdMap_EraseWrapper(StdMapTree *this, void *outIter, void *pos); // 0x00421410
 void *StdMap_FindWrapper(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421430
@@ -273,6 +273,7 @@ void *vector_CopyBackward(void *first, void *last, void *dest_end); // 0x0042682
 void *CVector_Allocate1C(CVector *this, int count, int unused_arg); // 0x00479B50
 StdPtrNode **StdPtrList_Begin(StdPtrList *list, StdPtrNode **outIter); // 0x00426CA0
 void StdPtrList_PushBack(StdPtrList *list, void *value); // 0x00426CD0
+void StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source); // 0x00424FC0
 void StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00426D00
 int StdPtrIter_Eq(StdPtrNode **a, StdPtrNode **b); // 0x00426E00
 void CVector_PushBack(CVector *list, uintptr_t value); // 0x0042FF00
@@ -300,8 +301,8 @@ StdPtrIterFull *StdPtrIter_Next(StdPtrIterFull *this); // 0x00420E80
 StdPtrIterFull *StdPtrIter_Prev(StdPtrIterFull *this); // 0x00420EA0
 void Vector_SortByDistPair(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00462390
 void *StdPtrList_InitLogin(StdPtrList *this, const void *init); // 0x0045AAB0
-void *CMapNode_ScalarDtor(CFragment *this, int flags); // 0x0044D710
-void *CMapIterator_ScalarDtor(CDefine *this, int flags); // 0x0044D740
+void *CFragment_ScalarDelete(CFragment *this, int flags); // 0x0044D710
+void *CDefine_ScalarDelete(CDefine *this, int flags); // 0x0044D740
 void vector_SwapWrapper(uintptr_t *a, uintptr_t *b); // 0x00463990
 void StdPtrList_Destructor_HelpQueue(StdPtrList *this); // 0x00469550
 void CVector_DestructorSI(CVector *this); // 0x0046BA10

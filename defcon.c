@@ -40,11 +40,12 @@ static int CDefcon_PlayerOverThreshold1(void); // 0x00436BB0
  *
  * Seeds the DEFCON server-load limiter with default thresholds.
  *
- * FIXED: Binary sets maxNPCCount to 0xAF0 (2800). The world save
- * already contains ~6000 NPCs, so VT_DROP_AT_FEET pushes g_NormalNPCCount
- * past the binary's cap immediately on load and CDefcon_IsFull blocks
- * all animated spawns. Raised to 100000 so a populated world still has
- * respawn headroom.
+ * MODIFIED: the binary sets maxNPCCount to 0xAF0 (2800) at 00436aca.
+ * Our world save already contains ~6000 NPCs, so VT_DROP_AT_FEET pushes
+ * g_NormalNPCCount past that cap immediately on load and CDefcon_IsFull
+ * blocks every animated spawn. Raised to 100000 so a populated world
+ * still has respawn headroom. The constant suits the demo's own world;
+ * it is not a bug in UoDemo.exe.
  */
 void
 CDefcon_Init(void)

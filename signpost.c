@@ -92,6 +92,8 @@ CSignpost_Destructor(CSignpost *this)
 {
 	VectNode *cur, *next;
 
+	CEntity_SetType(&this->item.resourceEntity.entity, ETYPE_SIGNPOST);
+
 	cur = this->vectHead;
 	while (cur != NULL) {
 		next = cur->next;
@@ -270,7 +272,7 @@ CSignpost_SendMapDisplay(CSignpost *this, CItem *player, uint32_t playerSerial)
 	uint8_t pkt[19];
 	uint16_t gumpId;
 
-	gumpId = (CItem_GetEquipSlot((CItem *)this) & 0xFF) + 0x139D;
+	gumpId = (CItem_GetByteProp((CItem *)this) & 0xFF) + 0x139D;
 	PacketManager_MakePacket_MAP_DISPLAY(
 	        pkt, this->item.serial, gumpId, this->mapExtent[0], this->mapExtent[1], this->mapExtent[2], this->mapExtent[3], this->mapExtent[4], this->mapExtent[5]);
 	Entity_BroadcastPacket(player, playerSerial, pkt);

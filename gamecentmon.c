@@ -144,12 +144,11 @@ GameCentMon_CalcZ(int x, int y)
 static void
 GameCentMon_DeselectTarget(CPlayer *player)
 {
-	uint8_t responseBuf[0x2014];
-	char dataBuf[0x2000];
+	uint8_t responseBuf[0x2008];
 	int32_t broadcastBuf[3];
 
 	if (player != NULL) {
-		BuildGameCentMonResponse(responseBuf, 8, 0, dataBuf, 1);
+		BuildGameCentMonResponse(responseBuf, 8, 0, (char *)(responseBuf + 8), 1);
 		SendToClient((CItem *)player, responseBuf, -1);
 	}
 
@@ -667,7 +666,7 @@ GameCentMon_WriteEntityData(GCMEntityListBuilder *builder, CItem *entity)
 			GameCentMon_FlushEntityList(builder);
 	}
 
-	if (VT_IsMobile2(entity)) {
+	if (VT_IsContainer(entity)) {
 		for (child = ((CContainer *)entity)->contents; child != NULL; child = child->spatialNext) {
 			GameCentMon_WriteEntityData(builder, child);
 		}
@@ -772,15 +771,15 @@ GameCentMon_ResetDecay(void)
 			classification = CItem_ClassifyEntityByVtable(entity);
 			if (classification == 8) {
 				CItem_SetDecayCount(entity, CItem_GetGlobalDecayMax(entity));
-				CItem_DecayTick(entity);
+				((void (*)(void *))VT_FN(entity, VT_DECAY_TICK))(entity);
 			} else if (classification <= 8) {
 				if (classification == 2 || classification == 4) {
 					CItem_SetDecayCount(entity, CItem_GetGlobalDecayMax(entity));
-					CItem_DecayTick(entity);
+					((void (*)(void *))VT_FN(entity, VT_DECAY_TICK))(entity);
 				}
 			} else if (classification == 0x1000) {
 				CItem_SetDecayCount(entity, CItem_GetGlobalDecayMax(entity));
-				CItem_DecayTick(entity);
+				((void (*)(void *))VT_FN(entity, VT_DECAY_TICK))(entity);
 			}
 			entity = next;
 		}

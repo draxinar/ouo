@@ -539,7 +539,7 @@ CNamedScope_Copy(CNamedScope *dst, const CNamedScope *src)
 	dst->count = src->count;
 
 	// Allocate and copy entries
-	if (dst->count > 0) {
+	if (dst->count != 0) {
 		size_t sz = (size_t)dst->count * sizeof(CNamedScopeEntry);
 		dst->entries = OperatorNew(sz);
 		memcpy(dst->entries, src->entries, sz);
@@ -634,8 +634,14 @@ CNamedScope_Add(CNamedScope *scope, const char *name, int typeId, CFuncList *fun
 /*
  * 0x0040821E - CScope::FindVar
  *
- * Walks the variable array comparing names with strcmp (0x004E8910).
- * Returns pointer to the matching WombatVar, or NULL.
+ * Walks the variable array comparing names with strcmp. Returns a
+ * pointer to the matching WombatVar, or NULL.
+ *
+ * MODIFIED: the binary indexes a 12-byte record through a pointer at
+ * +0x08 with the name as a char* at +0x00. WombatScope holds its
+ * WombatVars inline, each with a 128-byte name array, so the walk is
+ * over a different layout. CNamedScope_FindVar, at the same address, is
+ * the one that matches the binary; nothing calls this.
  */
 WombatVar *
 CScope_FindVar(WombatScope *scope, const char *name)

@@ -564,7 +564,7 @@ CWorld_FindDuplicateIds(CWorld *world, CPlayer *player)
 						strcat(msg, "NPC");
 					else if (VT_IsMobile(ent1))
 						strcat(msg, "Mobile");
-					else if (VT_IsMobile2(ent1))
+					else if (VT_IsContainer(ent1))
 						strcat(msg, "Container");
 					else if (((int (*)(void *))VT_FN(ent1, VT_ATTACH_SPATIAL))(ent1))
 						strcat(msg, "Static");
@@ -578,7 +578,7 @@ CWorld_FindDuplicateIds(CWorld *world, CPlayer *player)
 						strcat(msg, "NPC");
 					else if (VT_IsMobile(ent2))
 						strcat(msg, "Mobile");
-					else if (VT_IsMobile2(ent2))
+					else if (VT_IsContainer(ent2))
 						strcat(msg, "Container");
 					else if (((int (*)(void *))VT_FN(ent2, VT_ATTACH_SPATIAL))(ent2))
 						strcat(msg, "Static");
@@ -1195,7 +1195,7 @@ CWorld_FindEntityInRange(CWorld *world, CEntity *refEntity, uint32_t serial, int
 			if (iter->serial == serial)
 				return iter;
 
-			if (VT_IsMobile2(iter)) {
+			if (VT_IsContainer(iter)) {
 				found = CContainer_FindItemBySerial((CContainer *)iter, serial);
 				if (found != NULL)
 					return found;
@@ -1230,7 +1230,7 @@ CWorld_FindEntityBySerialInRange(CWorld *world, CLocation *loc, uint32_t serial,
 				continue;
 			if (iter->serial == serial)
 				return iter;
-			if (((int (*)(void *))VT_FN(iter, VT_IS_MOBILE2))(iter)) {
+			if (((int (*)(void *))VT_FN(iter, VT_IS_CONTAINER))(iter)) {
 				found = CContainer_FindItemBySerial((CContainer *)iter, serial);
 				if (found != NULL)
 					return found;
@@ -1451,7 +1451,7 @@ CWorld_NotifyEntityArrival(CWorld *world, CItem *entity)
  * MODIFIED: AllocateItem (0x0048E15F, 576 bytes) is inlined here rather
  * than called as a separate function; binary uses operator new, we use
  * calloc + Construct. The binary's AllocateItem also performs a
- * VT_IsContainer + CMobile_GetSerial logging pair before returning;
+ * VT_IsDynamic + CMobile_GetSerial logging pair before returning;
  * we omit that. The binary's static-entity branch (isStatic=1, used
  * by CEditorObj_HandleEdit) is handled separately at the caller via
  * CreateStaticEntity. The binary's
@@ -1496,7 +1496,7 @@ CWorld_CreateItem(CWorld *world, uint16_t bodyType)
 	item->resourceEntity.entity.bodyType = bodyType;
 
 	// All CItem-derived return 1; guards against non-item entities.
-	if (!VT_IsContainer(item)) {
+	if (!VT_IsDynamic(item)) {
 		((void (*)(void *))VT_FN(item, VT_DELETE))(item);
 		return NULL;
 	}
@@ -1508,7 +1508,7 @@ CWorld_CreateItem(CWorld *world, uint16_t bodyType)
  * 0x0048E3FA - CWorld::CreateContainerItem
  *
  * Creates a new item via CWorld_CreateItem, then verifies it is a
- * container type via vtable[0xD4] (IsMobile2). If not a container,
+ * container type via vtable[0xD4]. If not a container,
  * deletes the item via vtable[0x90] (Delete) and returns NULL.
  */
 CItem *
@@ -1520,7 +1520,7 @@ CWorld_CreateContainerItem(CWorld *world, uint16_t bodyType)
 	if (item == NULL)
 		return NULL;
 
-	if (VT_IsMobile2(item))
+	if (VT_IsContainer(item))
 		return item;
 
 	// Not a container - delete and return NULL
@@ -1566,9 +1566,9 @@ CItem_TestTypeBit(CItem *entity, int bit)
 
 	switch (bit) {
 	case 0x0002:
-		return ((int (*)(void *))VT_FN(entity, VT_IS_CONTAINER))(entity);
+		return ((int (*)(void *))VT_FN(entity, VT_IS_DYNAMIC))(entity);
 	case 0x0004:
-		return ((int (*)(void *))VT_FN(entity, VT_IS_MOBILE2))(entity);
+		return ((int (*)(void *))VT_FN(entity, VT_IS_CONTAINER))(entity);
 	case 0x0008:
 		return ((int (*)(void *))VT_FN(entity, VT_IS_SPATIAL))(entity);
 	case 0x0010:
@@ -1616,7 +1616,7 @@ CItem_TestTypeBit(CItem *entity, int bit)
 int
 CItem_ClassifyEntityByVtable(CItem *this)
 {
-	if (!VT_IsContainer(this))
+	if (!VT_IsDynamic(this))
 		return 1;
 
 	if (VT_IsSpatial(this))
@@ -1625,7 +1625,7 @@ CItem_ClassifyEntityByVtable(CItem *this)
 	if (VT_IsWeapon(this))
 		return 0x1000;
 
-	if (!VT_IsMobile2(this))
+	if (!VT_IsContainer(this))
 		return 2;
 
 	if (((int (*)(void *))VT_FN(this, VT_CHECK_DC))(this))
@@ -1682,7 +1682,9 @@ static void
 CDataManager_InitMapBuffers(CWorld *this)
 {
 	this->critSectTileData1 = ArenaAllocator_Alloc(0x70000, (void **)&this->landTileData);
+	CCriticalSection_Unlock(this->critSectTileData1);
 	this->critSectTileData2 = ArenaAllocator_Alloc(0xA0000, (void **)&this->itemTileData);
+	CCriticalSection_Unlock(this->critSectTileData2);
 }
 
 /*
@@ -1931,7 +1933,7 @@ World_ValidateWeaponEntity(CItem *expected, uint32_t serial)
 /*
  * 0x00492245 - ValidateContainerEntity
  *
- * Validates entity by serial, then checks VT_IS_MOBILE2 (vtable[0xD4]).
+ * Validates entity by serial, then checks VT_IS_CONTAINER (vtable[0xD4]).
  * Returns entity if valid container/mobile, NULL otherwise.
  */
 CItem *
@@ -1942,7 +1944,7 @@ World_ValidateContainerEntity(CItem *expected, uint32_t serial)
 	found = World_ValidateEntity(expected, serial);
 	if (found == NULL)
 		return NULL;
-	if (!VT_IsMobile2(found))
+	if (!VT_IsContainer(found))
 		return NULL;
 	return found;
 }

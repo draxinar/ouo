@@ -175,7 +175,7 @@ CMagicItemList_PlaceInContainer(CMagicItemList *obj, uint32_t serial)
 	if (container == NULL)
 		return 0;
 
-	if (((int (*)(void *))VT_FN(container, VT_IS_MOBILE2))(container) == 0)
+	if (((int (*)(void *))VT_FN(container, VT_IS_CONTAINER))(container) == 0)
 		return 0;
 
 	CLocation_Init(&loc);
@@ -304,7 +304,7 @@ CMagicItemList_AddItem(CMagicItemList *obj, CItem *entity)
 		resNodeData = CResList_GetData(&obj->list, iter);
 
 		// Binary passes CString*; HashStrA calls GetBuffer internally
-		CResManager_FindByStrCtxC(factoryRM, &localCtx, (const char *)resNodeData, 1);
+		CResManager_FindByStrCtxC(factoryRM, &localCtx, (CString *)resNodeData, 1);
 		CSearchCtx_Add(&searchCtx, &localCtx);
 
 		if (CSearchCtx_Find(&searchCtx))
@@ -550,7 +550,7 @@ CMagicItemList_CopyEffectNames(CResList *dst, CResList *src)
 		CResList_InsertTailDataB(dst, (CMagicItemListNode *)CResList_GetData(src, iter));
 		iter = CResList_Next(src, iter);
 	}
-	return dst;
+	return NULL;
 }
 
 /*

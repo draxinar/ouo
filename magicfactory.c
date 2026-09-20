@@ -1448,7 +1448,7 @@ CMagicItemFactory_ResolveMainProp(CMagicItemFactory *factory, CString *propName,
 	CSearchCtx_Constructor(&searchCtx);
 
 retry:
-	CResManager_FindByStrCtxB(effectsRM, &tempCtx, (const char *)&keyCopy, 1);
+	CResManager_FindByStrCtxB(effectsRM, &tempCtx, (CString *)&keyCopy, 1);
 	CSearchCtx_Add(&searchCtx, &tempCtx);
 
 	if (!CSearchCtx_Find(&searchCtx)) {
@@ -1507,7 +1507,7 @@ CMagicItemFactory_ResolveRandomValue(CMagicItemFactory *factory, CString *propNa
 
 	*doneFlag = 0;
 
-	CResManager_FindByStrCtxC(rangesRM, &tempCtx, (const char *)propName, 1);
+	CResManager_FindByStrCtxC(rangesRM, &tempCtx, (CString *)propName, 1);
 	CSearchCtx_Add(&searchCtx, &tempCtx);
 
 	if (!CSearchCtx_Find(&searchCtx)) {
@@ -1569,7 +1569,7 @@ CMagicItemFactory_PruneInvalidEntries(CMagicItemFactory *factory, CStringList *l
 		if (CString_IsNumeric((CString *)nodeData))
 			goto advance;
 
-		CResManager_FindByStrCtxA(includeRM, &tempCtx, (const char *)CStringList_GetNodeData(list, &magicCtx), 1);
+		CResManager_FindByStrCtxA(includeRM, &tempCtx, (CString *)CStringList_GetNodeData(list, &magicCtx), 1);
 		CSearchCtx_Add(&searchCtx, &tempCtx);
 
 		if (!CSearchCtx_Find(&searchCtx)) {
@@ -1647,7 +1647,7 @@ CMagicItemFactory_ResolveItemId(CMagicItemFactory *factory, CStringList *list, C
 
 	while (!CString_IsNumeric(&nameStr)) {
 		// FindByStrCtxA (0x0043df40): binary passes CString* directly
-		CResManager_FindByStrCtxA(incRM, &tempCtx, (const char *)&nameStr, 1);
+		CResManager_FindByStrCtxA(incRM, &tempCtx, (CString *)&nameStr, 1);
 		CSearchCtx_Add(&ctxA, &tempCtx);
 
 		if (!CSearchCtx_Find(&ctxA)) {
@@ -1700,7 +1700,7 @@ CMagicItemFactory_FindNameInKeys(CMagicItemFactory *factory, CString *name, CRes
 		if (CString_EqualCString2((CString *)data, name))
 			return 1;
 
-		CResManager_FindByStrCtxD(&factory->keysRM, &tempCtx, (const char *)CResList_GetData(list, node), 1);
+		CResManager_FindByStrCtxD(&factory->keysRM, &tempCtx, (CString *)CResList_GetData(list, node), 1);
 		CSearchCtx_Add(&searchCtx, &tempCtx);
 
 		if (CSearchCtx_Find(&searchCtx)) {
@@ -1735,7 +1735,7 @@ CMagicItemFactory_FindNameInIncludes(CMagicItemFactory *factory, CString *name, 
 			return 1;
 
 		if (!CString_IsNumeric((CString *)CResList_GetData(list, node))) {
-			CResManager_FindByStrCtxA(&factory->includeRM, &tempCtx, (const char *)CResList_GetData(list, node), 1);
+			CResManager_FindByStrCtxA(&factory->includeRM, &tempCtx, (CString *)CResList_GetData(list, node), 1);
 			CSearchCtx_Add(&searchCtx, &tempCtx);
 
 			if (CSearchCtx_Find(&searchCtx)) {
@@ -1784,7 +1784,7 @@ CMagicItemFactory_FindNameInList(CMagicItemFactory *factory, CString *name, CStr
 
 		nodeData = CStringList_GetNodeData(list, &magicCtx);
 		CSearchCtx tempCtx;
-		CResManager_FindByStrCtxA(&factory->includeRM, &tempCtx, (const char *)nodeData, 1);
+		CResManager_FindByStrCtxA(&factory->includeRM, &tempCtx, (CString *)nodeData, 1);
 		CSearchCtx_Add(&searchCtx, &tempCtx);
 
 		if (CSearchCtx_Find(&searchCtx)) {
@@ -1975,7 +1975,7 @@ CMagicItemFactory_ProcessPropsB(CMagicItemFactory *factory, CResManager *eRM, CR
 
 			val = (CStringList *)CResManager_GetResultCtx(eRM, &outerIter);
 			data = (CEffectTableEntry *)CStringList_GetNodeData(val, &magicCtx);
-			CResManager_FindByStrCtxC(pRM, &tempCtx, (const char *)&data->name, 1);
+			CResManager_FindByStrCtxC(pRM, &tempCtx, (CString *)&data->name, 1);
 			CSearchCtx_Add(&innerCtx, &tempCtx);
 
 			if (!CSearchCtx_Find(&innerCtx)) {
@@ -2061,7 +2061,7 @@ CMagicItemFactory_DeepResolve(CMagicItemFactory *factory, CResManager *eRM, int 
 				goto advance_entry;
 
 			data = (CEffectTableEntry *)CStringList_GetNodeData(val, &magicCtx);
-			CResManager_FindByStrCtxC(pRM, &tempCtx, (const char *)&data->name, 1);
+			CResManager_FindByStrCtxC(pRM, &tempCtx, (CString *)&data->name, 1);
 			CSearchCtx_Add(&innerCtx, &tempCtx);
 
 			if (!CSearchCtx_Find(&innerCtx)) {
@@ -2152,7 +2152,7 @@ CMagicItemFactory_CountRemovalsInternal(CMagicItemFactory *factory, CResManager 
 
 			val = (CStringList *)CResManager_GetResultCtx(effectsMap, &outerCtx);
 			data = CStringList_GetNodeData(val, &magicCtx);
-			CResManager_FindByStrCtxB(effectsMap, &tempCtx, (const char *)&((CEffectTableEntry *)data)->name, 1);
+			CResManager_FindByStrCtxB(effectsMap, &tempCtx, (CString *)&((CEffectTableEntry *)data)->name, 1);
 			CSearchCtx_Add(&innerCtx, &tempCtx);
 
 			if (CSearchCtx_Find(&innerCtx)) {

@@ -63,7 +63,7 @@ struct CStreamPos {
  * MSVC 5.0 basic_filebuf<char> (84 bytes). Extends CStreamBuf with a
  * locale facet, stream-position scratch, and the underlying FILE *.
  * Constructor CStdioFile_ConstructorAlloc (0x00403370), destructor
- * CSdbStr_VectorDtor (0x00401C20).
+ * BasicFilebuf_Destructor (0x00401C20).
  */
 __extension__ typedef struct CStdioFileBuf CStdioFileBuf;
 struct CStdioFileBuf {

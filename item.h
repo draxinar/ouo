@@ -294,7 +294,7 @@ void CItem_SendUpdateToList(CItem *item, CVector *players, int mode); // 0x00489
 int CItem_HasContainerVT(CItem *item); // 0x00489EC7
 int CItem_IsEquipped_VT(CItem *item); // 0x00489EE0
 int CItem_GetLayer_VT(CItem *item); // 0x00489F46
-int CItem_GetDecayMax(CItem *item); // 0x00489FAB
+int CItem_GetWeight_VT(CItem *item); // 0x00489FAB
 int CItem_GetDirectionVT(CItem *item); // 0x0048A11F
 void CItem_GetContainerDim_VT(CItem *self, uint16_t *outWidth, uint16_t *outHeight); // 0x0048A170
 int CItem_IsMoveable_VT(CItem *self, CItem *viewer); // 0x0048A1B3

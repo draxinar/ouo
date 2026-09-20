@@ -669,16 +669,17 @@ CItem_IsTwoHandedWeapon(CItem *item)
 }
 
 /*
- * 0x004DF4A5 - CTemplateItem::~CTemplateItem
+ * 0x004DF4A5 - CWeapon::~CWeapon
  *
- * Hides the template item from the world (when still present),
- * clears its scripts and tags, and runs the base CItem destructor.
+ * Re-stamps the CWeapon vtable, hides the weapon from the world when
+ * still present, clears its scripts and tags, and runs the base CItem
+ * destructor.
  */
 static __attribute__((unused)) void
-CTemplateItem_Destructor(CItem *this)
+CWeapon_Destructor(CItem *this)
 {
-	// vtable set: *(uint32_t *)this = 0x5F00F8;
-	// Binary reads byte at this+6 (removedFromWorld)
+	CEntity_SetType(&this->resourceEntity.entity, ETYPE_WEAPON);
+
 	if (this->resourceEntity.entity.removedFromWorld == 0)
 		CItem_HideVT(this);
 	CItem_ClearScriptsAndTags(this);
@@ -825,7 +826,7 @@ CItem_IsReallyWeapon(CItem *item)
 {
 	uint8_t layer;
 
-	layer = CWorld_GetItemLayer(CEntity_GetBodyType(item));
+	layer = CItem_GetLayerThiscall(item);
 
 	if (CItem_IsShield(item))
 		return 0;
@@ -1171,7 +1172,7 @@ CItem_GetMissSfx(CItem *item)
  *
  * Shared durability/quality adjustment formula used by both
  * CItem::GetArmorRating and CItem::RollWeaponDamage.
- * Returns ceil((curDur / baseDur + 1.5) / 2.0 * baseValue).
+ * Returns floor((curDur / baseDur + 1.5) / 2.0 * baseValue).
  */
 static int
 CItem_CalcAC_Inner(int curDur, int baseDur, int baseValue)
@@ -1183,7 +1184,7 @@ CItem_CalcAC_Inner(int curDur, int baseDur, int baseValue)
 	if (curDur < 0)
 		curDur = 0;
 	result = ((double)curDur / (double)baseDur + 1.5) / 2.0 * (double)baseValue;
-	return (int)ceil(result);
+	return (int)floor(result);
 }
 
 /*
@@ -1476,6 +1477,20 @@ CWeaponDef_ScalarDeletingDtor(CWeaponDef *def, int flags)
 	if (flags & 1)
 		OperatorDelete(def);
 	return NULL;
+}
+
+/*
+ * 0x004E0000 - CWeapon::`scalar deleting destructor' (vtable[0])
+ *
+ * Runs ~CWeapon and frees the weapon when flags & 1. Returns this.
+ */
+static __attribute__((unused)) CItem *
+CWeapon_ScalarDelete(CItem *this, int flags)
+{
+	CWeapon_Destructor(this);
+	if (flags & 1)
+		OperatorDelete(this);
+	return this;
 }
 
 /*

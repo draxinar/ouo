@@ -276,7 +276,7 @@ CContainer_CountItems(CContainer *this, int recursive)
 		count++;
 		if (recursive) {
 			// vtable[0xD4]: check if child has contents
-			if (VT_IsMobile2(iter)) {
+			if (VT_IsContainer(iter)) {
 				if (!CItem_IsNonCountable(iter)) {
 					count += CContainer_CountItems((CContainer *)iter, 1);
 				}
@@ -301,7 +301,7 @@ CContainer_ContainsEntity(CContainer *this, CItem *target, int recursive)
 		if (walk == target)
 			return 1;
 		if (recursive) {
-			if (VT_IsMobile2(walk)) {
+			if (VT_IsContainer(walk)) {
 				if (CContainer_ContainsEntity((CContainer *)walk, target, recursive) == 1)
 					return 1;
 			}
@@ -497,7 +497,7 @@ CContainer_FindItemBySerial(CContainer *this, uint32_t serial)
 		if (iter->serial == serial)
 			return iter;
 
-		if (VT_IsMobile2(iter)) {
+		if (VT_IsContainer(iter)) {
 			found = CContainer_FindItemBySerial((CContainer *)iter, serial);
 			if (found != NULL)
 				return found;
@@ -1010,7 +1010,7 @@ CContainer_RecalcStoredWeight(CItem *this)
 
 	cur = ((CContainer *)this)->contents;
 	while (cur != NULL) {
-		if (VT_IsMobile2(cur)) {
+		if (VT_IsContainer(cur)) {
 			total += ((int (*)(void *))VT_FN(cur, VT_GET_STORED_WEIGHT))(cur);
 		} else {
 			if (!CItem_IsNonCountable(cur))
@@ -1038,7 +1038,7 @@ Container_WeightExcludingGold(CItem *item)
 	w -= ((uint32_t (*)(void *))VT_FN(item, VT_GET_STORED_WEIGHT))(item);
 
 	for (child = ((CContainer *)item)->contents; child != NULL; child = child->spatialNext) {
-		if (VT_IsMobile2(child)) {
+		if (VT_IsContainer(child)) {
 			w += Container_WeightExcludingGold(child);
 		} else {
 			if ((CEntity_GetBodyType(child) & 0xFFFF) != 0x0EED)
@@ -1078,7 +1078,7 @@ CContainer_CanHold(CContainer *this, CItem *item, int *reason)
 	if (CItem_IsInBankBox(&this->item)) {
 		if ((uint16_t)CEntity_GetBodyType(item) == 0x0EED) {
 			itemWeight = 0;
-		} else if (VT_IsMobile2(item)) {
+		} else if (VT_IsContainer(item)) {
 			itemWeight = Container_WeightExcludingGold(item);
 		} else {
 			itemWeight = CContainer_GetWeight(item);
@@ -1093,7 +1093,7 @@ CContainer_CanHold(CContainer *this, CItem *item, int *reason)
 		return 0;
 	}
 
-	if (VT_IsMobile2(item)) {
+	if (VT_IsContainer(item)) {
 		newItems = CContainer_CountItems((CContainer *)item, 1) + 1;
 	} else {
 		newItems = 1;
@@ -1177,7 +1177,7 @@ CContainer_FindItemBySerial_48DE7B(CContainer *this, uint32_t serial, CItem *cur
 		if (cur->serial == serial)
 			return cur;
 
-		if (VT_IsMobile2(cur)) {
+		if (VT_IsContainer(cur)) {
 			if (VT_IsMobile(cur)) {
 				for (i = 0; i < 0x1A; i++) {
 					sub = ((CMobile *)cur)->equipment[i];
@@ -1185,7 +1185,7 @@ CContainer_FindItemBySerial_48DE7B(CContainer *this, uint32_t serial, CItem *cur
 						continue;
 					if (sub->serial == serial)
 						return sub;
-					if (VT_IsMobile2(sub)) {
+					if (VT_IsContainer(sub)) {
 						sub = (CItem *)CContainer_FindItemBySerial_48DE7B(this, serial, ((CContainer *)sub)->contents);
 						if (sub != NULL)
 							return sub;

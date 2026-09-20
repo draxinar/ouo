@@ -150,7 +150,7 @@ CMobile_DecayContainerContents(CItem *containerItem)
 
 	child = ((CContainer *)containerItem)->contents;
 	while (child != NULL) {
-		if (((int (*)(void *))VT_FN(child, VT_IS_MOBILE2))(child))
+		if (((int (*)(void *))VT_FN(child, VT_IS_CONTAINER))(child))
 			((void (*)(void *))VT_FN(child, VT_EQUIP_DECAY_TICK))(child);
 		CItem_DecayProcess(child);
 		child = child->spatialNext;
@@ -439,7 +439,7 @@ CMobile_AddToBaseStat(CMobile *this, int type, int16_t delta)
 	int16_t result;
 
 	old = (int)(int16_t)CMobile_GetBaseStat(this, type);
-	result = CMobile_SetBaseStat(this, type, (uint16_t)(old + (int)delta));
+	result = (int16_t)((int (*)(void *, int, int))VT_FN((CItem *)this, VT_SET_BASE_STAT))(this, type, (uint16_t)(old + (int)delta));
 	return (int16_t)((int)result - old);
 }
 
@@ -475,7 +475,7 @@ CMobile_AddToStatBonus(CMobile *this, int type, int16_t delta)
 	int16_t result;
 
 	old = (int)(int16_t)CMobile_GetStatBonus(this, type);
-	result = CMobile_SetStatBonus(this, type, (int16_t)(old + (int)delta));
+	result = (int16_t)((int (*)(void *, int, int))VT_FN((CItem *)this, VT_SET_STAT_BONUS))(this, type, (int16_t)(old + (int)delta));
 	return (int16_t)((int)result - old);
 }
 
@@ -1741,7 +1741,7 @@ CMobile_SayCString(CItem *ent, char *text, int hue, int font, int speechType)
 	CLocation_AddWrapped(CEntity_GetLocation(&ent->resourceEntity.entity), &loc, &delta);
 	BroadcastToNearbyWithLOS(obuf, &loc, 18);
 
-	if (VT_IsContainer(ent) && VT_IsPlayer(ent)) {
+	if (VT_IsDynamic(ent) && VT_IsPlayer(ent)) {
 		CWorld_SpeechNotifyNearby(ent, ent->serial, &ent->resourceEntity.entity.location, text, 18);
 	}
 }
@@ -1773,7 +1773,7 @@ CMobile_EmoteCString(CItem *ent, char *text, int hue, int font, int speechType)
 	CLocation_AddWrapped(CEntity_GetLocation(&ent->resourceEntity.entity), &loc, &delta);
 	BroadcastToNearbyWithLOS(obuf, &loc, 18);
 
-	if (VT_IsContainer(ent) && VT_IsPlayer(ent)) {
+	if (VT_IsDynamic(ent) && VT_IsPlayer(ent)) {
 		CWorld_SpeechNotifyNearby(ent, ent->serial, &ent->resourceEntity.entity.location, text, 18);
 	}
 }
@@ -1798,11 +1798,6 @@ CMobile_SayToEntity_VT(CMobile *self, CItem *target, uint32_t serial, char *text
  * Moves the mobile's notoriety toward zero by the given amount, picking
  * ChangeNotorietyNeg when the current value is >= 0 and ChangeNotoriety
  * when it is < 0.
- *
- * FIXED: was previously decompiled as CMobile::LoseFame (operating on
- * fame); the binary actually calls the notoriety helpers
- * (CMobile_GetNotoriety, CMobile_ChangeNotorietyNeg,
- * CMobile_ChangeNotoriety).
  */
 void
 CMobile_LoseNotoriety(CMobile *mob, int amount)
@@ -1821,10 +1816,6 @@ CMobile_LoseNotoriety(CMobile *mob, int amount)
  * Moves the mobile's notoriety away from zero by the given amount, picking
  * ChangeNotoriety when the current value is >= 0 and ChangeNotorietyNeg
  * when it is < 0.
- *
- * FIXED: was previously decompiled as CMobile::GainFame; the binary
- * actually calls the notoriety helpers (CMobile_GetNotoriety,
- * CMobile_ChangeNotoriety, CMobile_ChangeNotorietyNeg).
  */
 void
 CMobile_GainNotoriety(CMobile *mob, int amount)
@@ -2245,7 +2236,7 @@ CMobile_SetHP(CMobile *this, int newHP)
 	if (newHP < 0)
 		newHP = 0;
 	this->hp = (uint32_t)newHP;
-	if (this->hp > this->maxHp)
+	if ((int32_t)this->hp > (int32_t)this->maxHp)
 		this->hp = this->maxHp;
 
 	if (old != this->hp)
@@ -2331,7 +2322,7 @@ CMobile_SetMana(CMobile *this, int newMana)
 
 	old = this->mana;
 	this->mana = (uint32_t)newMana;
-	if (this->mana > this->maxMana)
+	if ((int32_t)this->mana > (int32_t)this->maxMana)
 		this->mana = this->maxMana;
 	if (newMana < 0)
 		this->mana = 0;
@@ -2436,7 +2427,7 @@ CMobile_IsRideable(CMobile *this)
 		if (node->id == 0)
 			continue;
 		CResourceType *rt = CResourceNode_GetResourceDef(node);
-		if (strcasecmp("RIDABLE", CResourceType_GetFoodName(rt)) == 0)
+		if (strcasecmp(CResourceType_GetFoodName(rt), "RIDABLE") == 0)
 			return 1;
 	}
 	return 0;
@@ -2571,7 +2562,7 @@ FixBank(CMobile *mob)
 	CLocation tmpLoc;
 
 	bankBox = mob->equipment[29];
-	if (bankBox != NULL && VT_IsMobile2(bankBox)) {
+	if (bankBox != NULL && VT_IsContainer(bankBox)) {
 		if ((CEntity_GetBodyType(bankBox) & 0xFFFF) != 0xE7C)
 			CEntity_SetBodyType(bankBox, 0xE7C);
 		return;
@@ -2924,7 +2915,7 @@ free_node:
 			continue;
 
 		if (CEntity_GetBodyType(item) == 0x1B7) {
-			if (VT_IsMobile2(item)) {
+			if (VT_IsContainer(item)) {
 				CItem *child, *cnext;
 
 				child = ((CContainer *)item)->contents;
@@ -3107,8 +3098,9 @@ CMobile_FindEquippedItem(CMobile *this, uint32_t serial)
  * vtable[0x130] (NotifyNearby) with the resulting vector and flag 1.
  */
 void
-NotifyNearby(CItem *self)
+NotifyNearby(CItem *self, CItem *unused)
 {
+	USED(unused);
 	CVector players;
 	CVector_Constructor(&players, "\x01");
 	GetNearbyPlayers(&players, &self->resourceEntity.entity.location, 0x12);
@@ -3156,7 +3148,7 @@ CMobile_FindItemInEquipment(CMobile *mob, uint16_t bodyType, int targetAmount)
 	for (i = 0; i < 0x1A; i++) {
 		if (mob->equipment[i] == NULL)
 			continue;
-		if (!VT_IsMobile2(mob->equipment[i]))
+		if (!VT_IsContainer(mob->equipment[i]))
 			continue;
 		result = CContainer_ConsumeResources((CContainer *)mob->equipment[i], bodyType, targetAmount, result);
 		if (result == NULL)
@@ -3539,7 +3531,7 @@ CMobile_CheckSurfaceOf_VT(CItem *self, CItem *other)
 	CMobile *mob = (CMobile *)self;
 
 	if (mob->hasFollowers != 0) {
-		if (VT_IsContainer(other) && VT_IsMobile(other)) {
+		if (VT_IsDynamic(other) && VT_IsMobile(other)) {
 			CMobile *otherMob = (CMobile *)other;
 			if (otherMob->owner == (CMobile *)self)
 				return 0;
@@ -3547,7 +3539,7 @@ CMobile_CheckSurfaceOf_VT(CItem *self, CItem *other)
 	}
 
 	if (((int (*)(void *))VT_FN(self, VT_CHECK_EC))(self)) {
-		if (VT_IsContainer(other) && VT_IsMobile(other))
+		if (VT_IsDynamic(other) && VT_IsMobile(other))
 			return 0;
 	}
 
@@ -3576,7 +3568,7 @@ CPlayer_CheckSurfaceOf_VT(CItem *self, CItem *other)
 	if (g_MoveCurrentPlayer != self)
 		return result;
 
-	if (!VT_IsContainer(other))
+	if (!VT_IsDynamic(other))
 		return result;
 
 	if (!VT_IsMobile(other))
@@ -3929,9 +3921,9 @@ CMobile_EquipmentDecayTick(CMobile *this)
 		item = this->equipment[i];
 		if (item == NULL)
 			continue;
-		if (((int (*)(void *))VT_FN(item, VT_IS_MOBILE2))(item))
+		if (((int (*)(void *))VT_FN(item, VT_IS_CONTAINER))(item))
 			((void (*)(void *))VT_FN(item, VT_EQUIP_DECAY_TICK))(item);
-		CItem_DecayProcess(item); /* 0x0048F13A */
+		CItem_DecayProcess(item);
 	}
 
 	// Phase 2: walk container contents (backpack and sub-containers)
@@ -4097,9 +4089,6 @@ CMobile_PickOtherStat(CMobile *self, int statIdx)
  *
  * Adjusts one of the other two base stats by delta - the "robbed" stat
  * when OnStatChange needs to free room under the cap.
- *
- * FIXED: earlier revision adjusted the same statIdx. Binary picks a
- * different stat via PickOtherStat before applying delta.
  */
 void
 CMobile_StatAdjust(CMobile *self, int statIdx, int delta)
@@ -4276,8 +4265,8 @@ CMobile_GetBaseStat_Wrap(CMobile *this, int statIndex)
  * 0x004720C7 - CMobile::SetStatAbs (vtable[0x23C])
  *
  * Absolute stat set: writes newValue, then notifies OnStatChange with
- * the delta. If OnStatChange returns nonzero the binary re-reads the
- * stat but discards the value - a harmless binary quirk preserved here.
+ * the delta. When OnStatChange returns nonzero the stat is re-read and
+ * that value is what the function returns.
  */
 int16_t
 CMobile_SetStatAbs(CMobile *this, int type, int newValue)
@@ -4293,7 +4282,6 @@ CMobile_SetStatAbs(CMobile *this, int type, int newValue)
 	delta = newValue - old;
 
 	if (((int (*)(void *, int, int))VT_FN((CItem *)this, VT_ON_STAT_CHANGE))(this, type, delta)) {
-		// Re-GetBaseStat via wrapper (result stored but overwritten)
 		result = CMobile_GetBaseStat_Wrap(this, type);
 	}
 
@@ -5904,7 +5892,7 @@ CMobile_ComputeVendorFee(CMobile *this, int gold)
 
 	if (this->equipment[26] == NULL)
 		return 0;
-	if (!VT_IsMobile2(this->equipment[26]))
+	if (!VT_IsContainer(this->equipment[26]))
 		return 0;
 
 	// Get contents head

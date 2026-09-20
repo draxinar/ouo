@@ -2463,7 +2463,7 @@ CCombatEventNode_Destructor(CCombatEventNode *node)
 }
 
 /*
- * 0x00460781 - CCombatEventNode::FindSubByMob
+ * 0x00460781 - CCombatEventList::FindSubByMob
  *
  * Returns the matching sub-node's mob, or NULL. The binary caps the
  * search at 10 iterations as a safety guard.

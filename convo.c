@@ -47,7 +47,7 @@ static void CConversationManager_Cleanup(CConversationManager *this); // 0x0044B
 // MSVC vtable array from UoDemo.exe (used only in unused decompiled code)
 static __attribute__((unused)) uintptr_t g_vt_CConvoLinkedNode[] = { 0 }; /* 0x005EEA40 */
 static char *CConversationManager_SubstituteResponse(
-        CConversationManager *this, char *defineKey, CItem *npc, CItem *speaker, CItem *about, char *text, char *responseText); // 0x0044CCA0
+        CConversationManager *this, char *responseTemplate, CItem *npc, CItem *speaker, CItem *about, char *text, char *matchedKey); // 0x0044CCA0
 static int ComputeSophistication(CMobile *npc); // 0x0044D38A
 static int ComputeAttitude(CMobile *npc); // 0x0044D3C4
 static int Convo_ComputeNotoriety(CPlayer *speaker); // 0x0044D410
@@ -59,8 +59,8 @@ CConversationManager g_ConvoMgr;
 // Response collection globals.
 int g_responseCount;              // 0x00644990
 const char *g_speechText;         // 0x00642988
-char *g_responseTexts[0x800];     // 0x00642990
-char *g_responseKeys[0x800];      // 0x0063f988
+char *g_responseKeys[0x800];     // 0x00642990
+char *g_responseTemplates[0x800];      // 0x0063f988
 
 // Global string matcher for conversation pattern matching.
 CStringMatcher g_StringMatcher;   // 0x0063F978
@@ -417,7 +417,8 @@ KeyMatchesSpeech(const char *keyPattern)
  * 0x0044B1BD - CFragment::CollectKeyResponses
  *
  * For each entry in data[soph][attitude][notoriety] whose key matches
- * g_speechText, appends to g_responseTexts/g_responseKeys.
+ * g_speechText, appends the key to g_responseKeys and the response
+ * template to g_responseTemplates.
  */
 void
 CFragment_CollectKeyResponses(CFragment *this, int soph, int attitude, int notoriety)
@@ -431,8 +432,8 @@ CFragment_CollectKeyResponses(CFragment *this, int soph, int attitude, int notor
 			return;
 
 		if (KeyMatchesSpeech((const char *)ptr[0]) == 0) {
-			g_responseTexts[g_responseCount] = (char *)ptr[0];
-			g_responseKeys[g_responseCount] = (char *)ptr[1];
+			g_responseKeys[g_responseCount] = (char *)ptr[0];
+			g_responseTemplates[g_responseCount] = (char *)ptr[1];
 			g_responseCount++;
 		}
 		ptr += 2;
@@ -582,14 +583,14 @@ CConversationManager_Cleanup(CConversationManager *this)
 		frag = this->fragmentList;
 		this->fragmentList = frag->next;
 		if (frag != NULL)
-			CMapNode_ScalarDtor(frag, 1);
+			CFragment_ScalarDelete(frag, 1);
 	}
 
 	while (this->defineList != NULL) {
 		def = this->defineList;
 		this->defineList = def->next;
 		if (def != NULL)
-			CMapIterator_ScalarDtor(def, 1);
+			CDefine_ScalarDelete(def, 1);
 	}
 }
 
@@ -1243,7 +1244,7 @@ CConversationManager_FindFragByName(CConversationManager *this, const char *name
  * _job_ assigned; NULL checks guard those strcats.
  */
 static char *
-CConversationManager_SubstituteResponse(CConversationManager *this, char *defineKey, CItem *npc, CItem *speaker, CItem *about, char *text, char *responseText)
+CConversationManager_SubstituteResponse(CConversationManager *this, char *responseTemplate, CItem *npc, CItem *speaker, CItem *about, char *text, char *matchedKey)
 {
 	char *out;
 	char *p;
@@ -1254,8 +1255,8 @@ CConversationManager_SubstituteResponse(CConversationManager *this, char *define
 	USED(this);
 	out = g_substituteOutBuf;
 
-	while (*defineKey != '\0') {
-		ch = (signed char)*defineKey;
+	while (*responseTemplate != '\0') {
+		ch = (signed char)*responseTemplate;
 		if (ch < 0x23 || ch > 0x5F)
 			goto copy_literal;
 
@@ -1263,70 +1264,70 @@ CConversationManager_SubstituteResponse(CConversationManager *this, char *define
 		case '#': {
 			uint8_t sex = ((CMobile *)npc)->sex;
 			if (sex != 0) {
-				defineKey++;
-				while (*defineKey != '\0' && *defineKey != '/' && *defineKey != '#')
-					defineKey++;
-				if (*defineKey == '/') {
-					defineKey++;
-					while (*defineKey != '\0' && *defineKey != '#') {
-						*out++ = *defineKey;
-						defineKey++;
+				responseTemplate++;
+				while (*responseTemplate != '\0' && *responseTemplate != '/' && *responseTemplate != '#')
+					responseTemplate++;
+				if (*responseTemplate == '/') {
+					responseTemplate++;
+					while (*responseTemplate != '\0' && *responseTemplate != '#') {
+						*out++ = *responseTemplate;
+						responseTemplate++;
 					}
 				}
-				if (*defineKey != '\0')
-					defineKey++;
+				if (*responseTemplate != '\0')
+					responseTemplate++;
 			} else {
-				defineKey++;
-				while (*defineKey != '\0' && *defineKey != '/' && *defineKey != '#') {
-					*out++ = *defineKey;
-					defineKey++;
+				responseTemplate++;
+				while (*responseTemplate != '\0' && *responseTemplate != '/' && *responseTemplate != '#') {
+					*out++ = *responseTemplate;
+					responseTemplate++;
 				}
-				while (*defineKey != '\0') {
-					if (*defineKey == '#')
+				while (*responseTemplate != '\0') {
+					if (*responseTemplate == '#')
 						break;
-					defineKey++;
+					responseTemplate++;
 				}
-				if (*defineKey != '\0')
-					defineKey++;
+				if (*responseTemplate != '\0')
+					responseTemplate++;
 			}
 			break;
 		}
 		case '$': {
 			uint8_t sex = ((CMobile *)about)->sex;
 			if (sex != 0) {
-				defineKey++;
-				while (*defineKey != '\0' && *defineKey != '/' && *defineKey != '$')
-					defineKey++;
-				if (*defineKey == '/') {
-					defineKey++;
-					while (*defineKey != '\0' && *defineKey != '$') {
-						*out++ = *defineKey;
-						defineKey++;
+				responseTemplate++;
+				while (*responseTemplate != '\0' && *responseTemplate != '/' && *responseTemplate != '$')
+					responseTemplate++;
+				if (*responseTemplate == '/') {
+					responseTemplate++;
+					while (*responseTemplate != '\0' && *responseTemplate != '$') {
+						*out++ = *responseTemplate;
+						responseTemplate++;
 					}
 				}
-				if (*defineKey != '\0')
-					defineKey++;
+				if (*responseTemplate != '\0')
+					responseTemplate++;
 			} else {
-				defineKey++;
-				while (*defineKey != '\0' && *defineKey != '/' && *defineKey != '$') {
-					*out++ = *defineKey;
-					defineKey++;
+				responseTemplate++;
+				while (*responseTemplate != '\0' && *responseTemplate != '/' && *responseTemplate != '$') {
+					*out++ = *responseTemplate;
+					responseTemplate++;
 				}
-				while (*defineKey != '\0') {
-					if (*defineKey == '$')
+				while (*responseTemplate != '\0') {
+					if (*responseTemplate == '$')
 						break;
-					defineKey++;
+					responseTemplate++;
 				}
-				if (*defineKey != '\0')
-					defineKey++;
+				if (*responseTemplate != '\0')
+					responseTemplate++;
 			}
 			break;
 		}
 		case '%':
-			defineKey++;
-			if (*defineKey == '0') {
-				defineKey++;
-				p = responseText;
+			responseTemplate++;
+			if (*responseTemplate == '0') {
+				responseTemplate++;
+				p = matchedKey;
 				while (*p != '\0' && (isspace((unsigned char)*p) || *p == '*'))
 					p++;
 				while (*p != '\0') {
@@ -1339,14 +1340,14 @@ CConversationManager_SubstituteResponse(CConversationManager *this, char *define
 			}
 			break;
 		case '[': {
-			defineKey++;
+			responseTemplate++;
 			lp = localBuf;
-			while (*defineKey != '\0' && *defineKey != ']') {
-				*lp++ = *defineKey;
-				defineKey++;
+			while (*responseTemplate != '\0' && *responseTemplate != ']') {
+				*lp++ = *responseTemplate;
+				responseTemplate++;
 			}
-			if (*defineKey != '\0')
-				defineKey++;
+			if (*responseTemplate != '\0')
+				responseTemplate++;
 			*lp = '\0';
 
 			g_ConvoReturnStr[0] = '\0';
@@ -1363,20 +1364,20 @@ CConversationManager_SubstituteResponse(CConversationManager *this, char *define
 			break;
 		}
 		case '\\':
-			defineKey++;
-			*out = *defineKey;
+			responseTemplate++;
+			*out = *responseTemplate;
 			out++;
-			defineKey++;
+			responseTemplate++;
 			break;
 		case '_': {
-			defineKey++;
+			responseTemplate++;
 			lp = localBuf;
-			while (*defineKey != '\0' && *defineKey != '_') {
-				*lp++ = *defineKey;
-				defineKey++;
+			while (*responseTemplate != '\0' && *responseTemplate != '_') {
+				*lp++ = *responseTemplate;
+				responseTemplate++;
 			}
-			if (*defineKey != '\0')
-				defineKey++;
+			if (*responseTemplate != '\0')
+				responseTemplate++;
 			*lp = '\0';
 			*out = '\0';
 
@@ -1406,9 +1407,9 @@ CConversationManager_SubstituteResponse(CConversationManager *this, char *define
 		}
 		default:
 copy_literal:
-			*out = *defineKey;
+			*out = *responseTemplate;
 			out++;
-			defineKey++;
+			responseTemplate++;
 			break;
 		}
 	}
@@ -1567,5 +1568,5 @@ next:
 
 	idx = GetRandomRange(0, g_responseCount - 1);
 
-	return CConversationManager_SubstituteResponse(this, g_responseKeys[idx], npc, speaker, about, text, g_responseTexts[idx]);
+	return CConversationManager_SubstituteResponse(this, g_responseTemplates[idx], npc, speaker, about, text, g_responseKeys[idx]);
 }

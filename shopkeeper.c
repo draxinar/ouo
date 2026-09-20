@@ -231,6 +231,8 @@ CShopkeeper_Destructor(CNPC *npc)
 	CNPC *prev;
 	CNPC *next;
 
+	CEntity_SetType(&item->resourceEntity.entity, ETYPE_SHOPKEEPER);
+
 	if (item->resourceEntity.entity.removedFromWorld == 0)
 		CNPC_RemoveFromWorldGrid(item);
 
@@ -313,7 +315,7 @@ offered_section:
 	if (vendor->equipment[27] == NULL)
 		goto open_gump;
 
-	if (!((int (*)(void *))VT_FN(vendor->equipment[27], VT_IS_MOBILE2))(vendor->equipment[27]))
+	if (!((int (*)(void *))VT_FN(vendor->equipment[27], VT_IS_CONTAINER))(vendor->equipment[27]))
 		goto open_gump;
 
 	offeredCont = (CContainer *)vendor->equipment[27];
@@ -747,7 +749,7 @@ CShopkeeper_GetCurrentStock(CMobile *vendor, uint16_t bodyType)
 
 	cont = vendor->equipment[26];
 	if (cont != NULL) {
-		if (VT_IsMobile2(cont)) {
+		if (VT_IsContainer(cont)) {
 			for (item = ((CContainer *)cont)->contents; item != NULL; item = item->spatialNext) {
 				if ((CEntity_GetBodyType(item) & 0xFFFF) == bodyType)
 					total += CItem_GetMinResourceRatio(item);
@@ -757,7 +759,7 @@ CShopkeeper_GetCurrentStock(CMobile *vendor, uint16_t bodyType)
 
 	cont = vendor->equipment[27];
 	if (cont != NULL) {
-		if (VT_IsMobile2(cont)) {
+		if (VT_IsContainer(cont)) {
 			for (item = ((CContainer *)cont)->contents; item != NULL; item = item->spatialNext) {
 				if ((CEntity_GetBodyType(item) & 0xFFFF) == bodyType)
 					total += ((int (*)(void *))VT_FN(item, VT_GET_ITEM_AMOUNT))(item);
@@ -783,7 +785,7 @@ CShopkeeper_GetStockTarget(CMobile *vendor, uint16_t bodyType)
 	stockCont = vendor->equipment[26];
 	if (stockCont == NULL)
 		return 0;
-	if (!VT_IsMobile2(stockCont))
+	if (!VT_IsContainer(stockCont))
 		return 0;
 
 	for (item = ((CContainer *)stockCont)->contents; item != NULL; item = item->spatialNext) {
@@ -1061,7 +1063,7 @@ CMobile_ProcessSellOffer(CMobile *this, CPlayer *player, int itemCount, SellEntr
 			return;
 		}
 
-		if (VT_IsMobile2(item)) {
+		if (VT_IsContainer(item)) {
 			if (((CContainer *)item)->contents != NULL) {
 				((void (*)(void *, CItem *, uint32_t, const char *))VT_FN((CItem *)this, VT_SAY_TO_ENTITY))(
 				        this, (CItem *)player, player->mobile.container.item.serial, "You may not sell containers unless they are empty.");
@@ -1195,11 +1197,11 @@ CShopkeeper_mobileWillBuy(CMobile *vendor, CItem *item)
 	if (baseVal <= 0)
 		return 0;
 
-	if (VT_IsMobile2(item) && ((CContainer *)item)->contents != NULL)
+	if (VT_IsContainer(item) && ((CContainer *)item)->contents != NULL)
 		return 0;
 
 	isLockedVal = 0;
-	if (VT_IsMobile2(item)) {
+	if (VT_IsContainer(item)) {
 		if (CItem_GetTagInt(item, "isLocked", &isLockedVal))
 			return 0;
 	}
@@ -1436,7 +1438,7 @@ CShopkeeper_CheckVendorHasStock(CMobile *vendor)
 	if (vendor->equipment[26] == NULL)
 		return 0;
 
-	if (!VT_IsMobile2(vendor->equipment[26]))
+	if (!VT_IsContainer(vendor->equipment[26]))
 		return 0;
 
 	cur = ((CContainer *)vendor->equipment[26])->contents;

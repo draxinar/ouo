@@ -38,7 +38,7 @@ static void *StdTree_Ucopy_19D0(StdAllocator *this, void *first, void *last, voi
 static void StdTree_UfillN_1A10(StdAllocator *this, void *dest, uint32_t count, void *valuePtr); // 0x00421A10
 static void *StdMap_Init(StdMapTree *this, void *arg1, int unused, void *arg3); // 0x00421A50
 void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
-static void *StdTree_Lbound(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421AC0
+static void *StdTree_InsertWombat(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421AC0
 static void *StdTree_RBInsert_Wombat(StdMapTree *this, void *outIter, void *addLeft, void *parent, void *pair); // 0x00422970
 static void StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos); // 0x00421CC0
 static void *StdMap_EraseRange(StdMapTree *this, void *outIter, void *beginIter, void *endIter); // 0x00422510
@@ -56,8 +56,8 @@ static void StdMap_EraseRecursive(StdMapTree *this, void *node); // 0x004227E0
 static void StdMap_TreeInit(StdMapTree *this); // 0x00422890
 static void *StdMap_GetHead(StdMapTree *this); // 0x00422E30
 static void StdMap_TreeSplice(StdMapTree *this, void *node); // 0x00422E50
-static void *StdMap_TreeMin(void *node); // 0x00422FC0
-static void *StdMap_TreeMax(void *node); // 0x00423040
+static void *StdMap_TreeMax(void *node); // 0x00422FC0
+static void *StdMap_TreeMin(void *node); // 0x00423040
 static void *StdMap_GetRoot(StdMapTree *this); // 0x004230C0
 static void StdMap_TreeSplice2(StdMapTree *this, void *node); // 0x004230E0
 static void *StdMap_IterPostInc(void *iter, void *outIter, int dummy); // 0x00423270
@@ -91,7 +91,6 @@ static void vector_SwapImpl(uintptr_t *a, uintptr_t *b); // 0x00424340
 // 0x00424DD0 - StdPtrList_ScalarDelete_4DD0 exposed in stl.h
 static void StdPtrList_ClearAndDestroy_4D70(StdPtrList *list); // 0x00424D70
 static void StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value); // 0x00424EC0
-static void StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source); // 0x00424FC0
 static void *CVector_ConstructorWrapper(CVector *this); // 0x00426440
 static void *CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest); // 0x004267A0
 static void CVector_UfillN_67E0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004267E0
@@ -104,7 +103,7 @@ static void CVector_UfillN_EA50(CVector *this, void *dest, uint32_t count, void 
 static void *CVector_Ucopy_EA90(CVector *this, void *first, void *last, void *dest); // 0x0042EA90
 static void CVector_UfillN_EAD0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x0042EAD0
 static uintptr_t *CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest); // 0x004301E0
-static void CVector_UcopyN(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value); // 0x00430220
+static void CVector_UfillN_0220(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value); // 0x00430220
 static void SortRaw_Main(uintptr_t *begin, uintptr_t *end, int depth); // 0x00457FC0
 static void SortRaw_InsertionEntry(uintptr_t *begin, uintptr_t *end); // 0x00458040
 static void SortRaw_Quicksort(uintptr_t *begin, uintptr_t *end, int depth); // 0x00458070
@@ -193,8 +192,8 @@ static void StdPtrList16_DestroyAll(StdPtrList *list); // 0x00484A00
 static void *StdPtrList_Constructor_NPC(StdPtrList *this, const void *init); // 0x004849C0
 static void StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004848D0
 static void StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00484820
-static void UninitFillN_CRegionPtr(void **first, uint32_t count, void **value); // 0x004A6830
-static void **UninitCopy_CRegionPtr(void **first, void **last, void **dest); // 0x004A67F0
+static void UninitFillN_CRegionPtr(CVector *this, void **first, uint32_t count, void **value); // 0x004A6830
+static void **UninitCopy_CRegionPtr(CVector *this, void **first, void **last, void **dest); // 0x004A67F0
 static void *CVector_Ucopy_F490(CVector *this, void *first, void *last, void *dest); // 0x004CF490
 static void CVector_UfillN_F4D0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004CF4D0
 static void *CVector_Ucopy_F510(CVector *this, void *first, void *last, void *dest); // 0x004CF510
@@ -702,17 +701,17 @@ StdMap_End(StdMapTree *this, void *outIter)
 }
 
 /*
- * 0x004213D0 - std::map::lower_bound wrapper
+ * 0x004213D0 - std::map::insert
  *
- * Creates a local iterator, calls StdTree_Lbound on the key, then copies
- * the result to output.
+ * Creates a local iterator, calls std::_Tree::insert on the pair, then
+ * copies the result to output.
  */
 void *
-StdMap_LowerBound(StdMapTree *this, void *outIter, void *keyPtr)
+StdMap_Insert(StdMapTree *this, void *outIter, void *keyPtr)
 {
 	uintptr_t localIter[2];
 
-	StdTree_Lbound(this, localIter, keyPtr);
+	StdTree_InsertWombat(this, localIter, keyPtr);
 	StdTree_CopyIter(outIter, localIter, (char *)localIter + sizeof(uintptr_t));
 	return outIter;
 }
@@ -939,7 +938,7 @@ StdMap_Begin(StdMapTree *this, void *outIter)
  * a trueByte/falseByte flag.
  */
 static void *
-StdTree_Lbound(StdMapTree *this, void *outIter, void *keyPtr)
+StdTree_InsertWombat(StdMapTree *this, void *outIter, void *keyPtr)
 {
 	StdMapTree *tree = this;
 	void *where = tree->head;
@@ -1028,7 +1027,7 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 	} else if (*(void **)StdPtrNode_GetValue((StdPtrNode *)y) == g_StdTreeNilNode) {
 		x = *(void **)StdPtrNode_GetNext((StdPtrNode *)y);
 	} else {
-		y = StdMap_TreeMax(*(void **)StdPtrNode_GetValue((StdPtrNode *)y));
+		y = StdMap_TreeMin(*(void **)StdPtrNode_GetValue((StdPtrNode *)y));
 		x = *(void **)StdPtrNode_GetValue((StdPtrNode *)y);
 	}
 
@@ -1110,7 +1109,7 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 				void *zPrevAddr = StdPtrNode_GetPrev((StdPtrNode *)z);
 				*(void **)StdMap_GetHead(this) = *(void **)zPrevAddr;
 			} else {
-				*(void **)StdMap_GetHead(this) = StdMap_TreeMax(x);
+				*(void **)StdMap_GetHead(this) = StdMap_TreeMin(x);
 			}
 		}
 
@@ -1119,7 +1118,7 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 				void *zPrevAddr = StdPtrNode_GetPrev((StdPtrNode *)z);
 				*(void **)StdMap_GetRoot(this) = *(void **)zPrevAddr;
 			} else {
-				*(void **)StdMap_GetRoot(this) = StdMap_TreeMin(x);
+				*(void **)StdMap_GetRoot(this) = StdMap_TreeMax(x);
 			}
 		}
 	}
@@ -1387,8 +1386,8 @@ StdMap_Find(StdMapTree *this, void *outIter, void *keyPtr)
  * 0x004227E0 - std::_Tree::_Erase_Recursive
  *
  * Recursively destroys tree nodes starting from the given node. For each
- * node: recurse on left child, then follow the right child iteratively.
- * Frees each node after destroying its key/value.
+ * node: recurse on the right child, then follow the left child
+ * iteratively. Frees each node after destroying its key/value.
  */
 static void
 StdMap_EraseRecursive(StdMapTree *this, void *node)
@@ -1399,13 +1398,13 @@ StdMap_EraseRecursive(StdMapTree *this, void *node)
 		if (node == g_StdTreeNilNode)
 			return;
 
-		// Recurse on left child
+		// Recurse on the right child
 		{
 			void **valPtr = StdPtrNode_GetValue((StdPtrNode *)node);
 			StdMap_EraseRecursive(this, *(void **)valPtr);
 		}
 
-		// Save right child, then free current node
+		// Save the left child, then free the current node
 		{
 			void *nextPtr = StdPtrNode_GetNext((StdPtrNode *)node);
 			nextNode = *(void **)nextPtr;
@@ -1620,14 +1619,15 @@ StdMap_TreeSplice(StdMapTree *this, void *node)
 }
 
 /*
- * 0x00422FC0 - std::_Tree::_Min (leftmost walk)
+ * 0x00422FC0 - std::_Tree::_Max (rightmost walk)
  *
- * Walks the tree from the given node following left-child (value)
- * pointers until reaching a node whose left child equals the sentinel.
- * Returns the last non-sentinel node found.
+ * Walks the tree from the given node following right-child pointers -
+ * the +0x08 field, which StdPtrNode_GetValue reaches - until reaching
+ * a node whose right child equals the sentinel. Returns the last
+ * non-sentinel node found.
  */
 static void *
-StdMap_TreeMin(void *node)
+StdMap_TreeMax(void *node)
 {
 	while (*(void **)StdPtrNode_GetValue((StdPtrNode *)node) != g_StdTreeNilNode) {
 		node = *(void **)StdPtrNode_GetValue((StdPtrNode *)node);
@@ -1636,14 +1636,22 @@ StdMap_TreeMin(void *node)
 }
 
 /*
- * 0x00423040 - std::_Tree::_Max (rightmost walk)
+ * 0x00423040 - std::_Tree::_Min (leftmost walk)
  *
- * Walks the tree from the given node following right-child (next)
- * pointers until reaching a node whose right child equals the sentinel.
- * Returns the last non-sentinel node found.
+ * Walks the tree from the given node following left-child pointers -
+ * the +0x00 field, which StdPtrNode_GetNext reaches - until reaching a
+ * node whose left child equals the sentinel. Returns the last
+ * non-sentinel node found.
+ *
+ * The three node accessors are COMDAT-folded with std::list's, so
+ * GetNext, GetPrev and GetValue reach _Left, _Parent and _Right here.
+ *
+ * The binary brackets the walk in the std::_Lockit critical-section
+ * guard, 0x005C0310 and 0x005C03D0; that is MSVC CRT locking and the
+ * server is single-threaded, so it is not reproduced.
  */
 static void *
-StdMap_TreeMax(void *node)
+StdMap_TreeMin(void *node)
 {
 	while (*(void **)StdPtrNode_GetNext((StdPtrNode *)node) != g_StdTreeNilNode) {
 		node = *(void **)StdPtrNode_GetNext((StdPtrNode *)node);
@@ -1826,7 +1834,7 @@ StdMap_IterInc(void *iter)
  * STL _Dec logic: handles three cases: 1. If node has color==0 and
  * parent's parent == node (header node), moves to header's right
  * (rightmost). 2. If node has a left child (GetNext != sentinel), finds
- * the rightmost node in the left subtree via StdMap_TreeMin. 3. Otherwise,
+ * the rightmost node in the left subtree via StdMap_TreeMax. 3. Otherwise,
  * walks up the tree via parent pointers until finding a node that is not a
  * left child of its parent.
  */
@@ -1851,7 +1859,7 @@ StdMap_TreeDec(void *iter)
 	{
 		void *leftChild = *(void **)StdPtrNode_GetNext((StdPtrNode *)node);
 		if (leftChild != g_StdTreeNilNode) {
-			*pNode = StdMap_TreeMin(leftChild);
+			*pNode = StdMap_TreeMax(leftChild);
 			return;
 		}
 	}
@@ -1931,7 +1939,7 @@ StdMap_GetMost(StdMapTree *this)
  * Advances the iterator to the next in-order node.
  *
  * If the current node has a right child (value != sentinel), descends to
- * the leftmost node of the right subtree via StdMap_TreeMax. Otherwise,
+ * the leftmost node of the right subtree via StdMap_TreeMin. Otherwise,
  * walks up via parent pointers while the current node is the right child
  * of its parent. Final guard: if the resulting node's right child does not
  * equal the last parent climbed, store parent.
@@ -1948,7 +1956,7 @@ StdMap_TreeInc(void *iter)
 	rightChild = *(void **)StdPtrNode_GetValue((StdPtrNode *)node);
 
 	if (rightChild != g_StdTreeNilNode) {
-		*pNode = StdMap_TreeMax(rightChild);
+		*pNode = StdMap_TreeMin(rightChild);
 		return;
 	}
 
@@ -2574,7 +2582,7 @@ StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *begin
  *
  * Forwards to the real implementation at 0x004CF610 (the second copy).
  */
-static void
+void
 StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source)
 {
 	USED(this);
@@ -2822,8 +2830,8 @@ StdPtrIter_Eq(StdPtrNode **a, StdPtrNode **b)
  *
  * Copies 4-byte elements from [first, last) to dest by calling construct
  * (0x00424FC0) per element. Returns pointer past the last written
- * destination element. Template instantiation for CBlockManager CVector
- * operations.
+ * destination element. Template instantiation reached from
+ * EventParamBlock::AddParam.
  */
 static __attribute__((unused)) void *
 CVector_Ucopy_E990(CVector *this, void *first, void *last, void *dest)
@@ -2863,8 +2871,8 @@ CVector_UfillN_E9D0(CVector *this, void *dest, uint32_t count, void *valuePtr)
  *
  * Copies 4-byte elements from [first, last) to dest by calling construct
  * (0x00424FC0) per element. Returns pointer past the last written
- * destination element. Template instantiation for CBlockManager CVector
- * operations.
+ * destination element. Template instantiation reached from
+ * EventParamBlock::AddParam.
  */
 static __attribute__((unused)) void *
 CVector_Ucopy_EA10(CVector *this, void *first, void *last, void *dest)
@@ -2904,8 +2912,8 @@ CVector_UfillN_EA50(CVector *this, void *dest, uint32_t count, void *valuePtr)
  *
  * Copies 4-byte elements from [first, last) to dest by calling construct
  * (0x00424FC0) per element. Returns pointer past the last written
- * destination element. Template instantiation for CBlockManager CVector
- * operations.
+ * destination element. Template instantiation reached from
+ * EventParamBlock::AddParam.
  */
 static __attribute__((unused)) void *
 CVector_Ucopy_EA90(CVector *this, void *first, void *last, void *dest)
@@ -3016,7 +3024,7 @@ CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 
 		newEnd = (uintptr_t *)CVector_Ucopy((StdAllocator *)this, this->begin, pos, newBuf);
 
-		CVector_UcopyN((StdAllocator *)this, newEnd, count, value);
+		CVector_UfillN_0220((StdAllocator *)this, newEnd, count, value);
 
 		CVector_Ucopy((StdAllocator *)this, pos, this->end, newEnd + count);
 
@@ -3034,7 +3042,7 @@ CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 
 		if (afterCount < count) {
 			CVector_Ucopy((StdAllocator *)this, pos, this->end, pos + count);
-			CVector_UcopyN((StdAllocator *)this, (uintptr_t *)this->end, count - afterCount, value);
+			CVector_UfillN_0220((StdAllocator *)this, (uintptr_t *)this->end, count - afterCount, value);
 			vector_Fill(pos, this->end, value);
 			this->end = (void *)((uintptr_t *)this->end + count);
 		} else if (count > 0) {
@@ -3078,13 +3086,14 @@ CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest)
 }
 
 /*
- * 0x00430220 - std::_Ucopy_n
+ * 0x00430220 - std::_Ufill_n
  *
- * Copies count uint32_t elements from src to dest. Used by
- * CVector::insert to copy newly inserted elements.
+ * Fills count uint32_t slots at first with the value at *value; the
+ * binary re-reads the same source every pass. Used by CVector::insert
+ * to seed newly inserted elements.
  */
 static __attribute__((unused)) void
-CVector_UcopyN(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value)
+CVector_UfillN_0220(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value)
 {
 	while (count > 0) {
 		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, first, value);
@@ -3126,13 +3135,13 @@ StdDeque_CopyN(void *alloc, uintptr_t *dest, uint32_t count, uintptr_t *value)
 }
 
 /*
- * 0x0044D710 - CMapNode scalar deleting destructor
+ * 0x0044D710 - CFragment::`scalar deleting destructor'
  *
- * Scalar deleting destructor: runs CFragment_Destroy and frees the memory
- * when flags & 1. Returns this.
+ * Runs CFragment_Destroy and frees the memory when flags & 1. Returns
+ * this.
  */
 void *
-CMapNode_ScalarDtor(CFragment *this, int flags)
+CFragment_ScalarDelete(CFragment *this, int flags)
 {
 	CFragment_Destroy(this);
 
@@ -3142,13 +3151,13 @@ CMapNode_ScalarDtor(CFragment *this, int flags)
 }
 
 /*
- * 0x0044D740 - CMapIterator scalar deleting destructor
+ * 0x0044D740 - CDefine::`scalar deleting destructor'
  *
- * Scalar deleting destructor: runs CDefine_Destructor and frees the memory
- * when flags & 1. Returns this.
+ * Runs CDefine_Destructor and frees the memory when flags & 1. Returns
+ * this.
  */
 void *
-CMapIterator_ScalarDtor(CDefine *this, int flags)
+CDefine_ScalarDelete(CDefine *this, int flags)
 {
 	CDefine_Destructor(this);
 
@@ -5046,9 +5055,8 @@ CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *va
 static uintptr_t *
 CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *dest)
 {
-	USED(this);
 	while (first != last) {
-		*dest = *first;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dest, first);
 		dest++;
 		first++;
 	}
@@ -5064,9 +5072,8 @@ CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *
 static void
 CVector_UfillN_CC60(CVector *this, uintptr_t *dest, uint32_t count, uintptr_t *src)
 {
-	USED(this);
 	while (count > 0) {
-		*dest = *src;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dest, src);
 		count--;
 		dest++;
 	}
@@ -6121,8 +6128,9 @@ StdPtrIter_Neq(StdPtrNode **a, StdPtrNode **b)
  * before freeing the slab header. Otherwise runs the single-element
  * destructor and optionally frees the object.
  *
- * MODIFIED: the element count is read at its native width, where the MSVC
- * CRT stores it as a uint32 ahead of the slab.
+ * The element count is read at its native width, where the MSVC CRT
+ * stores it as a uint32 ahead of the slab - the 64-bit portability
+ * allowance, not a behavioural deviation.
  */
 void *
 StdPtrList16_VecDtor(StdPtrList *this, int flags)
@@ -6394,10 +6402,10 @@ CVector_Erase(CVector *vec, void *first, void *last)
  * pointer past last copied element.
  */
 static __attribute__((unused)) void **
-UninitCopy_CRegionPtr(void **first, void **last, void **dest)
+UninitCopy_CRegionPtr(CVector *this, void **first, void **last, void **dest)
 {
 	while (first != last) {
-		*dest = *first;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dest, first);
 		dest++;
 		first++;
 	}
@@ -6411,17 +6419,17 @@ UninitCopy_CRegionPtr(void **first, void **last, void **dest)
  * instantiation for CVector<CRegion*> used in RegionGrid.
  */
 static __attribute__((unused)) void
-UninitFillN_CRegionPtr(void **first, uint32_t count, void **value)
+UninitFillN_CRegionPtr(CVector *this, void **first, uint32_t count, void **value)
 {
 	while (count > 0) {
-		*first = *value;
+		StdPtrList_DoInsert_424FC0((StdPtrList *)this, first, value);
 		first++;
 		count--;
 	}
 }
 
 /*
- * 0x004CF490 - std::_Ucopy (AnimSequence CVector variant A)
+ * 0x004CF490 - std::_Ucopy (CTagListManager::WalkScriptNodes variant)
  *
  * Copies 4-byte elements from [first, last) to dest via construct
  * (0x00424FC0). Returns pointer past last dest element.
@@ -6442,7 +6450,7 @@ CVector_Ucopy_F490(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004CF4D0 - std::_Ufill_n (AnimSequence CVector variant A)
+ * 0x004CF4D0 - std::_Ufill_n (CTagListManager::WalkScriptNodes variant)
  *
  * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
  * per element.
@@ -6460,7 +6468,7 @@ CVector_UfillN_F4D0(CVector *this, void *dest, uint32_t count, void *valuePtr)
 }
 
 /*
- * 0x004CF510 - std::_Ucopy (AnimSequence CVector variant B)
+ * 0x004CF510 - std::_Ucopy (CTagListManager::GetTagDefList variant)
  *
  * Identical to 0x004CF490.
  */
@@ -6480,7 +6488,7 @@ CVector_Ucopy_F510(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004CF550 - std::_Ufill_n (AnimSequence CVector variant B)
+ * 0x004CF550 - std::_Ufill_n (CTagListManager::GetTagDefList variant)
  *
  * Identical to 0x004CF4D0.
  */
@@ -6497,7 +6505,7 @@ CVector_UfillN_F550(CVector *this, void *dest, uint32_t count, void *valuePtr)
 }
 
 /*
- * 0x004CF590 - std::_Ucopy (AnimSequence CVector variant C)
+ * 0x004CF590 - std::_Ucopy (CTagList CVector variant)
  *
  * Identical to 0x004CF490.
  */
@@ -6517,7 +6525,7 @@ CVector_Ucopy_F590(CVector *this, void *first, void *last, void *dest)
 }
 
 /*
- * 0x004CF5D0 - std::_Ufill_n (AnimSequence CVector variant C)
+ * 0x004CF5D0 - std::_Ufill_n (CTagList CVector variant)
  *
  * Identical to 0x004CF4D0.
  */
@@ -7007,6 +7015,11 @@ StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last)
  *
  * Recursively erases the right subtree, then iteratively follows left
  * children, freeing each node. Stops at the nil sentinel.
+ *
+ * The binary brackets the walk in the std::_Lockit critical-section
+ * guard, 0x005C0310 on the way in and 0x005C03D0 on the way out. That
+ * is MSVC CRT locking and the server is single-threaded, so it is not
+ * reproduced.
  */
 static void
 StdTree_EraseSubtree(StdMapTree *tree, StdTreeNode *node)

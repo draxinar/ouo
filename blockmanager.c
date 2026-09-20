@@ -305,11 +305,10 @@ CBlockManager_Setup(CBlockManager *this, int widthTiles, int heightTiles)
 	this->totalBlocks = this->gridWidth * this->gridHeight;
 
 	this->cells = malloc(this->totalBlocks * sizeof(CBlock));
-	if (this->cells == NULL)
-		return;
-
-	for (i = 0; i < this->totalBlocks; i++)
-		CBlock_Init(&this->cells[i]);
+	if (this->cells != NULL) {
+		for (i = 0; i < this->totalBlocks; i++)
+			CBlock_Init(&this->cells[i]);
+	}
 
 	ItemMap_Init();
 	MobileMap_Init();

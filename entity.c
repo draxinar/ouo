@@ -292,7 +292,7 @@ CEntity_RemoveFromWorld(CItem *this)
 	int blockIdx;
 	int i;
 
-	if (VT_IsMobile2(this)) {
+	if (VT_IsContainer(this)) {
 		if (((int (*)(void *))VT_FN(this, VT_CANCEL_TRADE))(this))
 			return;
 	}
@@ -337,7 +337,7 @@ CEntity_RemoveFromWorld(CItem *this)
 
 	TemplateChain_Remove(this);
 
-	if (!VT_IsMobile2(this))
+	if (!VT_IsContainer(this))
 		return;
 
 	typeFlag = 0;
@@ -502,7 +502,7 @@ CEntity_AddToWorld(CItem *entity)
 	if (entity->timerHead != NULL)
 		CTimerManager_EnsureTracked(entity);
 
-	if (!VT_IsMobile2(entity))
+	if (!VT_IsContainer(entity))
 		return;
 
 	child = ((CContainer *)entity)->contents;

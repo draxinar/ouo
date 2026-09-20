@@ -1356,7 +1356,7 @@ FindContainerBySerial(CItem *container, uint32_t serial)
 			CMobile *mob = (CMobile *)container;
 			if (mob->equipment[i] == NULL)
 				continue;
-			if (!VT_IsMobile2(mob->equipment[i]))
+			if (!VT_IsContainer(mob->equipment[i]))
 				continue;
 			result = FindContainerBySerial(mob->equipment[i], serial);
 			if (result != NULL)
@@ -1366,7 +1366,7 @@ FindContainerBySerial(CItem *container, uint32_t serial)
 
 	child = ((CContainer *)container)->contents;
 	while (child != NULL) {
-		if (VT_IsMobile2(child)) {
+		if (VT_IsContainer(child)) {
 			result = FindContainerBySerial(child, serial);
 			if (result != NULL)
 				return result;
@@ -1390,7 +1390,7 @@ FindParentBySerial(uint32_t serial)
 	entity = CWorld_FindBySerial(g_World, serial);
 	if (entity == NULL)
 		return NULL;
-	if (!VT_IsMobile2(entity))
+	if (!VT_IsContainer(entity))
 		return NULL;
 	return entity;
 }
@@ -1410,7 +1410,7 @@ FindParentInBlock(CItem *blockItemHead, uint32_t serial)
 
 	item = blockItemHead;
 	while (item != NULL) {
-		if (VT_IsMobile2(item)) {
+		if (VT_IsContainer(item)) {
 			result = FindContainerBySerial(item, serial);
 			if (result != NULL)
 				return result;
@@ -2254,7 +2254,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 					}
 				}
 			} else if (strcmp(keybuf, "template") == 0) {
-				if (VT_IsContainer(obj))
+				if (VT_IsDynamic(obj))
 					CItem_AttachTemplate(obj, (uint16_t)atoi(val));
 			} else if (strcmp(keybuf, "decayCount") == 0) {
 				{

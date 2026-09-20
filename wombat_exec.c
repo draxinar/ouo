@@ -3193,7 +3193,7 @@ FindContainerValidated(uint32_t serial, const char *caller)
 	ent = CWorld_FindBySerial(g_World, serial);
 	if (ent == NULL)
 		goto fail;
-	if (!VT_IsMobile2(ent))
+	if (!VT_IsContainer(ent))
 		goto fail;
 	if (!ent->resourceEntity.entity.removedFromWorld)
 		return ent;
@@ -3285,7 +3285,7 @@ FindMapItem(uint32_t serial, const char *caller)
 	entity = CWorld_FindBySerial(g_World, serial);
 	if (entity == NULL)
 		goto fail;
-	if (!check_IsMap(entity))
+	if (!VT_IsSpatial(entity))
 		goto fail;
 	if (!entity->resourceEntity.entity.removedFromWorld)
 		return entity;
@@ -4200,7 +4200,7 @@ Opr_plus_str_int(CString *out, CString *str, int value)
 CString *
 Opr_plus_str_loc(CString *out, CString *str, const CLocation *loc)
 {
-	char buf[36];
+	char buf[40];
 	CString *tmp;
 	sprintf(buf, "%d,%d,%d", (int)(int16_t)loc->x, (int)(int16_t)loc->y, (int)loc->z);
 	tmp = CString_OpPlusCStr(str, buf);
@@ -4538,7 +4538,7 @@ ArrayCreate(int id)
 		pairBuf[0] = (uintptr_t)id;
 		pairBuf[1] = (uintptr_t)arr;
 		StdMap_PairConstructor(pair, &pairBuf[0], &pairBuf[1]);
-		StdMap_LowerBound(&g_WombatArrays, insertIter, pair);
+		StdMap_Insert(&g_WombatArrays, insertIter, pair);
 		findIter = *(void **)insertIter;
 	}
 	// Dereference iterator to get key-value pair, return value
@@ -4915,14 +4915,14 @@ Script_getArrayUStrElem(CUString *retval, int id, int x, int y)
 
 	arr = ArrayLookup(id);
 	if (arr == NULL || !CArray_IsValid(arr)) {
-		CUString_Constructor((CUString *)retval, NULL);
+		CUString_Constructor((CUString *)retval, L"");
 		return retval;
 	}
 	elem = CArray_GetUStrElem(arr, x, y);
 	if (elem != NULL) {
-		CUString_Constructor(retval, (const void *)(uintptr_t)CUString_GetPtr((CUString *)elem));
+		CUString_Constructor(retval, CUString_GetPtr((CUString *)elem));
 	} else {
-		CUString_Constructor((CUString *)retval, NULL);
+		CUString_Constructor((CUString *)retval, L"");
 	}
 	return retval;
 }
@@ -5510,7 +5510,7 @@ Script_getcontents(CList *list, uint32_t serial)
 	ent = CWorld_FindBySerial(g_World, serial);
 	if (ent == NULL)
 		return;
-	if (!VT_IsMobile2(ent))
+	if (!VT_IsContainer(ent))
 		return;
 	if (ent->resourceEntity.entity.removedFromWorld)
 		return;
@@ -6286,8 +6286,8 @@ Script_enableBehaviors(uint32_t serial)
 /*
  * 0x0041128C - areBehaviorsEnabled
  *
- * Returns 1 when the NPC's behaviors are active (the disable bit
- * 0x08 is clear).
+ * Returns 1 when the NPC's behaviour bit 0x08 is set, which is what
+ * disableBehaviors clears.
  */
 int
 Script_areBehaviorsEnabled(uint32_t serial)
@@ -6379,7 +6379,7 @@ check_IsDead(CItem *ent)
 static int
 check_IsContainer(CItem *ent)
 {
-	return VT_IsMobile2(ent);
+	return VT_IsContainer(ent);
 } // 0x00424390
 static int
 check_IsRealContainer(CItem *ent) // 0x004243B0
@@ -6442,7 +6442,7 @@ Script_checkContainer(uint32_t serial, int (*checker)(CItem *), const char *name
 	char buf[256];
 
 	ent = CWorld_FindBySerial(g_World, serial);
-	if (ent == NULL || !VT_IsMobile2(ent) || ent->resourceEntity.entity.removedFromWorld) {
+	if (ent == NULL || !VT_IsContainer(ent) || ent->resourceEntity.entity.removedFromWorld) {
 		sprintf(buf, "%s: tried to check invalid container.\n", name ? name : "(null)");
 		return 0;
 	}
@@ -6850,7 +6850,7 @@ Script_teleport(uint32_t serial, CLocation *loc)
 	}
 
 	// lockOwner (0x54) set: refuse
-	if (VT_IsMobile2(ent) && ((CContainer *)ent)->lockOwner != NULL)
+	if (VT_IsContainer(ent) && ((CContainer *)ent)->lockOwner != NULL)
 		return 0;
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)loc->x, (int)(int16_t)loc->y))
@@ -6891,7 +6891,7 @@ Script_teleportNoFall(uint32_t serial, CLocation *loc)
 	}
 
 	// lockOwner (0x54) set: refuse
-	if (VT_IsMobile2(ent) && ((CContainer *)ent)->lockOwner != NULL)
+	if (VT_IsContainer(ent) && ((CContainer *)ent)->lockOwner != NULL)
 		return 0;
 
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, (int)(int16_t)loc->x, (int)(int16_t)loc->y))
@@ -7009,7 +7009,7 @@ Script_putObjContainer(uint32_t thingSerial, uint32_t containerSerial)
 		return 0;
 
 	// lockOwner (0x54) set: refuse
-	if (VT_IsMobile2(thing) && ((CContainer *)thing)->lockOwner != NULL)
+	if (VT_IsContainer(thing) && ((CContainer *)thing)->lockOwner != NULL)
 		return 0;
 
 	p = thing->parent;
@@ -7067,7 +7067,7 @@ Script_toMobile(uint32_t thingSerial, uint32_t mobileSerial)
 		return 0;
 
 	// lockOwner (0x54) set: refuse
-	if (VT_IsMobile2(thing) && ((CContainer *)thing)->lockOwner != NULL)
+	if (VT_IsContainer(thing) && ((CContainer *)thing)->lockOwner != NULL)
 		return 0;
 
 	p = thing->parent;
@@ -7630,14 +7630,14 @@ Script_interpose(CLocation *outLoc, CLocation *loc1, const CLocation *loc2)
 	int dx, dy;
 
 	// Signed division by 2, rounds toward zero (cdq; sub eax,edx; sar eax,1)
-	dx = ((int)loc1->x - (int)loc2->x);
+	dx = ((int)(int16_t)loc1->x - (int)(int16_t)loc2->x);
 	dx = (dx + ((unsigned)dx >> 31)) >> 1;
-	dy = ((int)loc1->y - (int)loc2->y);
+	dy = ((int)(int16_t)loc1->y - (int)(int16_t)loc2->y);
 	dy = (dy + ((unsigned)dy >> 31)) >> 1;
 
 	// Modify loc1 to hold midpoint
-	loc1->x = (int16_t)((int)loc2->x + dx);
-	loc1->y = (int16_t)((int)loc2->y + dy);
+	loc1->x = (int16_t)((int)(int16_t)loc2->x + dx);
+	loc1->y = (int16_t)((int)(int16_t)loc2->y + dy);
 
 	// Copy result to output
 	CLocation_SetLoc(outLoc, loc1);
@@ -9122,7 +9122,7 @@ Script_getHPLevel(uint32_t serial)
 	if (ent == NULL)
 		return 0;
 	mob = (CMobile *)ent;
-	return (int)(CMobile_GetHp(mob) * 100 / CMobile_GetMaxHp(mob));
+	return (int)(CMobile_GetHp(mob) * 100) / (int)CMobile_GetMaxHp(mob);
 }
 
 /*
@@ -9140,7 +9140,7 @@ Script_getFatigueLevel(uint32_t serial)
 	if (ent == NULL)
 		return 0;
 	mob = (CMobile *)ent;
-	return (int)(CMobile_GetStamina(mob) * 100 / CMobile_GetMaxStamina(mob));
+	return (int)(CMobile_GetStamina(mob) * 100) / (int)CMobile_GetMaxStamina(mob);
 }
 
 /*
@@ -10099,7 +10099,7 @@ Script_getFreeHandSlot(uint32_t serial)
 	if (mob->equipment[1] == NULL) {
 		if (weapon2 == NULL)
 			return 1;
-		if (!check_IsWeapon(weapon2))
+		if (!VT_IsWeapon(weapon2))
 			return 1;
 		if (!CItem_IsReallyWeapon(weapon2))
 			return 1;
@@ -10547,7 +10547,7 @@ Script_modifyStat(uint32_t serial, int statId, int value)
 	ent = FindMobileValidated(serial, "modifyStat");
 	if (ent == NULL)
 		return 0;
-	return (int)(int16_t)CMobile_AddToStatBonus((CMobile *)ent, statId, (int16_t)value);
+	return (int)(int16_t)((int (*)(void *, int, int))VT_FN(ent, VT_ADD_STAT_BONUS))(ent, statId, (int16_t)value);
 }
 
 /*
@@ -10564,7 +10564,7 @@ Script_modifyRealStat(uint32_t serial, int statId, int value)
 	ent = FindMobileValidated(serial, "modifyRealStat");
 	if (ent == NULL)
 		return 0;
-	return (int)(int16_t)CMobile_AddToBaseStat((CMobile *)ent, statId, (int16_t)value);
+	return (int)(int16_t)((int (*)(void *, int, int))VT_FN(ent, VT_ADD_BASE_STAT))(ent, statId, (int16_t)value);
 }
 
 /*
@@ -10581,7 +10581,7 @@ Script_setStatMod(uint32_t serial, int statId, int value)
 	ent = FindMobileValidated(serial, "modifyStat");
 	if (ent == NULL)
 		return 0;
-	return (int)(int16_t)CMobile_SetStatBonus((CMobile *)ent, statId, (int16_t)value);
+	return (int)(int16_t)((int (*)(void *, int, int))VT_FN(ent, VT_SET_STAT_BONUS))(ent, statId, (int16_t)value);
 }
 
 /*
@@ -10598,7 +10598,7 @@ Script_setRealStat(uint32_t serial, int statId, int value)
 	ent = FindMobileValidated(serial, "modifyRealStat");
 	if (ent == NULL)
 		return 0;
-	return (int)(int16_t)CMobile_SetBaseStat((CMobile *)ent, statId, (uint16_t)(int16_t)value);
+	return (int)(int16_t)((int (*)(void *, int, int))VT_FN(ent, VT_SET_BASE_STAT))(ent, statId, (uint16_t)(int16_t)value);
 }
 
 /*
@@ -11351,7 +11351,7 @@ Script_setWeaponClass(uint32_t serial, int numDice, int diceFaces, int bonus, in
 	CDiceRoll dice;
 
 	ent = FindEntityValidated(serial, "getWeaponClass");
-	CDiceRoll_InitThiscall((CWeaponDice *)&dice, numDice, diceFaces, bonus, 0);
+	CDiceRoll_InitThiscall((CWeaponDice *)&dice, numDice, diceFaces, bonus, pad);
 	if (ent == NULL)
 		return;
 	if (VT_IsWeapon(ent)) {
@@ -11360,7 +11360,6 @@ Script_setWeaponClass(uint32_t serial, int numDice, int diceFaces, int bonus, in
 	}
 	if (VT_IsMobile(ent))
 		CMobile_SetArmorRating((CMobile *)ent, (CWeaponDice *)&dice);
-	USED(pad);
 }
 
 /*
@@ -11625,7 +11624,7 @@ void
 Script_systemMessageHued(uint32_t serial, int hue, CString *str)
 {
 	CItem *ent;
-	uint8_t obuf[0x430];
+	uint8_t obuf[0x42C];
 
 	ent = FindPlayerValidated(serial, "systemMessageHued");
 	if (ent == NULL)
@@ -12416,8 +12415,8 @@ Script_getTileAt(CLocation *loc)
 {
 	int x, y;
 
-	x = loc->x;
-	y = loc->y;
+	x = (int16_t)loc->x;
+	y = (int16_t)loc->y;
 	if (!CBlockManager_IsValidCoord(&g_SpatialGrid, x, y))
 		return 0;
 	return Terrain_GetLandTileID(x, y);
@@ -12834,7 +12833,7 @@ Script_closeGump(uint32_t serial, int gumpId)
 {
 	CPlayer *player;
 	uint32_t gumpSerial;
-	uint8_t obuf[16];
+	uint8_t obuf[8];
 
 	player = (CPlayer *)FindPlayerValidated(serial, "closeGump");
 	if (player == NULL)
@@ -14387,7 +14386,7 @@ GetObjectsOfType_Recursive(CList *list, CItem *container, int typeId)
 		if (!cur->resourceEntity.entity.removedFromWorld) {
 			if ((CEntity_GetBodyType(cur) & 0xFFFF) == typeId)
 				CList_Append(list, 4, cur->serial);
-			if (VT_IsMobile2(cur))
+			if (VT_IsContainer(cur))
 				GetObjectsOfType_Recursive(list, cur, typeId);
 		}
 		cur = cur->spatialNext;
@@ -14398,7 +14397,7 @@ GetObjectsOfType_Recursive(CList *list, CItem *container, int typeId)
 			if (mob->equipment[i] != NULL) {
 				if ((CEntity_GetBodyType(mob->equipment[i]) & 0xFFFF) == typeId)
 					CList_Append(list, 4, mob->equipment[i]->serial);
-				if (VT_IsMobile2(mob->equipment[i]))
+				if (VT_IsContainer(mob->equipment[i]))
 					GetObjectsOfType_Recursive(list, mob->equipment[i], typeId);
 			}
 		}
@@ -15038,7 +15037,7 @@ Script_mobileWillBuy(uint32_t npcSerial, uint32_t itemSerial)
 CString *
 Script_objToStr(CString *out, uint32_t serial)
 {
-	char buf[32];
+	char buf[128];
 	CString tmpStr;
 
 	sprintf(buf, "%u", serial);
@@ -17499,7 +17498,6 @@ Script_transferAllResources(uint32_t dstSerial, uint32_t srcSerial)
 		return;
 	((void (*)(void *))VT_FN(src, VT_HIDE))(src);
 	((void (*)(void *))VT_FN(dst, VT_HIDE))(dst);
-	// CResourceEntity::TransferAllResources (0x004857E1)
 	CResourceEntity_TransferAllResources(dst, src);
 	((void (*)(void *))VT_FN(src, VT_RETURN_TO_TRACKED))(src);
 	((void (*)(void *))VT_FN(dst, VT_RETURN_TO_TRACKED))(dst);
@@ -17586,7 +17584,7 @@ Script_transferGeneric(uint32_t srcSerial, uint32_t dstSerial, int bodyType)
 	((void (*)(void *))VT_FN(dst, VT_HIDE))(dst);
 	((void (*)(void *))VT_FN(src, VT_HIDE))(src);
 
-	// CItem_ConsumeAmount (0x0045EA86): transfer items of bodyType
+	// Transfer items of the given bodyType.
 	result = CItem_ConsumeAmount(dst, src, bodyType);
 
 	if (result) {
@@ -17780,7 +17778,7 @@ Script_createGlobalObjectIn(int artId, uint32_t containerSerial)
 	if (container == NULL)
 		return 0;
 
-	if (!VT_IsMobile2(container))
+	if (!VT_IsContainer(container))
 		return 0;
 
 	item = CWorld_CreateItem(g_World, (uint16_t)artId);
@@ -17877,7 +17875,7 @@ Script_createNoResObjectIn(int artId, uint32_t containerSerial)
 	if (container == NULL)
 		return 0;
 
-	if (!VT_IsMobile2(container))
+	if (!VT_IsContainer(container))
 		return 0;
 
 	item = CWorld_CreateItem(g_World, (uint16_t)artId);
@@ -17983,7 +17981,7 @@ Script_requestCreateObjectIn(int artId, uint32_t containerSerial)
 	if (container == NULL)
 		return 0;
 
-	if (!VT_IsMobile2(container))
+	if (!VT_IsContainer(container))
 		return 0;
 
 	// Resource bank limit check using container's location
@@ -18279,7 +18277,7 @@ Script_resourceTypeToId(CString *name)
 void
 Script_textEntry(uint32_t serial, uint32_t playerSerial, int gumpId, int parentId, CString *text)
 {
-	uint8_t buf[0x10014];
+	uint8_t buf[0x10010];
 	CItem *player;
 
 	player = FindPlayerValidated(playerSerial, "textEntry");
@@ -18299,7 +18297,7 @@ Script_textEntry(uint32_t serial, uint32_t playerSerial, int gumpId, int parentI
 void
 Script_stringQuery(uint32_t playerSerial, uint32_t serial, int type, CString *question, int cancel, int style, int maxLen, CString *title)
 {
-	uint8_t buf[0x218];
+	uint8_t buf[0x214];
 	CItem *player;
 
 	player = FindPlayerValidated(playerSerial, "stringQuery");
@@ -18478,7 +18476,6 @@ Script_overloadWeight(uint32_t serial, int weight)
 
 	((void (*)(void *))VT_FN(ent, VT_HIDE))(ent);
 
-	// CItem::SetWeight(weight) at 0x00490C37
 	CItem_SetWeight(ent, weight);
 
 	((void (*)(void *))VT_FN(ent, VT_RETURN_TO_TRACKED))(ent);
@@ -19572,6 +19569,12 @@ Script_updatesOff(void)
  * Runs an escript file for a player. Validates player,
  * locks statics, formats the escript path, initializes and
  * runs the escript, then unlocks statics.
+ *
+ * FIXED: the binary formats the path with sprintf (0x004E8780 at
+ * 0041fba2) into a 256-byte stack buffer, so a script-supplied name
+ * longer than 230 characters smashes the frame. snprintf truncates
+ * instead. Same fix as CEScript_ErrorLog and CEScript_CmdEScript,
+ * which use the same format string.
  */
 void
 Script_escript(uint32_t serial, CString *scriptName, CString *args)
@@ -19600,7 +19603,7 @@ Script_escript(uint32_t serial, CString *scriptName, CString *args)
 void
 Script_openGenericGump(uint32_t entitySerial, uint32_t playerSerial, int gumpId, int x, int y, CList *cmdList, CList *textList)
 {
-	uint8_t buf[0x1001C];
+	uint8_t buf[0x10014];
 	CItem *entity;
 	CItem *player;
 

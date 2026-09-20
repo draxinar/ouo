@@ -201,9 +201,15 @@ Skill_GetInternalName(int skillId)
  * 0x004D42D4 - SkillManager_GetSkillNumber
  *
  * Case-insensitive lookup of skill number by script name. Returns -1
- * if no name matched. The binary iterates a global skill name/number
- * table; our implementation iterates g_SkillManager.skills[].scriptName
- * which contains the same data.
+ * if no name matched.
+ *
+ * MODIFIED: the binary walks a 46-entry {number, name} table at
+ * 0x00624530 and stops at the first NULL name. We walk
+ * g_SkillManager.skills[].scriptName, which skills.txt fills with 49
+ * lowercase names - about twenty of them different from the table's,
+ * with duplicates - and run to numSkills. "ANIMAL_LORE" resolves in
+ * the binary and not here; "melee_fighting" resolves here and not
+ * there.
  */
 int
 SkillManager_GetSkillNumber(const char *name)
@@ -387,7 +393,7 @@ Skill_NormalizeNamePair(const char *src)
 	char *out;
 
 	out = (char *)OperatorNew(0x100);
-	sscanf(src, "%s %s", first, second);
+	sscanf(src, "%s %s\n", first, second);
 	sprintf(out, "%s %s", first, second);
 	return out;
 }
@@ -428,10 +434,6 @@ CSkillManager_ResetCounters(CSkillManager *mgr)
  * perSkillSomeValue entry, that entry is then zeroed, the running total
  * is stored into perSkillUsageCounter, and allSkillUsageCounter
  * accumulates it. allSkillSomeTotal is cleared at the end.
- *
- * The accumulator carries across iterations rather than restarting, so
- * perSkillUsageCounter ends up holding a prefix sum rather than the
- * per-skill value.
  */
 static __attribute__((unused)) void
 CSkillManager_LoadUsageCounters(CSkillManager *mgr, const char *src)
@@ -953,11 +955,11 @@ CSkillManager_CalcDelay(int8_t skillId, int baseSkill)
 	int avgCap;
 	int perSkillUsage;
 
-	totalUsage = mgr->allSkillSomeTotal + mgr->allSkillUsageCounter;
+	totalUsage = (uint32_t)CSkillManager_GetTotalUsage(mgr);
 	avgCap = (int)(totalUsage / (uint32_t)mgr->numSkills);
 	perSkillUsage = CSkillManager_GetSkillUsage(mgr, (int8_t)skillId);
 
-	baseDelay = avgCap * 1000 / (perSkillUsage + 1);
+	baseDelay = (int)((uint32_t)(avgCap * 1000) / (uint32_t)(perSkillUsage + 1));
 	if (baseDelay < 500)
 		baseDelay = 500;
 	if (baseDelay > 5000)

@@ -154,7 +154,7 @@ vt_copy(CEntity_vtable *dst, CEntity_vtable *src)
  *
  * Slot assignments verified against UoDemo.exe vtable dumps:
  *   VT_IS_PLAYER (0x18):  CPlayer=1, others=0
- *   VT_IS_CONTAINER(0x1C): CItem+=1 (all CItem-derived classes)
+ *   VT_IS_DYNAMIC(0x1C): 1 for every CItem-derived class, 0 for StaticEntity
  *   VT_IS_MOBILE (0xD0):  CMobile+=1
  *   VT_IS_NPC (0xE4):     CNPC+=1
  *   VT_IS_VENDOR (0xE8):  binary=0 for all (demo), our CShopkeeper=1
@@ -224,7 +224,7 @@ VT_Init(void)
 	// IsContainer: slot 7 (0x1C) = 0x004E04C0 (return 1 for CItem+)
 	// Binary: all CItem-derived classes return 1 here. Used by
 	// CItem_ClassifyEntityByVtable to distinguish CItem+ from CEntity/CResourceEntity.
-	g_vtable_CItem.fn[VT_IS_CONTAINER / 4] = (vfunc_t)vt_stub_return_1;
+	g_vtable_CItem.fn[VT_IS_DYNAMIC / 4] = (vfunc_t)vt_stub_return_1;
 	// HasResourceFlag: slot 8 (0x20) = 0x0045E57D
 	g_vtable_CItem.fn[VT_HAS_RESOURCE_FLAG / 4] = (vfunc_t)CItem_HasResourceFlag;
 	// ReattachSpatial: slot 15 (0x3C)
@@ -274,8 +274,8 @@ VT_Init(void)
 	g_vtable_CItem.fn[VT_IS_EQUIPPED_ITEM / 4] = (vfunc_t)CItem_IsEquipped_VT;
 	// GetLayer: slot 67 (0x10C) = 0x00489F46
 	g_vtable_CItem.fn[VT_GET_LAYER / 4] = (vfunc_t)CItem_GetLayer_VT;
-	// GetWeight/GetDecayMax: slot 72 (0x120) = 0x00489FAB
-	g_vtable_CItem.fn[VT_GET_WEIGHT / 4] = (vfunc_t)CItem_GetDecayMax;
+	// GetWeight: slot 72 (0x120) = 0x00489FAB
+	g_vtable_CItem.fn[VT_GET_WEIGHT / 4] = (vfunc_t)CItem_GetWeight_VT;
 	// GetStoredWeight: slot 73 (0x124) = 0x00491280
 	g_vtable_CItem.fn[VT_GET_STORED_WEIGHT / 4] = (vfunc_t)CItem_GetStoredWeightVT;
 	// CanStackWith: slot 74 (0x128) = 0x0048A561
@@ -393,8 +393,8 @@ VT_Init(void)
 	g_vtable_CItem.fn[VT_FAME_KARMA_CHANGE / 4] = (vfunc_t)CItem_FameKarmaChange_VT;
 	// IsMobile: slot 52 (0xD0) = 0x0044A7D0 (return 0)
 	g_vtable_CItem.fn[VT_IS_MOBILE / 4] = (vfunc_t)vt_stub_return_0;
-	// IsMobile2: slot 53 (0xD4) = 0x0044A7D0 (return 0)
-	g_vtable_CItem.fn[VT_IS_MOBILE2 / 4] = (vfunc_t)vt_stub_return_0;
+	// IsContainer: slot 53 (0xD4) = 0x0044A7D0 (return 0)
+	g_vtable_CItem.fn[VT_IS_CONTAINER / 4] = (vfunc_t)vt_stub_return_0;
 	// IsSpatial: slot 56 (0xE0) = 0x0044A7D0 (return 0)
 	g_vtable_CItem.fn[VT_IS_SPATIAL / 4] = (vfunc_t)vt_stub_return_0;
 	// IsNPC: slot 57 (0xE4) = 0x0044A7D0 (return 0)
@@ -445,7 +445,7 @@ VT_Init(void)
 	// GetLocation: slot 32 (0x80) = 0x00491210 (simple: this+0x0A)
 	g_vtable_StaticEntity.fn[VT_GET_LOCATION / 4] = (vfunc_t)StaticEntity_GetLocation_VT;
 	// IsContainer: slot 7 (0x1C) = 0x0044A7D0 (return 0 - statics not containers)
-	g_vtable_StaticEntity.fn[VT_IS_CONTAINER / 4] = (vfunc_t)vt_stub_return_0;
+	g_vtable_StaticEntity.fn[VT_IS_DYNAMIC / 4] = (vfunc_t)vt_stub_return_0;
 	// SpeakSysMsg: slot 19 (0x4C) = 0x004911F0 (CEntity version)
 	g_vtable_StaticEntity.fn[VT_SPEAK_SYS_MSG / 4] = (vfunc_t)CEntity_SpeakSysMsg_VT;
 	// GetSurfaceFlags: slot 16 (0x40) = 0x004863D1 (same as CItem)
@@ -466,11 +466,11 @@ VT_Init(void)
 	vt_copy(&g_vtable_CContainer, &g_vtable_CItem);
 	// DetachFromSpatial: slot 4 (0x10) = 0x0048840D (extended version)
 	g_vtable_CContainer.fn[VT_DETACH_SPATIAL / 4] = (vfunc_t)CResourceEntity_DetachFromSpatial;
-	g_vtable_CContainer.fn[VT_IS_CONTAINER / 4] = (vfunc_t)vt_stub_return_1;
+	g_vtable_CContainer.fn[VT_IS_DYNAMIC / 4] = (vfunc_t)vt_stub_return_1;
 	// Binary: CContainer vtable[0xD4] = return_1 (0x004E04C0).
 	// Used by CWorld_FindEntityInRange and CItem_PlaceInWorld to check
 	// if an entity can contain items (CContainer, CMobile, CPlayer).
-	g_vtable_CContainer.fn[VT_IS_MOBILE2 / 4] = (vfunc_t)vt_stub_return_1;
+	g_vtable_CContainer.fn[VT_IS_CONTAINER / 4] = (vfunc_t)vt_stub_return_1;
 	// HasAccessibleContents: slot 54 (0xD8) = 0x0044887F
 	g_vtable_CContainer.fn[VT_HAS_ACCESSIBLE_CONTENTS / 4] = (vfunc_t)CContainer_HasAccessibleContents_VT;
 	// GetValue: slot 9 (0x24) = 0x00448C2E (CContainer override)
@@ -514,9 +514,10 @@ VT_Init(void)
 	// CWeapon: inherits CItem (not CContainer)
 	// Binary 0x005F00F8: 105 slots (same as CItem), 6 overrides
 	vt_copy(&g_vtable_CWeapon, &g_vtable_CItem);
-	// Dtor: slot 0 (0x00) = NULL in binary CWeapon vtable (demo never deletes
-	// weapons directly). Keep CItem_ScalarDelete from inheritance to prevent
-	// null-pointer crash when our server deletes weapons.
+	// Dtor: slot 0 (0x00) = 0x004E0000 CWeapon::`scalar deleting destructor'.
+	// Our port keeps CItem_ScalarDelete from inheritance: nothing in the tree
+	// reaches CWeapon_Destructor, and CItem_Destructor does the same
+	// removedFromWorld-guarded Hide and ClearScriptsAndTags.
 	// IsWeapon: slot 62 (0xF8) = 0x004E04C0 (return 1)
 	g_vtable_CWeapon.fn[VT_IS_WEAPON / 4] = (vfunc_t)vt_stub_return_1;
 	// Save: slot 50 (0xC8) = 0x004C6CC9 CWeapon_Save
@@ -547,7 +548,7 @@ VT_Init(void)
 	// via CNPC_DetachSpatial_VT thunk at 0x00461B5C.
 	g_vtable_CMobile.fn[VT_DETACH_SPATIAL / 4] = (vfunc_t)CItem_DetachFromSpatial;
 	g_vtable_CMobile.fn[VT_IS_MOBILE / 4] = (vfunc_t)vt_stub_return_1;
-	g_vtable_CMobile.fn[VT_IS_MOBILE2 / 4] = (vfunc_t)vt_stub_return_1;
+	g_vtable_CMobile.fn[VT_IS_CONTAINER / 4] = (vfunc_t)vt_stub_return_1;
 	// GetFlags: slot 12 (0x30) = 0x0044A7D0 (return 0, mobiles have no tile flags)
 	g_vtable_CMobile.fn[VT_GET_FLAGS / 4] = (vfunc_t)vt_stub_return_0;
 	// IsDoor: slot 33 (0x84) = 0x0046E39C (return 0, mobiles are never doors)

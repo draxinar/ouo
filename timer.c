@@ -271,7 +271,7 @@ TimerHandler_DecayContainer(CItem *entity, int timerType, char *extraData)
 	USED(extraData);
 	if (!((int (*)(void *))VT_FN(entity, VT_HAS_CORPSE_EQ))(entity))
 		return;
-	if (!VT_IsMobile2(entity))
+	if (!VT_IsContainer(entity))
 		goto final_delete;
 	mob = entity;
 	CLocation_SetLoc(&savedLoc, ((CLocation * (*)(void *)) VT_FN(mob, VT_GET_LOCATION))(mob));

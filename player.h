@@ -205,7 +205,7 @@ int CPlayer_IsEditing(CPlayer *this); // 0x004536DA
 void CPlayer_EnableEditing(CPlayer *this); // 0x0045370B
 void CPlayer_DisableEditing(CPlayer *this); // 0x0045377C
 void CPlayer_SetHiddenFlag(CPlayer *this, int value); // 0x004537DE
-int CPlayer_WalkCheck_VT(CPlayer *self, int direction); // 0x00453841
+int CPlayer_WalkCheck_VT(CPlayer *self, int direction, CLocation *outLoc); // 0x00453841
 CLocation *CMobile_DoWalkStep(CItem *mob, CLocation *result, CLocation start, int dir); // 0x00453884
 void DoTurn(CItem *this, int direction, int isPlayer, uint8_t sequence); // 0x00453AAF
 void CPlayer_SendMoveDeny(CPlayer *this, uint8_t sequence); // 0x00453C19
@@ -271,7 +271,7 @@ int CPlayer_SetBehavior_VT(CPlayer *self, int statIdx, int value); // 0x004568F3
 int CPlayer_GetPlayAge(CPlayer *this); // 0x00456942
 void CPlayer_AddPlayAge(CPlayer *this, int amount); // 0x00456956
 void CPlayerList_AddSunlight(int amount); // 0x00456978
-void CMobile_ExitCombat(CMobile *this, int flag); // 0x00456ABC
+void CPlayer_SetWarFlag(CMobile *this, int flag); // 0x00456ABC
 void CPlayer_InitStartingEquipment(CPlayer *this); // 0x00456B52
 void CPlayer_TransferResourcesToCorpse(CPlayer *this, CItem *target); // 0x00456BD7
 void CPlayer_KarmaHandler(CPlayer *this, int mode); // 0x00456C9E

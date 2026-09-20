@@ -54,7 +54,7 @@ CUString *CUString_ConcatCStr(CUString *s, const void *wstr); // 0x004DD3EE
 CUString *CUString_ConcatChar(CUString *s, unsigned short c); // 0x004DD5F2
 int CUString_EqualCUString(CUString *s, CUString *other); // 0x004DD720
 uint16_t *CIntArray_At(CIntArray *arr, uint32_t index); // 0x004DD827
-uint32_t CUString_GetPtr(CUString *s); // 0x004DDD1C
+char *CUString_GetPtr(CUString *s); // 0x004DDD1C
 int CUShortArray_Contains(CIntArray *arr, uint16_t value); // 0x004DDEA9
 void CUString_Clear(CUString *s); // 0x004DE330
 

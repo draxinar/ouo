@@ -311,7 +311,7 @@ CPlayerList_CountNearBorder(void)
 	count = 0;
 	for (p = g_PlayerList.head; p != NULL; p = p->next) {
 		loc = CEntity_GetLocation(&p->mobile.container.item.resourceEntity.entity);
-		if (CBlockManager_IsNearBorder(&g_SpatialGrid, loc->x, loc->y))
+		if (CBlockManager_IsNearBorder(&g_SpatialGrid, (int16_t)loc->x, (int16_t)loc->y))
 			count++;
 	}
 	return (int16_t)count;
@@ -427,9 +427,9 @@ void
 SendPacketInRange(uint8_t *buf, CLocation *loc, int range)
 {
 	CVector list;
-	char typeFlag[16] = { 0 };
+	char typeFlag = 0;
 
-	CVector_Constructor(&list, typeFlag);
+	CVector_Constructor(&list, &typeFlag);
 	CEntityMap_RangeQuery(g_ItemMap, &list, loc->x, loc->y, range);
 	SendToClientList(&list, buf);
 	CVector_Destructor(&list);
@@ -511,7 +511,7 @@ CPlayerList_BroadcastInRange(uint8_t *buf, CLocation *loc, int range, CPlayer *e
 	char typeFlag = '\x01';
 
 	CVector_Constructor(&list, &typeFlag);
-	CEntityMap_RangeQueryExclude(g_ItemMap, &list, loc->x, loc->y, range, (CItem *)excludePlayer);
+	CEntityMap_RangeQueryExclude(g_ItemMap, &list, (int16_t)loc->x, (int16_t)loc->y, range, (CItem *)excludePlayer);
 
 	SendToClientList(&list, buf);
 	CVector_Destructor(&list);
@@ -1557,7 +1557,7 @@ CPlayer_ProcessDeathItems(CMobile *mob, CItem *container, CItem *corpse, CVector
 	while (child != NULL) {
 		next = child->spatialNext;
 
-		if (VT_IsMobile2(child))
+		if (VT_IsContainer(child))
 			CPlayer_ProcessDeathItems(mob, child, corpse, keptItems, 0);
 
 		if (CPlayer_ShouldDropOnDeath(mob, child)) {
@@ -1664,7 +1664,7 @@ CPlayer_OnDeath(CPlayer *this, CItem *attacker, int flag)
 			CLocation_Init(&lockedContLoc);
 			CLocation_Set(&lockedContLoc, -1, -1, 0);
 			lockedContTarget = CWorld_FindBySerial(g_World, (uint32_t)lockedContSerial);
-			if (lockedContTarget != NULL && VT_IsMobile2(lockedContTarget)) {
+			if (lockedContTarget != NULL && VT_IsContainer(lockedContTarget)) {
 				((void (*)(void *, void *, void *))VT_FN(item, VT_ADD_TO_CONTAINER))(item, lockedContTarget, &lockedContLoc);
 			} else {
 				mobLoc = ((CLocation * (*)(void *)) VT_FN((CItem *)this, VT_GET_LOCATION))(this);
@@ -1761,7 +1761,7 @@ CPlayer_OnDeath(CPlayer *this, CItem *attacker, int flag)
 		bodyType = CEntity_GetBodyType(item) & 0xFFFF;
 
 		if (bodyType == 0xE75) {
-			if (!VT_IsMobile2(item))
+			if (!VT_IsContainer(item))
 				continue;
 			CVector_Constructor(&keptItems, "");
 			CPlayer_ProcessDeathItems(&this->mobile, item, corpse, &keptItems, 1);
@@ -1806,7 +1806,7 @@ CPlayer_OnDeath(CPlayer *this, CItem *attacker, int flag)
 			CLocation_Set(&tmpLoc, -1, -1, 0);
 			((void (*)(void *, void *, void *))VT_FN(item, VT_ADD_TO_CONTAINER))(item, corpse, &tmpLoc);
 		} else {
-			if (this->mobile.equipment[21] != NULL && VT_IsMobile2(this->mobile.equipment[21])) {
+			if (this->mobile.equipment[21] != NULL && VT_IsContainer(this->mobile.equipment[21])) {
 				if (item->resourceEntity.entity.removedFromWorld == 0)
 					((void (*)(void *))VT_FN(item, VT_HIDE))(item);
 				CLocation_Set(&tmpLoc, -1, -1, 0);
@@ -1891,7 +1891,7 @@ CPlayer_IsLoaded(CPlayer *this)
  * 0x004524CC - CPlayer vtable[0x210] OnDeathWrap
  *
  * If not dead, calls vtable OnDeath with attacker args, then plays
- * death sound based on sex (male=0x151, female=0x15A).
+ * death sound based on sex (male=0x15A, female=0x151).
  */
 void
 CPlayer_OnDeathWrap_VT(CPlayer *self, uintptr_t attacker, int deathFlag)
@@ -1911,7 +1911,9 @@ CPlayer_OnDeathWrap_VT(CPlayer *self, uintptr_t attacker, int deathFlag)
  *
  * If dead, returns current HP. Otherwise sets HP, clamps to
  * [0, maxHp], broadcasts if changed. Returns new HP.
- */
+  *
+ * Binary takes 2 args (newHP, flags) but the flags arg is unused.
+*/
 uint32_t
 CPlayer_SetHP_VT(CPlayer *self, int value)
 {
@@ -2214,7 +2216,7 @@ CPlayer_LogOut(CPlayer *this, int save)
 			CLocation_Init(&tmpLoc);
 			CLocation_Set(&tmpLoc, -1, -1, 0);
 			CItem *locked = CWorld_FindBySerial(g_World, (uint32_t)lockedSerial);
-			if (locked != NULL && VT_IsMobile2(locked)) {
+			if (locked != NULL && VT_IsContainer(locked)) {
 				((void (*)(void *, CItem *, CLocation *))VT_FN(entity, VT_ADD_TO_CONTAINER))(entity, locked, &tmpLoc);
 			} else {
 				((void (*)(void *, CLocation *))VT_FN(entity, VT_DROP_AT_FEET))(entity, CEntity_GetLocation(&this->mobile.container.item.resourceEntity.entity));
@@ -2713,9 +2715,10 @@ CPlayer_SetHiddenFlag(CPlayer *this, int value)
  * 0 if blocked (location unchanged).
  */
 int
-CPlayer_WalkCheck_VT(CPlayer *self, int direction)
+CPlayer_WalkCheck_VT(CPlayer *self, int direction, CLocation *outLoc)
 {
 	CLocation startLoc;
+	USED(outLoc);
 	CLocation resultLoc;
 	CLocation *result;
 
@@ -2857,7 +2860,7 @@ cleanup:
 void
 CPlayer_SendMoveDeny(CPlayer *this, uint8_t sequence)
 {
-	uint8_t obuf[0x10];
+	uint8_t obuf[8];
 	CEntity *ent;
 
 	ent = &this->mobile.container.item.resourceEntity.entity;
@@ -3220,7 +3223,7 @@ static __attribute__((unused)) const char *
 CPlayer_GetClientIPString(CPlayer *this)
 {
 	// 0x00645AB8 - static buffer shared by every caller
-	static char buf[128];
+	static char buf[24];
 
 	if (this->usersock == NULL)
 		return "0.0.0.0";
@@ -3280,14 +3283,14 @@ CPlayer_ToggleWarMode(CPlayer *this, int warFlag)
 
 	if ((int)(int8_t)this->mobile.combatByte1 != 0) {
 		if (VT_IsDead((CItem *)this)) {
-			CMobile_ExitCombat(&this->mobile, 1);
+			CPlayer_SetWarFlag(&this->mobile, 1);
 			((void (*)(void *))VT_FN((CItem *)this, VT_HIDE))(this);
 			((void (*)(void *))VT_FN((CItem *)this, VT_RETURN_TO_TRACKED))(this);
 		}
 		CMobile_SetMobileFlag(&this->mobile, 0x40);
 	} else {
 		if (VT_IsDead((CItem *)this)) {
-			CMobile_ExitCombat(&this->mobile, 0);
+			CPlayer_SetWarFlag(&this->mobile, 0);
 			((void (*)(void *))VT_FN((CItem *)this, VT_HIDE))(this);
 			((void (*)(void *))VT_FN((CItem *)this, VT_RETURN_TO_TRACKED))(this);
 		}
@@ -3305,7 +3308,7 @@ CPlayer_ToggleWarMode(CPlayer *this, int warFlag)
 void
 CPlayer_SetWarModeBroadcast(CPlayer *this, int warFlag)
 {
-	uint8_t obuf[16];
+	uint8_t obuf[8];
 
 	if (CPlayer_HasDeadFlag(this))
 		return;
@@ -3878,7 +3881,7 @@ CollectContainerScripts(CItem *container, CVector *vec)
 	while (child != NULL) {
 		if (CItem_HasScripts(child))
 			CVector_PushBack(vec, child->serial);
-		if (VT_IsMobile2(child))
+		if (VT_IsContainer(child))
 			CollectContainerScripts(child, vec);
 		child = child->spatialNext;
 	}
@@ -3912,7 +3915,7 @@ CPlayer_Disconnect(CPlayer *this)
 			continue;
 		if (CItem_HasScripts(slot))
 			CVector_PushBack(&scriptVec, slot->serial);
-		if (VT_IsMobile2(slot))
+		if (VT_IsContainer(slot))
 			CollectContainerScripts(slot, &scriptVec);
 	}
 
@@ -4751,7 +4754,7 @@ CPlayer_GetCounselorTitle(CPlayer *this, CString *out)
 void
 CPlayer_SetFightTarget(CPlayer *this, uint32_t targetSerial)
 {
-	uint8_t obuf[16];
+	uint8_t obuf[8];
 
 	if (this->combatTargetSerial == targetSerial)
 		return;
@@ -4900,7 +4903,7 @@ CPlayerList_CollectSerials(CPlayerList *this, CVector *out, int filter)
  * flag=0: entering peace mode → clear bit 0x20
  */
 void
-CMobile_ExitCombat(CMobile *this, int flag)
+CPlayer_SetWarFlag(CMobile *this, int flag)
 {
 	CPlayer *player;
 
@@ -6290,8 +6293,8 @@ CPlayer_DetachSpatial_VT(CItem *self)
 void
 CPlayer_SetLocation_VT(CItem *self, CLocation *loc)
 {
-	if ((int16_t)self->resourceEntity.entity.location.x == -1)
-		CLocation_SetLoc(&self->resourceEntity.entity.location, loc);
+	if (*(int16_t *)&self->resourceEntity.nextInContainer == -1)
+		CLocation_SetLoc((CLocation *)&self->resourceEntity.nextInContainer, loc);
 
 	CPlayer_UpdateLastValidLocation((CPlayer *)self, loc);
 

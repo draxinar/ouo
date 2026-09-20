@@ -160,6 +160,14 @@ fclose_ServerSide(FILE *f)
  * Reads up to maxLen-1 bytes into buf, stopping at newline or the
  * 0xFF sentinel. Walks the ContainerHandle page cache directly when
  * the file has one; otherwise falls through to fgets.
+ *
+ * MODIFIED: the binary keeps whatever precedes the newline, so a CRLB
+ * data file comes back with the CR attached. We collapse "\r\n" to
+ * "\n", which every caller that measures the line then sees one byte
+ * shorter.
+ *
+ * MODIFIED: the binary's page-cache arm is a separate thiscall at
+ * 0x004E5B1A; ours inlines it.
  */
 char *
 fgets_ServerSide(char *buf, int maxLen, FILE *f)
@@ -253,6 +261,21 @@ ftell_ServerSide(FILE *f)
 		return ftell(f);
 
 	return (long)(ch->pageFileOff + ch->pageCurOff);
+}
+
+/*
+ * 0x004E603A - ungetc_ServerSide
+ *
+ * Pushes a byte back onto a plain stream. A ContainerHandle's page
+ * buffer has no pushback, so the call returns 0 without ungetting.
+ */
+int
+ungetc_ServerSide(int c, FILE *f)
+{
+	if (FindContainerHandle(f) != NULL)
+		return 0;
+
+	return ungetc(c, f);
 }
 
 /*
