@@ -74,7 +74,7 @@ void Template_SetRealName(CItem *item, char *text); // 0x004BD67A
 void CTemplateManager_startup(void); // 0x004BF86F
 void CTemplateManager_Shutdown(void); // 0x004BF892
 CItem *CTemplateManager_CreateFromTemplate(uint16_t templateId, CLocation *loc, int restockFlag, int depth, CItem *existingMob); // 0x004BF8B5
-NPCTemplate *CResManager_GetTemplateByID(uint16_t id); // 0x004BFBAA
+NPCTemplate *CResManager_GetTemplateByID(uint32_t id); // 0x004BFBAA
 int CTemplateManager_GetTemplateColorCount(uint16_t bodyType); // 0x004BFBD7
 void CTemplateManager_ApplyTemplate(int isRestock, CItem *entity, int amount, CLocation *loc, int depth, int zero); // 0x004C0397
 int CTemplateManager_HasAnimationVariant(int bodyId); // 0x004C0462

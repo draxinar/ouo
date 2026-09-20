@@ -4105,7 +4105,7 @@ CAssistance_QueueDestructorWrapper(CAssistance *this)
  * Erases [first, last) from the help queue list and writes the
  * resulting iterator to *result.
  */
-void
+StdPtrNode **
 StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
 	StdPtrNode *postIncTemp;
@@ -4115,6 +4115,8 @@ StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first,
 		StdHelpList_Erase(list, &postIncTemp, *(StdPtrNode **)&postIncTemp);
 	}
 	*result = first;
+
+	return result;
 }
 
 static int __attribute__((unused)) CAssistanceQueue_GetSerializedSize(CAssistance *this);

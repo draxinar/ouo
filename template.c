@@ -840,7 +840,7 @@ static void __attribute__((unused))
 CTemplateManager_ParseQuality(CItem *entity, const char *data)
 {
 	(void)atoi(data);
-	(void)CItem_GetLayerThiscall(entity);
+	(void)CItem_GetByteProp(entity);
 }
 
 /*
@@ -2418,7 +2418,7 @@ CTemplateManager_CreateFromTemplate(uint16_t templateId, CLocation *loc, int res
  * key was not found.
  */
 NPCTemplate *
-CResManager_GetTemplateByID(uint16_t id)
+CResManager_GetTemplateByID(uint32_t id)
 {
 	CSearchCtx ctx;
 	uint32_t key = id;

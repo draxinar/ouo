@@ -73,7 +73,7 @@ int16_t CUserSock_Handle_Input(CUserSock *this); // 0x0047F0FF
 void CUserSock_SendPacketRaw(CUserSock *this, uint8_t *buf, uint32_t size); // 0x0047F222
 CUserSock *CUserSock_Destructor(CUserSock *this, uint8_t v); // 0x0047F280
 int IsPacketDynamicSize2(uint8_t type); // 0x0047F320
-void UserSock_Decrypt(CUserSock *this, uint8_t *buf, int len); // 0x0047F340
+CUserSock *UserSock_Decrypt(CUserSock *this, uint8_t *buf, int len); // 0x0047F340
 void CUserSock_GetServerIP(CUserSock *this);
 void CUserSock_InitCrypt(CUserSock *this, uint32_t seed);
 

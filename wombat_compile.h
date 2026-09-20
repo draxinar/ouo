@@ -43,13 +43,13 @@ void TriggerEdit_SetStringProp(CItem *ent, const char *data); // 0x00425ECE
 void ObjVar_SetStr(CItem *entity, CString *name, int type, uintptr_t value); // 0x00425EDF
 const char *Entity_AttachScript(CItem *entity, const char *scriptName, int fireCreation); // 0x00425F34
 int ValidateInWorld(CItem *item); // 0x00425FD2
-void CScriptManager_Init(CScriptManager *this); // 0x00426097
+CScriptManager *CScriptManager_Init(CScriptManager *this); // 0x00426097
 void CScriptManager_AddScript(CScriptManager *mgr, CScript *script); // 0x004260E3
 CScript *CScriptManager_FindOrLoad(CScriptManager *mgr, const char *name); // 0x00426106
 CScript *CScriptManager_LoadScript(CScriptManager *mgr, const char *name); // 0x004261BB
 ScriptAttachNode *CScriptManager_CreateInstance(CScriptManager *mgr, CScript *scriptClass); // 0x00426344
 const char *CScriptManager_InternString(CScriptManager *mgr, const char *s); // 0x0042635D
-void CScriptCompiler_Constructor(CScriptCompiler *compiler); // 0x00426E20
+CScriptCompiler *CScriptCompiler_Constructor(CScriptCompiler *compiler); // 0x00426E20
 void CScriptCompiler_Destructor(CScriptCompiler *compiler); // 0x00426E7D
 CScript *ParseScriptOuter(const char *bytecode, const char *name); // 0x00426EC1
 CScript *ParseScriptInner(const char *bytecode, const char *name); // 0x00426ED6

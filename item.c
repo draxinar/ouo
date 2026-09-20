@@ -39,7 +39,7 @@
 
 static void *CEditorObj_Constructor(CEditorObj *self); // 0x0045EBC0
 static void CItem_CollectSurfaceItems(CItem *this, CVector *outList); // 0x0045FF20
-static void CItemTracking_Init(CItemTracking *tr); // 0x004674A0
+static CItemTracking *CItemTracking_Init(CItemTracking *tr); // 0x004674A0
 static int CItem_GetResourceNodeValue(CItem *item, CResourceNode *node, int valueIndex, int *resultOut); // 0x00485E28
 static void StaticEntity_Destructor(CItem *self); // 0x00486850
 static void CItem_ProcessMultiDeleteItems(CItem *self, CVector *source, CVector *dest); // 0x00486EE5
@@ -1330,7 +1330,7 @@ Item_AllocContainInfo(void)
 	} else {
 		block = (CItemTracking *)OperatorNew(sizeof(CItemTracking) * 0x1000);
 		if (block != NULL) {
-			ArrayIterator_ForEach(block, sizeof(CItemTracking), 0x1000, (void (*)(void *))CItemTracking_Init);
+			ArrayIterator_ForEach(block, sizeof(CItemTracking), 0x1000, (void *(*)(void *))CItemTracking_Init);
 			result = block;
 		} else {
 			result = NULL;
@@ -1456,11 +1456,13 @@ CItem_SetLastContainerLocation(CItem *item, int16_t x, int16_t y, int16_t z)
  * Per-element initializer invoked by ArrayIterator_ForEach when populating
  * a fresh block of tracking nodes.
  */
-static void
+static CItemTracking *
 CItemTracking_Init(CItemTracking *tr)
 {
 	CLocation_Init(&tr->lastLoc);
 	CLocation_Init(&tr->lastContLoc);
+
+	return tr;
 }
 
 /*
@@ -1865,7 +1867,7 @@ CItem_GetSurfaceFlags_VT(CItem *self, int moveType)
 }
 
 /*
- * 0x004866C7 - CEntity vtable[0xDC] / CResourceEntity vtable[0xEC]
+ * 0x004866C7 - CEntity vtable[0x44] / StaticEntity vtable[0xDC]
  *
  * Shared slot that returns GetLandTileFlags(tileID, 0) and ignores
  * this.
@@ -1966,11 +1968,13 @@ CreateStaticEntity(void)
  * firstChild setup, and the g_ResourceEntityCount bump that
  * CResourceEntity_Constructor performs.
  */
-void
+CItem *
 StaticEntity_Constructor(CItem *self)
 {
 	CEntity_Constructor(&self->resourceEntity.entity);
 	self->resourceEntity.entity.vtable = &g_vtable_StaticEntity;
+
+	return self;
 }
 
 /*
@@ -4638,7 +4642,7 @@ CItem_SplitByResources(CItem *this, uint16_t amount)
  * Corpse/multi constructor: chains to CContainer, installs the CMulti
  * vtable, and zeros the equipment slots and decay timer.
  */
-void
+CCorpse *
 CCorpse_Constructor(CCorpse *this)
 {
 	int i;
@@ -4648,6 +4652,8 @@ CCorpse_Constructor(CCorpse *this)
 	this->decayTick = 0;
 	for (i = 0; i < 26; i++)
 		this->equipSlots[i] = 0;
+
+	return this;
 }
 
 /*

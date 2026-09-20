@@ -2173,10 +2173,12 @@ CScriptString_Append(CScriptString *this, CString *dest)
  *
  * Copies the (x, y, z) of src into dst.
  */
-void
+CLocation *
 CLocation_SetLoc(CLocation *dst, const CLocation *src)
 {
 	CLocation_Set(dst, src->x, src->y, src->z);
+
+	return dst;
 }
 
 /*
@@ -2218,12 +2220,14 @@ GetVarType(const BuiltinHandlerEntry *entry)
  * Initializes the embedded CNamedScope and clears resultListHead and
  * bodyStream. Used for function parameter and local variable scopes.
  */
-void
+CFuncScope *
 CFuncScope_Constructor(CFuncScope *scope)
 {
 	CNamedScope_Constructor(&scope->namedScope);
 	scope->resultListHead = NULL;
 	scope->bodyStream = NULL;
+
+	return scope;
 }
 
 /*
@@ -2582,7 +2586,7 @@ Handler_FOR_BODY(char *jumpTarget)
 }
 
 /*
- * Return Value Handlers (0x0040D342..0x0040D40D)
+ * Return Value Handlers (0x0040D365..0x0040D40D)
  *
  * These handlers restore the scope to its saved state (from rstack),
  * write the return value into the scope buffer, and set stream to NULL
@@ -13443,9 +13447,9 @@ Script_getElevationAt(int x, int y)
  * minimum elevation. Returns 1 on success.
  */
 int
-Script_findGoodSpotNear(CLocation *loc, int zMax, int range, int height)
+Script_findGoodSpotNear(CLocation *loc, int zMax, int height, int moveType)
 {
-	return FindSpawnSpot(loc, 0, zMax, range, height, 0);
+	return FindSpawnSpot(loc, 0, zMax, height, moveType, 0);
 }
 
 /*
@@ -13455,9 +13459,9 @@ Script_findGoodSpotNear(CLocation *loc, int zMax, int range, int height)
  * to z values in [zMin, zMax]. Returns 1 on success.
  */
 int
-Script_findGoodSpotNearMin(CLocation *loc, int zMin, int zMax, int range, int height)
+Script_findGoodSpotNearMin(CLocation *loc, int zMin, int zMax, int height, int moveType)
 {
-	return FindSpawnSpot(loc, zMin, zMax, range, height, 0);
+	return FindSpawnSpot(loc, zMin, zMax, height, moveType, 0);
 }
 
 /*
@@ -13467,9 +13471,9 @@ Script_findGoodSpotNearMin(CLocation *loc, int zMin, int zMax, int range, int he
  * elevation band [minElev, maxElev] and z range up to zMax.
  */
 int
-Script_findGoodSpotNearWithElev(CLocation *loc, int minElev, int maxElev, int zMax, int range, int height)
+Script_findGoodSpotNearWithElev(CLocation *loc, int minElev, int maxElev, int zMax, int height, int moveType)
 {
-	return CBlockManager_FindSpawnSpotExt(loc, minElev, maxElev, 0, zMax, range, height, 0);
+	return CBlockManager_FindSpawnSpotExt(loc, minElev, maxElev, 0, zMax, height, moveType, 0);
 }
 
 /*
@@ -14527,7 +14531,7 @@ Script_getDefaultAlignment(int templateId)
 
 	if (!CResManager_HasByInt(&g_TemplatesRM, templateId))
 		return 0;
-	tmpl = CResManager_GetTemplateByID((uint16_t)templateId);
+	tmpl = CResManager_GetTemplateByID(templateId);
 	return (int)tmpl->alignment;
 }
 

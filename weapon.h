@@ -79,7 +79,7 @@ CWeaponDef *CWeaponDef_Constructor(CWeaponDef *def); // 0x004DE540
 void CWeaponDef_Destructor(CWeaponDef *def); // 0x004DE5BC
 CWeaponDef *CWeaponDef_CopyConstructor(CWeaponDef *this, CWeaponDef *src); // 0x004DE5C7
 void CWeaponDef_InitDefaults(CWeaponDef *def); // 0x004DE6A1
-void CWeaponManager_Constructor(CWeaponManager *mgr); // 0x004DE729
+CWeaponManager *CWeaponManager_Constructor(CWeaponManager *mgr); // 0x004DE729
 void CWeaponManager_LoadAll(CWeaponManager *mgr); // 0x004DE757
 int CWeaponManager_GetWeapon(CWeaponManager *mgr, int id, CItem *item); // 0x004DE78D
 int CWeaponManager_LoadWeaponDef(CWeaponManager *mgr, int id); // 0x004DE8F2

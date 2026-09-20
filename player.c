@@ -5185,10 +5185,12 @@ CSkillUseCtx_Init(CSkillUseCtx *this)
  * Thiscall on AggroInfo. Calls CString_DefaultConstructor on the
  * CString at +0x10.
  */
-void
+AggroInfo *
 AggroInfo_Constructor(AggroInfo *info)
 {
 	CString_DefaultConstructor(&info->name);
+
+	return info;
 }
 
 /*

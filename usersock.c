@@ -610,14 +610,14 @@ IsPacketDynamicSize2(uint8_t type)
  * MODIFIED: the binary's body is empty. Under g_UseEncryption this
  * implements the client's cipher so newer clients can connect.
  */
-void
+CUserSock *
 UserSock_Decrypt(CUserSock *this, uint8_t *buf, int len)
 {
 	int i;
 	uint32_t key1, key2, temp;
 
 	if (!this->encrypted)
-		return;
+		return this;
 
 	for (i = 0; i < len; i++) {
 		buf[i] ^= (uint8_t)this->cryptKey1;
@@ -643,6 +643,8 @@ UserSock_Decrypt(CUserSock *this, uint8_t *buf, int len)
 		if (!this->cryptPolynomial)
 			this->cryptKey1 = ((key1 >> 1) | (key2 << 31)) ^ this->cryptB;
 	}
+
+	return this;
 }
 
 /*

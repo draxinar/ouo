@@ -214,11 +214,13 @@ enum {
  *
  * Save current AI state to prevAIState, set new state.
  */
-static inline void
+static inline uint32_t
 CNPC_SetState(CNPC *npc, uint32_t newState)
 {
 	npc->prevAIState = npc->aiState;
 	npc->aiState = newState;
+
+	return newState;
 }
 
 extern uint32_t g_npcAITimerReset;        // 0x0061D67C (NPC AI timer reset value)

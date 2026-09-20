@@ -2596,12 +2596,14 @@ CCombatEventNode_ScalarDelete(CCombatEventNode *node, int flags)
  *
  * Allocates a 1 KiB data buffer with len=0 and cap=0x400.
  */
-void
+CDataBuffer *
 CDataBuffer_Constructor(CDataBuffer *b)
 {
 	b->data = OperatorNew(0x400);
 	b->len = 0;
 	b->cap = 0x400;
+
+	return b;
 }
 
 /*
@@ -2782,11 +2784,13 @@ static const struct CrimeType g_CrimeTypes[5] = {
  *
  * Zero-initializes a CTerrainLookup's count and field_804.
  */
-void
+CTerrainLookup *
 CTerrainLookup_Init(CTerrainLookup *this)
 {
 	this->count = 0;
 	this->field_804 = 0;
+
+	return this;
 }
 
 /*

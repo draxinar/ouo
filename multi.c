@@ -37,12 +37,12 @@
 #include "terrain.h"
 #include "wombat_exec.h"
 
-static void CMultiComponent_Constructor(CMultiComponentDef *def); // 0x0047424E
+static CMultiComponentDef *CMultiComponent_Constructor(CMultiComponentDef *def); // 0x0047424E
 static CMultiComponentDef *CMultiComponent_CopyConstructor(CMultiComponentDef *def, CMultiComponentDef *src); // 0x0047428A
 static CMultiComponentDef *CMultiComponent_CopyFrom(CMultiComponentDef *def, CMultiComponentDef *src); // 0x004742EF
 static void CMultiComponent_Reset(CMultiComponentDef *def); // 0x0047433B
 static void CMultiComponent_Destructor(CMultiComponentDef *def); // 0x0047438C
-static void CMultiComponent_Constructor_base(CMultiComponent *mc); // 0x00474414
+static CMultiComponent *CMultiComponent_Constructor_base(CMultiComponent *mc); // 0x00474414
 static void CMultiComponent_Destructor_base(CMultiComponent *mc); // 0x0047444C
 static int CMultiComponent_IsOwner_VF(CMultiComponent *mc); // 0x00474501
 static void CMultiSlave_Destructor(CMultiSlave *ms); // 0x004746BC
@@ -65,8 +65,8 @@ static void *CMultiSlave_ScalarDtor(CMultiSlave *ms, int flags); // 0x00478560
 static void *CMultiDef_SetExtents(CMultiDef *def, CLocation *minLoc, CLocation *maxLoc); // 0x00478590
 static void *CMultiDef_SetMinExtent(CMultiDef *def, CLocation *loc); // 0x004785F0
 static void CLocation_Add(CLocation *dst, CLocation *src); // 0x004786C0
-static void *CDeque16_FindByHash(CVector *this, void *element); // 0x00478AB0
-static void *CDeque1C_FindByHash(CVector *this, void *element); // 0x00478BE0
+static void *CDeque16_PushBack(CVector *this, void *element); // 0x00478AB0
+static void *CDeque1C_PushBack(CVector *this, void *element); // 0x00478BE0
 static void *CMultiComponentPool_Alloc(void); // 0x00478C50
 static void CMultiDef_Destructor(CMultiDef *def); // 0x00478D70
 static void CMultiComponentPool_Return(CMultiComponent *mc); // 0x00478DB0
@@ -199,7 +199,7 @@ Multi_DestroyPools(void)
  *
  * Initializes offset, script vector, bodyType, and invisible fields.
  */
-static void
+static CMultiComponentDef *
 CMultiComponent_Constructor(CMultiComponentDef *def)
 {
 	char typeFlag = 0;
@@ -207,6 +207,8 @@ CMultiComponent_Constructor(CMultiComponentDef *def)
 	CVector_Constructor((CVector *)&def->scriptHead, &typeFlag);
 	def->bodyType = 0;
 	def->invisible = 0;
+
+	return def;
 }
 
 /*
@@ -319,11 +321,13 @@ MultiComponent_ReturnToPool(CMultiComponent *mc)
  * constructor has an empty body, so the guarded call has no observable
  * effect and is omitted here.
  */
-static void
+static CMultiComponent *
 CMultiComponent_Constructor_base(CMultiComponent *mc)
 {
 	CLocation_Init(&mc->offset);
 	mc->vtable = g_vtbl_CMultiComponent;
+
+	return mc;
 }
 
 /*
@@ -1425,7 +1429,7 @@ CMultiManager_LoadMultiData(CResManager *this, int unused)
 				if (nfields >= 5) {
 					CString tempStr;
 					CString_Constructor(&tempStr, scriptBuf);
-					CDeque16_FindByHash((CVector *)&var_474h.scriptHead, &tempStr);
+					CDeque16_PushBack((CVector *)&var_474h.scriptHead, &tempStr);
 					CString_Destructor(&tempStr);
 				}
 			} else {
@@ -1448,7 +1452,7 @@ CMultiManager_LoadMultiData(CResManager *this, int unused)
 					CString_DefaultConstructor(&whitespace);
 
 					while (CString_Tokenize(&inputStr, &pos, &lineCount, &outToken, &delimiters, &whitespace, 1)) {
-						CDeque16_FindByHash((CVector *)&var_474h.scriptHead, &outToken);
+						CDeque16_PushBack((CVector *)&var_474h.scriptHead, &outToken);
 					}
 
 					CString_Destructor(&whitespace);
@@ -1458,7 +1462,7 @@ CMultiManager_LoadMultiData(CResManager *this, int unused)
 				}
 			}
 
-			CDeque1C_FindByHash(&def->components, &var_474h);
+			CDeque1C_PushBack(&def->components, &var_474h);
 			CMultiComponent_Reset(&var_474h);
 		}
 
@@ -1742,7 +1746,7 @@ CMultiManager_DefineFromArea(CResManager *this, uint32_t typeId, int x1, int y1,
 		comp.bodyType = CEntity_GetBodyType(item);
 		CLocation_Set(&comp.offset, (int16_t)dx, (int16_t)dy, (int16_t)dz);
 		comp.invisible = 1;
-		CDeque1C_FindByHash(&def->components, &comp);
+		CDeque1C_PushBack(&def->components, &comp);
 	}
 	USED(counter);
 
@@ -3384,7 +3388,7 @@ CRotationTable g_RotationTable;
  * values for the 8 UO directions. Called once at static init against
  * the singleton at 0x00699B08.
  */
-void
+CRotationTable *
 CRotationTable_Constructor(CRotationTable *this)
 {
 	this->cos[0] = 0x00010000;              // cos  1.0     (N,  dir 0)
@@ -3403,6 +3407,8 @@ CRotationTable_Constructor(CRotationTable *this)
 	this->sin[5] = (int32_t)0xFFFF4AFC;     // sin -0.7071  (SW, dir 5)
 	this->sin[6] = (int32_t)0xFFFF0000;     // sin -1.0     (W,  dir 6)
 	this->sin[7] = (int32_t)0xFFFF4AFC;     // sin -0.7071  (NW, dir 7)
+
+	return this;
 }
 
 /*
@@ -3451,7 +3457,7 @@ CMultiRotateRect_SetRotation(CMultiRotateRect *rect, uintptr_t value)
  * Appends a 16-byte element to the deque.
  */
 static void *
-CDeque16_FindByHash(CVector *this, void *element)
+CDeque16_PushBack(CVector *this, void *element)
 {
 	return CDeque16_Insert1(this, this->end, element);
 }
@@ -3462,7 +3468,7 @@ CDeque16_FindByHash(CVector *this, void *element)
  * Appends a 0x1C-byte element to the deque.
  */
 static void *
-CDeque1C_FindByHash(CVector *this, void *element)
+CDeque1C_PushBack(CVector *this, void *element)
 {
 	return CDeque1C_Insert1(this, this->end, element);
 }
@@ -3472,7 +3478,7 @@ CDeque1C_FindByHash(CVector *this, void *element)
  *
  * Initializes min/max extents and the component vector.
  */
-void
+CMultiDef *
 CMultiDef_Constructor(CMultiDef *def)
 {
 	char typeFlag[4] = { 0 };
@@ -3480,6 +3486,8 @@ CMultiDef_Constructor(CMultiDef *def)
 	CLocation_Init(&def->minExtent);
 	CLocation_Init(&def->maxExtent);
 	CVector_Constructor(&def->components, typeFlag);
+
+	return def;
 }
 
 /*
@@ -3560,12 +3568,13 @@ CMultiComponent_SetOffset(CMultiComponent *mc, CLocation *loc)
 /*
  * 0x00478DB0 - CMultiComponentPool::Return
  *
- * Returns a component to the pool by pushing it onto the free list
- * (threaded via the ownerItem field).
+ * Destroys the component, then returns it to the pool by pushing it
+ * onto the free list (threaded via the ownerItem field).
  */
 static void
 CMultiComponentPool_Return(CMultiComponent *mc)
 {
+	CResList_DestructorEmpty((CResList *)mc);
 	mc->ownerItem = (CItem *)g_multiComponentPool.freeHead;
 	g_multiComponentPool.freeHead = mc;
 	VG_POOL_FREE(&g_multiComponentPool, mc);
@@ -3587,12 +3596,14 @@ CMultiSlave_SetTypeId(CMultiSlave *ms, int32_t typeId)
  *
  * Initializes the extent locations and resets all per-axis flags.
  */
-void
+MultiExtentTracker *
 MultiExtentTracker_Constructor(MultiExtentTracker *t)
 {
 	CLocation_Init(&t->minExtent);
 	CLocation_Init(&t->maxExtent);
 	MultiExtentTracker_Reset(t);
+
+	return t;
 }
 
 /*
@@ -5120,7 +5131,7 @@ CSerialList_GetFlags(CSerialValue *this)
  * Adds delta to the entity location, wrapping the world boundary.
  */
 void
-CEntity_SetLocationByDelta(CItem *this, CLocation *delta)
+CLocation_AddWrappedTo(CItem *this, CLocation *delta)
 {
 	CLocation result;
 
@@ -5202,7 +5213,7 @@ CItem_GetType(CItem *this)
  * Returns 1 if two search contexts differ, 0 if they match.
  */
 int
-CItem_IsSameType(CSearchCtx *a, CSearchCtx *b)
+CSearchCtx_IsNotEqual(CSearchCtx *a, CSearchCtx *b)
 {
 	int result = SearchCtx_IsEqual(a, b);
 	return (result & 0xFF) ? 0 : 1;

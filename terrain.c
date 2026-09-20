@@ -1439,7 +1439,7 @@ CBlockManager_FindSpawnSpot(CLocation *loc, int walkZMin, int walkZMax, int zMin
 
 	for (dist = zMin; dist <= zMax; dist++) {
 		for (sweep = 1 - dist; sweep <= dist; sweep++) {
-			ArrayIterator_ForEach(candidates, 6, 4, (void (*)(void *))CLocation_Init);
+			ArrayIterator_ForEach(candidates, 6, 4, (void *(*)(void *))CLocation_Init);
 
 			CLocation_Set(&candidates[0], (int16_t)((int)(int16_t)origLoc.x + sweep), (int16_t)((int)(int16_t)origLoc.y - dist), origLoc.z);
 			CLocation_Set(&candidates[1], (int16_t)((int)(int16_t)origLoc.x + dist), (int16_t)((int)(int16_t)origLoc.y + sweep), origLoc.z);

@@ -94,7 +94,7 @@ uint8_t *CAssistance_SaveRecordB(CSkillUseCtx *this); // 0x0045FA20
 uint8_t CAssistance_LoadRecordB(CSkillUseCtx *this, uint8_t *buf, int unused); // 0x0045FBB0
 CAssistanceNode *CAssistanceNode_Constructor(CAssistanceNode *self); // 0x0045FD20
 uint8_t CAssistance_LoadRecordC(CAssistanceNode *this, uint8_t *buf, int unused); // 0x0045FDB0
-void StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004696D0
+StdPtrNode **StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004696D0
 
 void TC_CommandDispatch(CPlayer *player, const char *text); // CUSTOM (-test)
 

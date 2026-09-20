@@ -9,7 +9,7 @@ __extension__ typedef struct CLocation CLocation;
 __extension__ typedef struct CMobile CMobile;
 __extension__ typedef struct CPlayer CPlayer;
 CItem *FindClosestBBoardItem(CLocation *loc); // 0x00431B48
-void CBulletinBoard_Constructor(CBulletinBoard *bb); // 0x00431BE8
+CBulletinBoard *CBulletinBoard_Constructor(CBulletinBoard *bb); // 0x00431BE8
 void CBulletinBoard_Destructor(CBulletinBoard *bb); // 0x00431C49
 void OpenWritableBook(CItem *entity, CItem *player, uint32_t playerSerial); // 0x00431D4A
 void CBulletinBoard_SendBoardSummary(CBulletinBoard *bb, CPlayer *player, CItem *post); // 0x00431DA7

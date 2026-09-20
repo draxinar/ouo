@@ -31,8 +31,8 @@ static void SortByLocation_Entry(uintptr_t *first, uintptr_t *last, char cmp); /
 static void *CResList_InsertBefore_ByNameAll(CResList *list, CResListNode *position); // 0x00430720
 static void *CResManager_NextIterErase_ByNameAll(CResManager *rm, CSearchCtx *out, CSearchCtx *current, uint32_t direction); // 0x004305D0
 static void *CResManager_FindNextBucket_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t bucket, uint32_t direction); // 0x004304D0
-static void SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp); // 0x004308C0
-static void SortBySerial_Main(uintptr_t *first, uintptr_t *last, char cmp); // 0x00430950
+static void SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x004308C0
+static void SortBySerial_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00430950
 static void *CResList_InsertAfter_ByNameAll(CResList *list, CResListNode *position); // 0x004309E0
 static void SortByLocation_InsertionEntry(uintptr_t *first, uintptr_t *last, char cmp); // 0x00430AD0
 static void SortByLocation_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00430B00
@@ -475,8 +475,7 @@ SortByLocation_Entry(uintptr_t *first, uintptr_t *last, char cmp)
 	int depth;
 
 	depth = GameCentMon_GetPlayerCount();
-	USED(depth);
-	SortByLocation_Main(first, last, cmp);
+	SortByLocation_Main(first, last, cmp, depth);
 }
 
 /*
@@ -541,8 +540,7 @@ SortBySerial_Entry(uintptr_t *first, uintptr_t *last, char cmp)
 	int depth;
 
 	depth = GameCentMon_GetPlayerCount();
-	USED(depth);
-	SortBySerial_Main(first, last, cmp);
+	SortBySerial_Main(first, last, cmp, depth);
 }
 
 /*
@@ -784,11 +782,12 @@ CResList_GetOrCreateTail_ByNameAll(CResList *list)
  * std::less<> functor.
  */
 static void
-SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp)
+SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth)
 {
 	int count;
 	uintptr_t *cur;
 
+	USED(depth);
 	count = (int)(last - first);
 	if (count <= 16) {
 		SortByLocation_InsertionEntry(first, last, cmp);
@@ -809,11 +808,12 @@ SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp)
  * Same structure as location sort but uses serial comparator chain.
  */
 static void
-SortBySerial_Main(uintptr_t *first, uintptr_t *last, char cmp)
+SortBySerial_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth)
 {
 	int count;
 	uintptr_t *cur;
 
+	USED(depth);
 	count = (int)(last - first);
 	if (count <= 16) {
 		SortBySerial_InsertionEntry(first, last, cmp);
@@ -1273,11 +1273,13 @@ CStringList_HasEntries(CStringList *sl)
  *
  * Zeroes the CResList base and totalWeight.
  */
-void
+CStringList *
 CStringList_Init(CStringList *sl)
 {
 	CResListNode_Constructor_bin((CResListNode *)&sl->list);
 	sl->totalWeight = 0;
+
+	return sl;
 }
 
 /*
@@ -1380,7 +1382,7 @@ CStringList_AddWeighted(CStringList *sl, CResListNode **output, CString *str, in
 /*
  * 0x0043D7D0 - CStringList::GetType (include variant)
  *
- * Returns the entry's include-flag byte.
+ * Returns the entry's include flag, read as a dword.
  */
 int
 CStringList_GetTypeInclude(CStringList *sl, CResListNode **nodePtr)
@@ -1745,10 +1747,12 @@ CResManager_InsertValueAtCtxI(CResManager *rm, CSearchCtx *ctx, void *value)
  *
  * Delegates to BeginIterInternalA with forward direction.
  */
-void
+CSearchCtx *
 CResManager_BeginIterA(CResManager *rm, CSearchCtx *output)
 {
 	CResManager_BeginIterInternalA(rm, output, 0, 1);
+
+	return output;
 }
 
 /*
@@ -1756,10 +1760,12 @@ CResManager_BeginIterA(CResManager *rm, CSearchCtx *output)
  *
  * Delegates to NextIterInternalA with forward direction.
  */
-void
+CSearchCtx *
 CResManager_NextIterA(CResManager *rm, CSearchCtx *output, CSearchCtx *current)
 {
 	CResManager_NextIterInternalA(rm, output, current, 1);
+
+	return output;
 }
 
 /*
@@ -1780,12 +1786,14 @@ CResManager_FindEntryA(CResManager *rm, CString *name)
  *
  * Stores flags, zeroes count, and initializes the bucket tables.
  */
-void
+CResManager *
 CResManager_Constructor(CResManager *rm, int flags)
 {
 	rm->flags = flags;
 	rm->count = 0;
 	CResManager_InitTables(rm);
+
+	return rm;
 }
 
 /*
@@ -2190,10 +2198,12 @@ CResManager_InsertValueAtCtxEffects(CResManager *rm, CSearchCtx *ctx, void *valu
  *
  * Delegates to BeginIterInternalB with forward direction.
  */
-void
+CSearchCtx *
 CResManager_BeginIterB(CResManager *rm, CSearchCtx *output)
 {
 	CResManager_BeginIterInternalB(rm, output, 0, 1);
+
+	return output;
 }
 
 /*
@@ -2201,10 +2211,12 @@ CResManager_BeginIterB(CResManager *rm, CSearchCtx *output)
  *
  * Delegates to NextIterInternalB with forward direction.
  */
-void
+CSearchCtx *
 CResManager_NextIterB(CResManager *rm, CSearchCtx *output, CSearchCtx *current)
 {
 	CResManager_NextIterInternalB(rm, output, current, 1);
+
+	return output;
 }
 
 /*
@@ -2212,10 +2224,12 @@ CResManager_NextIterB(CResManager *rm, CSearchCtx *output, CSearchCtx *current)
  *
  * Zeroes all 4 fields of the 16-byte CSearchCtx struct.
  */
-void
+CSearchCtx *
 CSearchCtx_Constructor(CSearchCtx *ctx)
 {
 	memset(ctx, 0, sizeof(CSearchCtx));
+
+	return ctx;
 }
 
 /*
@@ -2723,7 +2737,7 @@ CResListNode_InsertDataB(CResListNode *node, void *srcData)
  * Walks the bucket from startCtx looking for key; writes the matching
  * ctx or an empty ctx into *output.
  */
-void
+CSearchCtx *
 CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction)
 {
 	CSearchCtx localCtx;
@@ -2733,7 +2747,7 @@ CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, CString *key, CSe
 
 	if (!CSearchCtx_Find(startCtx)) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	CSearchCtx_Add(&localCtx, startCtx);
@@ -2741,13 +2755,15 @@ CResManager_SearchBucketA(CResManager *rm, CSearchCtx *output, CString *key, CSe
 	while (CSearchCtx_Find(&localCtx)) {
 		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), key)) {
 			CResManager_CreateBucket(output, &localCtx);
-			return;
+			return output;
 		}
 		CSearchCtx_Add(&localCtx, CResManager_NextEntryA(rm, &nextCtx, &localCtx, direction));
 	}
 
 	CSearchCtx_SetEntity(&localCtx, 0);
 	CResManager_CreateBucket(output, &localCtx);
+
+	return output;
 }
 
 /*
@@ -2803,7 +2819,7 @@ CResManager_BeginIterInternalA(CResManager *rm, CSearchCtx *output, uint32_t sta
  * Advances the ctx to the next entry; crosses bucket boundaries via
  * BeginIterInternalA when the current bucket is exhausted.
  */
-void
+CSearchCtx *
 CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction)
 {
 	CSearchCtx localCtx;
@@ -2814,7 +2830,7 @@ CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 
 	if (!CSearchCtx_Find(current)) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	// Copy bucket from current to localCtx
@@ -2833,18 +2849,18 @@ CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 	if (CResList_IsValid(rm->keys[CSearchCtx_GetBucket(&localCtx)], (CResListNode *)localCtx.keyNode)) {
 		CSearchCtx_SetEntity(&localCtx, 1);
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	// Scan to next non-empty bucket
 	bucket = CSearchCtx_GetBucket(&localCtx);
 	if (bucket == 0 && direction == 0) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 	if (bucket == 0x41 && direction != 0) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	// Advance bucket and recurse via BeginIterInternal
@@ -2853,6 +2869,8 @@ CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 	else
 		bucket -= 1;
 	CResManager_BeginIterInternalA(rm, output, bucket, direction);
+
+	return output;
 }
 
 /*
@@ -3082,7 +3100,7 @@ CResList_DestructorC(CResList *list)
  *
  * Linear scan of the bucket for key, advancing via NextEntryB.
  */
-void
+CSearchCtx *
 CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction)
 {
 	CSearchCtx localCtx;
@@ -3092,7 +3110,7 @@ CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, CString *key, CSe
 
 	if (!CSearchCtx_Find(startCtx)) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	CSearchCtx_Add(&localCtx, startCtx);
@@ -3100,13 +3118,15 @@ CResManager_SearchBucketB(CResManager *rm, CSearchCtx *output, CString *key, CSe
 	while (CSearchCtx_Find(&localCtx)) {
 		if (CString_EqualCString((CString *)CResManager_GetKeyAtPos(rm, &localCtx), key)) {
 			CResManager_CreateBucket(output, &localCtx);
-			return;
+			return output;
 		}
 		CSearchCtx_Add(&localCtx, CResManager_NextEntryB(rm, &nextCtx, &localCtx, direction));
 	}
 
 	CSearchCtx_SetEntity(&localCtx, 0);
 	CResManager_CreateBucket(output, &localCtx);
+
+	return output;
 }
 
 /*
@@ -3126,7 +3146,7 @@ CResManager_BeginIterInternalB(CResManager *rm, CSearchCtx *output, uint32_t sta
  * Advances ctx to the next entry, scanning buckets via BeginIterInternalB
  * when the current bucket is exhausted.
  */
-void
+CSearchCtx *
 CResManager_NextIterInternalB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction)
 {
 	CSearchCtx localCtx;
@@ -3137,7 +3157,7 @@ CResManager_NextIterInternalB(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 
 	if (!CSearchCtx_Find(current)) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	// Copy bucket from current to localCtx
@@ -3156,18 +3176,18 @@ CResManager_NextIterInternalB(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 	if (CResList_IsValid(rm->keys[CSearchCtx_GetBucket(&localCtx)], (CResListNode *)localCtx.keyNode)) {
 		CSearchCtx_SetEntity(&localCtx, 1);
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	// Scan to next non-empty bucket
 	bucket = CSearchCtx_GetBucket(&localCtx);
 	if (bucket == 0 && direction == 0) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 	if (bucket == 0x41 && direction != 0) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	// Advance bucket and recurse via BeginIterInternalB
@@ -3176,6 +3196,8 @@ CResManager_NextIterInternalB(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 	else
 		bucket -= 1;
 	CResManager_BeginIterInternalB(rm, output, bucket, direction);
+
+	return output;
 }
 
 /*
@@ -8585,6 +8607,10 @@ CResManager_HasByInt(CResManager *rm, uint32_t key)
 /*
  * 0x004C06B0 - CResManager::CResManager (templates variant)
  *
+ * The binary runs the MSVC vector-constructor iterator at 0x004E9090
+ * over three 12-byte elements with CResListNode_Constructor_bin as the
+ * per-element constructor; the loop is open-coded here.
+ *
  * Constructs the three contiguous CResLists of a CNameEntry
  * (male/female/other name lists).
  */
@@ -8682,7 +8708,7 @@ CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr)
  * Seeds a CSearchCtx for integer key *keyPtr and walks the bucket via
  * CResManager_NextIterInternal_Templates. Empty bucket returns an empty ctx.
  */
-void
+CSearchCtx *
 CResManager_FindByIntCtx(CResManager *rm, CSearchCtx *output, uint32_t *keyPtr, int direction)
 {
 	CSearchCtx localCtx;
@@ -8693,7 +8719,7 @@ CResManager_FindByIntCtx(CResManager *rm, CSearchCtx *output, uint32_t *keyPtr, 
 
 	if (rm->keys[bucket] == NULL) {
 		CResManager_CreateBucket(output, &localCtx);
-		return;
+		return output;
 	}
 
 	CSearchCtx_SetEntity(&localCtx, 1);
@@ -8701,6 +8727,8 @@ CResManager_FindByIntCtx(CResManager *rm, CSearchCtx *output, uint32_t *keyPtr, 
 	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)CResList_DirectionBegin(rm->keys[bucket], direction));
 	CSearchCtx_SetValNode(&localCtx, (uintptr_t)CResList_DirectionBegin(rm->vals[bucket], direction));
 	CResManager_NextIterInternal_Templates(rm, output, keyPtr, &localCtx, direction);
+
+	return output;
 }
 
 /*
@@ -8988,10 +9016,12 @@ CResManager_InsertStrEntry(CResManager *rm, CString *key, void *value)
  *
  * Delegates to CResManager_BeginIterInternalK with bucket 0, direction 1.
  */
-void
+CSearchCtx *
 CResManager_BeginIter(CResManager *rm, CSearchCtx *output)
 {
 	CResManager_BeginIterInternalK(rm, output, 0, 1);
+
+	return output;
 }
 
 /*
@@ -8999,10 +9029,12 @@ CResManager_BeginIter(CResManager *rm, CSearchCtx *output)
  *
  * Delegates to CResManager_NextIterInternalK with direction 1.
  */
-void
+CSearchCtx *
 CResManager_NextIter(CResManager *rm, CSearchCtx *output, CSearchCtx *current)
 {
 	CResManager_NextIterInternalK(rm, output, current, 1);
+
+	return output;
 }
 
 /*

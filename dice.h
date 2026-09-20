@@ -47,7 +47,7 @@ uint8_t CDiceRoll_GetDiceFaces(CWeaponDice *d); // 0x00459A4C
 int8_t CDiceRoll_GetBonus(CWeaponDice *d); // 0x00459A5D
 uint8_t CDiceRoll_GetField4(CWeaponDice *d); // 0x00459A6E
 void CDiceRoll_Parse(CWeaponDice *d, const char *s); // 0x00459A7B
-void CDiceRoll_Copy(CWeaponDice *dst, CWeaponDice *src); // 0x00459CAE
+CWeaponDice *CDiceRoll_Copy(CWeaponDice *dst, CWeaponDice *src); // 0x00459CAE
 int CDiceRoll_IsZero(CWeaponDice *d); // 0x00459CEA
 
 #endif /* DICE_H_ */

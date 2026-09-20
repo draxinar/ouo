@@ -48,18 +48,18 @@ struct CSerialList {
 __extension__ typedef struct CDataBuffer CDataBuffer;
 
 int CSerialNode_DecrementTTL(CSerialNode *node); // 0x00442960
-void CSerialList_Constructor(CSerialList *list); // 0x00442993
+CSerialList *CSerialList_Constructor(CSerialList *list); // 0x00442993
 void CSerialList_Destructor(CSerialList *list); // 0x004429E7
 void CSerialList_AddFromSet(CSerialList *list, uint32_t serial); // 0x00442A3D
 int CSerialList_Add(CSerialList *list, uint32_t serial); // 0x00442AAF
 int CSerialList_Contains(CSerialList *list, uint32_t serial); // 0x00442B82
 void CSerialList_Remove(CSerialList *list, uint32_t serial); // 0x00442C06
 void CSerialList_PruneExpired(CSerialList *list); // 0x00442C64
-void StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00446FF0
-void CSerialList_FindFirstValidTarget(StdPtrList *list, StdPtrNode **outIter); // 0x00442CDD
-void CSerialList_FindFirstValidMobile(StdPtrList *list, StdPtrNode **outIter); // 0x00442DB0
-void CSerialList_FindNearestMobile(StdPtrList *list, StdPtrNode **outIter, CLocation *loc); // 0x00442E71
-void CSerialList_FindNearestTarget(StdPtrList *list, StdPtrNode **outIter, CLocation *loc); // 0x00442F79
+StdPtrNode **StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00446FF0
+StdPtrNode **CSerialList_FindFirstValidTarget(StdPtrList *list, StdPtrNode **outIter); // 0x00442CDD
+StdPtrNode **CSerialList_FindFirstValidMobile(StdPtrList *list, StdPtrNode **outIter); // 0x00442DB0
+StdPtrNode **CSerialList_FindNearestMobile(StdPtrList *list, StdPtrNode **outIter, CLocation *loc); // 0x00442E71
+StdPtrNode **CSerialList_FindNearestTarget(StdPtrList *list, StdPtrNode **outIter, CLocation *loc); // 0x00442F79
 int StdSerialValue_Equal(uint32_t *self, CSearchCtx *ctx); // 0x004472C0
 void StdSerialList_Distance(StdPtrNode *beginIter, StdPtrNode *endIter, int *countOut); // 0x004472F0
 void *StdSerialValue_DestructorWrapper(void *node); // 0x00447320

@@ -1123,12 +1123,14 @@ ValidateInWorld(CItem *item)
  * zeroes the validate-in-world bitmap, and clears the intern
  * string hash buckets.
  */
-void
+CScriptManager *
 CScriptManager_Init(CScriptManager *this)
 {
 	this->head = NULL;
 	memset(g_ValidateInWorldBitmap, 0, 0x800);
 	memset(this->internBuckets, 0, sizeof(this->internBuckets));
+
+	return this;
 }
 
 /*
@@ -1311,7 +1313,7 @@ CScriptManager_InternString(CScriptManager *mgr, const char *s)
  * Pushes the compiler onto the global compiler stack with empty
  * script and bytecode references.
  */
-void
+CScriptCompiler *
 CScriptCompiler_Constructor(CScriptCompiler *compiler)
 {
 	compiler->next = g_ScriptCompiler;
@@ -1322,6 +1324,8 @@ CScriptCompiler_Constructor(CScriptCompiler *compiler)
 	compiler->script = NULL;
 	compiler->flags = 1;
 	compiler->bytecode = NULL;
+
+	return compiler;
 }
 
 /*

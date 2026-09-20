@@ -78,7 +78,7 @@ static void *Stream_BaseConstructor(CIosBase *this); // 0x00402E40
 static void *Iterator_Constructor(char *this, void *stream); // 0x00402EB0
 static void Iterator_Destructor(char *this); // 0x00402EE0
 static void *CSdbStrVector_InsertN(CScriptStringDB *this, uintptr_t position, CSdbStr *value); // 0x004032A0
-static void *CSdbStrVector_EraseRange(CScriptStringDB *this, int begin, uint32_t count); // 0x004032F0
+static void *CSdbStrVector_EraseRange(CScriptStringDB *this, uintptr_t begin, uintptr_t count); // 0x004032F0
 static void *CStdioFile_ConstructorAlloc(CStdioFileBuf *this, void *filePtr); // 0x00403370
 static void *Locale_FacetConstructorAlloc(CLocaleFacet *this); // 0x004033E0
 static void Locale_Facet_Incref(CLocaleFacet *this); // 0x00403450
@@ -130,8 +130,8 @@ static void CLocaleCategory_VtableDtor(CLocaleCategory *this); // 0x00404F10
 static int Locale_Facet_GetCat(void); // 0x00404F30
 static CLocaleFacet *Locale_Facet_RegisterAtexit(CLocaleFacet *facet); // 0x00404F40
 static void String_Copy(CSdbStr *this, void *src); // 0x00404FB0
-static void CopySystemTime(CLocaleCategory *this, void *dest); // 0x00404FD0
-static void *GetSystemTime8(uintptr_t *this, void *result); // 0x00405000
+static void Codecvt_Init(CLocaleCategory *this, void *dest); // 0x00404FD0
+static void *Locinfo_Getcvt(uintptr_t *this, void *result); // 0x00405000
 static void Locale_FacetAtexitDtor(void) __attribute__((unused)); // 0x00405030
 static void StaticInitGuard_1(void); // 0x004050C0
 static void StaticInitGuard_2(void); // 0x004050F0
@@ -496,9 +496,9 @@ CSdbStrVector_Insert(CScriptStringDB *this, CSdbStr *value)
 static void
 CSdbStrVector_Clear(CScriptStringDB *this)
 {
-	uintptr_t count = (uintptr_t)StdList_GetSize((StdPtrList *)this);
-	int bucket = CSearchCtx_GetBucket((CSearchCtx *)this);
-	CSdbStrVector_EraseRange(this, bucket, (uint32_t)count);
+	uintptr_t last = (uintptr_t)StdList_GetSize((StdPtrList *)this);
+	uintptr_t first = CSearchCtx_GetBucket((CSearchCtx *)this);
+	CSdbStrVector_EraseRange(this, first, last);
 }
 
 /*
@@ -1131,7 +1131,7 @@ CSdbStrVector_InsertN(CScriptStringDB *this, uintptr_t position, CSdbStr *value)
  * Copy16_Str, destroys the leftover tail, and updates end.
  */
 static void *
-CSdbStrVector_EraseRange(CScriptStringDB *this, int begin, uint32_t count)
+CSdbStrVector_EraseRange(CScriptStringDB *this, uintptr_t begin, uintptr_t count)
 {
 	uintptr_t *p = (uintptr_t *)this;
 	uintptr_t end_count = (uintptr_t)((CVector *)this)->end;
@@ -2242,17 +2242,19 @@ Locale_ConstructorCategory(CLocaleCategory *this, void *arg)
 
 	// The binary calls _Getcat on the literal "C" to construct a
 	// stack-local locale state, then tears it down after the
-	// CopySystemTime call. We don't replicate _Getcat, so pass NULL.
+	// Codecvt_Init call. We don't replicate _Getcat, so pass NULL.
 	getcat_result = NULL;
-	CopySystemTime(this, getcat_result);
+	Codecvt_Init(this, getcat_result);
 
 	return this;
 }
 
 /*
- * 0x00404D70 - CScriptObj constructor body (set vtable)
+ * 0x00404D70 - codecvt<char,char,int> base constructor body
  *
- * Runs the locale::facet base constructor and stamps the CScriptObj vtable.
+ * Runs the locale::facet base constructor and stamps the base vtable,
+ * which 0x00404CE0 then overwrites with the codecvt vtable at
+ * 0x005F794C.
  */
 static void *
 CLocaleCategory_ConstructorBody(CLocaleCategory *this, void *arg)
@@ -2266,9 +2268,11 @@ CLocaleCategory_ConstructorBody(CLocaleCategory *this, void *arg)
  * 0x00404DA0 - locale::facet::facet (base constructor)
  *
  * Stores the initial refcount and stamps the std::locale::facet base
- * vtable (one null entry, one pure-virtual slot for ~facet). Called by
- * derived facet constructors (e.g. CLocaleCategory_ConstructorBody) before
- * they overwrite the vtable with their own.
+ * vtable at 0x005F77FC, whose one slot holds the facet scalar deleting
+ * destructor. Called by derived facet constructors (e.g.
+ * CLocaleCategory_ConstructorBody) before they overwrite the vtable
+ * with their own. Our g_vt_LocaleFacet leaves the slot null, as the
+ * other STL vtables in this file do.
  */
 __attribute__((unused)) static CLocaleFacet *
 Locale_Facet_Constructor(CLocaleFacet *this, void *arg)
@@ -2379,38 +2383,38 @@ String_Copy(CSdbStr *this, void *src)
 }
 
 /*
- * 0x00404FD0 - Copy 8-byte time value from system clock
+ * 0x00404FD0 - codecvt<char,char,int>::_Init
  *
- * Reads the current 64-bit system time via GetSystemTime8 and stores it
- * into the locale category's time fields.
+ * Reads the locale's _Cvtvec through std::_Locinfo::_Getcvt and stores
+ * the pair into the facet's _Cvtvec member.
  */
 static void
-CopySystemTime(CLocaleCategory *this, void *dest)
+Codecvt_Init(CLocaleCategory *this, void *dest)
 {
 	CLocaleCategory *lc = this;
 	uint32_t result[2];
-	GetSystemTime8(dest, result);
-	lc->time_lo = result[0];
-	lc->time_hi = result[1];
+	Locinfo_Getcvt(dest, result);
+	lc->cvt_hand = result[0];
+	lc->cvt_page = result[1];
 }
 
 /*
- * 0x00405000 - Get system time as 8-byte value
+ * 0x00405000 - std::_Locinfo::_Getcvt
  *
- * Stores the current time as a 64-bit microseconds-since-epoch value at
- * *result. The original used MSVC CRT _ftime64; the Linux build uses
- * gettimeofday.
+ * Writes the _Cvtvec pair {_Hand, _Page} the CRT keeps for the current
+ * locale into *result.
+ *
+ * MODIFIED: the binary reads the pair from the MSVC CRT's __lc_handle
+ * and __lc_codepage under the setlocale lock, through the CRT helper at
+ * 0x005C7230. The port carries no locale state, so both words are zero.
  */
 static void *
-GetSystemTime8(uintptr_t *this, void *result)
+Locinfo_Getcvt(uintptr_t *this, void *result)
 {
-	struct timeval tv;
 	uint32_t *r = (uint32_t *)result;
 	USED(this);
-	gettimeofday(&tv, NULL);
-	uint64_t t = (uint64_t)tv.tv_sec * 1000000ULL + (uint64_t)tv.tv_usec;
-	r[0] = (uint32_t)t;
-	r[1] = (uint32_t)(t >> 32);
+	r[0] = 0;
+	r[1] = 0;
 	return result;
 }
 

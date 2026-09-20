@@ -49,9 +49,8 @@ CEntity_SetBodyType(CItem *item, uint16_t bodyType)
 /*
  * 0x0042B92F - Entity_ExecuteEvent
  *
- * MODIFIED: routes through CWombatManager_FireTrigger_va (the Wombat
- * script engine),
- * rather than calling the binary's ExtractEventParams directly.
+ * MODIFIED: the binary hands 0x0042B951 a raw pointer to its vararg
+ * area; we pass a va_list.
  */
 char *
 Entity_ExecuteEvent(CEntity *this, int eventType, ...)

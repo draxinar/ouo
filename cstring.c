@@ -67,7 +67,7 @@ CString_DestructorWrap(CString *str)
  *
  * Zeroes fields, sets refCount = 1, and assigns the empty string.
  */
-void
+CString *
 CString_DefaultConstructor(CString *s)
 {
 	s->data = NULL;
@@ -75,6 +75,8 @@ CString_DefaultConstructor(CString *s)
 	s->refCount = 1;
 	s->capacity = 0;
 	CString_AssignInternal(s, "");
+
+	return s;
 }
 
 /*

@@ -1761,7 +1761,7 @@ CResBankManager_EnsureCurrent(void)
  * (maxRespawnTime=9999, needsRebuild=1). Leaves coordinates, link
  * pointers, and name[] uninitialized.
  */
-void
+CResBankRegion *
 CResBankRegion_Constructor(CResBankRegion *region)
 {
 	int i;
@@ -1803,6 +1803,8 @@ CResBankRegion_Constructor(CResBankRegion *region)
 
 	region->nospawn = 0;
 	region->noWander = 0;
+
+	return region;
 }
 
 /*
@@ -2041,7 +2043,7 @@ ResBankLimitCheck(void *arg1, void *arg2)
 int
 HasTemplateInManager(int templateId)
 {
-	return CResManager_HasByInt(&g_TemplatesRM, templateId);
+	return CResManager_HasByInt(&g_TemplatesRM, templateId) != 0;
 }
 
 /*
@@ -2269,7 +2271,7 @@ ClassifyTemplateItems(int templateId)
 	if (!CResManager_HasByInt(&g_TemplatesRM, (uint32_t)templateId))
 		return 0;
 
-	tmpl = CResManager_GetTemplateByID((uint16_t)templateId);
+	tmpl = CResManager_GetTemplateByID(templateId);
 	node = tmpl->resourceNodes;
 
 	while (node != NULL) {
@@ -4322,7 +4324,7 @@ ClassifyTemplateBody(int templateId)
 
 	CResBankMagicCtx_DefaultConstructor(&iter);
 
-	tmpl = CResManager_GetTemplateByID((uint16_t)templateId);
+	tmpl = CResManager_GetTemplateByID(templateId);
 
 	CStringList_BeginIter(&tmpl->friendsList, &tempNode);
 	CResBankMagicCtx_CopyConstructor(&iter, &tempNode);

@@ -136,7 +136,7 @@ EScript_Constructor(void)
  * Clears the script context: NULLs the file pointer, zeros all 0x400
  * variable slots, and resets lineNo, loopDepth, and numVars.
  */
-void
+CEScript *
 CEScript_Init(CEScript *ctx)
 {
 	CEScript *es = (CEScript *)ctx;
@@ -148,6 +148,8 @@ CEScript_Init(CEScript *ctx)
 	es->lineNo = 0;
 	es->loopDepth = 0;
 	es->numVars = 0;
+
+	return ctx;
 }
 
 /*

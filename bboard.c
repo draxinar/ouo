@@ -292,7 +292,7 @@ FindClosestBBoardItem(CLocation *loc)
  * Constructor. Chains to CContainer_Constructor, sets the CBoard vtable,
  * bumps g_BBoardCount, and inserts at the head of g_BBoardHead.
  */
-void
+CBulletinBoard *
 CBulletinBoard_Constructor(CBulletinBoard *bb)
 {
 	CContainer_Constructor(&bb->container);
@@ -303,6 +303,8 @@ CBulletinBoard_Constructor(CBulletinBoard *bb)
 		bb->bbNext->bbPrev = bb;
 	g_BBoardHead = bb;
 	bb->bbPrev = NULL;
+
+	return bb;
 }
 
 /*

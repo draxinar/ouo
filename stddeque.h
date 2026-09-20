@@ -55,7 +55,7 @@ void *ArenaAllocator_Alloc(uint32_t size, void **outPtr); // 0x0046C796
 void *StdDeque_AllocPageSI(CVector *self, int count, int hint); // 0x004D96B0
 void StdDeque_DeallocSI(CVector *self, void *ptr, int count); // 0x0046C9E0
 TimeEvent *TimeEvent_Constructor(TimeEvent *self, uint32_t serial, uint32_t eventType, uintptr_t param); // 0x004D8F60
-void StdDeque_Constructor(StdDeque_TimeEvent *self, uint8_t *allocSrc); // 0x004D8F90
+StdDeque_TimeEvent *StdDeque_Constructor(StdDeque_TimeEvent *self, uint8_t *allocSrc); // 0x004D8F90
 StdDequeIter *StdDeque_CopyFrontIter(StdDeque_TimeEvent *self, StdDequeIter *dest); // 0x004D9010
 StdDequeIter *StdDeque_CopyEndIter(StdDeque_TimeEvent *self, StdDequeIter *dest); // 0x004D9040
 TimeEvent *EventRingBuffer_Front(void); // 0x004D9070

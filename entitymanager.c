@@ -27,7 +27,7 @@ static void EntityManager_MarkAll(void); // 0x00491F60
 static void EntityManager_Remove(CItem *entity); // 0x00491F10
 static CItem *EntityManager_RestoreFromArchive(uint32_t serial); // 0x00491E40
 static StdPtrList *CEntityManager_GetList(StdPtrList *this); // 0x00491E30
-static StdPtrList *EntityManager_Constructor(StdPtrList *this, const void *init); // 0x00491E10
+static StdPtrList *EntityManager_Constructor(StdPtrList *this); // 0x00491E10
 static void EntityManager_DeleteArchivedBySerial(uint32_t serial); // 0x00491B35
 static void EntityManager_MarkAllEntities(void); // 0x00491B26
 static void EntityManager_RestoreAndDelete(uint32_t serial); // 0x00491AE9
@@ -295,12 +295,19 @@ EntityManager_FindBySerial(uint32_t serial)
 /*
  * 0x00491E10 - EntityManager::EntityManager
  *
- * Forwards to StdPtrList_Init.
+ * Forwards to StdPtrList_Init with the address of a frame slot whose
+ * leading byte the callee copies into the list header.
+ *
+ * FIXED: 00491e19 takes the address of [EBP-0x4], which the frame never
+ * writes, so the binary seeds the header byte from stack garbage. The
+ * slot is zeroed here, as in the other members of this family.
  */
 static __attribute__((unused)) StdPtrList *
-EntityManager_Constructor(StdPtrList *this, const void *init)
+EntityManager_Constructor(StdPtrList *this)
 {
-	StdPtrList_Init(this, init);
+	char listType = 0;
+
+	StdPtrList_Init(this, &listType);
 	return this;
 }
 

@@ -358,7 +358,7 @@ CResBankSet_GetTypeMember(CResBankSet *set, int subtype)
  * Loads a CResBankSetMember from bankdefs.txt (text) or bankdefs.mul
  * (binary), then appends it to the parent set's member chain.
  */
-void
+CResBankSetMember *
 CResBankSetMember_DumpInfo(CResBankSetMember *member, CResBankSet *parent, FILE *fp, int textMode)
 {
 	char typeBuf[128];
@@ -531,6 +531,8 @@ CResBankSetMember_DumpInfo(CResBankSetMember *member, CResBankSet *parent, FILE 
 	member->next = NULL;
 	parent->memberTail = member;
 	parent->memberCount++;
+
+	return member;
 }
 
 /*
@@ -557,7 +559,7 @@ CResBankSetMember_RemoveFromSpatialList(CResBankSetMember *member)
  * Loads a CResBankVertex from bankdefs.txt (text) or bankdefs.mul (binary)
  * and inserts it at the head of the global vertex list.
  */
-void
+CResBankVertex *
 CResBankVertex_DumpInfo(CResBankVertex *vertex, FILE *fp, int textMode)
 {
 	char nameBuf[128];
@@ -600,6 +602,8 @@ CResBankVertex_DumpInfo(CResBankVertex *vertex, FILE *fp, int textMode)
 		vertex->listNext->listPrev = vertex;
 	vertex->listPrev = NULL;
 	g_ResBankVertexListHead = vertex;
+
+	return vertex;
 }
 
 /*

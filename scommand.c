@@ -28,10 +28,12 @@ static uintptr_t g_vt_SCommandManager[] = { 0 };
  *
  * Sets the vtable pointer.
  */
-void
+SCommandManager *
 SCommandManager_Constructor(SCommandManager *mgr)
 {
 	mgr->vtable = g_vt_SCommandManager;
+
+	return mgr;
 }
 /*
  * 0x00447437 - SCommandManager::~SCommandManager

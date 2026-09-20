@@ -49,7 +49,7 @@ int g_UpdatesEnabled = 1;  // 0x00624E3C (binary default: 1 = enabled)
  *
  * Zero-initializes a CBlockManager before CBlockManager_Setup populates it.
  */
-void
+CBlockManager *
 CBlockManager_Init(CBlockManager *this)
 {
 	this->gridWidth = 0;
@@ -57,6 +57,8 @@ CBlockManager_Init(CBlockManager *this)
 	this->totalBlocks = 0;
 	this->cells = NULL;
 	this->unk10 = 0;
+
+	return this;
 }
 
 /*
@@ -879,13 +881,13 @@ CBlockManager_LoadAll(CBlockManager *this)
  * Invokes callback(ptr) count times, stepping ptr by stride each call.
  */
 void
-ArrayIterator_ForEach(void *ptr, int stride, int count, void (*callback)(void *))
+ArrayIterator_ForEach(void *ptr, int stride, int count, void *(*callback)(void *))
 {
 	for (;;) {
 		count--;
 		if (count < 0)
 			break;
-		callback(ptr);
+		(void)callback(ptr);
 		ptr = (char *)ptr + stride;
 	}
 }

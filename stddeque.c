@@ -37,7 +37,7 @@ static CDequeBlock *CDequeBlock_Alloc(CDequeBlock *this, uint32_t size); // 0x00
 static void StdDeque_Clear(StdDeque_TimeEvent *self); // 0x004D8FE0
 static void StdDeque_Buyback(StdDeque_TimeEvent *self); // 0x004D9250
 static void StdDeque_PopFront(StdDeque_TimeEvent *self); // 0x004D9430
-static void StdDequeIter_Inc(StdDequeIter *self); // 0x004D9500
+static StdDequeIter *StdDequeIter_Inc(StdDequeIter *self); // 0x004D9500
 static int StdDequeIter_Equal(StdDequeIter *self, StdDequeIter *other); // 0x004D9570
 static void StdDeque_Freeback(StdDeque_TimeEvent *self); // 0x004D9590
 static void StdDeque_DestroyBack(StdDeque_TimeEvent *self, uint8_t **entry); // 0x004D95C0
@@ -240,7 +240,7 @@ TimeEvent_Constructor(TimeEvent *self, uint32_t serial, uint32_t eventType, uint
  *
  * Copies allocator byte, zero-initializes iterators and size fields.
  */
-void
+StdDeque_TimeEvent *
 StdDeque_Constructor(StdDeque_TimeEvent *self, uint8_t *allocSrc)
 {
 	self->allocByte = *allocSrc;
@@ -249,6 +249,8 @@ StdDeque_Constructor(StdDeque_TimeEvent *self, uint8_t *allocSrc)
 	self->map = NULL;
 	self->mapSize = 0;
 	self->size = 0;
+
+	return self;
 }
 
 /*
@@ -561,7 +563,7 @@ StdDeque_PopFront(StdDeque_TimeEvent *self)
  * Advances cur by one element. On page boundary, advances node
  * and re-initializes first/last/cur from the new page.
  */
-static void
+static StdDequeIter *
 StdDequeIter_Inc(StdDequeIter *self)
 {
 	self->cur = self->cur + DEQUE_ELEM_SIZE;
@@ -571,6 +573,8 @@ StdDequeIter_Inc(StdDequeIter *self)
 		self->last = self->first + DEQUE_PAGE_BYTES;
 		self->cur = self->first;
 	}
+
+	return self;
 }
 
 /*

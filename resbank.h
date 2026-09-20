@@ -277,7 +277,7 @@ void CResBankManager_RebuildHash(void); // 0x004AE38F
 void CResBankManager_InsertRegion(CResBankRegion *region); // 0x004AE40E
 void CResBankManager_AddRegion(CResBankRegion *region); // 0x004AE895
 void CResBankManager_RemoveRegion(CResBankRegion *region, int freeMemory); // 0x004AE8C2
-void CResBankRegion_Constructor(CResBankRegion *region); // 0x004AEA00
+CResBankRegion *CResBankRegion_Constructor(CResBankRegion *region); // 0x004AEA00
 void CResBankRegion_Cleanup(CResBankRegion *region); // 0x004AEBF9
 void *CResBankRegion_ScalarDelete(CResBankRegion *region, int flags); // 0x004B3150
 void CResBankRegion_SetTemplate(CResBankRegion *region, int index, int32_t value); // 0x004AEE71

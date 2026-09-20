@@ -64,7 +64,7 @@ extern CBulletinBoard *g_BBoardHead; // 0x006933A8
 extern int g_BBoardBroadcastMode; // 0x006DA938
 extern int g_pendingLoad; // 0x006EF6A8
 
-void CIndexedFileManager_Constructor(CIndexedFileManager *this); // 0x004654E0
+CIndexedFileManager *CIndexedFileManager_Constructor(CIndexedFileManager *this); // 0x004654E0
 void CIndexedFileManager_Destructor(CIndexedFileManager *this); // 0x0046550B
 void CIndexedFileManager_Open(CIndexedFileManager *this, char *indexPath, char *dataPath, char *mode); // 0x00465544
 void CIndexedFileManager_Close(CIndexedFileManager *this); // 0x00465585

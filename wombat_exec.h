@@ -69,10 +69,10 @@ void HandleReturnMismatch(CExecThread *thread); // 0x0040A434
 void ExecAbortCurrent(void); // 0x0040A565
 void DispatchHandler(CExecThread *thread, const BuiltinHandlerEntry *handler); // 0x0040A6B5
 CItem *CExecThread_GetEntity(CExecThread *thread); // 0x0040CBFA
-void CLocation_SetLoc(CLocation *dst, const CLocation *src); // 0x0040CCE0
+CLocation *CLocation_SetLoc(CLocation *dst, const CLocation *src); // 0x0040CCE0
 int GetFuncRetType(CFunction *func); // 0x0040CD10
 int GetVarType(const BuiltinHandlerEntry *entry); // 0x0040CD30
-void CFuncScope_Constructor(CFuncScope *scope); // 0x0040CD72
+CFuncScope *CFuncScope_Constructor(CFuncScope *scope); // 0x0040CD72
 void CFuncScope_Destructor(CFuncScope *scope); // 0x0040CDE1
 int AddVarToScope(CFuncScope *scope, int typeId, const char *name); // 0x0040CE6C
 const BuiltinHandlerEntry *LookupHandler(const char *name, const char *typeSig); // 0x0040CF6E
@@ -548,9 +548,9 @@ void Script_walkTo(uint32_t serial, CLocation *loc, int range); // 0x00418E34
 int Script_isInMap(CLocation *loc); // 0x00418E8D
 int Script_isInWorld(CLocation *loc); // 0x00418EAB
 int Script_getElevationAt(int x, int y); // 0x00418EC9
-int Script_findGoodSpotNear(CLocation *loc, int zMax, int range, int height); // 0x00418EFA
-int Script_findGoodSpotNearMin(CLocation *loc, int zMin, int zMax, int range, int height); // 0x00418F1D
-int Script_findGoodSpotNearWithElev(CLocation *loc, int minElev, int maxElev, int zMax, int range, int height); // 0x00418F42
+int Script_findGoodSpotNear(CLocation *loc, int zMax, int height, int moveType); // 0x00418EFA
+int Script_findGoodSpotNearMin(CLocation *loc, int zMin, int zMax, int height, int moveType); // 0x00418F1D
+int Script_findGoodSpotNearWithElev(CLocation *loc, int minElev, int maxElev, int zMax, int height, int moveType); // 0x00418F42
 int Script_findGoodZ(CLocation *loc, int currentZ, int direction, int stepHeight, int height); // 0x00418F6D
 int Script_canExistAt(CLocation *loc, int currentZ, int stepHeight); // 0x00418FC5
 int Script_canSeeLoc(uint32_t serial, CLocation *loc); // 0x00419012

@@ -284,7 +284,7 @@ void CPlayer_SetLocation(CPlayer *this, CLocation *loc); // 0x00456F10
 void CPlayer_SetBodyType(CPlayer *this, uint16_t bodyType); // 0x00456F30
 int CTimeManager_IsDaytime(void); // 0x00456F50
 CSkillUseCtx *CSkillUseCtx_Init(CSkillUseCtx *this); // 0x00456FD0
-void AggroInfo_Constructor(AggroInfo *info); // 0x00457030
+AggroInfo *AggroInfo_Constructor(AggroInfo *info); // 0x00457030
 void AggroInfo_Destructor(AggroInfo *info); // 0x00457050
 CEntityMap *CEntityMap_Constructor(CEntityMap *this, int startX, int startY, int endX, int endY, int blockShift); // 0x00457070
 void CEntityMap_Insert(CEntityMap *this, CItem *entity, int x, int y); // 0x004571B0

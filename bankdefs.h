@@ -149,9 +149,9 @@ int CResBankSet_HasBodyType(CResBankSet *set, int bodyType); // 0x0049EFE7
 int CResBankSet_HasTransitionType(CResBankSet *set, int bodyType); // 0x0049F044
 int CResBankSet_GetMemberIndex(CResBankSet *set, int bodyType); // 0x0049F099
 CResBankSetMember *CResBankSet_GetTypeMember(CResBankSet *set, int subtype); // 0x0049F0DE
-void CResBankSetMember_DumpInfo(CResBankSetMember *member, CResBankSet *parent, FILE *fp, int textMode); // 0x0049F17D
+CResBankSetMember *CResBankSetMember_DumpInfo(CResBankSetMember *member, CResBankSet *parent, FILE *fp, int textMode); // 0x0049F17D
 void CResBankSetMember_RemoveFromSpatialList(CResBankSetMember *member); // 0x0049FC46
-void CResBankVertex_DumpInfo(CResBankVertex *vertex, FILE *fp, int textMode); // 0x0049FCD4
+CResBankVertex *CResBankVertex_DumpInfo(CResBankVertex *vertex, FILE *fp, int textMode); // 0x0049FCD4
 CResBankVertex *ResBankVertex_LookupByIndex(int vertexIndex); // 0x0049FFA2
 int CResBankVertex_ValidateConnections(CResBankVertex *vertex); // 0x0049FFD7
 void CResBankVertex_LinkConnections(CResBankVertex *vertex); // 0x004A0159

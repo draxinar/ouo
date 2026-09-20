@@ -86,7 +86,7 @@ CSkillManager_GetMaxSkills(CSkillManager *mgr)
  * Calls HasSkill but ignores result, always returns computed pointer.
  */
 CSkillDef *
-CSkillManager_GetSkillEntry(CSkillManager *mgr, int id)
+CSkillManager_GetSkillEntry(CSkillManager *mgr, int8_t id)
 {
 	CSkillManager_HasSkill(mgr, id);
 	return &mgr->skills[id];
@@ -1421,7 +1421,7 @@ CMobile_GetSkillValue(CMobile *this, int8_t skillId, int useBaseOnly)
  *
  * Wrapper that returns base skill value (without stat blend).
  */
-static __attribute__((unused)) int
+static int
 CMobile_GetBaseSkillValue(CMobile *mob, int8_t skillId)
 {
 	return CMobile_GetSkillValue(mob, skillId, 1);

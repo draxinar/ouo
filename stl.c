@@ -51,7 +51,7 @@ static void StdTree_Dec(StdTreeNode **iter); // 0x004E7040
 static StdTreeNode *StdTree_RBInsert(StdMapTree *tree, int addLeft, StdTreeNode *parent, uintptr_t key, uintptr_t value); // 0x004E6CD0
 static void StdTree_EraseSubtree(StdMapTree *tree, StdTreeNode *node); // 0x004E6C40
 static StdTreeNode *StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last); // 0x004E6A30
-static void *StdMap_Find(StdMapTree *this, void *outIter, void *keyPtr); // 0x004227B0
+static void *StdMap_LowerBound(StdMapTree *this, void *outIter, void *keyPtr); // 0x004227B0
 static void StdMap_EraseRecursive(StdMapTree *this, void *node); // 0x004227E0
 static void StdMap_TreeInit(StdMapTree *this); // 0x00422890
 static void *StdMap_GetHead(StdMapTree *this); // 0x00422E30
@@ -113,7 +113,7 @@ static uintptr_t SortRaw_Median3(uintptr_t a, uintptr_t b, uintptr_t c); // 0x00
 static uintptr_t *SortRaw_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot); // 0x00458260
 static int SortRaw_SkipN(const char *str, int count); // 0x004582C0
 static int CRT_atoi(char **pStr); // 0x00458854
-static void StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x0045AC30
+static StdPtrNode **StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x0045AC30
 static void StdPtrList_DestructorLogin(StdPtrList *list); // 0x0045AAF0
 static void *CFileEntry_ScalarDelete(CFileEntry *self, int flags); // 0x00459290
 static void *CFileEntry_CopyConstructor(CFileEntry *self, CFileEntry *src); // 0x00459220
@@ -155,7 +155,7 @@ static void CVector_UfillN_CC60(CVector *this, uintptr_t *dest, uint32_t count, 
 static uintptr_t *CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *dest); // 0x0046CC20
 static void CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x0046CA00
 static void *CVector_Insert_C990(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x0046C990
-static void SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C700
+static void SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b, int depth); // 0x0046C700
 static void SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C6D0
 static SurfaceInfo *SortSurface_Partition(SurfaceInfo *begin, SurfaceInfo *end, SurfaceInfo *pivot, char typeTag); // 0x0046C650
 static SurfaceInfo *SortSurface_Median3(SurfaceInfo *result, SurfaceInfo *a, SurfaceInfo *b, SurfaceInfo *c, char typeTag); // 0x0046C540
@@ -187,10 +187,10 @@ static void SortByDist_Insertion(uintptr_t *begin, uintptr_t *end, CLocation *re
 static uintptr_t SortByDist_Median3(uintptr_t a, uintptr_t b, uintptr_t c, CLocation *refLoc); // 0x0047F820
 static uintptr_t *SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation *refLoc); // 0x0047F940
 static void StdPtrList_DestructorWrapper_EntityMgr(void); // 0x00491DF0
-static void StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00484B40
+static StdPtrNode **StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00484B40
 static void StdPtrList16_DestroyAll(StdPtrList *list); // 0x00484A00
 static void *StdPtrList_Constructor_NPC(StdPtrList *this, const void *init); // 0x004849C0
-static void StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004848D0
+static StdPtrNode **StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004848D0
 static void StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00484820
 static void UninitFillN_CRegionPtr(CVector *this, void **first, uint32_t count, void **value); // 0x004A6830
 static void **UninitCopy_CRegionPtr(CVector *this, void **first, void **last, void **dest); // 0x004A67F0
@@ -1275,7 +1275,7 @@ erase_loop:
 /*
  * 0x00422650 - std::map::find implementation
  *
- * Calls StdMap_Find (0x004227B0) to get lower bound iterator. If found !=
+ * Calls StdMap_LowerBound (0x004227B0) to get lower bound iterator. If found !=
  * end, checks if the key at the found position matches (via comparator).
  * If equal, stores found iterator in output. Otherwise stores end.
  */
@@ -1287,7 +1287,7 @@ StdMap_FindImpl(StdMapTree *this, void *outIter, void *keyPtr)
 	uintptr_t endResult2;
 	void *result;
 
-	StdMap_Find(this, &findResult, keyPtr);
+	StdMap_LowerBound(this, &findResult, keyPtr);
 
 	if (StdPtrIter_Eq((StdPtrNode **)&findResult, (StdPtrNode **)StdPtrList_End((StdPtrList *)this, (StdPtrNode **)&endResult)) & 0xFF) {
 		goto store_end;
@@ -1373,7 +1373,7 @@ StdTreeNode_Value(StdTreeNode *node)
  * output.
  */
 static void *
-StdMap_Find(StdMapTree *this, void *outIter, void *keyPtr)
+StdMap_LowerBound(StdMapTree *this, void *outIter, void *keyPtr)
 {
 	void *node;
 
@@ -2611,13 +2611,15 @@ CVector_ConstructorWrapper(CVector *this)
  * Initializes an MSVC STL vector-like structure: list->type = *typeFlag (1
  * byte) list->begin = NULL list->end = NULL list->capacity = NULL
  */
-void
+CVector *
 CVector_Constructor(CVector *list, const char *typeFlag)
 {
 	list->type = *typeFlag;
 	list->begin = NULL;
 	list->end = NULL;
 	list->capacity = NULL;
+
+	return list;
 }
 
 /*
@@ -2951,10 +2953,11 @@ CVector_UfillN_EAD0(CVector *this, void *dest, uint32_t count, void *valuePtr)
 /*
  * 0x0042FF00 - CVector::PushBack
  *
- * 0x004066C0, 0x00421550, 0x00426500, 0x0042E190, 0x0042E1C0 (COMDAT)
- * 0x0042E1F0, 0x004367A0, 0x00462640, 0x00462670, 0x00473860 (COMDAT)
- * 0x00479020, 0x00479050, 0x004A6490, 0x004CECB0, 0x004CECE0 (COMDAT)
- * 0x004CED10 (COMDAT)
+ * The same template instantiated seventeen times, each with its own
+ * insert helper and all instruction-identical: 0x004066C0, 0x00421330,
+ * 0x00421550, 0x00426500, 0x0042E190, 0x0042E1C0, 0x0042E1F0,
+ * 0x004367A0, 0x00462640, 0x00462670, 0x00473860, 0x00479020,
+ * 0x00479050, 0x004A6490, 0x004CECB0, 0x004CECE0, 0x004CED10.
  *
  * Calls End() to get insert position, then vector insert at end. This is
  * STL vector<uint32>::push_back via insert-at-end chain: 0x0042FF00 ->
@@ -3230,12 +3233,14 @@ StdPtrList_Charalloc(StdPtrList *list, uint32_t size)
  * Copies allocator byte from *init, allocates sentinel via Buynode(0, 0),
  * sets size=0. Returns this.
  */
-void
+StdPtrList *
 StdPtrList_Init(StdPtrList *list, const void *init)
 {
 	*(uint8_t *)list = *(const uint8_t *)init;
 	list->head = StdPtrList_Buynode(list, NULL, NULL);
 	list->size = 0;
+
+	return list;
 }
 
 /*
@@ -3791,7 +3796,7 @@ StdPtrList_DestructorLogin(StdPtrList *list)
  * While first != last: post-increments first (0x00484990), erases old
  * position via StdPtrList_Erase. Stores final iterator to *result.
  */
-static void
+static StdPtrNode **
 StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
 	StdPtrNode *postIncTemp;
@@ -3801,6 +3806,8 @@ StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *fi
 		StdPtrList_Erase(list, &postIncTemp, *(StdPtrNode **)&postIncTemp);
 	}
 	*result = first;
+
+	return result;
 }
 
 /*
@@ -3822,7 +3829,7 @@ StdPtrNode_GetNext(StdPtrNode *node)
  * Pre-increment internal. Gets current node, calls _Next(node) to get
  * reference to next field, reads through it to advance iterator.
  */
-void
+StdPtrNode **
 StdPtrIter_Inc(StdPtrNode **iter)
 {
 	StdPtrNode *node;
@@ -3831,6 +3838,8 @@ StdPtrIter_Inc(StdPtrNode **iter)
 	node = *iter;
 	ref = StdPtrNode_GetNext(node);
 	*iter = ref->next;
+
+	return iter;
 }
 
 /*
@@ -4893,8 +4902,8 @@ static void
 SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b)
 {
 	int depth = GameCentMon_GetPlayerCount();
-	USED(depth);
-	SortSurface_SwapImpl(a, b);
+
+	SortSurface_SwapImpl(a, b, depth);
 }
 
 /*
@@ -4903,10 +4912,11 @@ SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b)
  * Swaps two SurfaceInfo values using a local temp.
  */
 static void
-SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b)
+SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b, int depth)
 {
 	SurfaceInfo temp;
 
+	USED(depth);
 	temp = *a;
 	SurfaceInfo_CopyFrom(a, b);
 	SurfaceInfo_CopyFrom(b, &temp);
@@ -6187,7 +6197,7 @@ StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void
  * erases old position from list. Copies final iterator to result[0]. This
  * is a loop wrapper around Erase16.
  */
-static void
+static StdPtrNode **
 StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
 	StdPtrNode *postIncTemp;
@@ -6199,6 +6209,8 @@ StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, 
 		StdPtrList_Erase16(list, &postIncTemp, tmp);
 	}
 	*result = first;
+
+	return result;
 }
 
 /*
@@ -6274,7 +6286,7 @@ StdPtrList16_DestroyAll(StdPtrList *list)
  * post-increments first and erases the old node via StdPtrList_Erase.
  * Stores final iterator to *result.
  */
-static void
+static StdPtrNode **
 StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
 	StdPtrNode *postIncTemp;
@@ -6284,6 +6296,8 @@ StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first
 		StdPtrList_Erase(list, &postIncTemp, *(StdPtrNode **)&postIncTemp);
 	}
 	*result = first;
+
+	return result;
 }
 
 /*
@@ -6622,8 +6636,7 @@ StdTreeNode_KeyValuePtr(StdTreeNode *node)
 /*
  * 0x004E3500 - std::_Tree iterator copy (MSVC CRT)
  *
- * Copies iterator value from src to dest. MSVC CRT internal - stub for
- * compilation.
+ * Copies the node pointer and the trailing byte from src to dest.
  */
 static void *
 StdTree_CopyIter(void *dest, void *srcPtr, void *srcByte)

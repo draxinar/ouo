@@ -25,7 +25,7 @@ int Location_Distance3D(int16_t x1, int16_t y1, int16_t z1, int16_t x2, int16_t 
 int Location_DistanceTo3D(CLocation *a, CLocation *b); // 0x004018B0
 int CLocation_Magnitude3D(CLocation *delta); // 0x004018E0
 int CLocation_SquaredMagnitude3D(CLocation *delta); // 0x00401910
-void CLocation_Init(CLocation *loc); // 0x00420D70
+CLocation *CLocation_Init(CLocation *loc); // 0x00420D70
 int CLocation_ChebyshevDistance(CLocation *a, CLocation *b); // 0x00420EC0
 int CLocation_IsNearXYZ(CLocation *a, CLocation *b); // 0x00421010
 int CLocation_IsEqualXY(CLocation *a, CLocation *b); // 0x004210D0

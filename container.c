@@ -43,7 +43,7 @@ int g_ContainerCount;
  * CContainer vtable, clears the contents list, lockOwner, and
  * storedWeight, and bumps the global container count.
  */
-void
+CContainer *
 CContainer_Constructor(CContainer *cont)
 {
 	CItem_Constructor((CItem *)cont);
@@ -52,6 +52,8 @@ CContainer_Constructor(CContainer *cont)
 	cont->contents = NULL;
 	cont->lockOwner = NULL;
 	cont->storedWeight = 0;
+
+	return cont;
 }
 
 /*

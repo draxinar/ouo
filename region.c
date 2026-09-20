@@ -50,7 +50,7 @@ struct CRegionDefList {
 static void *CRegionDefList_Constructor(CRegionDefList *this, int count, char flag); // 0x004695B0
 static void CRegionDefList_Cleanup(CRegionDefList *this); // 0x00469600
 static void *CRegionDefNode_ScalarDelete(CRegionDefNode *this, int flags); // 0x004696A0
-static void CRegionDefNode_ScalarDtor(CRegionDefNode *this); // 0x00469720
+static void CRegionDefNode_DestructorBody(CRegionDefNode *this); // 0x00469720
 static void CRegion_InitFields(CRegion *this); // 0x004A3EF2
 static int CRegion_GetOccupancy(CRegion *this, int unused); // 0x004A418E
 static void RegionManager_Destructor(void); // 0x004A4371
@@ -154,7 +154,7 @@ CRegionDefList_Cleanup(CRegionDefList *this)
 static void *
 CRegionDefNode_ScalarDelete(CRegionDefNode *this, int flags)
 {
-	CRegionDefNode_ScalarDtor(this);
+	CRegionDefNode_DestructorBody(this);
 	if (flags & 1)
 		OperatorDelete(this);
 	return this;
@@ -166,7 +166,7 @@ CRegionDefNode_ScalarDelete(CRegionDefNode *this, int flags)
  * Frees the node's data pointer.
  */
 static void
-CRegionDefNode_ScalarDtor(CRegionDefNode *this)
+CRegionDefNode_DestructorBody(CRegionDefNode *this)
 {
 	OperatorDelete(this->data);
 }

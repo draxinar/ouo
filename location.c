@@ -148,12 +148,14 @@ CLocation_SquaredMagnitude3D(CLocation *delta)
  *
  * Sets x, y, z to 0xFFFF (the invalid-location sentinel).
  */
-void
+CLocation *
 CLocation_Init(CLocation *loc)
 {
 	loc->x = 0xFFFF;
 	loc->y = 0xFFFF;
 	loc->z = (int16_t)0xFFFF;
+
+	return loc;
 }
 
 /*

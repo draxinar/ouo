@@ -68,12 +68,14 @@ static CVector g_deferredLoadedSerials;
  *
  * Zero-initializes the data/index FILE* pair and mode string.
  */
-void
+CIndexedFileManager *
 CIndexedFileManager_Constructor(CIndexedFileManager *this)
 {
 	this->dataFile = NULL;
 	this->indexFile = NULL;
 	this->mode = NULL;
+
+	return this;
 }
 
 /*
@@ -2661,7 +2663,7 @@ LoadDynamic0_ParseBlock(int blockIdx, char *data, int dataLen, CItem *recursiveP
 		} else {
 
 			if (recursiveLoc != NULL)
-				CEntity_SetLocationByDelta(obj, recursiveLoc);
+				CLocation_AddWrappedTo(obj, recursiveLoc);
 
 			// Path unused: recursiveParent always NULL from caller.
 			if (recursiveParent != NULL) {

@@ -32,7 +32,7 @@ static void *ResQuery_SessionDestruct(ResQuerySession *session, int freeMemory);
 static char *ResQuery_WriteResourceData(char *cursor, uint32_t param, uint8_t flags); // 0x004B52DF
 static void ResQuery_SelectRegion(ResQuerySession *session, int hashIndex); // 0x004B36E3
 static void ResQuery_SessionCleanup(ResQuerySession *session); // 0x004B3639
-static void ResQuery_SessionConstruct(ResQuerySession *session); // 0x004B35E6
+static ResQuerySession *ResQuery_SessionConstruct(ResQuerySession *session); // 0x004B35E6
 static ResQuerySession *ResQuery_GetOrCreateSession(CPlayer *player); // 0x004B3439
 static void ResQuery_ResetTimestamps(int slotIndex); // 0x004B33CC
 
@@ -123,7 +123,7 @@ ResQuery_GetOrCreateSession(CPlayer *player)
  * Initializes a ResQuerySession to default state.
  * Sets all pointers to NULL, regionIndex to -1, serial/timestamp to 0.
  */
-static void
+static ResQuerySession *
 ResQuery_SessionConstruct(ResQuerySession *session)
 {
 	session->regionNames = NULL;
@@ -133,6 +133,8 @@ ResQuery_SessionConstruct(ResQuerySession *session)
 	session->regionIndex = -1;
 	session->serial = 0xFFFFFFFF;
 	session->timestamp = 0;
+
+	return session;
 }
 
 /*

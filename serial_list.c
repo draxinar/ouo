@@ -67,12 +67,14 @@ CSerialNode_DecrementTTL(CSerialNode *node)
  * list's allocator field. The slot is zeroed here so the build stays free
  * of -Wuninitialized; nothing reads the field back.
  */
-void
+CSerialList *
 CSerialList_Constructor(CSerialList *list)
 {
 	uint32_t allocByte = 0;
 
 	CSerialList_Init(list, &allocByte);
+
+	return list;
 }
 
 /*
@@ -238,7 +240,7 @@ CSerialList_PruneExpired(CSerialList *list)
  * Finds the first list entry that resolves to a living, visible
  * mobile in the world. Stores end() into outIter when none qualify.
  */
-void
+StdPtrNode **
 CSerialList_FindFirstValidTarget(StdPtrList *list, StdPtrNode **outIter)
 {
 	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
@@ -265,6 +267,8 @@ next:
 		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
 	*outIter = iter;
+
+	return outIter;
 }
 
 /*
@@ -273,7 +277,7 @@ next:
  * Like FindFirstValidTarget but accepts hidden mobiles. Stores
  * end() into outIter when no live mobile is found.
  */
-void
+StdPtrNode **
 CSerialList_FindFirstValidMobile(StdPtrList *list, StdPtrNode **outIter)
 {
 	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
@@ -298,6 +302,8 @@ next:
 		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
 	*outIter = iter;
+
+	return outIter;
 }
 
 /*
@@ -306,7 +312,7 @@ next:
  * Picks the live mobile closest to loc by wrapped Chebyshev distance.
  * Stores end() into outIter when no candidate qualifies.
  */
-void
+StdPtrNode **
 CSerialList_FindNearestMobile(StdPtrList *list, StdPtrNode **outIter, CLocation *loc)
 {
 	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
@@ -345,6 +351,8 @@ next:
 		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
 	*outIter = bestIter;
+
+	return outIter;
 }
 
 /*
@@ -352,7 +360,7 @@ next:
  *
  * Like FindNearestMobile, but also rejects hidden mobiles.
  */
-void
+StdPtrNode **
 CSerialList_FindNearestTarget(StdPtrList *list, StdPtrNode **outIter, CLocation *loc)
 {
 	StdPtrNode *iter, *beginTemp, *endTemp, *postIncTemp;
@@ -393,6 +401,8 @@ next:
 		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
 	}
 	*outIter = bestIter;
+
+	return outIter;
 }
 
 /*
@@ -678,7 +688,7 @@ StdSerialList_InsertRange(StdPtrList *list, StdPtrNode *pos, StdPtrNode *first, 
  * Erases every element in [first, last). Stores the resulting iterator into
  * *result.
  */
-void
+StdPtrNode **
 StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
 	StdPtrNode *postIncResult;
@@ -689,6 +699,8 @@ StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *firs
 		StdSerialList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncResult);
 	}
 	*result = first;
+
+	return result;
 }
 
 /*

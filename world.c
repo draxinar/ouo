@@ -382,7 +382,7 @@ CDataManager_SetLockdown(CItem *this, int set)
  * followed by pointing each one at the buffer the matching Init call
  * allocated.
  */
-void
+CWorld *
 CDataManager_Init(CWorld *this)
 {
 	int i;
@@ -446,6 +446,8 @@ CDataManager_Init(CWorld *this)
 		this->templateChain[i] = 0;
 		this->templateChainCount[i] = 0;
 	}
+
+	return this;
 }
 
 /*
@@ -1690,21 +1692,27 @@ CDataManager_InitMapBuffers(CWorld *this)
 /*
  * 0x0048EE64 - CDataManager::LockTileData
  *
- * Single-threaded server - the tile-data critical sections are no-ops.
+ * Every caller passes the g_World singleton as the receiver. The
+ * critical sections themselves are no-ops in the binary.
  */
 void
 CDataManager_LockTileData(void)
 {
+	CCriticalSection_Lock(g_World->critSectTileData1);
+	CCriticalSection_Lock(g_World->critSectTileData2);
 }
 
 /*
  * 0x0048EE8B - CDataManager::UnlockTileData
  *
- * Single-threaded server - the tile-data critical sections are no-ops.
+ * Every caller passes the g_World singleton as the receiver. The
+ * critical sections themselves are no-ops in the binary.
  */
 void
 CDataManager_UnlockTileData(void)
 {
+	CCriticalSection_Unlock(g_World->critSectTileData1);
+	CCriticalSection_Unlock(g_World->critSectTileData2);
 }
 
 /*
@@ -1723,21 +1731,25 @@ CDataManager_InitAnimBuffer(CWorld *this)
 /*
  * 0x0048EEE8 - CDataManager::LockAnimData
  *
- * Single-threaded server - the anim-data critical section is a no-op.
+ * Every caller passes the g_World singleton as the receiver. The
+ * critical sections themselves are no-ops in the binary.
  */
 void
 CDataManager_LockAnimData(void)
 {
+	CCriticalSection_Lock(g_World->critSectAnimData);
 }
 
 /*
  * 0x0048EF01 - CDataManager::UnlockAnimData
  *
- * Single-threaded server - the anim-data critical section is a no-op.
+ * Every caller passes the g_World singleton as the receiver. The
+ * critical sections themselves are no-ops in the binary.
  */
 void
 CDataManager_UnlockAnimData(void)
 {
+	CCriticalSection_Unlock(g_World->critSectAnimData);
 }
 
 /*
@@ -1763,21 +1775,27 @@ CDataManager_InitTileBuffer(CWorld *this)
 /*
  * 0x0048EFF6 - CDataManager::LockHueData
  *
- * Single-threaded server - the hue-data critical sections are no-ops.
+ * Every caller passes the g_World singleton as the receiver. The
+ * critical sections themselves are no-ops in the binary.
  */
 void
 CDataManager_LockHueData(void)
 {
+	CCriticalSection_Lock(g_World->critSectHueData1);
+	CCriticalSection_Lock(g_World->critSectHueData2);
 }
 
 /*
  * 0x0048F01D - CDataManager::UnlockHueData
  *
- * Single-threaded server - the hue-data critical sections are no-ops.
+ * Every caller passes the g_World singleton as the receiver. The
+ * critical sections themselves are no-ops in the binary.
  */
 void
 CDataManager_UnlockHueData(void)
 {
+	CCriticalSection_Unlock(g_World->critSectHueData1);
+	CCriticalSection_Unlock(g_World->critSectHueData2);
 }
 
 /*

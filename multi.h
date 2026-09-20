@@ -132,7 +132,7 @@ struct CRotationTable {
 };
 
 extern CRotationTable g_RotationTable;  // 0x00699B08
-void CRotationTable_Constructor(CRotationTable *this);  // 0x00478610
+CRotationTable *CRotationTable_Constructor(CRotationTable *this);  // 0x00478610
 
 // Helper - CMultiComponent_Destroy: vtable[0] scalar deleting destructor.
 // flags & 1: free the object after destruction.
@@ -256,7 +256,7 @@ CItem_GetMultiSlave(CItem *item)
 }
 
 /*
- * Custom - CItem_HasMulti
+ * Helper - CItem_HasMulti
  *
  * Inline extraction of the multiPtr != NULL check that appears
  * at 0x00486C0E (CItem::HasMulti_Filter) and in many callers.
@@ -324,11 +324,11 @@ int TriggerEdit_MultiUpdate(CItem *ent, CLocation *loc); // 0x0047850D
 void *CMultiDef_ScalarDelete(CMultiDef *this, int flags); // 0x004785C0
 CMultiRotateRect *CMultiRotateRect_Init(CMultiRotateRect *this, CLocation *loc1, CLocation *loc2, uint32_t rotation); // 0x00478710
 CMultiRotateRect *CMultiRotateRect_SetRotation(CMultiRotateRect *rect, uintptr_t value); // 0x00478750
-void CEntity_SetLocationByDelta(CItem *this, CLocation *delta); // 0x004CD910
-void CMultiDef_Constructor(CMultiDef *def); // 0x00478C10
+void CLocation_AddWrappedTo(CItem *this, CLocation *delta); // 0x004CD910
+CMultiDef *CMultiDef_Constructor(CMultiDef *def); // 0x00478C10
 void CMultiComponent_SetOffset(CMultiComponent *mc, CLocation *loc); // 0x00478D90
 void CMultiSlave_SetTypeId(CMultiSlave *ms, int32_t typeId); // 0x00478DE0
-void MultiExtentTracker_Constructor(MultiExtentTracker *t); // 0x00478E00
+MultiExtentTracker *MultiExtentTracker_Constructor(MultiExtentTracker *t); // 0x00478E00
 void MultiExtentTracker_Reset(MultiExtentTracker *t); // 0x00478E30
 void MultiExtentTracker_Update(MultiExtentTracker *t, CMultiComponentDef *comp); // 0x00478EA0
 void *CVector_Uninit_Copy16_Fwd2(CVector *this, void *first, void *last, void *dest); // 0x00479480
@@ -364,7 +364,7 @@ void CMultiSlave_SetRange(CMultiSlave *ms, uint16_t range); // 0x004CD9A0
 struct CSearchCtx;
 void *CEntity_BeginIter(struct CSearchCtx *this, void *out); // 0x004CD9E0
 void *CItem_GetType(CItem *this); // 0x004CDA10
-int CItem_IsSameType(struct CSearchCtx *a, struct CSearchCtx *b); // 0x004CDA30
+int CSearchCtx_IsNotEqual(struct CSearchCtx *a, struct CSearchCtx *b); // 0x004CDA30
 void CMulti_Free(CMultiComponent *mc);
 int IntLessThan(void *a, void *b, int cmp);
 

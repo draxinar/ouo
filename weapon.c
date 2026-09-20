@@ -181,10 +181,12 @@ CWeaponDef_InitDefaults(CWeaponDef *def)
  *
  * Constructs the underlying weapon array with capacity 255.
  */
-void
+CWeaponManager *
 CWeaponManager_Constructor(CWeaponManager *mgr)
 {
 	CWeaponArray_Constructor(mgr, 0xFF);
+
+	return mgr;
 }
 
 /*
@@ -1801,40 +1803,6 @@ vt_stub_return_1(CItem *self)
 {
 	USED(self);
 	return 1;
-}
-
-/*
- * Header of the (never instantiated) 72-byte-entry weapon-def table from
- * the binary's unused CWeaponDefTable ctor.
- */
-__extension__ typedef struct CWeaponDefTable CWeaponDefTable;
-struct CWeaponDefTable {
-	uint32_t entrySize; // +0x00
-	void *entries;      // +0x04
-};
-
-/*
- * 0x004E04D0 - CWeaponDefTable::CWeaponDefTable
- *
- * Initializes the table with a 72-byte entry size and a NULL entries pointer.
- */
-static __attribute__((unused)) CWeaponDefTable *
-CWeaponDefTable_Init(CWeaponDefTable *this)
-{
-	this->entrySize = 0x48;
-	this->entries = NULL;
-	return this;
-}
-
-/*
- * 0x004E04F1 - CWeaponDefTable::~CWeaponDefTable
- *
- * No-op destructor.
- */
-static __attribute__((unused)) void
-CWeaponDefTable_Destructor(CWeaponDefTable *this)
-{
-	USED(this);
 }
 
 // 0x005F0078 - layer-to-handedness lookup for armor/shields (14 entries)

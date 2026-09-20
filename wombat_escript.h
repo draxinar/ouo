@@ -13,7 +13,7 @@ char *CEScriptVar_GetName(CEScriptVar *self); // 0x0045B9A9
 int CEScriptVar_GetType(CEScriptVar *self); // 0x0045B9BA
 void StaticInit_CEScript(void); // 0x0045B9CC
 void EScript_Constructor(void); // 0x0045B9D6
-void CEScript_Init(CEScript *ctx); // 0x0045B9E5
+CEScript *CEScript_Init(CEScript *ctx); // 0x0045B9E5
 void CEScript_Cleanup(CEScript *ctx); // 0x0045BA4D
 char *CEScript_ParseToken(CEScript *ctx, char *line, char *tokenBuf, char *delimOut); // 0x0045BAF6
 int CEScript_FindOrCreateVar(CEScript *ctx, const char *name, char type); // 0x0045BBBD

@@ -82,7 +82,7 @@ static void *StdPtrList_ScalarDelete_NPC(StdPtrList *this, int flags); // 0x0048
 static uintptr_t *CNPCActiveList_Back(CVector *this); // 0x00484400
 static void CNPCManagerBlock_Destructor(CNPCManagerBlock *this); // 0x00484560
 static int Path_AtStep(PathNode *step, CLocation *loc, int dir); // 0x00484C50
-static void Path_GetCurrentStep(CNPC *npc, PathNode *out); // 0x0049DF20
+static PathNode *Path_GetCurrentStep(CNPC *npc, PathNode *out); // 0x0049DF20
 static void Path_AdvanceStep(CNPC *npc); // 0x0049DF51
 static int Path_StepCheck(CNPC *npc, PathNode *node, int dir, PathNode *result); // 0x0049DFA4
 static StdPtrNode **SearchNode_IterConstructor(StdPtrNode **self); // 0x0049E590
@@ -3320,13 +3320,15 @@ CNPC_GetMovementType_VT(CNPC *npc)
  *
  * Copies pathArray[pathStepsRemaining] into out.
  */
-static void
+static PathNode *
 Path_GetCurrentStep(CNPC *npc, PathNode *out)
 {
 	PathNode *pathArray = (PathNode *)npc->pathArray;
 	uint32_t idx = npc->pathStepsRemaining;
 
 	*out = pathArray[idx];
+
+	return out;
 }
 
 /*

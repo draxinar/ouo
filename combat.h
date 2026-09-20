@@ -108,7 +108,7 @@ int CCombatEventList_RemoveSubByOwner(CCombatEventList *list, CMobile *ownerMob,
 CMobile *CCombatEventList_FindAttackerOf(CCombatEventList *list, CMobile *mob); // 0x00460648
 void CCombatEventList_RemoveMob(CCombatEventList *list, CMobile *mob); // 0x004606A3
 int CCombatEventNode_RemoveSub(CCombatEventNode *node, CMobile *mob); // 0x004608A6
-void CDataBuffer_Constructor(CDataBuffer *b); // 0x004609A0
+CDataBuffer *CDataBuffer_Constructor(CDataBuffer *b); // 0x004609A0
 void CDataBuffer_Destructor(CDataBuffer *b); // 0x004609D4
 void CDataBuffer_Append(CDataBuffer *b, const void *src, int srcLen); // 0x004609F5
 int ProcessCrimeWitness(CLocation crimeLoc, CMobile *criminal, CMobile *victim, const char *callbackName, int delay, int priority, int crimeType); // 0x00460C62

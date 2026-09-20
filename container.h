@@ -68,7 +68,7 @@ struct CBulletinBoard {
 
 extern int g_ContainerCount; // 0x0068B3A0
 
-void CContainer_Constructor(CContainer *cont); // 0x00448760
+CContainer *CContainer_Constructor(CContainer *cont); // 0x00448760
 void CContainer_ConstructorWithArgs(CContainer *cont, uint16_t bodyType, CLocation *loc); // 0x004487AB
 int CContainer_ExcludedAmount_VT(CItem *self); // 0x0044883C
 int CContainer_HasAccessibleContents_VT(CItem *item); // 0x0044887F

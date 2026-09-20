@@ -879,6 +879,31 @@ WeatherEffect_UpdateBlocks(int mode)
 	}
 }
 /*
+ * 0x004E04D0 - WeatherManager::WeatherManager
+ *
+ * Seeds the two leading words. Reached only from the static-init stub
+ * at 0x00467A4C, which passes g_WeatherManager as the receiver.
+ */
+static __attribute__((unused)) WeatherManager *
+WeatherManager_Constructor(WeatherManager *this)
+{
+	this->_pad00 = 0x48;
+	this->season = 0;
+	return this;
+}
+
+/*
+ * 0x004E04F1 - WeatherManager::~WeatherManager
+ *
+ * No-op destructor.
+ */
+static __attribute__((unused)) void
+WeatherManager_Destructor(WeatherManager *this)
+{
+	(void)this;
+}
+
+/*
  * 0x004E04FC - WeatherManager::getAverageWeather
  *
  * Returns the average temperature at loc by summing the season modifier,
@@ -1098,7 +1123,7 @@ WeatherManager_AdvanceSeason(void)
  * intensity, duration, cooldownCounter, cooldownTarget, isPrecipitating.
  * Note: moveSpeed (0x134) and isWaning (0x13C) are NOT zeroed.
  */
-void
+CWeatherRegion *
 CWeatherRegion_Init(CWeatherRegion *r)
 {
 	r->isPrecipitating = 0;
@@ -1106,6 +1131,8 @@ CWeatherRegion_Init(CWeatherRegion *r)
 	r->cooldownCounter = 0;
 	r->intensity = 0;
 	r->duration = 0;
+
+	return r;
 }
 
 /*

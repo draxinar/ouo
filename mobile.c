@@ -1667,7 +1667,7 @@ CSkillDecayManager_ProcessVector(CSkillDecayManager *mgr)
 
 	for (;;) {
 		CEntity_BeginIter((CSearchCtx *)&mgr->serials, &beginIter);
-		if (CItem_IsSameType((CSearchCtx *)&iter, (CSearchCtx *)&beginIter) == 0)
+		if (CSearchCtx_IsNotEqual((CSearchCtx *)&iter, (CSearchCtx *)&beginIter) == 0)
 			break;
 
 		type = (uint32_t *)CItem_GetType((CItem *)&iter);
@@ -2393,12 +2393,14 @@ CMobile_DrainStaminaForClimb(CMobile *this, int zDelta)
  * Thiscall. Calls CVector_Constructor on this+4 with a local type flag,
  * then sets this[0] = 0.
  */
-void
+CNextMobileCtx *
 CNextMobileCtx_Constructor(CNextMobileCtx *this)
 {
 	char typeFlag = 0;
 	CVector_Constructor(&this->vector, &typeFlag);
 	this->field_0 = 0;
+
+	return this;
 }
 
 /*

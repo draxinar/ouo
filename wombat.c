@@ -31,7 +31,7 @@
 #include "wombat_compile.h"
 #include "wombat_stl.h"
 
-static void CFuncList_Constructor(CFuncList *list); // 0x00407B30
+static CFuncList *CFuncList_Constructor(CFuncList *list); // 0x00407B30
 static void StaticInit_ScriptManager(void); // 0x004678D2
 
 CScriptStringDB g_ScriptStringDB;
@@ -328,11 +328,13 @@ EventRingBuffer_Count(void)
  *
  * Initialises an empty function list (count and array set to zero).
  */
-static void
+static CFuncList *
 CFuncList_Constructor(CFuncList *list)
 {
 	list->count = 0;
 	list->array = NULL;
+
+	return list;
 }
 
 /*
@@ -502,12 +504,14 @@ CFuncList_FindFunc(CFuncList *list, const char *name, int *outIndex)
  *
  * Initialises an empty named scope.
  */
-void
+CNamedScope *
 CNamedScope_Constructor(CNamedScope *scope)
 {
 	scope->count = 0;
 	scope->entries = NULL;
 	scope->totalSize = 0;
+
+	return scope;
 }
 
 /*
@@ -1129,7 +1133,7 @@ CTrigger_ScalarDtor(CTrigger *this, int flags)
  * Allocates an initial 256-byte data buffer and zeroes the
  * three child-tracking arrays.
  */
-void
+CScope *
 CScope_Constructor(CScope *scope)
 {
 	scope->capacity = 0x100;
@@ -1144,6 +1148,8 @@ CScope_Constructor(CScope *scope)
 	scope->children3 = NULL;
 	scope->childCount3 = 0;
 	scope->childCapacity3 = 0;
+
+	return scope;
 }
 
 /*
@@ -1580,13 +1586,15 @@ CScope_SetUsedBytes(CScope *scope, int usedBytes)
  * Initialises a dynamic uint32_t stack with capacity 4 and a NULL
  * sentinel at index 0 (so peek/pop on an empty stack returns 0).
  */
-void
+CNodeList *
 CNodeList_Constructor(CNodeList *list)
 {
 	list->capacity = 4;
 	list->count = 1;
 	list->arr = (uintptr_t *)OperatorNew(4 * sizeof(uintptr_t));
 	list->arr[0] = 0; /* NULL sentinel */
+
+	return list;
 }
 
 /*
@@ -2330,7 +2338,7 @@ CStringMatcher_InitDefault(CStringMatcher *sm)
  *
  * Constructor. Allocates numBuffers capture buffers of bufSize bytes each.
  */
-void
+CStringMatcher *
 CStringMatcher_Init(CStringMatcher *sm, int numBuffers, int bufSize)
 {
 	int i;
@@ -2341,6 +2349,8 @@ CStringMatcher_Init(CStringMatcher *sm, int numBuffers, int bufSize)
 	sm->bufArray = (char **)OperatorNew(numBuffers * sizeof(char *));
 	for (i = 0; i < sm->numBuffers; i++)
 		sm->bufArray[i] = (char *)OperatorNew(sm->bufLimit);
+
+	return sm;
 }
 
 /*

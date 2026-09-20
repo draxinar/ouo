@@ -24,7 +24,7 @@ struct SCommandEntry {
 	int (*handler)(CItem *player, uint32_t serial, char *args, int len);
 };
 
-void SCommandManager_Constructor(SCommandManager *mgr); // 0x00447420
+SCommandManager *SCommandManager_Constructor(SCommandManager *mgr); // 0x00447420
 char *GetValue(char *line, char *key); // 0x0044744B
 char *ObjVar_ParseToken(const char *input, char *output); // 0x00447512
 char *SCommand_ParseToken(char *input, char *output); // 0x004475AB

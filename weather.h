@@ -99,7 +99,7 @@ int WeatherManager_startup(void); // 0x004E05DE
 void WeatherManager_UpdateWeather(void); // 0x004E096F
 const char *GetSeasonAsText(int season); // 0x004E0A95
 void WeatherManager_AdvanceSeason(void); // 0x004E0AEB
-void CWeatherRegion_Init(CWeatherRegion *r); // 0x004E0B18
+CWeatherRegion *CWeatherRegion_Init(CWeatherRegion *r); // 0x004E0B18
 int CWeatherRegion_getCurrentWeather(CWeatherRegion *r); // 0x004E0B81
 void WeatherManager_sendWeatherToPlayer(CItem *playerPtr); // 0x004E0E3D
 

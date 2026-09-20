@@ -70,7 +70,7 @@ extern CSkillManager g_SkillManager;
 extern uint32_t g_SkillDecayIterator;
 
 int CSkillManager_GetMaxSkills(CSkillManager *mgr); // 0x00473B80
-CSkillDef *CSkillManager_GetSkillEntry(CSkillManager *mgr, int id); // 0x00473BA0
+CSkillDef *CSkillManager_GetSkillEntry(CSkillManager *mgr, int8_t id); // 0x00473BA0
 void SkillInfo_InitEmpty(CEntityManager *self); // 0x0049D9D0
 int CSkillEntry_GetCanUse(CSkillDef *entry); // 0x0049DEC0
 int SkillManager_GetSkillNumber(const char *name); // 0x004D42D4

@@ -229,7 +229,7 @@ int CItem_GetSurfaceFlags_VT(CItem *self, int moveType); // 0x004863D1
 int CEntity_CheckDC_VT(CItem *self, uint16_t tileID); // 0x004866C7
 int CEntity_CheckSurfaceOf_VT(CItem *self, CItem *entity); // 0x004866E2
 CItem *CreateStaticEntity(void); // 0x00486706
-void StaticEntity_Constructor(CItem *self); // 0x00486831
+CItem *StaticEntity_Constructor(CItem *self); // 0x00486831
 void FreeStaticItem(CItem *item); // 0x0048686C
 CItem *CItem_Constructor(CItem *mem); // 0x004868BA
 int CItem_IsHidden_VT(CItem *item); // 0x004869DA
@@ -306,7 +306,7 @@ int CItem_MergeInto(CItem *source, CItem *target); // 0x0048A63D
 int CItem_MergeIntoWrapper(CItem *this, CItem *target); // 0x0048A7B6
 CItem *CItem_SplitByAmount(CItem *this, uint16_t amount); // 0x0048A7D4
 CItem *CItem_SplitByResources(CItem *this, uint16_t amount); // 0x0048A933
-void CCorpse_Constructor(CCorpse *this); // 0x0048AA58
+CCorpse *CCorpse_Constructor(CCorpse *this); // 0x0048AA58
 void CCorpse_Destructor(CCorpse *this); // 0x0048AAAE
 void CCorpse_SetLookAtText(CItem *corpse, CString *name); // 0x0048AB40
 void CCorpse_SetPlayerLookAtText(CItem *corpse, CString *playerName); // 0x0048ACC2

@@ -79,7 +79,7 @@ extern int g_UpdatesEnabled; // 0x00624E3C
 extern int g_UpdatesSuppressCount; // 0x006EFF44
 extern CBlockManager g_SpatialGrid;
 
-void CBlockManager_Init(CBlockManager *this); // 0x0042EB10
+CBlockManager *CBlockManager_Init(CBlockManager *this); // 0x0042EB10
 void UpdateRegion(CItem *entity); // 0x0042EB4F
 void Block_RemoveTrackingNode(CItem *entity); // 0x0042ED29
 int CheckWalkPassability(CItem *mob, CLocation *oldLoc, CLocation *newLoc); // 0x0042EDBF
@@ -102,7 +102,7 @@ int CEntityMap_RemoveFromGrid(CBlockManager *this, CVector *vec); // 0x0042F8A7
 void LoadAll_Books(void); // 0x0042FA08
 void LoadAll_RegionGrid(void); // 0x0042FA12
 void CBlockManager_LoadAll(CBlockManager *this); // 0x0042FD01
-void ArrayIterator_ForEach(void *ptr, int stride, int count, void (*callback)(void *)); // 0x0042FE70
+void ArrayIterator_ForEach(void *ptr, int stride, int count, void *(*callback)(void *)); // 0x0042FE70
 CBlock *CBlockManager_GetBlock(CBlockManager *this, int blockIdx);
 
 #endif /* BLOCKMANAGER_H_ */

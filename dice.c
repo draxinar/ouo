@@ -278,10 +278,12 @@ CDiceRoll_Parse(CWeaponDice *d, const char *s)
  *
  * Copies src into dst via getters and CDiceRoll_Init.
  */
-void
+CWeaponDice *
 CDiceRoll_Copy(CWeaponDice *dst, CWeaponDice *src)
 {
 	CDiceRoll_Init(dst, CDiceRoll_GetNumDice(src), CDiceRoll_GetDiceFaces(src), CDiceRoll_GetBonus(src), CDiceRoll_GetField4(src));
+
+	return dst;
 }
 
 /*

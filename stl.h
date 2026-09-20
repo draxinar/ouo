@@ -97,8 +97,8 @@ __extension__ typedef struct CLocaleCategory CLocaleCategory;
 struct CLocaleCategory {
 	uintptr_t *vtable; // +0x00
 	uintptr_t member;  // +0x04
-	uint32_t time_lo;  // +0x08
-	uint32_t time_hi;  // +0x0C
+	uint32_t cvt_hand;  // +0x08
+	uint32_t cvt_page;  // +0x0C
 };
 
 /*
@@ -267,7 +267,7 @@ void StdPtrList_PushBack_4DD0(StdPtrList *list, void *value); // 0x00424DD0
 void StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00424E00
 void *StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00424F70
 void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740
-void CVector_Constructor(CVector *list, const char *typeFlag); // 0x00426460
+CVector *CVector_Constructor(CVector *list, const char *typeFlag); // 0x00426460
 void CVector_Destructor(CVector *list); // 0x004264A0
 void *vector_CopyBackward(void *first, void *last, void *dest_end); // 0x00426820
 void *CVector_Allocate1C(CVector *this, int count, int unused_arg); // 0x00479B50
@@ -283,13 +283,13 @@ StdPtrNode **StdPtrIter_PostInc(StdPtrNode **iter, StdPtrNode **outIter, int dum
 StdPtrNode **StdPtrNode_GetPrev(StdPtrNode *node); // 0x0044F710
 void **StdPtrNode_GetValue(StdPtrNode *node); // 0x0044F720
 void *StdPtrList_Charalloc(StdPtrList *list, uint32_t size); // 0x0044F750
-void StdPtrList_Init(StdPtrList *list, const void *init); // 0x00457BB0
+StdPtrList *StdPtrList_Init(StdPtrList *list, const void *init); // 0x00457BB0
 void StdPtrList_Clear(StdPtrList *list); // 0x00457BF0
 StdPtrNode **StdPtrList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00457D70
 void Vector_SortRaw(void *begin, void *end); // 0x00457F90
 void CFileEntry_Destructor(CFileEntry *self); // 0x00458F80
 StdPtrNode *StdPtrNode_GetNext(StdPtrNode *node); // 0x0045AC80
-void StdPtrIter_Inc(StdPtrNode **iter); // 0x0045AC90
+StdPtrNode **StdPtrIter_Inc(StdPtrNode **iter); // 0x0045AC90
 StdPtrNode **StdPtrList_End(StdPtrList *list, StdPtrNode **outIter); // 0x00462050
 void Vector_SortByDistPairEntry(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x004625D0
 void **StdPtrIter_Deref(StdPtrNode **iter); // 0x004626A0

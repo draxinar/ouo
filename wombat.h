@@ -1009,7 +1009,7 @@ void CFuncList_Copy(CFuncList *dst, const CFuncList *src); // 0x00407B7C
 void PatchScopeRefs(ResultNode *node, void *oldEntries, void *newEntries, int count); // 0x00407BF1
 CFunction *CFuncList_AddEntry(CFuncList *list, const char *name, const char *sig); // 0x00407C7A
 CFunction *CFuncList_FindFunc(CFuncList *list, const char *name, int *outIndex); // 0x00407EEF
-void CNamedScope_Constructor(CNamedScope *scope); // 0x00407F5D
+CNamedScope *CNamedScope_Constructor(CNamedScope *scope); // 0x00407F5D
 void CNamedScope_Destructor(CNamedScope *scope); // 0x00407F88
 void CNamedScope_Copy(CNamedScope *dst, const CNamedScope *src); // 0x00407FB3
 int CNamedScope_Add(CNamedScope *scope, const char *name, int typeId, CFuncList *funcList); // 0x00408034
@@ -1032,7 +1032,7 @@ int CScriptVar_AppendName(CScriptVar *this, CString *dest); // 0x00408AF3
 CNameNode *CNameNode_ScalarDtor(CNameNode *this, int flags); // 0x00408B30
 CMemberNode *CMemberNode_ScalarDtor(CMemberNode *this, int flags); // 0x00408B60
 CTrigger *CTrigger_ScalarDtor(CTrigger *this, int flags); // 0x00408B90
-void CScope_Constructor(CScope *scope); // 0x00408BC0
+CScope *CScope_Constructor(CScope *scope); // 0x00408BC0
 void CScope_Destructor(CScope *scope); // 0x00408C4E
 void CScope_Append(CScope *scope, const void *source, int size); // 0x00408D6A
 void CScope_Resize(CScope *scope, int newSize); // 0x00408E51
@@ -1045,7 +1045,7 @@ void CScope_PushCUString(CScope *scope, uintptr_t custrPtr); // 0x004096E5
 void CScope_PushResult5(CScope *scope, uintptr_t value); // 0x00409893
 void CScope_StoreValue(CScope *scope, void *dest, int size); // 0x00409A41
 void CScope_SetUsedBytes(CScope *scope, int usedBytes); // 0x00409A8A
-void CNodeList_Constructor(CNodeList *list); // 0x00409AA0
+CNodeList *CNodeList_Constructor(CNodeList *list); // 0x00409AA0
 void CNodeList_Destructor(CNodeList *list); // 0x00409ADD
 void CNodeList_Push(CNodeList *list, uintptr_t value); // 0x00409AFF
 uintptr_t CNodeList_Pop(CNodeList *list); // 0x00409B9B
@@ -1053,7 +1053,7 @@ uintptr_t CNodeList_Peek(CNodeList *list); // 0x00409BC4
 void CExecThread_Constructor(CExecThread *thread, void *trigHandler, void *scriptInstance); // 0x00409BDF
 void CExecThread_Destructor(CExecThread *thread); // 0x00409CF4
 void WombatArrays_StaticInit(void); // 0x0040EFB9
-void CStringMatcher_Init(CStringMatcher *sm, int numBuffers, int bufSize); // 0x004D78AE
+CStringMatcher *CStringMatcher_Init(CStringMatcher *sm, int numBuffers, int bufSize); // 0x004D78AE
 void CStringMatcher_Destroy(CStringMatcher *sm); // 0x004D792C
 int CStringMatcher_Match(CStringMatcher *sm, const char *text, const char *pattern); // 0x004D79B3
 void FreeResultChain(ResultNode *chain);
