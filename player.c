@@ -5112,7 +5112,7 @@ CPlayer_ScalarDelete(CPlayer *this, int flags)
 	CPlayer_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

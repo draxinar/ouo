@@ -528,7 +528,7 @@ CloseTrade(CTradeSession *session, int deleteFlag)
 	CTradeSession_ReturnItems(session);
 	if (deleteFlag & 1)
 		OperatorDelete(session);
-	return NULL;
+	return session;
 }
 
 /*

@@ -3073,7 +3073,7 @@ CTemplate_ScalarDelete(NPCTemplate *this, int flags)
 	CTemplate_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

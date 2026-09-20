@@ -364,5 +364,5 @@ CSignpost_ScalarDelete(CSignpost *sp, int flags)
 	CSignpost_Destructor(sp);
 	if (flags & 1)
 		OperatorDelete(sp);
-	return NULL;
+	return sp;
 }

@@ -1648,7 +1648,7 @@ CTerrainManager_ScalarDelete(CTerrainManager *this, int flags)
 	USED(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

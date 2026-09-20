@@ -894,7 +894,7 @@ StdSerialValue_ScalarDelete(CSerialValue *self, int flags)
 
 	if (flags & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*

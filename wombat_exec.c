@@ -20179,7 +20179,7 @@ CExecThread_ScalarDelete(CExecThread *thread, int flags)
 	CExecThread_Destructor(thread);
 	if (flags & 1)
 		OperatorDelete(thread);
-	return NULL;
+	return thread;
 }
 
 /*
@@ -20861,7 +20861,7 @@ CHintItem_ScalarDelete(CHintItem *self, int flags)
 	CHintItem_Destructor(self);
 	if (flags & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*

@@ -948,7 +948,7 @@ CNPC_ScalarDelete(CNPC *npc, int flags)
 	CNPC_Destructor(npc);
 	if (flags & 1)
 		OperatorDelete(npc);
-	return NULL;
+	return npc;
 }
 
 /*
@@ -3211,7 +3211,7 @@ CResourceMobile_ScalarDelete(CNPC *npc, int flags)
 	CResourceMobile_Destructor(npc);
 	if (flags & 1)
 		OperatorDelete(npc);
-	return NULL;
+	return npc;
 }
 
 /*
@@ -3226,7 +3226,7 @@ StdPtrList_ScalarDelete_NPC(StdPtrList *this, int flags)
 	StdPtrList_Destructor_NPC(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

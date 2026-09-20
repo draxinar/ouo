@@ -3702,7 +3702,7 @@ CHelpEntry_ScalarDelete(CHelpEntry *self, int flags)
 
 	if (flags & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*

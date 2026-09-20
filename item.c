@@ -1475,7 +1475,7 @@ CMobile_ScalarDelete(CMobile *mob, int flags)
 	CMobile_Destructor(mob);
 	if (flags & 1)
 		OperatorDelete(mob);
-	return NULL;
+	return mob;
 }
 
 /*
@@ -6344,7 +6344,7 @@ CCorpse_ScalarDelete(CCorpse *corpse, int flags)
 	CCorpse_Destructor(corpse);
 	if (flags & 1)
 		OperatorDelete(corpse);
-	return NULL;
+	return corpse;
 }
 
 /*

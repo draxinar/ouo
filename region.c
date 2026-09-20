@@ -157,7 +157,7 @@ CRegionDefNode_ScalarDelete(CRegionDefNode *this, int flags)
 	CRegionDefNode_ScalarDtor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -196,7 +196,7 @@ WeatherNode_ScalarDelete(WeatherNode *this, int flags)
 
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -210,7 +210,7 @@ CResBankSetMember_ScalarDelete(CResBankSetMember *this, int flags)
 	CResBankSetMember_RemoveFromSpatialList(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -225,7 +225,7 @@ WeatherNodeList_ScalarDelete(PathNodeList *this, int flags)
 
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -1486,7 +1486,7 @@ CRegionGrid_ScalarDelete(CRegionGrid *this, int flag)
 
 	if (flag & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -1501,7 +1501,7 @@ CRegion_ScalarDelete(CRegion *this, int flag)
 	CRegion_Destructor(this);
 	if (flag & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

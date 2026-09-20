@@ -847,7 +847,7 @@ CSocket_Destructor(CSocket *this, uint8_t v)
 	CSocket_Delete(this);
 	if (v & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -862,7 +862,7 @@ CListenSocket_Destructor(CSocket *this, uint8_t v)
 	CListenSocket_Delete(this);
 	if (v & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

@@ -581,7 +581,7 @@ CUserSock_Destructor(CUserSock *this, uint8_t v)
 	CUserSock_Delete(this);
 	if (v & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

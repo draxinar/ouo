@@ -1384,7 +1384,7 @@ CEScriptVar_ScalarDelete(CEScriptVar *self, int flags)
 	CEScriptVar_Destructor(self);
 	if (flags & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*
@@ -1414,7 +1414,7 @@ CEScriptStringVar_ScalarDtor(CEScriptStringVar *self, int freeObj)
 	CEScriptStringVar_Destructor(self);
 	if (freeObj & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*
@@ -1456,7 +1456,7 @@ CEScriptIntVar_ScalarDtor(CEScriptIntVar *self, int freeObj)
 	CEScriptIntVar_Destructor(self);
 	if (freeObj & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*

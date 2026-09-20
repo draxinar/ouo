@@ -954,5 +954,5 @@ CBookContent_Destructor(CBookContent *book, int freeMemory)
 	CBookContent_Cleanup(book);
 	if (freeMemory & 1)
 		OperatorDelete(book);
-	return NULL;
+	return book;
 }

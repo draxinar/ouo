@@ -3747,7 +3747,7 @@ CFileEntry_ScalarDelete(CFileEntry *self, int flags)
 
 	if (flags & 1)
 		OperatorDelete(self);
-	return NULL;
+	return self;
 }
 
 /*
@@ -6149,7 +6149,7 @@ StdPtrList16_VecDtor(StdPtrList *this, int flags)
 		if (flags & 1)
 			OperatorDelete(this);
 	}
-	return NULL;
+	return this;
 }
 
 /*
@@ -6372,7 +6372,7 @@ CVector_VecDestructor_Region(CVector *this, int flags)
 		if (flags & 1)
 			OperatorDelete(this);
 	}
-	return NULL;
+	return this;
 }
 
 /*

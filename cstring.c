@@ -458,7 +458,7 @@ CString_EqualCString2(CString *s, CString *other)
 /*
  * 0x004D36DC - CString::CompareStr
  *
- * Case-sensitive compare. Returns 1 if equal, 0 otherwise.
+ * Case-insensitive compare, as the binary's _stricmp is. Returns 1 if equal, 0 otherwise.
  */
 int
 CString_CompareStr(CString *s, const char *str)

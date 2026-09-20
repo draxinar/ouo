@@ -589,5 +589,5 @@ CBulletinBoard_ScalarDelete(CBulletinBoard *bb, int flags)
 	CBulletinBoard_Destructor(bb);
 	if (flags & 1)
 		OperatorDelete(bb);
-	return NULL;
+	return bb;
 }

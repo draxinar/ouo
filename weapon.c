@@ -1476,7 +1476,7 @@ CWeaponDef_ScalarDeletingDtor(CWeaponDef *def, int flags)
 	CWeaponDef_Destructor(def);
 	if (flags & 1)
 		OperatorDelete(def);
-	return NULL;
+	return def;
 }
 
 /*

@@ -2345,7 +2345,7 @@ CItemEffectDef_ScalarDelete(CItemEffectDef *def, int flags)
 	CItemEffectDef_Destructor(def);
 	if (flags & 1)
 		OperatorDelete(def);
-	return NULL;
+	return def;
 }
 
 /*
@@ -2473,7 +2473,7 @@ CEffectTableEntry_ScalarDeleteE(CEffectTableEntry *this, int flags)
 	CEffectTableEntry_DestructorB(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -2569,7 +2569,7 @@ CString_ScalarDelete_MF(CString *this, int flags)
 	CString_DestructorWrap(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -2584,7 +2584,7 @@ SmartPtr_CString_ScalarDelete(CSmartPtr *this, int flags)
 	SmartPtr_Destructor_CString(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

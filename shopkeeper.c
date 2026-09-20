@@ -1462,5 +1462,5 @@ CShopkeeper_ScalarDelete(CNPC *npc, int flags)
 	CShopkeeper_Destructor(npc);
 	if (flags & 1)
 		OperatorDelete(npc);
-	return NULL;
+	return npc;
 }

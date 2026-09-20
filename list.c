@@ -27,7 +27,7 @@ CList_ScalarDelete(CList *list, int flags)
 	CList_Destructor(list);
 	if (flags & 1)
 		OperatorDelete(list);
-	return NULL;
+	return list;
 }
 
 /*
@@ -514,7 +514,7 @@ CListNode_ScalarDtor(CListNode *node, int flags)
 	CListNode_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*

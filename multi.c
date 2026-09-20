@@ -3332,7 +3332,7 @@ CMultiSlave_ScalarDtor(CMultiSlave *ms, int flags)
 	CMultiSlave_Destructor(ms);
 	if (flags & 1)
 		OperatorDelete(ms);
-	return NULL;
+	return ms;
 }
 
 /*
@@ -3359,7 +3359,7 @@ CMultiDef_ScalarDelete(CMultiDef *this, int flags)
 	CMultiDef_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -3694,7 +3694,7 @@ CMultiComponent_ScalarDtor(CMultiComponent *mc, int flags)
 		if (flags & 1)
 			OperatorDelete(mc);
 	}
-	return NULL;
+	return mc;
 }
 
 /*
@@ -4658,7 +4658,7 @@ CResList_ScalarDelete_MultiA(CResList *this, int flags)
 	CResList_Destructor_MultiA(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -4672,7 +4672,7 @@ CResList_ScalarDelete_MultiB(CResList *this, int flags)
 	CResList_Destructor_MultiB(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -4686,7 +4686,7 @@ CResList_ScalarDelete_MultiVal(CResList *this, int flags)
 	CResList_Destructor_MultiVal(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -4753,7 +4753,7 @@ SmartPtr_CVector_ScalarDelete(CSmartPtr *this, int flags)
 	SmartPtr_Destructor_CVector(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -4879,7 +4879,7 @@ SmartPtr_CMultiDef_ScalarDelete(CSmartPtr *this, int flags)
 	SmartPtr_Destructor_CMultiDef(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -4893,7 +4893,7 @@ CVector_ScalarDelete(CVector *this, int flags)
 	CVector_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

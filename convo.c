@@ -29,7 +29,7 @@
 #include "vtable.h"
 #include "wombat_compile.h"
 
-static void CConvoLinkedNode_Constructor(CConvoLinkedNode *this); // 0x0044A820
+static void CConvoLinkedNode_BaseDestructor(CConvoLinkedNode *this); // 0x0044A820
 static CConvoLinkedNode *CConvoLinkedNode_Int_Constructor(CConvoLinkedNode *this, int value, CConvoLinkedNode **listHead); // 0x0044A834
 static CConvoLinkedNode *CConvoLinkedNode_String_Constructor(CConvoLinkedNode *this, const char *str, CConvoLinkedNode **listHead); // 0x0044A871
 static void CConvoLinkedNode_String_Destructor(CConvoLinkedNode *this); // 0x0044A903
@@ -116,7 +116,7 @@ SaveAll_MultiManager(void)
  * Resets the vtable pointer to the base class.
  */
 static void
-CConvoLinkedNode_Constructor(CConvoLinkedNode *this)
+CConvoLinkedNode_BaseDestructor(CConvoLinkedNode *this)
 {
 	this->type = 0;
 }
@@ -156,14 +156,19 @@ CConvoLinkedNode_String_Constructor(CConvoLinkedNode *this, const char *str, CCo
 /*
  * 0x0044A903 - CConvoLinkedNode_String::~CConvoLinkedNode_String
  *
- * Frees the pattern string and resets the node type.
+ * Frees the pattern string and chains to the base destructor.
+ *
+ * MODIFIED: the binary stamps a vtable pointer into [this+0] - 0x005EEA48
+ * here, 0x005EEA40 in the base - and our port replaces that pointer with
+ * the CConvoLinkedNode.type discriminator, 1 for CKey and 0 for
+ * CSophLevel.
  */
 static void
 CConvoLinkedNode_String_Destructor(CConvoLinkedNode *this)
 {
 	this->type = 1;
 	OperatorDelete(this->u.pattern);
-	this->type = 0;
+	CConvoLinkedNode_BaseDestructor(this);
 }
 
 /*
@@ -467,10 +472,10 @@ CFragment_CollectResponses(CFragment *this, int soph, int attitude, int notoriet
 static __attribute__((unused)) void *
 CConvoLinkedNode_ScalarDelete(CConvoLinkedNode *this, int flags)
 {
-	CConvoLinkedNode_Constructor(this);
+	CConvoLinkedNode_BaseDestructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -488,13 +493,13 @@ CConvoLinkedNode_BaseConstructor(CConvoLinkedNode *this)
 /*
  * 0x0044B370 - CConvoLinkedNode::~CConvoLinkedNode wrapper
  *
- * Forwards to the base-class "constructor" which just resets the type
- * field; no resources are owned at this level.
+ * Forwards to the base destructor, which just resets the type field;
+ * no resources are owned at this level.
  */
 static __attribute__((unused)) void
 CConvoLinkedNode_DestructorWrapper(CConvoLinkedNode *this)
 {
-	CConvoLinkedNode_Constructor(this);
+	CConvoLinkedNode_BaseDestructor(this);
 }
 
 /*
@@ -508,7 +513,7 @@ CConvoLinkedNode_String_ScalarDelete(CConvoLinkedNode *this, int flags)
 	CConvoLinkedNode_String_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

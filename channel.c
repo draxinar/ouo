@@ -364,7 +364,7 @@ CChannel_Destructor(CChannel *this, char freeFlag)
 	CChannel_Delete(this);
 	if (freeFlag & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*

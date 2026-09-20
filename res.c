@@ -1226,7 +1226,7 @@ CStringList_ScalarDelete(CStringList *sl, int flags)
 	CStringList_Destroy(sl);
 	if (flags & 1)
 		OperatorDelete(sl);
-	return NULL;
+	return sl;
 }
 
 /*
@@ -1240,7 +1240,7 @@ CResList_ScalarDeleteA(CResList *list, int flags)
 	CResList_DestructorA(list);
 	if (flags & 1)
 		OperatorDelete(list);
-	return NULL;
+	return list;
 }
 
 /*
@@ -1254,7 +1254,7 @@ CStringList_ScalarDeleteEffects(CStringList *sl, int flags)
 	CStringList_DestructorEffects(sl);
 	if (flags & 1)
 		OperatorDelete(sl);
-	return NULL;
+	return sl;
 }
 
 /*
@@ -2443,7 +2443,7 @@ CResList_ScalarDeleteI(CResList *list, int flags)
 	CResList_DestructorI(list);
 	if (flags & 1)
 		OperatorDelete(list);
-	return NULL;
+	return list;
 }
 
 /*
@@ -2457,7 +2457,7 @@ CResList_ScalarDeleteS(CResList *list, int flags)
 	CResList_DestructorS(list);
 	if (flags & 1)
 		OperatorDelete(list);
-	return NULL;
+	return list;
 }
 
 /*
@@ -2471,7 +2471,7 @@ CResList_ScalarDeleteC(CResList *list, int flags)
 	CResList_DestructorC(list);
 	if (flags & 1)
 		OperatorDelete(list);
-	return NULL;
+	return list;
 }
 
 /*
@@ -2485,7 +2485,7 @@ CResList_ScalarDeleteT(CResList *list, int flags)
 	CResList_DestructorT(list);
 	if (flags & 1)
 		OperatorDelete(list);
-	return NULL;
+	return list;
 }
 
 /*
@@ -3895,7 +3895,7 @@ CResListNode_ScalarDeleteStr(CResListNode *node, int flags)
 	CResListNode_DestructorStr(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4271,7 +4271,7 @@ CStringListNode_ScalarDelete(CStringListNode *node, int flags)
 	CStringListNode_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4709,7 +4709,7 @@ CResListNodeSLN_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeSLN_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4723,7 +4723,7 @@ CResListNodeI_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeI_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4737,7 +4737,7 @@ CResListNodeS_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeS_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4751,7 +4751,7 @@ CResListNodeC_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeC_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4765,7 +4765,7 @@ CResListNodeT_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeT_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -4779,7 +4779,7 @@ CResListNodeE_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeE_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -5429,7 +5429,7 @@ ScalarDestructor_KeyNode(CResList *this, int flag)
 	CResList_Destructor_HintKey(this);
 	if (flag & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -5443,7 +5443,7 @@ CResListValNode_ScalarDelete_Hint(CResList *this, int flags)
 	CResList_ValNodeDestructor_Hint(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -5638,7 +5638,7 @@ CResListValNode_ScalarDelete_HintVar(CResListNode *this, int flags)
 	CResList_ValNodeDestructor_HintVariant(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -5823,7 +5823,7 @@ CResListNode_ScalarDelete(CResListNode *node, int flags)
 	CResListNode_FreeData(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -8405,7 +8405,7 @@ CResListValNode_ScalarDelete_Region(CResListNode *this, int flags)
 	CResList_ValNodeDestructor_Region(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -9027,7 +9027,7 @@ CResList_ScalarDelete_TemplatesVal(CResList *this, int flags)
 	CResList_Destructor_TemplatesVal(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -9041,7 +9041,7 @@ CResList_ScalarDelete_NameTableVal(CResList *this, int flags)
 	CResList_Destructor_NameTableVal(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -9577,7 +9577,7 @@ CResList_ScalarDelete_TemplatesVar(CResList *this, int flags)
 	CResList_Destructor_TemplatesVariant(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -9945,7 +9945,7 @@ CResListValNode_ScalarDelete_NameTbl(CNameEntry *this, int flags)
 	CResList_ValNodeDestructor_NameTable(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -10210,7 +10210,7 @@ CStringPairListNode_ScalarDelete(CStringPairListNode *this, int flags)
 	CStringPairListNode_Destructor(this);
 	if (flags & 1)
 		OperatorDelete(this);
-	return NULL;
+	return this;
 }
 
 /*
@@ -10468,7 +10468,7 @@ CResListNodeF_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeF_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -10482,7 +10482,7 @@ CResListNodeG_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeG_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
@@ -10496,7 +10496,7 @@ CResListNodeJ2_ScalarDelete(CResListNode *node, int flags)
 	CResListNodeJ2_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*

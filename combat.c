@@ -2580,7 +2580,7 @@ CCombatEventNode_ScalarDelete(CCombatEventNode *node, int flags)
 	CCombatEventNode_Destructor(node);
 	if (flags & 1)
 		OperatorDelete(node);
-	return NULL;
+	return node;
 }
 
 /*
