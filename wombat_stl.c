@@ -372,10 +372,12 @@ OStream_Put(CBasicFstream *this, char ch)
 	if (good == 0) {
 		state |= 4;
 	} else {
-		// The binary reads rdbuf at ios+0x28 through a folded reader.
+		// The binary reads rdbuf through a fixed-offset getter that
+		// /OPT:ICF folded onto CMultiSlave::GetTypeId; the receiver is
+		// the ios base, so the field is its streambuf.
 		uintptr_t *vt = (uintptr_t *)p[0];
 		CIosBase *ios = (CIosBase *)((char *)this + vt[FSTREAM_VBT_VBASE]);
-		CStreamBuf *rdbuf = (CStreamBuf *)(intptr_t)CMultiSlave_GetTypeId((CMultiSlave *)ios);
+		CStreamBuf *rdbuf = (CStreamBuf *)ios->streambuf;
 		int result = CStreamBuf_sputc(rdbuf, ch);
 		int eof = StdNilRef();
 		if (CmpPtrValueEqual(&result, &eof))
@@ -1865,11 +1867,12 @@ OStream_InsertCStr(CBasicFstream *os, const char *str)
 	if (CWeaponDef_GetId((CWeaponDef *)sentry) == 0) {
 		state |= IOS_BADBIT;
 	} else {
-		// rdbuf (ios+0x28) and flags (ios+0x0C) are read through the
-		// COMDAT-folded getters these two names belong to.
-		rdbuf = (CStreamBuf *)(intptr_t)CMultiSlave_GetTypeId((CMultiSlave *)ios);
+		// rdbuf and flags are read through fixed-offset getters that
+		// /OPT:ICF folded onto other names; the receiver is the ios
+		// base, so they are its own fields.
+		rdbuf = (CStreamBuf *)ios->streambuf;
 
-		if ((CSearchCtx_GetValNode((CSearchCtx *)ios) & IOS_ADJUSTFIELD) != IOS_LEFT) {
+		if ((ios->flags & IOS_ADJUSTFIELD) != IOS_LEFT) {
 			for (; pad > 0; pad--) {
 				int result = CStreamBuf_sputc(rdbuf, CBasicIos_Fill(ios));
 				int eof = StdNilRef();

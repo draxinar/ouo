@@ -1225,7 +1225,9 @@ StdMap_EraseRange(StdMapTree *this, void *outIter, void *beginIter, void *endIte
 	uintptr_t postDec;
 	uintptr_t eraseOut;
 
-	if (CSearchCtx_GetValNode((CSearchCtx *)this) == 0)
+	// The size read goes through a fixed-offset getter that /OPT:ICF
+	// folded onto CSearchCtx::GetValNode; the receiver is the tree.
+	if (this->size == 0)
 		goto erase_loop;
 
 	localBegin = *(uintptr_t *)StdMap_Begin(this, &localBegin);
