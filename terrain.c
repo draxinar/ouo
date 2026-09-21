@@ -923,7 +923,9 @@ IsWaterTile(int id)
  * cornerIdx is unmasked (0x0046A70C is a bare SAR) and prevIdx masks
  * with 3 (0x0046A744). Both are safe because the sole caller,
  * CTerrainManager::GetMinMaxZ, masks the direction with 7 first
- * (0x00469F24).
+ * (0x00469F24). The two-corner average is an arithmetic shift
+ * (0x0046A775), which rounds a negative odd sum toward minus infinity,
+ * so it is written as >> 1 rather than / 2.
  */
 int
 Terrain_GetInterpolatedZ(int x, int y, int direction)
@@ -949,7 +951,9 @@ Terrain_GetInterpolatedZ(int x, int y, int direction)
  * 0x0046A783 - Terrain_GetAvgLandZ
  *
  * Averages the diagonal pair (TL+BR or TR+BL) with the smaller
- * height difference among the four corners at (x,y).
+ * height difference among the four corners at (x,y). The average is
+ * an arithmetic shift (0x0046A840, 0x0046A84A), so it is written as
+ * >> 1 to round a negative odd sum down as the binary does.
  */
 int
 Terrain_GetAvgLandZ(int x, int y)
