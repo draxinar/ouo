@@ -5332,17 +5332,6 @@ CResManager_Constructor_Templates(CResManager *this)
 }
 
 /*
- * 0x004C06E0 - CResManager::~CResManager (templates variant)
- *
- * Destructor for the templates variant: clears every bucket.
- */
-void
-CResManager_Destructor_Templates(CResManager *this)
-{
-	CResManager_Clear_Templates(this);
-}
-
-/*
  * 0x004C0700 - CResManager::Clear (templates variant F)
  *
  * Destroys all 66 key/value bucket lists and zeros the count.

@@ -32,6 +32,7 @@
 #include "wombat_compile.h"
 #include "world.h"
 
+static void CResManager_Destructor_Templates(CResManager *this); // 0x004BE284
 static void CTemplate_Destructor(NPCTemplate *tmpl); // 0x004C2A10
 static CResListNode **CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weight, int direction); // 0x004C1220
 static CStringPairListNode *CStringPairListNode_Constructor(CStringPairListNode *this, int weight); // 0x004C1480
@@ -1852,15 +1853,18 @@ cleanup:
 }
 
 /*
- * 0x004BE284 - CTemplateManager::ClearTemplateHash
+ * 0x004BE284 - CTemplateManager_ClearTemplateHash
+ * 0x004C06E0 - CResManager_Destructor_Templates
  *
- * Clears the templates CResManager.
+ * Clears the templates CResManager through CResManager_Clear_Templates.
+ * CTemplateManager::ClearTemplateHash passes its manager, whose templates
+ * table sits at offset 0, and the table's destructor passes the table, so
+ * MSVC compiled both to the same code.
  */
 static void
-CTemplateManager_ClearTemplateHash(CTemplateManager *this)
+CResManager_Destructor_Templates(CResManager *this)
 {
-	USED(this);
-	CResManager_Clear_Templates(&g_TemplatesRM);
+	CResManager_Clear_Templates(this);
 }
 
 /*
@@ -2289,7 +2293,7 @@ CTemplateManager_Shutdown(void)
 {
 	CTemplateManager_ClearResManager2(NULL);
 	CTemplateManager_ClearDefines(NULL);
-	CTemplateManager_ClearTemplateHash(NULL);
+	CResManager_Destructor_Templates(&g_TemplatesRM);
 }
 
 /*

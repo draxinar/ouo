@@ -210,7 +210,6 @@ void *CResList_DirectionIterInit(CResList *list, void *iterOut, int direction); 
 void CStringList_Invalidate(CStringList *sl); // 0x004B32F0
 void *CStringList_DirectionAdvanceIter(CResList *list, CResListNode **outNode, CResListNode **iterNode, int direction); // 0x004B3350
 int CResManager_HasByInt(CResManager *rm, uint32_t key); // 0x004BFB81
-void CResManager_Destructor_Templates(CResManager *this); // 0x004C06E0
 void CResManager_Destructor_NameTable(CResManager *this); // 0x004C09F0
 void CResManager_Clear_NameTable(CResManager *this); // 0x004C0A10
 void CResManager_Destructor_Defines(CResManager *this); // 0x004C0D20
