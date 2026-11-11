@@ -118,8 +118,6 @@ static void *CHintManager_Constructor(CResManager *self); // 0x004640C0
 static void CHintManager_Destructor(CResManager *self); // 0x004640D8
 static int CHintManager_Find(CResManager *manager, uint32_t serial, int flags, CHintItem *outHint); // 0x004640EB
 static void CHintManager_Add(CResManager *manager, CHintItem *item); // 0x00464201
-static CSearchCtx *CHintManager_Next(CResManager *manager, CSearchCtx *output, CSearchCtx *ctx); // 0x00464650
-static CSearchCtx *CHintManager_Begin(CResManager *manager, CSearchCtx *output); // 0x00464630
 static CSearchCtx *CHintManager_Erase(CResManager *manager, CSearchCtx *output, CSearchCtx *ctx, int flag); // 0x004645B0
 static int CHintManager_CreateBucketPair(CResManager *rm, void *keyPtr, void *valuePtr); // 0x004643A0
 static void StaticInit_CommandManager(void); // 0x00467815
@@ -20778,12 +20776,12 @@ CHintManager_Find(CResManager *manager, uint32_t serial, int flags, CHintItem *o
 	CSearchCtx_Constructor(&ctx);
 	counter = 0;
 
-	CSearchCtx_Add(&ctx, CHintManager_Begin(rm, &tempBegin));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(rm, &tempBegin));
 
 	while (CSearchCtx_Find(&ctx)) {
 		if (counter >= iterCount)
 			break;
-		CSearchCtx_Add(&ctx, CHintManager_Next(rm, &tempNext, &ctx));
+		CSearchCtx_Add(&ctx, CResManager_NextIter(rm, &tempNext, &ctx));
 		counter++;
 	}
 
@@ -20817,7 +20815,7 @@ CHintManager_Add(CResManager *manager, CHintItem *item)
 	}
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResManager_BeginIterInternalHint(rm, &tempIter, (uint32_t *)&item->serial, 1));
+	CSearchCtx_Add(&ctx, CResManager_FindByInt(rm, &tempIter, (uint32_t *)&item->serial, 1));
 
 	if (CSearchCtx_Find(&ctx))
 		CHintManager_Erase(rm, &eraseOutput, &ctx, 1);
@@ -20842,7 +20840,7 @@ CHintManager_Tick(void)
 	CHintItem *result;
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CHintManager_Begin(manager, &tempBegin));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(manager, &tempBegin));
 
 	for (;;) {
 		if (!CSearchCtx_Find(&ctx))
@@ -20855,7 +20853,7 @@ CHintManager_Tick(void)
 		if ((uint32_t)result->flags > 6) {
 			CSearchCtx_Add(&ctx, CHintManager_Erase(manager, &tempErase, &ctx, 1));
 		} else {
-			CSearchCtx_Add(&ctx, CHintManager_Next(manager, &tempNext, &ctx));
+			CSearchCtx_Add(&ctx, CResManager_NextIter(manager, &tempNext, &ctx));
 		}
 	}
 }
@@ -20935,30 +20933,6 @@ CHintManager_Erase(CResManager *manager, CSearchCtx *output, CSearchCtx *ctx, in
 		CHintItem_ScalarDelete((CHintItem *)deletedItem, 1);
 
 	CResManager_CreateBucket(output, &tempCtx);
-	return output;
-}
-
-/*
- * 0x00464630 - CHintManager::Begin
- *
- * Stores into *output the iterator at the first entry of the hint manager.
- */
-static CSearchCtx *
-CHintManager_Begin(CResManager *manager, CSearchCtx *output)
-{
-	CResManager_BeginSearchHint(manager, output, 0, 1);
-	return output;
-}
-
-/*
- * 0x00464650 - CHintManager::Next
- *
- * Stores into *output the iterator following ctx.
- */
-static CSearchCtx *
-CHintManager_Next(CResManager *manager, CSearchCtx *output, CSearchCtx *ctx)
-{
-	CResManager_NextEntry_Hint(manager, output, ctx, 1);
 	return output;
 }
 
@@ -21667,7 +21641,7 @@ Script_isInArea(uintptr_t namePrefix_str, uint32_t *loc, int flag)
 	else
 		rm = &g_RegionByNameRM;
 
-	CSearchCtx_Add(&ctx, CResManager_BeginIterWrapper(rm, &temp));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(rm, &temp));
 
 	prefixLen = strlen(CString_GetCStr((CString *)(uintptr_t)namePrefix_str));
 
@@ -21679,7 +21653,7 @@ Script_isInArea(uintptr_t namePrefix_str, uint32_t *loc, int flag)
 				return 1;
 		}
 
-		CSearchCtx_Add(&ctx, CResManager_NextIterWrapper(rm, &temp, &ctx));
+		CSearchCtx_Add(&ctx, CResManager_NextIter(rm, &temp, &ctx));
 	}
 	return 0;
 }
@@ -21711,7 +21685,7 @@ Script_findClosestArea(uintptr_t resultName_str, uint32_t *resultLoc, uintptr_t 
 	else
 		rm = &g_RegionByNameRM;
 
-	CSearchCtx_Add(&ctx, CResManager_BeginIterWrapper(rm, &temp));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(rm, &temp));
 
 	prefixLen = strlen(CString_GetCStr((CString *)(uintptr_t)namePrefix_str));
 	bestDist = 0x7FFFFFFF;
@@ -21754,7 +21728,7 @@ Script_findClosestArea(uintptr_t resultName_str, uint32_t *resultLoc, uintptr_t 
 		CString_AssignCStr((CString *)(uintptr_t)resultName_str, region->name2);
 
 next:
-		CSearchCtx_Add(&ctx, CResManager_NextIterWrapper(rm, &temp, &ctx));
+		CSearchCtx_Add(&ctx, CResManager_NextIter(rm, &temp, &ctx));
 	}
 
 	return (bestDist != 0x7FFFFFFF) ? 1 : 0;

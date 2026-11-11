@@ -33,7 +33,6 @@
 #include "world.h"
 
 static void CTemplate_Destructor(NPCTemplate *tmpl); // 0x004C2A10
-static CSearchCtx *CTemplateManager_FindFieldByLabel(CResManager *rm, CSearchCtx *output, CString *label); // 0x004C1B60
 static CResListNode **CStringPairList_AddWeighted(CStringPairList *sl, CResListNode **output, int weight, int direction); // 0x004C1220
 static CStringPairListNode *CStringPairListNode_Constructor(CStringPairListNode *this, int weight); // 0x004C1480
 static void CStringPair_Constructor(CStringPairListNode *this); // 0x004C14B0
@@ -306,7 +305,7 @@ CTemplateManager_SetRealNameFromTemplate(CItem *entity, char *dataCursor)
 		// unconstructed temp; FindByInt writes all four fields on
 		// every path, so the roles are interchangeable.
 		CSearchCtx_Constructor(&found);
-		CSearchCtx_Add(&found, (CSearchCtx *)CResManager_FindByInt_Templates(&g_NameTableRM, &ctx, &key, 1));
+		CSearchCtx_Add(&found, (CSearchCtx *)CResManager_FindByInt(&g_NameTableRM, &ctx, &key, 1));
 		if (!CSearchCtx_Find(&found)) {
 			CMobile_SetName(mob, "error");
 			return;
@@ -446,7 +445,7 @@ CTemplateManager_ResolveDefines(CString *input, CString *output)
 		else
 			isFirst = 0;
 
-		CResManager_FindByStr_Defines(&g_DefinesRM, &findCtx, &token, 1);
+		CResManager_FindByStr(&g_DefinesRM, &findCtx, &token, 1);
 		CSearchCtx_Add(&ctx, &findCtx);
 
 		if (CSearchCtx_Find(&ctx)) {
@@ -1599,7 +1598,7 @@ CTemplateManager_GetTemplateFirstValue(CResManager *this, uint32_t templateId)
 	char *cursor;
 	uint16_t result;
 
-	CResManager_FindByIntCtx(this, &ctx, &templateId, 1);
+	CResManager_FindByInt(this, &ctx, &templateId, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
@@ -1650,7 +1649,7 @@ CTemplateManager_CreateEntity(uint16_t templateId, CLocation *loc, int *amount, 
 
 	{
 		uint32_t tmplKey = (uint32_t)templateId;
-		CResManager_FindByIntCtx(&g_TemplatesRM, &tmplCtx, &tmplKey, 1);
+		CResManager_FindByInt(&g_TemplatesRM, &tmplCtx, &tmplKey, 1);
 	}
 	if (!CSearchCtx_Find(&tmplCtx)) {
 		CResManager_ClearJ_Thunk(&eqRM);
@@ -2423,7 +2422,7 @@ CResManager_GetTemplateByID(uint32_t id)
 	CSearchCtx ctx;
 	uint32_t key = id;
 
-	CResManager_FindByIntCtx(&g_TemplatesRM, &ctx, &key, 1);
+	CResManager_FindByInt(&g_TemplatesRM, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return NULL;
 	return (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &ctx);
@@ -2736,7 +2735,7 @@ CTemplateManager_HasAnimationVariant(int bodyId)
 
 	if (bodyId >= 0 && bodyId <= 0x5DB)
 		return 1;
-	CResManager_FindByIntCtx(&g_TemplatesRM, &ctx, (uint32_t *)&bodyId, 1);
+	CResManager_FindByInt(&g_TemplatesRM, &ctx, (uint32_t *)&bodyId, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &ctx);
@@ -2756,7 +2755,7 @@ CTemplateManager_HasAnimation(uint16_t templateId)
 	uint32_t key;
 
 	key = (uint32_t)templateId;
-	CResManager_FindByIntCtx(&g_TemplatesRM, &ctx, &key, 1);
+	CResManager_FindByInt(&g_TemplatesRM, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
@@ -2835,7 +2834,7 @@ CTemplateManager_ApplyLabel(CResManager *this, CString *label, CItem **entity)
 
 	CSearchCtx_Constructor(&searchCtx);
 
-	result = CTemplateManager_FindFieldByLabel(this, &output, label);
+	result = CResManager_FindOrInsertStr(this, &output, label);
 	CSearchCtx_Add(&searchCtx, result);
 
 	if (!CSearchCtx_Find(&searchCtx))
@@ -2977,61 +2976,6 @@ CStringPair_Constructor(CStringPairListNode *this)
 {
 	CString_DefaultConstructor(&this->first);
 	CString_DefaultConstructor(&this->second);
-}
-
-/*
- * 0x004C1B60 - CTemplateManager::FindFieldByLabel
- *
- * Find-or-insert on a CResManager keyed by case-insensitive label.
- * Hashes into 66 buckets, lazily allocates the bucket lists, skips
- * insertion with an empty iterator when flags==1 and the label already
- * exists (dedup), otherwise inserts key+value and returns the new
- * iterator.
- */
-static CSearchCtx *
-CTemplateManager_FindFieldByLabel(CResManager *rm, CSearchCtx *output, CString *label)
-{
-	CSearchCtx localCtx;
-	uint32_t bucket;
-	CResListNode *keyNode, *valNode;
-
-	CSearchCtx_Constructor(&localCtx);
-
-	bucket = ResManager_HashStrA(label, 0x41);
-
-	if (rm->keys[bucket] == NULL) {
-		CResList *keyList = (CResList *)OperatorNew(sizeof(CResList));
-		if (keyList != NULL)
-			CResListNode_Constructor_bin((CResListNode *)keyList);
-		rm->keys[bucket] = keyList;
-
-		CResList *valList = (CResList *)OperatorNew(sizeof(CResList));
-		if (valList != NULL)
-			CResListNode_Constructor_bin((CResListNode *)valList);
-		rm->vals[bucket] = valList;
-	}
-
-	if (rm->flags == 1) {
-		CResListNode *found = CResList_FindByString(rm->keys[bucket], label, NULL, 1);
-		if (found != NULL) {
-			CResManager_CreateBucket(output, &localCtx);
-			return output;
-		}
-	}
-
-	keyNode = CResList_InsertTailStr(rm->keys[bucket], label);
-	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)keyNode);
-
-	valNode = CResList_AllocTail(rm->vals[bucket]);
-	CSearchCtx_SetValNode(&localCtx, (uintptr_t)valNode);
-
-	CSearchCtx_SetBucket(&localCtx, bucket);
-	CSearchCtx_SetEntity(&localCtx, 1);
-
-	rm->count++;
-
-	CResManager_CreateBucket(output, &localCtx);
-	return output;
 }
 
 /*

@@ -1233,14 +1233,14 @@ CMultiManager_SaveToMul(CResManager *this)
 	CVector_Constructor(&keyVec, &typeFlag);
 
 	// Collect all keys from CResManager into keyVec
-	CResManager_BeginIter_MultiA(this, &iterBuf);
+	CResManager_BeginIter(this, &iterBuf);
 	CSearchCtx_Add(&searchCtx, &iterBuf);
 
 	while (CSearchCtx_Find(&searchCtx)) {
 		keyAtPos = (uint32_t *)CResManager_GetKeyAtPos(this, &searchCtx);
 		CVector_PushBack(&keyVec, *keyAtPos);
 
-		CResManager_NextIter_MultiA(this, &nextBuf, &searchCtx);
+		CResManager_NextIter(this, &nextBuf, &searchCtx);
 		CSearchCtx_Add(&searchCtx, &nextBuf);
 	}
 
@@ -1253,7 +1253,7 @@ CMultiManager_SaveToMul(CResManager *this)
 	keyPtr = (char *)keyVec.begin;
 	while (keyPtr != (char *)keyVec.end) {
 		// Look up this key in CResManager
-		CResManager_FindByKey_A(this, &findBuf, (uint32_t *)keyPtr, 1);
+		CResManager_FindByInt(this, &findBuf, (uint32_t *)keyPtr, 1);
 		CSearchCtx_Add(&searchCtx, &findBuf);
 
 		if (!CSearchCtx_Find(&searchCtx)) {
@@ -1683,7 +1683,7 @@ CMultiManager_DefineFromArea(CResManager *this, uint32_t typeId, int x1, int y1,
 		return;
 	}
 
-	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
+	CResManager_FindByInt(this, &ctx, &typeId, 1);
 	if (CSearchCtx_Find(&ctx))
 		CResManager_EraseAndFree_MultiA(this, &erased, &ctx, 1);
 
@@ -1828,7 +1828,7 @@ CMultiManager_BuildComponents(CResManager *this, uint32_t typeId, int serverOnly
 	item = NULL;
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResManager_FindByKey_A(this, &found, &typeId, 1));
+	CSearchCtx_Add(&ctx, CResManager_FindByInt(this, &found, &typeId, 1));
 	if (!CSearchCtx_Find(&ctx))
 		return NULL;
 
@@ -1906,7 +1906,7 @@ CMultiManager_Create(CResManager *this, int typeId, CLocation *loc, int flags, C
 	CSearchCtx_Constructor(&ctx);
 
 	key = (uint32_t)typeId;
-	CResManager_FindByKey_A(this, &searchArea, &key, 1);
+	CResManager_FindByInt(this, &searchArea, &key, 1);
 	CSearchCtx_Add(&ctx, &searchArea);
 
 	if (!CSearchCtx_Find(&ctx))
@@ -2114,7 +2114,7 @@ CMultiManager_RecycleMulti(CResManager *this, int bodyType, CMultiSlave *slave, 
 	counter = 0;
 
 	key = (uint32_t)bodyType;
-	CResManager_FindByKey_A(this, &searchArea, &key, 1);
+	CResManager_FindByInt(this, &searchArea, &key, 1);
 	CSearchCtx_Add(&ctx, &searchArea);
 
 	if (!CSearchCtx_Find(&ctx)) {
@@ -2276,7 +2276,7 @@ CMultiManager_MoveMultiInternal(CResManager *this, uint16_t typeId, CMultiSlave 
 	oldBodyType = 0;
 
 	key = (uint32_t)typeId;
-	CResManager_FindByKey_A(this, &searchArea, &key, 1);
+	CResManager_FindByInt(this, &searchArea, &key, 1);
 	CSearchCtx_Add(&ctx, &searchArea);
 
 	if (!CSearchCtx_Find(&ctx)) {
@@ -2669,7 +2669,7 @@ CMultiManager_CanExistAt(CResManager *this, int typeId, CLocation *loc, int move
 	USED(item);
 
 	key = (uint32_t)typeId;
-	CResManager_FindByKey_A(this, &searchArea, &key, 1);
+	CResManager_FindByInt(this, &searchArea, &key, 1);
 	if (!CSearchCtx_Find(&searchArea))
 		return -2;
 
@@ -2726,7 +2726,7 @@ CMultiManager_AreMobilesInArea(CResManager *this, int typeId, CLocation *loc)
 	int i;
 
 	key = (uint32_t)typeId;
-	CResManager_FindByKey_A(this, &searchArea, &key, 1);
+	CResManager_FindByInt(this, &searchArea, &key, 1);
 	if (!CSearchCtx_Find(&searchArea))
 		return 0;
 
@@ -2800,7 +2800,7 @@ CMultiManager_GetExtents(CResManager *this, int typeId, CLocation *minLoc, CLoca
 	CSearchCtx ctx;
 	uint32_t key = (uint32_t)typeId;
 
-	CResManager_FindByKey_A(this, &ctx, &key, 1);
+	CResManager_FindByInt(this, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
@@ -2821,7 +2821,7 @@ CMultiManager_GetNumInType(CResManager *this, int typeId, int *outCount)
 	CSearchCtx ctx;
 	uint32_t key = (uint32_t)typeId;
 
-	CResManager_FindByKey_A(this, &ctx, &key, 1);
+	CResManager_FindByInt(this, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
@@ -2911,7 +2911,7 @@ CMultiManager_OffsetDef(CResManager *this, uint32_t typeId, CLocation *loc)
 	CSearchCtx ctx;
 	CMultiDef *def;
 
-	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
+	CResManager_FindByInt(this, &ctx, &typeId, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
@@ -2935,7 +2935,7 @@ CMultiManager_SetDefSerial(CResManager *this, uint32_t typeId, uint32_t serial)
 	CSearchCtx ctx;
 	CMultiDef *def;
 
-	CResManager_FindByKey_A(this, &ctx, &typeId, 1);
+	CResManager_FindByInt(this, &ctx, &typeId, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
@@ -2962,7 +2962,7 @@ CMultiManager_EraseSlaveRecord(CResManager *this, uint32_t key, void **outData)
 	USED(this);
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResManager_FindOrInsert_B(&g_MultiManagerSlaves, &found, &key, 1));
+	CSearchCtx_Add(&ctx, CResManager_FindByInt(&g_MultiManagerSlaves, &found, &key, 1));
 
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
@@ -3118,7 +3118,7 @@ CMultiManager_GetComponentsNetwork(CResManager *this, int typeId, int *outSize)
 	uint32_t tmp32;
 
 	key = (uint32_t)typeId;
-	CResManager_FindByKey_A(this, &ctx, &key, 1);
+	CResManager_FindByInt(this, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx)) {
 		*outSize = 0;
 		return NULL;

@@ -411,7 +411,7 @@ MapBlock_ReadEntry(CPlayer *player, CRegion *region)
 	RegionManager_AddRegion(region);
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResList_BeginIter_ByFile(&g_RegionByFileRM, &output, &region->prefix, 1));
+	CSearchCtx_Add(&ctx, CResManager_FindByInt(&g_RegionByFileRM, &output, &region->prefix, 1));
 
 	if (CSearchCtx_Find(&ctx)) {
 		CRegion *found = CResManager_GetResultCtx(&g_RegionByFileRM, &ctx);

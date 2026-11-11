@@ -304,7 +304,7 @@ CMagicItemList_AddItem(CMagicItemList *obj, CItem *entity)
 		resNodeData = CResList_GetData(&obj->list, iter);
 
 		// Binary passes CString*; HashStrA calls GetBuffer internally
-		CResManager_FindByStrCtxC(factoryRM, &localCtx, (CString *)resNodeData, 1);
+		CResManager_FindByStr(factoryRM, &localCtx, (CString *)resNodeData, 1);
 		CSearchCtx_Add(&searchCtx, &localCtx);
 
 		if (CSearchCtx_Find(&searchCtx))

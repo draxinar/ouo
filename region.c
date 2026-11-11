@@ -471,7 +471,7 @@ RegionManager_InitOccupancy(void)
 	int occupancy;
 
 	CSearchCtx_Constructor(&iterCtx);
-	CSearchCtx_Add(&iterCtx, CResManager_BeginIterWrapper(&g_RegionRM, &beginCtx));
+	CSearchCtx_Add(&iterCtx, CResManager_BeginIter(&g_RegionRM, &beginCtx));
 
 	while (CSearchCtx_Find(&iterCtx)) {
 		region = *(CRegion **)CResManager_GetResultCtx(&g_RegionRM, &iterCtx);
@@ -479,7 +479,7 @@ RegionManager_InitOccupancy(void)
 		occupancy = CRegion_GetOccupancy(region, 0);
 		USED(occupancy);
 
-		CSearchCtx_Add(&iterCtx, CResManager_NextIterWrapper(&g_RegionRM, &nextCtx, &iterCtx));
+		CSearchCtx_Add(&iterCtx, CResManager_NextIter(&g_RegionRM, &nextCtx, &iterCtx));
 	}
 }
 
@@ -513,7 +513,7 @@ RegionManager_EraseByPrefix(uint32_t prefix)
 	CSearchCtx_Constructor(&ctx2);
 
 	// BeginIter on ByFile RM (this+0x04).
-	CSearchCtx_Add(&ctx1, CResList_BeginIter_ByFile(&g_RegionByFileRM, &out1, &prefix, 1));
+	CSearchCtx_Add(&ctx1, CResManager_FindByInt(&g_RegionByFileRM, &out1, &prefix, 1));
 
 	if (!CSearchCtx_Find(&ctx1))
 		return 0;
@@ -522,7 +522,7 @@ RegionManager_EraseByPrefix(uint32_t prefix)
 	CResList_EraseAndFree_ByFile(&g_RegionByFileRM, &out2, &ctx1, 1);
 
 	// BeginIter on ByName RM (this+0x21C).
-	CSearchCtx_Add(&ctx2, CResList_BeginIter_ByNameAll(&g_RegionByNameRM, &out3, &prefix, 1));
+	CSearchCtx_Add(&ctx2, CResManager_FindByInt(&g_RegionByNameRM, &out3, &prefix, 1));
 
 	if (CSearchCtx_Find(&ctx2)) {
 		// EraseAndFree on ByName RM.
@@ -530,7 +530,7 @@ RegionManager_EraseByPrefix(uint32_t prefix)
 	}
 
 	// BeginIter on All RM (this+0x434).
-	CSearchCtx_Add(&ctx2, CResList_BeginIter_ByNameAll(&g_RegionRM, &out5, &prefix, 1));
+	CSearchCtx_Add(&ctx2, CResManager_FindByInt(&g_RegionRM, &out5, &prefix, 1));
 
 	if (CSearchCtx_Find(&ctx2)) {
 		// EraseAndFree on All RM.
@@ -566,7 +566,7 @@ RegionManager_AddRegion(CRegion *region)
 	// FindByKey on ByFile RM.
 	// Passes region as uint32_t* keyPtr (prefix is at offset 0).
 	CSearchCtx_Constructor(&iterCtx);
-	CSearchCtx_Add(&iterCtx, CResManager_FindByKey_ByFile(&g_RegionByFileRM, &output, (uint32_t *)region));
+	CSearchCtx_Add(&iterCtx, CResManager_FindOrInsertInt(&g_RegionByFileRM, &output, (uint32_t *)region));
 
 	if (!CSearchCtx_Find(&iterCtx))
 		goto rebuild;
@@ -833,7 +833,7 @@ RegionManager_PopulateFromRM(CResList *outList, CLocation *loc, CResManager *rm)
 	CRegion *region;
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResManager_BeginIterWrapper(rm, &temp));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(rm, &temp));
 
 	while (CSearchCtx_Find(&ctx)) {
 		region = *(CRegion **)CResManager_GetResultCtx(rm, &ctx);
@@ -841,7 +841,7 @@ RegionManager_PopulateFromRM(CResList *outList, CLocation *loc, CResManager *rm)
 		if (CRegion_isCoordInside(region, loc))
 			RegionManager_SortedAreaInsert(region, outList);
 
-		CSearchCtx_Add(&ctx, CResManager_NextIterWrapper(rm, &temp, &ctx));
+		CSearchCtx_Add(&ctx, CResManager_NextIter(rm, &temp, &ctx));
 	}
 
 	return outList->count > 0 ? 1 : 0;
@@ -1261,7 +1261,7 @@ RegionManager_FindLVNRegion(int startX, int startY, int endX, int endY, CResMana
 	strncpy(outBuf, "", maxLen);
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResManager_BeginIterWrapper(rm, &temp));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(rm, &temp));
 
 	while (CSearchCtx_Find(&ctx)) {
 		region = *(CRegion **)CResManager_GetResultCtx(rm, &ctx);
@@ -1284,7 +1284,7 @@ RegionManager_FindLVNRegion(int startX, int startY, int endX, int endY, CResMana
 		}
 
 next:
-		CSearchCtx_Add(&ctx, CResManager_NextIterWrapper(rm, &temp, &ctx));
+		CSearchCtx_Add(&ctx, CResManager_NextIter(rm, &temp, &ctx));
 	}
 
 	strncpy(outBuf, "Unknown?", maxLen);
@@ -1462,7 +1462,7 @@ RegionManager_RebuildGrid(void)
 	CRegionGrid_ClearAll(g_RegionGrid);
 
 	CSearchCtx_Constructor(&iterCtx);
-	CResManager_BeginIterWrapper(&g_RegionByNameRM, &nextCtx);
+	CResManager_BeginIter(&g_RegionByNameRM, &nextCtx);
 	CSearchCtx_Add(&iterCtx, &nextCtx);
 
 	while (CSearchCtx_Find(&iterCtx)) {
@@ -1470,7 +1470,7 @@ RegionManager_RebuildGrid(void)
 
 		CRegionGrid_InsertRegion(g_RegionGrid, region, (int)region->x, (int)region->y, (int)region->x + (int)region->width, (int)region->y + (int)region->height);
 
-		CResManager_NextIterWrapper(&g_RegionByNameRM, &nextCtx, &iterCtx);
+		CResManager_NextIter(&g_RegionByNameRM, &nextCtx, &iterCtx);
 		CSearchCtx_Add(&iterCtx, &nextCtx);
 	}
 }

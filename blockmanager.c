@@ -697,12 +697,12 @@ LoadAll_RegionGrid(void)
 	CResListNode_Constructor_bin((CResListNode *)&sortedList);
 
 	CSearchCtx_Constructor(&ctx);
-	CSearchCtx_Add(&ctx, CResManager_BeginIterWrapper(&g_RegionRM, &temp));
+	CSearchCtx_Add(&ctx, CResManager_BeginIter(&g_RegionRM, &temp));
 
 	while (CSearchCtx_Find(&ctx)) {
 		newReg = *(CRegion **)CResManager_GetResultCtx(&g_RegionRM, &ctx);
 
-		CSearchCtx_Add(&ctx, CResManager_NextIterWrapper(&g_RegionRM, &temp, &ctx));
+		CSearchCtx_Add(&ctx, CResManager_NextIter(&g_RegionRM, &temp, &ctx));
 
 		node = CResList_Begin(&sortedList);
 		for (;;) {

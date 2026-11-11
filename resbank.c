@@ -4167,11 +4167,11 @@ FinalizeClassification(void)
 	CSearchCtx iterCtx, beginCtx, nextCtx;
 
 	CSearchCtx_Constructor(&iterCtx);
-	CSearchCtx_Add(&iterCtx, CResManager_BeginIterWrapper(&g_RegionByNameRM, &beginCtx));
+	CSearchCtx_Add(&iterCtx, CResManager_BeginIter(&g_RegionByNameRM, &beginCtx));
 	while (CSearchCtx_Find(&iterCtx)) {
 		CRegion *geoReg = *(CRegion **)CResManager_GetResultCtx(&g_RegionByNameRM, &iterCtx);
 
-		CSearchCtx_Add(&iterCtx, CResManager_NextIterWrapper(&g_RegionByNameRM, &nextCtx, &iterCtx));
+		CSearchCtx_Add(&iterCtx, CResManager_NextIter(&g_RegionByNameRM, &nextCtx, &iterCtx));
 
 		for (ni = 0; ni < g_RegionNameCount; ni++) {
 			CResBankRegion *region;
@@ -5244,7 +5244,7 @@ parse_color:
 		dataCursor = GetValue(dataCursor, valueBuf);
 		CString_AssignInternal(&inNameStr, valueBuf);
 
-		CResManager_FindContainer((CResManager *)manager, &inOutput, &inNameStr, 1);
+		CResManager_FindByStr((CResManager *)manager, &inOutput, &inNameStr, 1);
 		CSearchCtx_Add(&inSearchCtx, &inOutput);
 
 		if (CSearchCtx_Find(&inSearchCtx)) {
