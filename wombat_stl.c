@@ -1779,7 +1779,8 @@ Locale_Facet_InitCompile(CStreamBuf *this, void *src)
 /*
  * 0x00404250 - std::_Construct_n (construct n elements from value)
  *
- * Copy-constructs count 16-byte elements at dest, each from value.
+ * Copy-constructs count basic_string elements at dest, each from value.
+ * An element is a CSdbStr, the binary's 16 bytes on the 32-bit build.
  */
 void
 ConstructN_16(StdAllocator *this, void *dest, uint32_t count, void *value)
@@ -1788,7 +1789,7 @@ ConstructN_16(StdAllocator *this, void *dest, uint32_t count, void *value)
 	while (count > 0) {
 		Allocator_CopyConstruct16(this, d, value);
 		count--;
-		d += 16;
+		d += sizeof(CSdbStr);
 	}
 }
 
