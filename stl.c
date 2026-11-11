@@ -90,7 +90,7 @@ static uintptr_t SortByType_MedianOfThree(uintptr_t a, uintptr_t b, uintptr_t c,
 static void SortByType_InsertionSort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth); // 0x00424140
 static void vector_SwapImpl(uintptr_t *a, uintptr_t *b); // 0x00424340
 static void StdPtrList_ClearAndDestroy_4D70(StdPtrList *list); // 0x00424D70
-static void StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value); // 0x00424EC0
+static void StdPtrList_Insert(StdPtrList *this, void *resultIter, StdPtrNode *pos, void *value); // 0x00424EC0
 static void *CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest); // 0x004267A0
 static void CVector_UfillN_67E0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004267E0
 static void *StdPtrList_EraseRange_6DB0(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00426DB0
@@ -2528,9 +2528,12 @@ StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos)
 /*
  * 0x00424EC0 - StdPtrList::Insert
  *
- * Finds insertion point via CSearchCtx_Find. Allocates node with
- * StdPtrList_Buynode. Links into doubly-linked list. Calls
- * StdPtrList_DoInsert to copy value. Increments size. Sets result.
+ * Inserts value before pos, the iterator the caller passes by value:
+ * allocates the node with StdPtrList_Buynode, links it in front of pos,
+ * copies the value through StdPtrList_DoInsert_424FC0, increments the size
+ * and stores the new node in the result iterator. The binary reads pos
+ * through the [this+0] getter at 0x00421000, which our C types as
+ * returning int, so pos is used as passed.
  *
  * MSVC STL's _Insert takes _Val by const reference (const _Ty&), which
  * lowers to a pointer-to-pointer in the x86 ABI, and DoInsert_4CF610
@@ -2539,14 +2542,11 @@ StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos)
  * &value on.
  */
 static void
-StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value)
+StdPtrList_Insert(StdPtrList *this, void *resultIter, StdPtrNode *pos, void *value)
 {
 	StdPtrList *list = this;
-	StdPtrNode *pos;
 	StdPtrNode *node;
 	StdPtrNode *newNode;
-
-	pos = *(StdPtrNode **)searchPos;
 
 	newNode = StdPtrList_Buynode(list, pos, *StdPtrNode_GetPrev(pos));
 	*StdPtrNode_GetPrev(pos) = newNode;
