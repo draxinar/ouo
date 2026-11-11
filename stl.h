@@ -77,23 +77,6 @@ struct CBasicFstream {
 };
 
 /*
- * MSVC 5.0 std::_Tree with full allocator/comparator fields (24 bytes).
- * Backs the CScriptStringDB string set.
- */
-__extension__ typedef struct CStlTreeFull CStlTreeFull;
-struct CStlTreeFull {
-	uint32_t allocField; // +0x00 (nop allocator)
-	uint32_t kfnField;   // +0x04 (nop key-of-func)
-	uint32_t predField;  // +0x08 (nop predicate)
-#if __SIZEOF_POINTER__ == 8
-	uint32_t _pad64; // 64-bit alignment pad
-#endif
-	void *head;     // +0x0C (sentinel node)
-	uint32_t multi; // +0x10 (0=set, 1=multiset)
-	uint32_t size;  // +0x14
-};
-
-/*
  * MSVC locale::_Locimp category (16 bytes): CLocaleFacet plus a 64-bit
  * timestamp. Constructor at 0x00404CE0.
  */
