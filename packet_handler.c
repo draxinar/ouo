@@ -6795,31 +6795,18 @@ HandlePacket_GodViewQuery(CPlayer *this, uint8_t *buf)
 				continue;
 			}
 
-			// The binary swaps into stack copies then memcpys - a
-			// no-op on little-endian.
+			// The serial goes out through a copy of the cursor, which
+			// then steps past it by hand.
 			{
-				uint32_t tmpSerial = entity->serial;
-				SwapEndian(&tmpSerial);
-				memcpy(dataPtr, &tmpSerial, 4);
-				dataPtr += 4;
-			}
-			{
-				uint16_t tmpX = entity->resourceEntity.entity.location.x;
-				SwapEndian(&tmpX);
-				memcpy(dataPtr, &tmpX, 2);
-				dataPtr += 2;
-			}
-			{
-				uint16_t tmpY = entity->resourceEntity.entity.location.y;
-				SwapEndian(&tmpY);
-				memcpy(dataPtr, &tmpY, 2);
-				dataPtr += 2;
-			}
-			{
-				uint16_t tmpCat = category;
-				SwapEndian(&tmpCat);
-				memcpy(dataPtr, &tmpCat, 2);
-				dataPtr += 2;
+				char *cursor = (char *)dataPtr;
+				char *serialCursor = (char *)dataPtr;
+
+				WriteInt32LE(&serialCursor, entity->serial);
+				cursor += 4;
+				WriteInt16LE(&cursor, entity->resourceEntity.entity.location.x);
+				WriteInt16LE(&cursor, entity->resourceEntity.entity.location.y);
+				WriteInt16LE(&cursor, category);
+				dataPtr = (uint8_t *)cursor;
 			}
 
 			count++;
