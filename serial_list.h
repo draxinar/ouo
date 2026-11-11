@@ -49,6 +49,8 @@ __extension__ typedef struct CDataBuffer CDataBuffer;
 
 int CSerialNode_DecrementTTL(CSerialNode *node); // 0x00442960
 CSerialList *CSerialList_Constructor(CSerialList *list); // 0x00442993
+CSerialList *CSerialList_CopyConstructor(CSerialList *list, CSerialList *other); // 0x004429AF
+CSerialList *CSerialList_Assign(CSerialList *list, CSerialList *other); // 0x004429CB
 void CSerialList_Destructor(CSerialList *list); // 0x004429E7
 void StdSerialList_Destructor(StdPtrList *list); // 0x00446B20
 void CSerialList_AddFromSet(CSerialList *list, uint32_t serial); // 0x00442A3D

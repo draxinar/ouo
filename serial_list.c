@@ -78,6 +78,31 @@ CSerialList_Constructor(CSerialList *list)
 }
 
 /*
+ * 0x004429AF - CSerialList::CSerialList (copy)
+ *
+ * Copy-constructs the list from other through StdSerialList_InitCopy and
+ * returns this.
+ */
+CSerialList *
+CSerialList_CopyConstructor(CSerialList *list, CSerialList *other)
+{
+	StdSerialList_InitCopy((StdPtrList *)list, (StdPtrList *)other);
+	return list;
+}
+
+/*
+ * 0x004429CB - CSerialList::operator=
+ *
+ * Assigns other's elements through StdSerialList_Assign and returns this.
+ */
+CSerialList *
+CSerialList_Assign(CSerialList *list, CSerialList *other)
+{
+	StdSerialList_Assign((StdPtrList *)list, (StdPtrList *)other);
+	return list;
+}
+
+/*
  * 0x004429E7 - CSerialList::~CSerialList
  *
  * Delegates to the std::list destructor.
@@ -465,7 +490,7 @@ CSerialList_Init(CSerialList *list, void *alloc)
  * allocates the sentinel via _Buynode, then InsertRange-copies every
  * element from src.
  */
-static __attribute__((unused)) void *
+static void *
 StdSerialList_InitCopy(StdPtrList *list, StdPtrList *src)
 {
 	StdPtrNode *srcEnd, *srcBegin, *thisBegin;
@@ -487,7 +512,7 @@ StdSerialList_InitCopy(StdPtrList *list, StdPtrList *src)
  * then erases any extra trailing elements in this or inserts the leftover
  * elements from src.
  */
-static __attribute__((unused)) void *
+static void *
 StdSerialList_Assign(StdPtrList *list, StdPtrList *src)
 {
 	StdPtrNode *thisIter, *thisEnd, *srcIter, *srcEnd;
