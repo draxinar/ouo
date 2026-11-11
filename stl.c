@@ -2513,7 +2513,7 @@ StdPtrList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, 
 	StdPtrNode *eraseResult;
 
 	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&first, &postIncTemp, 0);
 		StdPtrList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncTemp);
 	}
 	*result = first;
@@ -2683,10 +2683,8 @@ CDefine_ScalarDelete(CDefine *this, int flags)
  * Post-increment. Saves current iterator value, calls _Inc to advance,
  * copies old value to outIter via copy constructor. Returns outIter. dummy
  * parameter is C++ post-increment overload disambiguator.
- *
- * 0x00484990 is a second template instantiation of the same function where
- * the compiler inlined the CopyConstructor into a single dword store
- * (*outIter = saved). Semantically identical; both are mapped here.
+ * StdPtrIter_PostInc_484990 is the second instantiation, with the copy
+ * constructor inlined.
  */
 StdPtrNode **
 StdPtrIter_PostInc(StdPtrNode **iter, StdPtrNode **outIter, int dummy)
@@ -4907,7 +4905,7 @@ StdPtrList_Erase16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos)
 	StdPtrNode *postIncTemp;
 	StdPtrNode *node;
 
-	StdPtrIter_PostInc(&pos, &postIncTemp, 0);
+	StdPtrIter_PostInc_484990(&pos, &postIncTemp, 0);
 	node = postIncTemp;
 
 	node->prev->next = node->next;
@@ -5003,7 +5001,7 @@ StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, 
 	StdPtrNode *tmp;
 
 	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&first, &postIncTemp, 0);
 		tmp = *(StdPtrNode **)&postIncTemp;
 		StdPtrList_Erase16(list, &postIncTemp, tmp);
 	}
@@ -5042,6 +5040,26 @@ StdFileList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint
 	*StdPtrNode_GetPrev(newNode) = prevVal;
 
 	return newNode;
+}
+
+/*
+ * 0x00484990 - std::list<void*>::iterator::operator++(int)
+ *
+ * The second instantiation of StdPtrIter_PostInc: saves the iterator,
+ * advances it through _Inc and stores the saved value into outIter with
+ * one store, where 0x0044D770 calls the copy constructor. Returns
+ * outIter. dummy is the post-increment overload's int.
+ */
+StdPtrNode **
+StdPtrIter_PostInc_484990(StdPtrNode **iter, StdPtrNode **outIter, int dummy)
+{
+	StdPtrNode *saved;
+
+	USED(dummy);
+	saved = *iter;
+	StdPtrIter_Inc(iter);
+	*outIter = saved;
+	return outIter;
 }
 
 /*

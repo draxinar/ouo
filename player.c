@@ -5319,7 +5319,7 @@ CEntityMap_Remove(CEntityMap *this, CItem *entity, int x, int y)
 		}
 
 		// Advance iterator
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 }
 

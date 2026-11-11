@@ -241,9 +241,9 @@ CSerialList_PruneExpired(CSerialList *list)
 		if (!(StdPtrIter_Neq(&iter, StdPtrList_End(l, &endTemp)) & 0xFF))
 			break;
 		if (CSerialNode_DecrementTTL((CSerialNode *)iter)) {
-			StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+			StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 		} else {
-			StdSerialList_Erase(l, &eraseResult, *StdPtrIter_PostInc(&iter, &postIncTemp, 0));
+			StdSerialList_Erase(l, &eraseResult, *StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0));
 		}
 	}
 }
@@ -278,7 +278,7 @@ CSerialList_FindFirstValidTarget(StdPtrList *list, StdPtrNode **outIter)
 			goto next;
 		break;
 next:
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 	*outIter = iter;
 
@@ -313,7 +313,7 @@ CSerialList_FindFirstValidMobile(StdPtrList *list, StdPtrNode **outIter)
 			goto next;
 		break;
 next:
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 	*outIter = iter;
 
@@ -362,7 +362,7 @@ CSerialList_FindNearestMobile(StdPtrList *list, StdPtrNode **outIter, CLocation 
 			bestIter = iter;
 		}
 next:
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 	*outIter = bestIter;
 
@@ -412,7 +412,7 @@ CSerialList_FindNearestTarget(StdPtrList *list, StdPtrNode **outIter, CLocation 
 			bestIter = iter;
 		}
 next:
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 	*outIter = bestIter;
 
@@ -604,7 +604,7 @@ StdSerialList_RemoveMatching(StdPtrList *list, void *value)
 	while (StdPtrIter_Neq(&curIter, &endIter) & 0xFF) {
 		void *elemVal = StdPtrIter_Deref(&curIter);
 		if (CSerialValue_EqualBySerial(elemVal, value)) {
-			StdPtrIter_PostInc(&curIter, &postIncResult, 0);
+			StdPtrIter_PostInc_484990(&curIter, &postIncResult, 0);
 			StdSerialList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncResult);
 		} else {
 			StdPtrIter_Inc(&curIter);
@@ -709,7 +709,7 @@ StdSerialList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *firs
 	StdPtrNode *eraseResult;
 
 	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncResult, 0);
+		StdPtrIter_PostInc_484990(&first, &postIncResult, 0);
 		StdSerialList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncResult);
 	}
 	*result = first;

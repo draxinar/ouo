@@ -1023,7 +1023,7 @@ CHelpQueue_FindBySerial(CHelpQueue *q, StdPtrNode **result, uint32_t serial)
 			break;
 		if (((CHelpEntry *)StdPtrIter_Deref(&iter))->serial == serial)
 			break;
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 	*result = iter;
 	return result;
@@ -1162,7 +1162,7 @@ CHelpQueue_FindNextPending(CHelpQueue *q, StdPtrNode **result)
 			break;
 		if (((CHelpEntry *)StdPtrIter_Deref(&iter))->type == 'n')
 			break;
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 	*result = iter;
 	return result;
@@ -3153,7 +3153,7 @@ CHelpQueue_ShowQueue(CHelpQueue *q, CPlayer *player, int maxEntries)
 	i = 0;
 	StdPtrIter_BaseConstructor(&iter);
 	iter = *StdPtrList_Begin(&q->list, &beginTemp);
-	for (; StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF; StdPtrIter_PostInc(&iter, &postIncTemp, 0)) {
+	for (; StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF; StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0)) {
 		if (maxEntries != -1 && i >= maxEntries)
 			break;
 
@@ -3330,7 +3330,7 @@ CHelpQueue_GotoBySerial(CHelpQueue *q, CPlayer *player, int queueIndex)
 	i = 0;
 	StdPtrIter_BaseConstructor(&iter);
 	iter = *StdPtrList_Begin(&q->list, &beginTemp);
-	for (; StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF; StdPtrIter_PostInc(&iter, &postIncTemp, 0)) {
+	for (; StdPtrIter_Neq(&iter, StdPtrList_End(&q->list, &endTemp)) & 0xFF; StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0)) {
 		if (i >= queueIndex)
 			break;
 		i++;
@@ -4111,7 +4111,7 @@ StdHelpList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first,
 	StdPtrNode *postIncTemp;
 
 	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&first, &postIncTemp, 0);
 		StdHelpList_Erase(list, &postIncTemp, *(StdPtrNode **)&postIncTemp);
 	}
 	*result = first;

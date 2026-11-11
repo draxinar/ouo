@@ -6068,7 +6068,7 @@ CNPC_FollowerCombatHandler(CMobile *this)
 		StdPtrNode *atkIter, *atkBeginTemp, *atkEndTemp, *atkPostTemp;
 
 		StdPtrIter_CopyConstructor(&atkIter, StdPtrList_Begin((StdPtrList *)&this->attackerList, &atkBeginTemp));
-		for (; StdPtrIter_Neq(&atkIter, StdPtrList_End((StdPtrList *)&this->attackerList, &atkEndTemp)) & 0xFF; StdPtrIter_PostInc(&atkIter, &atkPostTemp, 0)) {
+		for (; StdPtrIter_Neq(&atkIter, StdPtrList_End((StdPtrList *)&this->attackerList, &atkEndTemp)) & 0xFF; StdPtrIter_PostInc_484990(&atkIter, &atkPostTemp, 0)) {
 			ent = CWorld_FindBySerial(g_World, (uint32_t)CSearchCtx_Find((CSearchCtx *)StdPtrIter_Deref(&atkIter)));
 			if (ent == NULL)
 				continue;

@@ -342,7 +342,7 @@ EntityManager_RestoreFromArchive(uint32_t serial)
 			break;
 		entity = *(CItem **)StdPtrIter_Deref(&iter);
 		if (entity->serial != serial) {
-			StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+			StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 			continue;
 		}
 		g_ArchiveFlag = 1;
@@ -402,7 +402,7 @@ EntityManager_MarkAll(void)
 			break;
 		pflags = &((CNPC *)*(CItem **)StdPtrIter_Deref(&iter))->aiState;
 		*pflags |= 0x00010000;
-		StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+		StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 	}
 }
 
@@ -427,11 +427,11 @@ EntityManager_DeleteArchivedEntity(uint32_t serial)
 			break;
 		entity = *(CItem **)StdPtrIter_Deref(&iter);
 		if (entity->serial != serial) {
-			StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+			StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 			continue;
 		}
 		if (!(((CNPC *)entity)->aiState & 0x10000)) {
-			StdPtrIter_PostInc(&iter, &postIncTemp, 0);
+			StdPtrIter_PostInc_484990(&iter, &postIncTemp, 0);
 			continue;
 		}
 		g_ArchiveFlag = 1;

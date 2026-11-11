@@ -329,6 +329,7 @@ int StdPtrIter_Neq(StdPtrNode **a, StdPtrNode **b); // 0x00484770
 void *StdPtrList16_VecDtor(StdPtrList *this, int flags); // 0x004847A0
 void CopyFrom16(CVector *this, void *dst, void *src); // 0x00479890
 StdPtrNode *StdFileList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint); // 0x00484920
+StdPtrNode **StdPtrIter_PostInc_484990(StdPtrNode **iter, StdPtrNode **outIter, int dummy); // 0x00484990
 StdPtrNode *StdPtrList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint); // 0x00484B90
 StdPtrNode **StdPtrList_FindString(StdPtrNode **result, StdPtrNode **begin, StdPtrNode **end, CString *searchStr); // 0x00484C00
 void *CVector_Erase(CVector *vec, void *first, void *last); // 0x004A64C0
