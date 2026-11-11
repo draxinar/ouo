@@ -5345,263 +5345,233 @@ StdTree_Insert(StdMapTree *tree, uintptr_t key, uintptr_t value)
 /*
  * 0x004E6500 - std::_Tree::erase (RB delete with fixup)
  *
- * Erases a single node from the tree. Handles all red-black rebalancing
- * cases. Updates head's leftmost/rightmost. Decrements size. Frees node.
+ * Erases the node at pos and returns the iterator that follows it
+ * through ret: pos advances through _Inc before the node is unlinked.
+ * The rebalancing follows MSVC's _Tree::erase with _Lrotate and _Rrotate
+ * inlined, then the node is freed and the size decremented.
+ * g_HandleMapNil is a real node, so x may be the nil node: its parent is
+ * written and its color, black, is read and written, as in the binary.
+ * The binary brackets the minimum and maximum walks and each rotation in
+ * a std::_Lockit critical section, which we omit along with every other
+ * lock in the single-threaded port.
  */
-void
-StdTree_RBErase(StdMapTree *tree, StdTreeNode *z)
+StdTreeNode **
+StdTree_RBErase(StdMapTree *tree, StdTreeNode **ret, StdTreeNode *pos)
 {
 	StdTreeNode *head = tree->head;
 	StdTreeNode *nil = g_HandleMapNil;
-	StdTreeNode *y;  // node to splice out
-	StdTreeNode *x;  // child of spliced node
-	StdTreeNode *xp; // parent of x (saved because x might be nil)
+	StdTreeNode *x, *y, *z, *w, *n, *c;
+	int color;
 
-	// Determine which node to splice out.
-	if (z->left == nil) {
-		y = z;
-		x = z->right;
-	} else if (z->right == nil) {
-		y = z;
-		x = z->left;
-	} else {
-		// Two children: find successor.
-		y = z->right;
+	y = pos;
+	StdTree_Inc(&pos);
+	z = y;
+	if (y->left == nil)
+		x = y->right;
+	else if (y->right == nil)
+		x = y->left;
+	else {
+		y = y->right;
 		while (y->left != nil)
 			y = y->left;
 		x = y->right;
 	}
 
-	// Splice y out of the tree.
 	if (y != z) {
-		// y is z's successor (not z itself).
-		// Relink y in z's position.
+		// Relink the successor y in z's place.
 		z->left->parent = y;
 		y->left = z->left;
-
-		if (y == z->right) {
-			xp = y;
-		} else {
-			xp = y->parent;
-			if (x != nil)
-				x->parent = y->parent;
+		if (y == z->right)
+			x->parent = y;
+		else {
+			x->parent = y->parent;
 			y->parent->left = x;
 			y->right = z->right;
 			z->right->parent = y;
 		}
-
-		if (z == head->parent)
+		if (head->parent == z)
 			head->parent = y;
-		else if (z == z->parent->left)
+		else if (z->parent->left == z)
 			z->parent->left = y;
 		else
 			z->parent->right = y;
-
 		y->parent = z->parent;
-
-		// Swap colors of y and z.
-		{
-			int tmp = y->color;
-			y->color = z->color;
-			z->color = tmp;
-		}
-		y = z; // y now points to the node to free
+		color = y->color;
+		y->color = z->color;
+		z->color = color;
+		y = z;
 	} else {
-		// y == z: splice z out directly.
-		xp = z->parent;
-		if (x != nil)
-			x->parent = z->parent;
-
-		if (z == head->parent)
+		// Splice z out, and update the leftmost and rightmost.
+		x->parent = y->parent;
+		if (head->parent == z)
 			head->parent = x;
-		else if (z == z->parent->left)
+		else if (z->parent->left == z)
 			z->parent->left = x;
 		else
 			z->parent->right = x;
-
-		// Update leftmost/rightmost.
-		if (z == head->left) {
+		if (head->left == z) {
 			if (z->right == nil)
 				head->left = z->parent;
 			else {
-				StdTreeNode *m = x;
-				while (m->left != nil)
-					m = m->left;
-				head->left = m;
+				n = x;
+				while (n->left != nil)
+					n = n->left;
+				head->left = n;
 			}
 		}
-		if (z == head->right) {
+		if (head->right == z) {
 			if (z->left == nil)
 				head->right = z->parent;
 			else {
-				StdTreeNode *m = x;
-				while (m->right != nil)
-					m = m->right;
-				head->right = m;
+				n = x;
+				while (n->right != nil)
+					n = n->right;
+				head->right = n;
 			}
 		}
 	}
 
-	// Red-black fixup if the spliced node was black.
 	if (y->color == 1) {
-		while (x != head->parent && (x == nil || x->color == 1)) {
-			if (x == xp->left) {
-				StdTreeNode *w = xp->right;
+		while (x != head->parent && x->color == 1) {
+			if (x == x->parent->left) {
+				w = x->parent->right;
 				if (w->color == 0) {
-					// Case 1: sibling is red.
 					w->color = 1;
-					xp->color = 0;
-					// Left rotate at xp.
-					{
-						StdTreeNode *r = xp->right;
-						xp->right = r->left;
-						if (r->left != nil)
-							r->left->parent = xp;
-						r->parent = xp->parent;
-						if (xp == head->parent)
-							head->parent = r;
-						else if (xp == xp->parent->left)
-							xp->parent->left = r;
-						else
-							xp->parent->right = r;
-						r->left = xp;
-						xp->parent = r;
-					}
-					w = xp->right;
+					x->parent->color = 0;
+					// _Lrotate(x->parent)
+					n = x->parent;
+					c = n->right;
+					n->right = c->left;
+					if (c->left != nil)
+						c->left->parent = n;
+					c->parent = n->parent;
+					if (n == head->parent)
+						head->parent = c;
+					else if (n == n->parent->left)
+						n->parent->left = c;
+					else
+						n->parent->right = c;
+					c->left = n;
+					n->parent = c;
+					w = x->parent->right;
 				}
-				if ((w->left == nil || w->left->color == 1) && (w->right == nil || w->right->color == 1)) {
-					// Case 2: sibling's children are both black.
+				if (w->left->color == 1 && w->right->color == 1) {
 					w->color = 0;
-					x = xp;
-					xp = xp->parent;
+					x = x->parent;
 				} else {
-					if (w->right == nil || w->right->color == 1) {
-						// Case 3: sibling's right child is black.
-						if (w->left != nil)
-							w->left->color = 1;
+					if (w->right->color == 1) {
+						w->left->color = 1;
 						w->color = 0;
-						// Right rotate at w.
-						{
-							StdTreeNode *r = w->left;
-							w->left = r->right;
-							if (r->right != nil)
-								r->right->parent = w;
-							r->parent = w->parent;
-							if (w == head->parent)
-								head->parent = r;
-							else if (w == w->parent->left)
-								w->parent->left = r;
-							else
-								w->parent->right = r;
-							r->right = w;
-							w->parent = r;
-						}
-						w = xp->right;
-					}
-					// Case 4: sibling's right child is red.
-					w->color = xp->color;
-					xp->color = 1;
-					if (w->right != nil)
-						w->right->color = 1;
-					// Left rotate at xp.
-					{
-						StdTreeNode *r = xp->right;
-						xp->right = r->left;
-						if (r->left != nil)
-							r->left->parent = xp;
-						r->parent = xp->parent;
-						if (xp == head->parent)
-							head->parent = r;
-						else if (xp == xp->parent->left)
-							xp->parent->left = r;
+						// _Rrotate(w)
+						c = w->left;
+						w->left = c->right;
+						if (c->right != nil)
+							c->right->parent = w;
+						c->parent = w->parent;
+						if (w == head->parent)
+							head->parent = c;
+						else if (w == w->parent->right)
+							w->parent->right = c;
 						else
-							xp->parent->right = r;
-						r->left = xp;
-						xp->parent = r;
+							w->parent->left = c;
+						c->right = w;
+						w->parent = c;
+						w = x->parent->right;
 					}
+					w->color = x->parent->color;
+					x->parent->color = 1;
+					w->right->color = 1;
+					// _Lrotate(x->parent)
+					n = x->parent;
+					c = n->right;
+					n->right = c->left;
+					if (c->left != nil)
+						c->left->parent = n;
+					c->parent = n->parent;
+					if (n == head->parent)
+						head->parent = c;
+					else if (n == n->parent->left)
+						n->parent->left = c;
+					else
+						n->parent->right = c;
+					c->left = n;
+					n->parent = c;
 					break;
 				}
 			} else {
-				// Mirror: x is right child.
-				StdTreeNode *w = xp->left;
+				w = x->parent->left;
 				if (w->color == 0) {
 					w->color = 1;
-					xp->color = 0;
-					// Right rotate at xp.
-					{
-						StdTreeNode *r = xp->left;
-						xp->left = r->right;
-						if (r->right != nil)
-							r->right->parent = xp;
-						r->parent = xp->parent;
-						if (xp == head->parent)
-							head->parent = r;
-						else if (xp == xp->parent->right)
-							xp->parent->right = r;
-						else
-							xp->parent->left = r;
-						r->right = xp;
-						xp->parent = r;
-					}
-					w = xp->left;
+					x->parent->color = 0;
+					// _Rrotate(x->parent)
+					n = x->parent;
+					c = n->left;
+					n->left = c->right;
+					if (c->right != nil)
+						c->right->parent = n;
+					c->parent = n->parent;
+					if (n == head->parent)
+						head->parent = c;
+					else if (n == n->parent->right)
+						n->parent->right = c;
+					else
+						n->parent->left = c;
+					c->right = n;
+					n->parent = c;
+					w = x->parent->left;
 				}
-				if ((w->right == nil || w->right->color == 1) && (w->left == nil || w->left->color == 1)) {
+				if (w->right->color == 1 && w->left->color == 1) {
 					w->color = 0;
-					x = xp;
-					xp = xp->parent;
+					x = x->parent;
 				} else {
-					if (w->left == nil || w->left->color == 1) {
-						if (w->right != nil)
-							w->right->color = 1;
+					if (w->left->color == 1) {
+						w->right->color = 1;
 						w->color = 0;
-						// Left rotate at w.
-						{
-							StdTreeNode *r = w->right;
-							w->right = r->left;
-							if (r->left != nil)
-								r->left->parent = w;
-							r->parent = w->parent;
-							if (w == head->parent)
-								head->parent = r;
-							else if (w == w->parent->right)
-								w->parent->right = r;
-							else
-								w->parent->left = r;
-							r->left = w;
-							w->parent = r;
-						}
-						w = xp->left;
-					}
-					w->color = xp->color;
-					xp->color = 1;
-					if (w->left != nil)
-						w->left->color = 1;
-					// Right rotate at xp.
-					{
-						StdTreeNode *r = xp->left;
-						xp->left = r->right;
-						if (r->right != nil)
-							r->right->parent = xp;
-						r->parent = xp->parent;
-						if (xp == head->parent)
-							head->parent = r;
-						else if (xp == xp->parent->right)
-							xp->parent->right = r;
+						// _Lrotate(w)
+						c = w->right;
+						w->right = c->left;
+						if (c->left != nil)
+							c->left->parent = w;
+						c->parent = w->parent;
+						if (w == head->parent)
+							head->parent = c;
+						else if (w == w->parent->left)
+							w->parent->left = c;
 						else
-							xp->parent->left = r;
-						r->right = xp;
-						xp->parent = r;
+							w->parent->right = c;
+						c->left = w;
+						w->parent = c;
+						w = x->parent->left;
 					}
+					w->color = x->parent->color;
+					x->parent->color = 1;
+					w->left->color = 1;
+					// _Rrotate(x->parent)
+					n = x->parent;
+					c = n->left;
+					n->left = c->right;
+					if (c->right != nil)
+						c->right->parent = n;
+					c->parent = n->parent;
+					if (n == head->parent)
+						head->parent = c;
+					else if (n == n->parent->right)
+						n->parent->right = c;
+					else
+						n->parent->left = c;
+					c->right = n;
+					n->parent = c;
 					break;
 				}
 			}
 		}
-		if (x != nil)
-			x->color = 1;
+		x->color = 1;
 	}
 
 	OperatorDelete(y);
 	tree->size--;
+	*ret = pos;
+	return ret;
 }
 
 /*
@@ -5618,6 +5588,7 @@ static StdTreeNode *
 StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last)
 {
 	StdTreeNode *head = tree->head;
+	StdTreeNode *tmp;
 
 	if (tree->size != 0 && first == head->left && last == head) {
 		// Full range: bulk erase.
@@ -5629,12 +5600,11 @@ StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last)
 		return head->left;
 	}
 
-	// Partial range: erase one-by-one.
+	// Partial range: erase(first++) one by one.
 	while (first != last) {
-		StdTreeNode *next = first;
-		StdTree_Inc(&next);
-		StdTree_RBErase(tree, first);
-		first = next;
+		StdTreeNode *old = first;
+		StdTree_Inc(&first);
+		StdTree_RBErase(tree, &tmp, old);
 	}
 	return first;
 }

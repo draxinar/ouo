@@ -338,7 +338,7 @@ void *StdTreeIter_Deref(void *iter); // 0x004E30B0 (iterator is a stack-local po
 void *StdTreeNode_KeyValuePtr(StdTreeNode *node); // 0x004E30D0
 void StdTree_Clear(StdMapTree *tree); // 0x004E63B0
 StdTreeNode *StdTree_Insert(StdMapTree *tree, uintptr_t key, uintptr_t value); // 0x004E6420
-void StdTree_RBErase(StdMapTree *tree, StdTreeNode *z); // 0x004E6500
+StdTreeNode **StdTree_RBErase(StdMapTree *tree, StdTreeNode **ret, StdTreeNode *pos); // 0x004E6500
 StdTreeNode *StdTree_LowerBound(StdMapTree *tree, uintptr_t key); // 0x004E6FF0
 
 #endif /* STL_H_ */

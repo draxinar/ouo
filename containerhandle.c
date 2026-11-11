@@ -100,14 +100,14 @@ InitContainerHandle(ContainerHandle *this, void *fp, int writable, int isQFile)
 void
 ContainerHandle_Unregister(ContainerHandle *this)
 {
-	StdTreeNode *node;
+	StdTreeNode *node, *next;
 	uintptr_t key = (uintptr_t)this->fp;
 
 	node = StdTree_LowerBound(g_HandleMap, key);
 	if (node == g_HandleMap->head || node->key != key)
 		node = g_HandleMap->head;
 
-	StdTree_RBErase(g_HandleMap, node);
+	StdTree_RBErase(g_HandleMap, &next, node);
 }
 
 /*
