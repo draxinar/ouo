@@ -20907,7 +20907,7 @@ CHintManager_CreateBucketPair(CResManager *rm, void *keyPtr, void *valuePtr)
 			return 0;
 	}
 
-	CResList_KeyInsert(rm->keys[bucket], keyPtr);
+	CResList_AppendValue(rm->keys[bucket], keyPtr);
 	CResList_InsertOrSetDataHint(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;

@@ -707,7 +707,7 @@ LoadAll_RegionGrid(void)
 		node = CResList_Begin(&sortedList);
 		for (;;) {
 			if (!CResList_IsValid(&sortedList, node)) {
-				CResList_AppendAndStore_ByNameAll(&sortedList, (uint32_t *)&newReg);
+				CResList_AppendValue(&sortedList, (uint32_t *)&newReg);
 				break;
 			}
 			existing = *(CRegion **)CResList_GetData(&sortedList, node);

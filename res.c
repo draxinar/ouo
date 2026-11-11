@@ -27,13 +27,9 @@
 #include "vtable.h"
 #include "world.h"
 
-static void *CResList_RemoveVal_ByNameAll(CResList *list, uintptr_t valNode, void **outErased, uint32_t direction); // 0x00423E90
-static void CResList_ClearAll_ByNameAllVal(CResList *list); // 0x004239D0
 static void SortByLocation_Entry(uintptr_t *first, uintptr_t *last, char cmp); // 0x004302B0
-static void *CResList_InsertBefore_ByNameAll(CResList *list, CResListNode *position); // 0x00430720
 static void *CResManager_NextIterErase_ByNameAll(CResManager *rm, CSearchCtx *out, CSearchCtx *current, uint32_t direction); // 0x004305D0
 static void *CResManager_FindNextBucket_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t bucket, uint32_t direction); // 0x004304D0
-static void *CResList_InsertAfter_ByNameAll(CResList *list, CResListNode *position); // 0x004309E0
 static CResListNode *CStringList_InsertEntry(CStringList *sl, void *data, int direction); // 0x0043F3D0
 static CStringListNode *CStringListEntry_Constructor(CStringListNode *this, CString *name, int weight); // 0x0043F2F0
 static CResList *CResList_ScalarDeleteT(CResList *list, int flags); // 0x0043F2A0
@@ -45,18 +41,14 @@ static void CStringList_DestructorEffects(CStringList *sl); // 0x0043EDF0
 static void CResList_SortedInsert(CResList *list, void *data, int direction, int orderedFlag); // 0x0043F5B0
 static void CResList_DestructorI(CResList *list); // 0x0043FC10
 static void CResList_SetValueOnNodeI(CResList *list, CResListNode *node, void *value); // 0x0043FBF0
-static CResListNode *CResList_AllocTailNodeI(CResList *list); // 0x0043FB40
 static void CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction); // 0x0043FC50
 static void CResList_DestructorS(CResList *list); // 0x0043FDD0
 static void CResList_SetValueOnNodeS(CResList *list, CResListNode *node, void *value); // 0x0043FDB0
-static CResListNode *CResList_AllocTailNodeS(CResList *list); // 0x0043FD00
 static void CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, CString *key, CSearchCtx *startCtx, int direction); // 0x0043FDF0
 static void CResList_DestructorC(CResList *list); // 0x0043FF70
 static void CResList_SetValueOnNodeC(CResList *list, CResListNode *node, void *value); // 0x0043FF50
-static CResListNode *CResList_AllocTailNodeC(CResList *list); // 0x0043FEA0
 static void CResList_DestructorT(CResList *list); // 0x00440360
 static void CResList_SetValueOnNodeEffects(CResList *list, CResListNode *node, void *srcData); // 0x00440340
-static CResListNode *CResList_AllocTailNodeE(CResList *list); // 0x00440290
 static CResListNode *CResList_GetOrCreateNodeBin(CResList *list, void *data); // 0x00440490
 static CResListNode *CResList_InsertDirectionE(CResList *list, void *srcData, int direction); // 0x004403F0
 static void CResList_DestructorE(CResList *list); // 0x004403D0
@@ -65,12 +57,10 @@ static void CResList_InsertAtNodeStr(CResList *list, CResListNode *node, void *d
 static void CResList_InsertAtEndStr(CResList *list, void *data, int direction); // 0x004407A0
 static void *CResManager_NextEntryA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00440900
 static void CResList_ClearInternalI(CResList *list); // 0x00440AD0
-static CResListNode *CResList_RecycleNodeI(CResList *list, CResListNode *afterNode); // 0x004409E0
 static void CResListNode_ReplaceDataI(CResListNode *node, void *newData); // 0x00440B40
 static void *CResManager_NextEntryD(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00440BA0
 static void CResListNode_ReplaceDataS(CResListNode *node, void *newData); // 0x00440DB0
 static void CResList_ClearInternalS(CResList *list); // 0x00440D70
-static CResListNode *CResList_RecycleNodeS(CResList *list, CResListNode *afterNode); // 0x00440C80
 static void *CResManager_NextEntryC(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00440E10
 static void CResListNode_ReplaceData(CResListNode *node, void *newData); // 0x00441020
 static void CResList_ClearInternalC(CResList *list); // 0x00440FE0
@@ -80,12 +70,9 @@ static CResListNode *CResList_AllocForwardE(CResList *list, void *srcData); // 0
 static void CResList_ClearInternalE(CResList *list); // 0x004412F0
 static void CResListNode_SetDataSLE(CResListNode *node, void *srcData); // 0x00441290
 static void CResList_ClearInternalT(CResList *list); // 0x00441250
-static CResListNode *CResList_RecycleNodeE(CResList *list, CResListNode *afterNode); // 0x00441160
 static CResListNode *CResListNode_ScalarDeleteStr(CResListNode *node, int flags); // 0x00441390
 static void CResListNode_SetDataNP(CResListNode *node, CNamedProperty *src); // 0x00441580
 static CResListNode *CResList_FreeNodeSLN(CResList *list, CResListNode *node, int direction); // 0x00441520
-static CResListNode *CResList_GetOrAllocTailNP(CResList *list); // 0x00441470
-static CResListNode *CResList_GetOrAllocHeadNP(CResList *list); // 0x004413C0
 static CResListNode *CResList_AppendStr(CResList *list, void *data); // 0x004417B0
 static CResListNode *CResList_PrependStr(CResList *list, void *data); // 0x00441780
 static CResListNode *CResList_InsertAfterStr(CResList *list, CResListNode *afterNode, void *data); // 0x00441740
@@ -104,66 +91,42 @@ static CResListNode *CResListNodeS_ScalarDelete(CResListNode *node, int flags); 
 static CResListNode *CResListNodeI_ScalarDelete(CResListNode *node, int flags); // 0x00442690
 static CResListNode *CResListNodeSLN_ScalarDelete(CResListNode *node, int flags); // 0x00442660
 static CResListNode *CResList_UnlinkNodeE(CResList *list, CResListNode *node, void **outData, int direction); // 0x00442590
-static CResListNode *CResList_InsertBeforeHeadE(CResList *list, CResListNode *afterNode); // 0x004424A0
-static CResListNode *CResList_InsertAfterTailE(CResList *list, CResListNode *beforeNode); // 0x004423B0
 static CResListNode *CResList_UnlinkNodeT(CResList *list, CResListNode *node, void **outData, int direction); // 0x004422E0
 static CResListNode *CResList_UnlinkNodeC(CResList *list, CResListNode *node, void **outData, int direction); // 0x00442210
 static CResListNode *CResList_UnlinkNodeS(CResList *list, CResListNode *node, void **outData, int direction); // 0x00442140
 static CResListNode *CResList_UnlinkNodeI(CResList *list, CResListNode *node, void **outData, int direction); // 0x00442070
 static void CResListNode_SetDataStr(CResListNode *node, void *srcData); // 0x00442010
 static CResListNode *CResList_UnlinkNodeSLN(CResList *list, CResListNode *node, void **outData, int direction); // 0x00441F40
-static CResListNode *CResList_InsertBeforeHeadNP(CResList *list, CResListNode *tailNode); // 0x00441E50
-static CResListNode *CResList_InsertAfterTailNP(CResList *list, CResListNode *headNode); // 0x00441D60
 static CNamedProperty *CNamedProperty_Copy(CNamedProperty *this, CNamedProperty *src); // 0x00441D20
 static CNamedProperty *CNamedProperty_Constructor(CNamedProperty *this, CNamedProperty *src); // 0x00441CC0
 static CStringListNode *CStringListNode_ScalarDelete(CStringListNode *node, int flags); // 0x00441BF0
 static void CResList_SetDataE(CResListNode *node, void *srcData); // 0x00441B90
 static CResListNode *CResList_FreeNodeE(CResList *list, CResListNode *node, int direction); // 0x00441B30
-static CResListNode *CResList_GetOrAllocTailE(CResList *list); // 0x00441A80
-static CResListNode *CResList_GetOrAllocHeadE(CResList *list); // 0x004419D0
 static CResListNode *CResList_FreeNodeT(CResList *list, CResListNode *node, int direction); // 0x00441970
 static CResListNode *CResList_FreeNodeC(CResList *list, CResListNode *node, int direction); // 0x00441910
 static CResListNode *CResList_FreeNodeS(CResList *list, CResListNode *node, int direction); // 0x004418B0
 static CResListNode *CResList_FreeNodeI(CResList *list, CResListNode *node, int direction); // 0x00441850
-static CResListNode *CResList_AllocAndSetData(CResList *list, uintptr_t *valuePtr); // 0x0045F300
-static CResListNode *CResList_AllocNode(CResList *list); // 0x0045F3A0
-static CResListNode *CResList_PushFront_SpawnLocal(CResList *list, CResListNode *afterNode); // 0x0045F5D0
 static void CResManager_Clear_Hint(CResManager *this); // 0x00464830
 static void *CResManager_SearchBucketHint(CResManager *rm, CSearchCtx *output, uint32_t *key, CSearchCtx *startCtx, int direction); // 0x00464680
 static void CResList_ValNodeDestructor_HintVariant(CResListNode *this); // 0x00465400
 static void CResList_ClearAll_HintVal(CResList *this); // 0x004653C0
-static CResListNode *CResList_PushFront_ResManager2(CResList *list, CResListNode *position); // 0x004652D0
-static void CResList_ClearAll_HintKey(CResList *this); // 0x00465290
-static CResListNode *CResList_Erase_ResManager2(CResList *list, CResListNode *node, void **outData, int direction); // 0x004651C0
-static CResListNode *CResList_PushFront_ResManager(CResList *list, CResListNode *position); // 0x004650D0
 static void *CResListValNode_ScalarDelete_HintVar(CResListNode *this, int flags); // 0x004650A0
 static void CResListNode_SetDataHint(CResListNode *node, void *data); // 0x00465040
 static CResListNode *CResList_Erase_ResManager(CResList *list, CResListNode *node, void **outData, int direction); // 0x00464F50
-static CResListNode *CResList_AllocTailNodeHintKey(CResList *list); // 0x00464EA0
 static void *CResManager_NextEntryHint(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x00464CA0
 static CResListNode *CResList_EraseAndFree_Hint(CResList *list, CResListNode *node, int direction); // 0x00465480
 static CResListNode *CResList_Erase_Region(CResList *list, CResListNode *node, void **outData, int direction); // 0x00466ED0
-static CResListNode *CResList_AllocAndAppend(CResList *list); // 0x00473F50
-static CResListNode *CResList_InsertAfterNode(CResList *list, CResListNode *afterNode); // 0x00474140
-static CResListNode *CResList_RemoveNode_Bin(CResList *list, CResListNode *node, void **outData, int direction); // 0x00474000
 static void CResManager_ClearMultiA(CResManager *rm); // 0x0047A510
 static void CResList_ConstructorEmpty(CResList *this); // 0x00474473
 static CResListNode *CResList_EraseAndFree_MultiVal(CResList *list, CResListNode *node, int direction); // 0x0047D040
-static CResListNode *CResList_PushFront_MultiC(CResList *list, CResListNode *afterNode); // 0x0047CF50
 static CResListNode *CResList_EraseAndFree_MultiB(CResList *list, CResListNode *node, int direction); // 0x0047CEA0
-static CResListNode *CResList_PushFront_MultiB(CResList *list, CResListNode *afterNode); // 0x0047CDB0
-static CResListNode *CResList_PushFront_MultiA(CResList *list, CResListNode *afterNode); // 0x0047CBF0
 static void CResList_ReplaceData_C(CResListNode *this, void *data); // 0x0047C780
 static void CResList_ClearAll_MultiVal(CResList *list); // 0x0047C6F0
-static void *CResList_AppendNode_C(CResList *list); // 0x0047C640
 static CSearchCtx *CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction); // 0x0047C560
 static void CResManager_BeginIterInternalMultiB(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047C460
 static void CResList_ReplaceData_B(CResListNode *this, void *data); // 0x0047C400
 static void CResList_ClearAll_MultiB(CResList *list); // 0x0047C3C0
 static CResListNode *CResList_Erase_MultiKey(CResList *list, CResListNode *node, void **outData, int direction); // 0x0047C2F0
-static CResListNode *CResList_AppendNode_B(CResList *list); // 0x0047C240
-static void CResList_ClearAll_MultiA(CResList *list); // 0x0047C200
-static CResListNode *CResList_AppendNode_A(CResList *list); // 0x0047C100
 static CSearchCtx *CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *output, CSearchCtx *searchCtx, int direction); // 0x0047C020
 static void *CResList_AppendData_C(CResList *this, void *data); // 0x0047BE70
 static CResListNode *CResList_Erase_MultiVal(CResList *list, CResListNode *node, void **outData, int direction); // 0x0047BD80
@@ -171,7 +134,6 @@ static void *CResManager_NextIterInternalMultiB(CResManager *rm, CSearchCtx *out
 static void CResManager_ClearMultiB(CResManager *rm); // 0x0047BB50
 static CSearchCtx *CResManager_FindByKey_B2(CResManager *this, CSearchCtx *output, void *keyPtr, CSearchCtx *searchCtx, int direction); // 0x0047BAA0
 static void *CResList_AppendData_B(CResList *this, void *data); // 0x0047BA70
-static void *CResList_AppendInt_A(CResList *this, uint32_t *valuePtr); // 0x0047BA20
 static void *CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, void **outData, int direction); // 0x0047B880
 static void *CResManager_NextIterInternalMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction); // 0x0047B730
 static void CResManager_BeginIterInternalMultiA(CResManager *rm, CSearchCtx *output, uint32_t startBucket, int direction); // 0x0047B630
@@ -183,7 +145,6 @@ static void *CResList_StoreVal_ByFile(CResList *list, void *value); // 0x004A7E1
 static void *CResList_AdvanceValIter(CResListNode *this, CRegion *src); // 0x004A7D70
 static void CResList_Destructor_ByFileVal(CResList *this); // 0x004A7D50
 static void *CResList_RemoveVal_ByFile(CResList *list, uintptr_t valNode, void **outErased, uint32_t direction); // 0x004A7C80
-static void *CResList_InsertAfter_ByFile(CResList *list, CResListNode *position); // 0x004A7B90
 static void *CResManager_NextIterErase_ByFile(CResManager *rm, CSearchCtx *out, CSearchCtx *current, uint32_t direction); // 0x004A7A40
 static void *CResManager_NextIterStep_ByFile(CResManager *rm, CSearchCtx *out, CSearchCtx *current, uint32_t direction); // 0x004A7960
 static void *ScalarDestructor_ByFileVal(CResList *this, int flag); // 0x004A7900
@@ -193,7 +154,6 @@ static void CResManager_StrKeyDestructor_Clear_ByNameAll(CResManager *rm); // 0x
 static void *CResManager_SearchBucket_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7460
 static void *CResList_InsertVal_ByFile(CResList *list, void *value); // 0x004A7430
 static void CResList_NextIter_ByFile(CResList *list, uintptr_t valNode, CRegion *src); // 0x004A7410
-static void *CResList_GetTailVal_ByFile(CResList *list); // 0x004A7360
 static CSearchCtx *CResManager_InternalErase_ByFile(CResManager *rm, CSearchCtx *eraseOut, CSearchCtx *current, void **outErased, uint32_t direction); // 0x004A71E0
 static void CResManager_IntKeyDestructor_Clear_ByFile(CResManager *rm); // 0x004A7100
 static void *CResManager_SearchBucket_ByFile(CResManager *rm, CSearchCtx *out, uint32_t *keyPtr, CSearchCtx *localCtx, uint32_t direction); // 0x004A7050
@@ -213,27 +173,18 @@ static void CResManager_ClearJ(CResManager *rm); // 0x004C1A80
 static CSearchCtx *CResManager_FindOrInsertH(CResManager *rm, CSearchCtx *output, CString *key); // 0x004C1840
 static void *CResManager_SearchBucket_DefinesStr(CResManager *rm, CSearchCtx *output, void *searchKey, CSearchCtx *ctx, int direction); // 0x004C1790
 static CResListNode *CResList_AllocForwardG(CResList *list, void *srcData); // 0x004C1760
-static CResListNode *CResList_BeginIterF(CResList *list); // 0x004C2330
 static void *CResManager_NextIterInternal_TemplatesB(CResManager *rm, CSearchCtx *output, CSearchCtx *ctx, int direction); // 0x004C2250
 static void *CResList_ScalarDelete_TemplatesVar(CResList *this, int flags); // 0x004C2220
 static void CResList_ClearInternal_TemplatesVal(CResList *this); // 0x004C23E0
-static CResListNode *CResList_AllocTailNodeG(CResList *list); // 0x004C2560
 static void *CResManager_NextIterInternal_NameTable(CResManager *rm, CSearchCtx *output, CSearchCtx *ctx, int direction); // 0x004C2480
 static void CResListNode_ReplaceDataF(CResListNode *node, void *newData); // 0x004C2420
 static void CResList_ClearInternal_NameTableVal(CResList *this); // 0x004C2610
-static CResListNode *CResList_EraseAndFree_K(CResList *list, CResListNode *node, int direction); // 0x004C3390
 static CResListNode *CResList_UnlinkNodeG(CResList *list, CResListNode *node, void **outData, int direction); // 0x004C32C0
 static CResListNode *CResList_UnlinkNodeF(CResList *list, CResListNode *node, void **outData, int direction); // 0x004C31F0
 static void CStringPairListNode_FieldDestructor(CStringPairListNode *this); // 0x004C31A0
 static void CStringPairListNode_Destructor(CStringPairListNode *this); // 0x004C3180
 static void CResList_AllocForward_LabelsWrapper(CResListNode *node, void *newData); // 0x004C30F0
 static CResListNode *CResList_EraseAndFree_Labels(CResList *list, CResListNode *node, int direction); // 0x004C3090
-static CResListNode *CResList_AllocTailNode_LabelsVal(CResList *list); // 0x004C2FE0
-static CResListNode *CResList_AllocTailNode_TemplatesKey(CResList *list); // 0x004C2F30
-static void CResList_ClearAll_NameTable(CResList *this); // 0x004C2EF0
-static CResListNode *CResList_RecycleNodeJ(CResList *list, CResListNode *afterNode); // 0x004C2E00
-static CResListNode *CResList_InsertNodeAfterG(CResList *list, CResListNode *afterNode); // 0x004C2CB0
-static CResListNode *CResList_RecycleNodeF(CResList *list, CResListNode *afterNode); // 0x004C2B60
 static void CResList_ValNodeDestructor_NameTable(CNameEntry *this); // 0x004C2B40
 static void *CResListValNode_ScalarDelete_NameTbl(CNameEntry *this, int flags); // 0x004C2B10
 static void CResList_RemoveAll(CResList *this); // 0x004C2940
@@ -242,15 +193,12 @@ static void *CResManager_NextIterInternal_Labels(CResManager *rm, CSearchCtx *ou
 static void *CResManager_NextIterInternal_Defines(CResManager *rm, CSearchCtx *output, CSearchCtx *ctx, int direction); // 0x004C26B0
 static void CResListNode_ReplaceDataG(CResListNode *node, void *newData); // 0x004C2650
 static void CResListNodeJ2_Destructor(CResListNode *node); // 0x004C38B0
-static CResListNode *CResList_UnlinkNode_K(CResList *list, CResListNode *node, void **outData, int direction); // 0x004C37E0
 static void CResListNodeG_Destructor(CResListNode *node); // 0x004C3790
 static void CResListNodeF_Destructor(CResListNode *node); // 0x004C3740
 static CResListNode *CResListNodeJ2_ScalarDelete(CResListNode *node, int flags); // 0x004C3710
 static CResListNode *CResListNodeG_ScalarDelete(CResListNode *node, int flags); // 0x004C36E0
 static CResListNode *CResListNodeF_ScalarDelete(CResListNode *node, int flags); // 0x004C36B0
 static CResListNode *CResList_UnlinkNodeJ2(CResList *list, CResListNode *node, void **outData, int direction); // 0x004C35E0
-static CResListNode *CResList_AllocTailNodeK(CResList *list, CResListNode *afterNode); // 0x004C34F0
-static CResListNode *CResList_InsertBeforeJ(CResList *list, CResListNode *afterNode); // 0x004C3400
 
 // CRandom - the binary's call sites compile to the CRT rand at 0x004E9BD0.
 #define CRandom() CRT_rand()
@@ -306,66 +254,85 @@ CResList_Begin(CResList *list)
  * 0x004238E0 - CResList::~CResList (ByName/All vals)
  *
  * Destructor for the ByName/All val list: walks the list and frees
- * each entry via CResList_ClearAll_ByNameAllVal.
+ * each entry via CResList_EraseAll.
  */
 void
 CResList_Destructor_ByNameAllVal(CResList *this)
 {
-	CResList_ClearAll_ByNameAllVal(this);
+	CResList_EraseAll(this);
 }
 
 /*
- * 0x004239D0 - std::_Tree::clear (ByName/All vals)
+ * 0x004239D0 - CResList_ClearAll_ByNameAllVal
+ * 0x0045F520 - CPlayerList_DisconnectAll
+ * 0x00465290 - CResList_ClearAll_HintKey
+ * 0x004740D0 - CResList_EraseAll
+ * 0x0047C200 - CResList_ClearAll_MultiA
+ * 0x004C2EF0 - CResList_ClearAll_NameTable
  *
- * Walks the list from begin, erasing and freeing each node for the
- * ByName/All val variant.
+ * Erases every node from the head through CResList_EraseAndFree, which
+ * frees each node's data. MSVC kept six identical instantiations.
  */
-static void
-CResList_ClearAll_ByNameAllVal(CResList *list)
+void
+CResList_EraseAll(CResList *list)
 {
 	CResListNode *iter;
 
 	iter = CResList_Begin(list);
-	while (CResList_IsValid(list, iter)) {
-		iter = (CResListNode *)CResList_EraseAndFree_ByNameAllVal(list, iter, 1);
-	}
+	while (CResList_IsValid(list, iter))
+		iter = CResList_EraseAndFree(list, iter, 1);
 }
 
 /*
- * 0x00423B40 - std::_Tree::erase and free (ByName/All vals)
+ * 0x00423B40 - CResList_EraseAndFree_ByNameAllVal
+ * 0x0045F290 - CResList_EraseAndFree_Spawn
+ * 0x00464E30 - CResList_RemoveKeyNode
+ * 0x00473EB0 - CResList_RemoveAndFree
+ * 0x0047C1B0 - CResList_EraseAndFree_MultiA
+ * 0x004C3390 - CResList_EraseAndFree_K
  *
- * Unlinks the node via CResList_RemoveVal_ByNameAll and frees its data.
+ * Erases node through CResList_EraseNode, which writes data before
+ * reading it, and frees the data the node held. Returns the next node
+ * when direction is 1 and the previous one otherwise. MSVC kept six
+ * identical instantiations.
  */
-void *
-CResList_EraseAndFree_ByNameAllVal(CResList *list, CResListNode *node, int direction)
+CResListNode *
+CResList_EraseAndFree(CResList *list, CResListNode *node, int direction)
 {
-	void *outData;
 	CResListNode *result;
+	void *data;
 
-	outData = NULL;
-	result = (CResListNode *)CResList_RemoveVal_ByNameAll(list, (uintptr_t)node, &outData, (uint32_t)direction);
-	if (outData != NULL)
-		OperatorDelete(outData);
+	result = CResList_EraseNode(list, node, &data, direction);
+	if (data != NULL)
+		OperatorDelete(data);
 	return result;
 }
 
 /*
- * 0x00423E90 - CResList::RemoveVal (ByName/All vals variant)
+ * 0x00423E90 - CResList_RemoveVal_ByNameAll
+ * 0x0045F450 - CResList_Erase_Spawn
+ * 0x004651C0 - CResList_Erase_ResManager2
+ * 0x00474000 - CResList_RemoveNode_Bin
+ * 0x0047CCE0 - CResList_Erase_MultiC
+ * 0x004C37E0 - CResList_UnlinkNode_K
  *
- * Unlinks valNode, hands its data to *outErased, frees the node, and returns
- * the neighbor chosen by direction.
+ * Unlinks node, hands its data back through *outData, destroys the node
+ * and decrements the count. Returns the next node when direction is 1
+ * and the previous one otherwise, or NULL for a NULL node. The test of
+ * node before the delete is dead, as in the binary. MSVC kept six
+ * identical instantiations.
  */
-static void *
-CResList_RemoveVal_ByNameAll(CResList *list, uintptr_t valNode, void **outErased, uint32_t direction)
+CResListNode *
+CResList_EraseNode(CResList *list, CResListNode *node, void **outData, int direction)
 {
 	CResListNode *prev, *next;
 
-	*outErased = NULL;
-	if (valNode == 0)
+	*outData = NULL;
+	if (node == NULL)
 		return NULL;
 
-	prev = CResList_GetTail((CResList *)valNode);
-	next = CResList_Begin((CResList *)valNode);
+	prev = CResList_GetTail((CResList *)node);
+	next = CResList_Begin((CResList *)node);
 
 	if (prev != NULL)
 		CResListNode_SetNext(prev, next);
@@ -377,10 +344,10 @@ CResList_RemoveVal_ByNameAll(CResList *list, uintptr_t valNode, void **outErased
 	else
 		list->tail = prev;
 
-	*outErased = CResListNode_SwapData((CResListNode *)valNode, NULL);
+	*outData = CResListNode_SwapData(node, NULL);
 
-	if ((CResListNode *)valNode != NULL)
-		CResListNode_ScalarDelete((CResListNode *)valNode, 1);
+	if (node != NULL)
+		CResListNode_ScalarDelete(node, 1);
 
 	list->count--;
 
@@ -576,26 +543,32 @@ CResList_InsertAndStore_ByNameAll(CResList *list, CResListNode *position, uint32
 {
 	CResListNode *newNode;
 
-	newNode = (CResListNode *)CResList_InsertBefore_ByNameAll(list, position);
+	newNode = (CResListNode *)CResList_InsertBefore(list, position);
 	if (newNode != NULL)
 		CResListNode_SetDataInt(newNode, valuePtr);
 	return newNode;
 }
 
 /*
- * 0x004304A0 - CResList AppendTail+StoreData for ByName/All vals
+ * 0x004304A0 - CResList_AppendAndStore_ByNameAll
+ * 0x0045F300 - CResList_AllocAndSetData
+ * 0x00464BE0 - CResList_KeyInsert
+ * 0x00473F20 - CResList_InsertBack
+ * 0x0047BA20 - CResList_AppendInt_A
  *
- * Appends a tail node and stores *valuePtr in it.
+ * Appends a node through CResList_AllocTail and copies *valuePtr into it
+ * through CResListNode_SetDataInt. Returns the node. MSVC kept five
+ * identical instantiations.
  */
-void *
-CResList_AppendAndStore_ByNameAll(CResList *list, uint32_t *valuePtr)
+CResListNode *
+CResList_AppendValue(CResList *list, void *valuePtr)
 {
-	CResListNode *newNode;
+	CResListNode *node;
 
-	newNode = (CResListNode *)CResList_GetOrCreateTail_ByNameAll(list);
-	if (newNode != NULL)
-		CResListNode_SetDataInt(newNode, valuePtr);
-	return newNode;
+	node = CResList_AllocTail(list);
+	if (node != NULL)
+		CResListNode_SetDataInt(node, valuePtr);
+	return node;
 }
 
 /*
@@ -700,109 +673,153 @@ end:
 }
 
 /*
- * 0x00430720 - CResList::InsertBefore (ByName/All val)
+ * 0x00430720 - CResList_InsertBefore_ByNameAll
+ * 0x00441610 - CResList_InsertBeforeNode
+ * 0x00441D60 - CResList_InsertAfterTailNP
+ * 0x004423B0 - CResList_InsertAfterTailE
+ * 0x004C3400 - CResList_InsertBeforeJ
  *
- * Allocates a new node and splices it in before position, updating head/tail.
+ * Allocates a node and links it in before pos, making it the head when
+ * pos was, and the tail too when the list had none. Returns the node, or
+ * NULL for a NULL pos. MSVC kept five identical instantiations.
  */
-static void *
-CResList_InsertBefore_ByNameAll(CResList *list, CResListNode *position)
+CResListNode *
+CResList_InsertBefore(CResList *list, CResListNode *pos)
 {
-	CResListNode *prevNode;
-	CResListNode *newNode;
+	CResListNode *prev, *node;
 	void *raw;
 
-	if (position == NULL)
+	if (pos == NULL)
 		return NULL;
 
-	prevNode = CResList_GetTail((CResList *)position);
+	prev = CResList_GetTail((CResList *)pos);
 
 	raw = OperatorNew(sizeof(CResListNode));
 	if (raw != NULL)
-		newNode = (CResListNode *)CResListNode_Constructor_bin((CResListNode *)raw);
+		node = CResListNode_Constructor_bin(raw);
 	else
-		newNode = NULL;
+		node = NULL;
 
-	CResListNode_SetPrev(newNode, prevNode);
-	CResListNode_SetNext(newNode, position);
-	CResListNode_SetPrev(position, newNode);
+	CResListNode_SetPrev(node, prev);
+	CResListNode_SetNext(node, pos);
+	CResListNode_SetPrev(pos, node);
 
-	if (prevNode != NULL) {
-		CResListNode_SetNext(prevNode, newNode);
+	if (prev != NULL) {
+		CResListNode_SetNext(prev, node);
 	} else {
-		list->head = newNode;
+		list->head = node;
 		if (list->tail == NULL)
-			list->tail = newNode;
+			list->tail = node;
 	}
-
 	list->count++;
-	return newNode;
+	return node;
 }
 
 /*
- * 0x00430810 - Get/create tail (ByName/All vals)
+ * 0x00430810 - CResList_GetOrCreateTail_ByNameAll
+ * 0x0043F400 - CResList_AllocTailNodeA
+ * 0x0043F700 - CResList_AllocTailNodeB
+ * 0x0043FB40 - CResList_AllocTailNodeI
+ * 0x0043FD00 - CResList_AllocTailNodeS
+ * 0x0043FEA0 - CResList_AllocTailNodeC
+ * 0x00440290 - CResList_AllocTailNodeE
+ * 0x00441470 - CResList_GetOrAllocTailNP
+ * 0x00441A80 - CResList_GetOrAllocTailE
+ * 0x0045F3A0 - CResList_AllocNode
+ * 0x00464D80 - CResList_AllocTailNodeHintVal
+ * 0x00464EA0 - CResList_AllocTailNodeHintKey
+ * 0x00473F50 - CResList_AllocAndAppend
+ * 0x0047C100 - CResList_AppendNode_A
+ * 0x0047C240 - CResList_AppendNode_B
+ * 0x0047C640 - CResList_AppendNode_C
+ * 0x004A7360 - CResList_GetTailVal_ByFile
+ * 0x004C2330 - CResList_BeginIterF
+ * 0x004C2560 - CResList_AllocTailNodeG
+ * 0x004C2870 - CResList_BeginIterJ
+ * 0x004C2FE0 - CResList_AllocTailNode_LabelsVal
  *
- * Appends a new tail via CResList_InsertAfter_ByNameAll when the list is
- * non-empty, or allocates a fresh head/tail node otherwise.
+ * Appends a node: links a new one in after the tail through
+ * CResList_InsertAfter, or allocates the first node of an empty list.
+ * Returns the new tail. MSVC kept twenty-one identical instantiations.
  */
-void *
-CResList_GetOrCreateTail_ByNameAll(CResList *list)
+CResListNode *
+CResList_AllocTail(CResList *list)
 {
-	CResListNode *newNode;
+	CResListNode *node;
 	void *raw;
 
-	if (list->tail != NULL) {
-		return CResList_InsertAfter_ByNameAll(list, list->tail);
-	}
+	if (list->tail != NULL)
+		return CResList_InsertAfter(list, list->tail);
 
 	raw = OperatorNew(sizeof(CResListNode));
 	if (raw != NULL)
-		newNode = (CResListNode *)CResListNode_Constructor_bin((CResListNode *)raw);
+		node = CResListNode_Constructor_bin(raw);
 	else
-		newNode = NULL;
+		node = NULL;
 
-	list->tail = newNode;
+	list->tail = node;
 	list->head = list->tail;
 	list->count++;
 	return list->tail;
 }
 
 /*
- * 0x004309E0 - CResList::InsertAfter (ByName/All val)
+ * 0x004309E0 - CResList_InsertAfter_ByNameAll
+ * 0x004404F0 - CResList_RecycleNodeA
+ * 0x004407D0 - CResList_RecycleNodeC
+ * 0x004409E0 - CResList_RecycleNodeI
+ * 0x00440C80 - CResList_RecycleNodeS
+ * 0x00440EF0 - CResList_RecycleNodeD
+ * 0x00441160 - CResList_RecycleNodeE
+ * 0x00441E50 - CResList_InsertBeforeHeadNP
+ * 0x004424A0 - CResList_InsertBeforeHeadE
+ * 0x0045F5D0 - CResList_PushFront_SpawnLocal
+ * 0x004650D0 - CResList_PushFront_ResManager
+ * 0x004652D0 - CResList_PushFront_ResManager2
+ * 0x00474140 - CResList_InsertAfterNode
+ * 0x0047CBF0 - CResList_PushFront_MultiA
+ * 0x0047CDB0 - CResList_PushFront_MultiB
+ * 0x0047CF50 - CResList_PushFront_MultiC
+ * 0x004A7B90 - CResList_InsertAfter_ByFile
+ * 0x004C2B60 - CResList_RecycleNodeF
+ * 0x004C2CB0 - CResList_InsertNodeAfterG
+ * 0x004C2E00 - CResList_RecycleNodeJ
+ * 0x004C34F0 - CResList_AllocTailNodeK
  *
- * Allocates a new node and splices it in after position, updating head/tail.
+ * Allocates a node and links it in after pos, making it the tail when
+ * pos was, and the head too when the list had none. Returns the node, or
+ * NULL for a NULL pos. MSVC kept twenty-one identical instantiations.
  */
-static void *
-CResList_InsertAfter_ByNameAll(CResList *list, CResListNode *position)
+CResListNode *
+CResList_InsertAfter(CResList *list, CResListNode *pos)
 {
-	CResListNode *afterNode;
-	CResListNode *newNode;
+	CResListNode *next, *node;
 	void *raw;
 
-	if (position == NULL)
+	if (pos == NULL)
 		return NULL;
 
-	afterNode = CResList_Begin((CResList *)position);
+	next = CResList_Begin((CResList *)pos);
 
 	raw = OperatorNew(sizeof(CResListNode));
 	if (raw != NULL)
-		newNode = (CResListNode *)CResListNode_Constructor_bin((CResListNode *)raw);
+		node = CResListNode_Constructor_bin(raw);
 	else
-		newNode = NULL;
+		node = NULL;
 
-	CResListNode_SetNext(newNode, afterNode);
-	CResListNode_SetPrev(newNode, position);
-	CResListNode_SetNext(position, newNode);
+	CResListNode_SetNext(node, next);
+	CResListNode_SetPrev(node, pos);
+	CResListNode_SetNext(pos, node);
 
-	if (afterNode != NULL) {
-		CResListNode_SetPrev(afterNode, newNode);
+	if (next != NULL) {
+		CResListNode_SetPrev(next, node);
 	} else {
-		list->tail = newNode;
+		list->tail = node;
 		if (list->head == NULL)
-			list->head = newNode;
+			list->head = node;
 	}
-
 	list->count++;
-	return newNode;
+	return node;
 }
 
 /*
@@ -1165,7 +1182,7 @@ CResList_InsertTailStr(CResList *list, CString *name)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNodeA(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResListNode_SetString(node, name);
 	return node;
@@ -1248,7 +1265,7 @@ CResList_InsertTailDataB(CResList *magicList, CMagicItemListNode *name)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNodeB(magicList);
+	node = CResList_AllocTail(magicList);
 	if (node != NULL)
 		CResListNode_InsertDataB(node, name);
 }
@@ -1292,7 +1309,7 @@ CResManager_ClearI(CResManager *rm)
  *
  * Hashes key and ensures a bucket exists. If flags==1 and key already present,
  * returns an empty ctx; otherwise inserts new key and tail-allocates a value
- * node via CResList_AllocTailNodeI.
+ * node via CResList_AllocTail.
  */
 CSearchCtx *
 CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *key)
@@ -1328,7 +1345,7 @@ CResManager_FindOrInsertInclude(CResManager *rm, CSearchCtx *output, CString *ke
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], key);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)keyNode);
 
-	valNode = CResList_AllocTailNodeI(rm->vals[bucket]);
+	valNode = CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&ctx, bucket);
@@ -1515,7 +1532,7 @@ CResManager_FindOrInsertSecond(CResManager *rm, CSearchCtx *output, CString *key
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], key);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)keyNode);
 
-	valNode = CResList_AllocTailNodeS(rm->vals[bucket]);
+	valNode = CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&ctx, bucket);
@@ -1648,7 +1665,7 @@ CResManager_FindOrInsertC(CResManager *rm, CSearchCtx *output, CString *key)
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], key);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)keyNode);
 
-	valNode = CResList_AllocTailNodeC(rm->vals[bucket]);
+	valNode = CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&ctx, bucket);
@@ -1780,7 +1797,7 @@ CResManager_FindOrInsertEffects(CResManager *rm, CSearchCtx *output, CString *ke
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], key);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)keyNode);
 
-	valNode = CResList_AllocTailNodeE(rm->vals[bucket]);
+	valNode = CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&ctx, bucket);
@@ -2198,30 +2215,6 @@ CStringList_InsertEntry(CStringList *sl, void *data, int direction)
 }
 
 /*
- * 0x0043F400 - CResList::AllocTailNodeA
- *
- * If tail exists, inserts new node after tail via RecycleNodeA.
- * Otherwise allocates a fresh CResListNode and sets it as head and tail.
- */
-CResListNode *
-CResList_AllocTailNodeA(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeA(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x0043F4B0 - CResList::FreeNodeA
  *
  * Unlinks node, releases its CString payload, and returns the neighbor.
@@ -2249,7 +2242,7 @@ CResList_InsertAfterTailA(CResList *list, CString *str)
 {
 	CResListNode *node;
 
-	node = CResList_RecycleNodeB(list);
+	node = CResList_AllocHead(list);
 	if (node != NULL)
 		CResListNode_SetString(node, str);
 	return node;
@@ -2331,29 +2324,6 @@ CResListNode_SetString(CResListNode *node, CString *src)
 	} else {
 		CString_Assign((CString *)node->data, src);
 	}
-}
-
-/*
- * 0x0043F700 - CResList::AllocTailNodeB
- *
- * Allocates a tail node for the CMagicItemList variant.
- */
-CResListNode *
-CResList_AllocTailNodeB(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeC(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -2518,30 +2488,6 @@ CResManager_NextIterInternalA(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 }
 
 /*
- * 0x0043FB40 - CResList::AllocTailNodeI (include variant)
- *
- * If tail exists, inserts new node after tail via RecycleNodeI.
- * Otherwise allocates fresh CResListNode, sets as head and tail.
- */
-static CResListNode *
-CResList_AllocTailNodeI(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeI(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x0043FBF0 - CResList::SetValueOnNodeI (include variant)
  *
  * If node is non-null, delegates to CResListNode_ReplaceDataI.
@@ -2612,30 +2558,6 @@ CResManager_SearchBucketD(CResManager *rm, CSearchCtx *output, CString *key, CSe
 }
 
 /*
- * 0x0043FD00 - CResList::AllocTailNodeS (second variant)
- *
- * If tail exists, inserts new node after tail via RecycleNodeS.
- * Otherwise allocates fresh CResListNode, sets as head and tail.
- */
-static CResListNode *
-CResList_AllocTailNodeS(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeS(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x0043FDB0 - CResList::SetValueOnNodeS (second variant)
  *
  * If node is non-null, delegates to CResListNode_ReplaceDataS.
@@ -2689,30 +2611,6 @@ CResManager_SearchBucketC(CResManager *rm, CSearchCtx *output, CString *key, CSe
 
 	CSearchCtx_SetEntity(&localCtx, 0);
 	CResManager_CreateBucket(output, &localCtx);
-}
-
-/*
- * 0x0043FEA0 - CResList::AllocTailNodeC
- *
- * If tail exists, inserts new node after tail via RecycleNodeD.
- * Otherwise allocates a fresh CResListNode and sets it as head and tail.
- */
-static CResListNode *
-CResList_AllocTailNodeC(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeD(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -2845,30 +2743,6 @@ CResManager_NextIterInternalB(CResManager *rm, CSearchCtx *output, CSearchCtx *c
 }
 
 /*
- * 0x00440290 - CResList::AllocTailNodeE
- *
- * If tail exists, inserts new node after tail via RecycleNodeE.
- * Otherwise allocates fresh CResListNode, sets as head and tail.
- */
-static CResListNode *
-CResList_AllocTailNodeE(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeE(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x00440340 - CResList::SetValueOnNodeEffects (effectTbl variant)
  *
  * If node is non-NULL, calls CResListNode_SetDataSLE to set data.
@@ -2964,7 +2838,7 @@ CResList_GetOrCreateNodeBin(CResList *list, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_GetOrAllocHeadNP(list);
+	node = CResList_AllocHead(list);
 	if (node != NULL)
 		CResListNode_SetDataNP(node, (CNamedProperty *)data);
 	return node;
@@ -2980,64 +2854,36 @@ CResList_AllocAndSetDataNP(CResList *list, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_GetOrAllocTailNP(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResListNode_SetDataNP(node, (CNamedProperty *)data);
 	return node;
 }
 
 /*
- * 0x004404F0 - CResList::RecycleNodeA
+ * 0x004405E0 - CResList_RecycleNodeB
+ * 0x004413C0 - CResList_GetOrAllocHeadNP
+ * 0x004419D0 - CResList_GetOrAllocHeadE
+ * 0x004C2F30 - CResList_AllocTailNode_TemplatesKey
  *
- * Allocates a new CResListNode and inserts it after afterNode in the
- * doubly-linked list. Updates head/tail as needed.
+ * Prepends a node: links a new one in before the head through
+ * CResList_InsertBefore, or allocates the first node of an empty list.
+ * Returns the new head. MSVC kept four identical instantiations.
  */
 CResListNode *
-CResList_RecycleNodeA(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *next, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	next = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, next);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (next != NULL) {
-		CResListNode_SetPrev(next, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x004405E0 - CResList::RecycleNodeB
- *
- * If list has a head, inserts a new node before head via InsertBeforeNode.
- * Otherwise allocates a fresh CResListNode and sets it as sole head+tail.
- */
-CResListNode *
-CResList_RecycleNodeB(CResList *list)
+CResList_AllocHead(CResList *list)
 {
 	CResListNode *node;
+	void *raw;
 
 	if (list->head != NULL)
-		return CResList_InsertBeforeNode(list, list->head);
+		return CResList_InsertBefore(list, list->head);
 
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
+	raw = OperatorNew(sizeof(CResListNode));
+	if (raw != NULL)
+		node = CResListNode_Constructor_bin(raw);
+	else
+		node = NULL;
 
 	list->head = node;
 	list->tail = list->head;
@@ -3118,40 +2964,6 @@ CResList_InsertAtEndStr(CResList *list, void *data, int direction)
 }
 
 /*
- * 0x004407D0 - CResList::RecycleNodeC
- *
- * Identical to RecycleNodeA. Used for CMagicItemList nodes.
- */
-CResListNode *
-CResList_RecycleNodeC(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *next, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	next = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, next);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (next != NULL) {
-		CResListNode_SetPrev(next, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x004408C0 - CResManager::GetKeyAtPos
  *
  * Returns the key data at the ctx's key list position.
@@ -3202,42 +3014,6 @@ CResManager_NextEntryA(CResManager *rm, CSearchCtx *output, CSearchCtx *current,
 
 	CResManager_CreateBucket(output, &localCtx);
 	return output;
-}
-
-/*
- * 0x004409E0 - CResList::RecycleNodeI (include variant)
- *
- * Allocates a new CResListNode and inserts it after afterNode.
- * Uses CResListNode_SetNext/SetPrev helpers and CResList_Begin
- * to read afterNode->next.
- */
-static CResListNode *
-CResList_RecycleNodeI(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -3294,42 +3070,6 @@ CResManager_NextEntryD(CResManager *rm, CSearchCtx *output, CSearchCtx *current,
 }
 
 /*
- * 0x00440C80 - CResList::RecycleNodeS (second variant)
- *
- * Allocates a new CResListNode and inserts it after afterNode.
- * Uses CResListNode_SetNext/SetPrev helpers and CResList_Begin
- * to read afterNode->next.
- */
-static CResListNode *
-CResList_RecycleNodeS(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x00440D70 - CResList::ClearInternal (keys variant)
  *
  * Iterates Begin/IsValid/FreeNodeS to free every node.
@@ -3369,40 +3109,6 @@ CResManager_NextEntryC(CResManager *rm, CSearchCtx *output, CSearchCtx *current,
 }
 
 /*
- * 0x00440EF0 - CResList::RecycleNodeD
- *
- * Allocates a new CResListNode and inserts it after afterNode.
- */
-CResListNode *
-CResList_RecycleNodeD(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x00440FE0 - CResList::ClearInternal (props variant)
  *
  * Iterates Begin/IsValid/FreeNodeC to free every node.
@@ -3439,40 +3145,6 @@ static void *
 CResManager_NextEntryB(CResManager *rm, CSearchCtx *output, CSearchCtx *current, int direction)
 {
 	return CResManager_NextEntryA(rm, output, current, direction);
-}
-
-/*
- * 0x00441160 - CResList::RecycleNodeE
- *
- * Allocates a new CResListNode and inserts it after afterNode.
- */
-static CResListNode *
-CResList_RecycleNodeE(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -3528,7 +3200,7 @@ CResList_AllocForwardE(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_GetOrAllocHeadE(list);
+	node = CResList_AllocHead(list);
 	if (node != NULL)
 		CResList_SetDataE(node, srcData);
 	return node;
@@ -3544,7 +3216,7 @@ CResList_AllocBackwardE(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_GetOrAllocTailE(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResList_SetDataE(node, srcData);
 	return node;
@@ -3562,54 +3234,6 @@ CResListNode_ScalarDeleteStr(CResListNode *node, int flags)
 	if (flags & 1)
 		OperatorDelete(node);
 	return node;
-}
-
-/*
- * 0x004413C0 - CResList::GetOrAllocHead (NamedProperty variant)
- *
- * If head exists, inserts a new node before it via InsertAfterTailNP.
- * Otherwise allocates a fresh CResListNode and sets it as sole head+tail.
- */
-static CResListNode *
-CResList_GetOrAllocHeadNP(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->head != NULL)
-		return CResList_InsertAfterTailNP(list, list->head);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->head = node;
-	list->tail = list->head;
-	list->count++;
-	return list->head;
-}
-
-/*
- * 0x00441470 - CResList::GetOrAllocTail (NamedProperty variant)
- *
- * If tail exists, inserts a new node after it via InsertBeforeHeadNP.
- * Otherwise allocates a fresh CResListNode and sets it as sole head+tail.
- */
-static CResListNode *
-CResList_GetOrAllocTailNP(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_InsertBeforeHeadNP(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -3651,41 +3275,6 @@ CResListNode_SetDataNP(CResListNode *node, CNamedProperty *src)
 }
 
 /*
- * 0x00441610 - CResList::InsertBeforeNode
- *
- * Allocates a new CResListNode and inserts it before beforeNode,
- * updating head/tail as needed.
- */
-CResListNode *
-CResList_InsertBeforeNode(CResList *list, CResListNode *beforeNode)
-{
-	CResListNode *prev, *newNode;
-
-	if (beforeNode == NULL)
-		return NULL;
-
-	prev = CResList_GetTail((CResList *)beforeNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetPrev(newNode, prev);
-	CResListNode_SetNext(newNode, beforeNode);
-	CResListNode_SetPrev(beforeNode, newNode);
-
-	if (prev != NULL) {
-		CResListNode_SetNext(prev, newNode);
-	} else {
-		list->head = newNode;
-		if (list->tail == NULL)
-			list->tail = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x00441700 - CResList: insert before node with CString* data
  *
  * Inserts a new node before beforeNode and sets its CString data.
@@ -3695,7 +3284,7 @@ CResList_InsertBeforeStr(CResList *list, CResListNode *beforeNode, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_InsertBeforeNode(list, beforeNode);
+	node = CResList_InsertBefore(list, beforeNode);
 	if (node != NULL)
 		CResListNode_SetDataStr(node, data);
 	return node;
@@ -3711,7 +3300,7 @@ CResList_InsertAfterStr(CResList *list, CResListNode *afterNode, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_RecycleNodeA(list, afterNode);
+	node = CResList_InsertAfter(list, afterNode);
 	if (node != NULL)
 		CResListNode_SetDataStr(node, data);
 	return node;
@@ -3727,7 +3316,7 @@ CResList_PrependStr(CResList *list, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_RecycleNodeB(list);
+	node = CResList_AllocHead(list);
 	if (node != NULL)
 		CResListNode_SetDataStr(node, data);
 	return node;
@@ -3743,7 +3332,7 @@ CResList_AppendStr(CResList *list, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNodeA(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResListNode_SetDataStr(node, data);
 	return node;
@@ -3846,54 +3435,6 @@ CResList_FreeNodeT(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x004419D0 - CResList::GetOrAllocHeadE
- *
- * If head exists, inserts new node before head via InsertAfterTailE.
- * Otherwise allocates fresh CResListNode, sets as sole head+tail.
- */
-static CResListNode *
-CResList_GetOrAllocHeadE(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->head != NULL)
-		return CResList_InsertAfterTailE(list, list->head);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->head = node;
-	list->tail = list->head;
-	list->count++;
-	return list->head;
-}
-
-/*
- * 0x00441A80 - CResList::GetOrAllocTailE
- *
- * If tail exists, inserts new node after tail via InsertBeforeHeadE.
- * Otherwise allocates fresh CResListNode, sets as sole head+tail.
- */
-static CResListNode *
-CResList_GetOrAllocTailE(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_InsertBeforeHeadE(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x00441B30 - CResList::FreeNodeE
  *
  * Unlinks node and destroys the extracted CEffectTableEntry data.
@@ -3966,76 +3507,6 @@ CNamedProperty_Copy(CNamedProperty *this, CNamedProperty *src)
 	this->field_10 = src->field_10;
 	this->field_14 = src->field_14;
 	return this;
-}
-
-/*
- * 0x00441D60 - CResList::InsertAfterTailNP (NamedProperty variant)
- *
- * Allocates a new CResListNode and inserts it before headNode
- * (i.e. after its tail/prev).
- */
-static CResListNode *
-CResList_InsertAfterTailNP(CResList *list, CResListNode *headNode)
-{
-	CResListNode *tail, *newNode;
-
-	if (headNode == NULL)
-		return NULL;
-
-	tail = CResList_GetTail((CResList *)headNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetPrev(newNode, tail);
-	CResListNode_SetNext(newNode, headNode);
-	CResListNode_SetPrev(headNode, newNode);
-
-	if (tail != NULL) {
-		CResListNode_SetNext(tail, newNode);
-	} else {
-		list->head = newNode;
-		if (list->tail == NULL)
-			list->tail = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x00441E50 - CResList::InsertBeforeHeadNP (NamedProperty variant)
- *
- * Allocates a new CResListNode and inserts it after tailNode
- * (i.e. before its head/next).
- */
-static CResListNode *
-CResList_InsertBeforeHeadNP(CResList *list, CResListNode *tailNode)
-{
-	CResListNode *head, *newNode;
-
-	if (tailNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)tailNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, tailNode);
-	CResListNode_SetNext(tailNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -4254,76 +3725,6 @@ CResList_UnlinkNodeT(CResList *list, CResListNode *node, void **outData, int dir
 }
 
 /*
- * 0x004423B0 - CResList::InsertAfterTailE
- *
- * Allocates new CResListNode, inserts before beforeNode.
- * Uses CResListNode_SetNext/SetPrev helpers.
- */
-static CResListNode *
-CResList_InsertAfterTailE(CResList *list, CResListNode *beforeNode)
-{
-	CResListNode *prev, *newNode;
-
-	if (beforeNode == NULL)
-		return NULL;
-
-	prev = CResList_GetTail((CResList *)beforeNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetPrev(newNode, prev);
-	CResListNode_SetNext(newNode, beforeNode);
-	CResListNode_SetPrev(beforeNode, newNode);
-
-	if (prev != NULL) {
-		CResListNode_SetNext(prev, newNode);
-	} else {
-		list->head = newNode;
-		if (list->tail == NULL)
-			list->tail = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x004424A0 - CResList::InsertBeforeHeadE
- *
- * Allocates new CResListNode, inserts after afterNode.
- * Uses CResListNode_SetNext/SetPrev helpers.
- */
-static CResListNode *
-CResList_InsertBeforeHeadE(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *next, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	next = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, next);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (next != NULL) {
-		CResListNode_SetPrev(next, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x00442590 - CResList::UnlinkNodeE
  *
  * Unlinks node from doubly-linked list, extracts data into *outData
@@ -4535,12 +3936,12 @@ CResListNodeE_Destructor(CResListNode *node)
 /*
  * 0x0045EC0D - CResManager::InsertByRef
  *
- * Inserts value into list via CResList_AllocAndSetData.
+ * Inserts value into list via CResList_AppendValue.
  */
 void
 CResManager_InsertByRef(CResList *list, uintptr_t val)
 {
-	CResList_AllocAndSetData(list, &val);
+	CResList_AppendValue(list, &val);
 }
 
 /*
@@ -4555,44 +3956,8 @@ CResList_RemoveByValue(CResList *list, uintptr_t value)
 
 	node = CResList_FindByValue(list, &value, NULL, 1);
 	if (CResList_IsValid(list, node)) {
-		CResList_EraseAndFree_Spawn(list, node, 1);
+		CResList_EraseAndFree(list, node, 1);
 	}
-}
-
-/*
- * 0x0045F290 - CResList::EraseAndFree (spawn variant)
- *
- * Erases node from the list and frees its extracted data. Returns the
- * next node when flag=1, prev when flag=0.
- */
-CResListNode *
-CResList_EraseAndFree_Spawn(CResList *list, CResListNode *node, int flag)
-{
-	CResListNode *result;
-	void *outData;
-
-	outData = NULL;
-	result = CResList_Erase_Spawn(list, node, &outData, flag);
-	if (outData != NULL)
-		OperatorDelete(outData);
-	return result;
-}
-
-/*
- * 0x0045F300 - CResList::AllocAndSetData
- *
- * Allocates a new node and copies *valuePtr into its data via SetDataInt.
- */
-static CResListNode *
-CResList_AllocAndSetData(CResList *list, uintptr_t *valuePtr)
-{
-	CResListNode *node;
-
-	node = CResList_AllocNode(list);
-	if (node != NULL) {
-		CResListNode_SetDataInt(node, valuePtr);
-	}
-	return node;
 }
 
 /*
@@ -4621,76 +3986,6 @@ CResList_FindByValue(CResList *list, void *keyPtr, CResListNode *startNode, int 
 }
 
 /*
- * 0x0045F3A0 - CResList::AllocNode
- *
- * When the list is non-empty, delegates to PushFront_SpawnLocal to insert
- * before tail. Otherwise allocates a fresh node and sets it as sole
- * head+tail.
- */
-static CResListNode *
-CResList_AllocNode(CResList *list)
-{
-	CResListNode *newNode;
-	void *raw;
-
-	if (list->tail != NULL) {
-		return CResList_PushFront_SpawnLocal(list, list->tail);
-	}
-
-	// Allocate new node
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	list->tail = newNode;
-	list->head = list->tail;
-	list->count = list->count + 1;
-	return list->tail;
-}
-
-/*
- * 0x0045F450 - CResList::Erase template instantiation for spawn lists
- *
- * Unlinks node, extracts its data into *outData, destroys the node,
- * decrements count, and returns the next or prev neighbor per direction.
- */
-CResListNode *
-CResList_Erase_Spawn(CResList *list, CResListNode *node, void **outData, int direction)
-{
-	CResListNode *prev, *next;
-
-	*outData = NULL;
-	if (node == NULL)
-		return NULL;
-
-	prev = CResList_GetTail((CResList *)node);
-	next = CResList_Begin((CResList *)node);
-
-	if (prev != NULL)
-		CResListNode_SetNext(prev, next);
-	else
-		list->head = next;
-
-	if (next != NULL)
-		CResListNode_SetPrev(next, prev);
-	else
-		list->tail = prev;
-
-	*outData = CResListNode_SwapData(node, NULL);
-
-	if (node != NULL)
-		CResListNode_ScalarDelete(node, 1);
-
-	list->count--;
-
-	if (direction == 1)
-		return next;
-	return prev;
-}
-
-/*
  * 0x0045F560 - CResListNode::SetDataInt
  *
  * Stores *srcPtr into node->data, allocating the slot on first use.
@@ -4709,47 +4004,6 @@ CResListNode_SetDataInt(CResListNode *node, void *srcPtr)
 	} else {
 		*(uintptr_t *)node->data = *(uintptr_t *)srcPtr;
 	}
-}
-
-/*
- * 0x0045F5D0 - CResList::PushFront (spawn variant)
- *
- * Inserts a new node immediately after afterNode, updating head/tail
- * if the list was empty. Returns the new node, or NULL if afterNode
- * is NULL.
- */
-static CResListNode *
-CResList_PushFront_SpawnLocal(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *firstNode;
-	CResListNode *newNode;
-	void *raw;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	firstNode = CResList_Begin((CResList *)afterNode);
-
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	CResListNode_SetNext(newNode, firstNode);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (firstNode != NULL) {
-		CResListNode_SetPrev(firstNode, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count = list->count + 1;
-	return newNode;
 }
 
 /*
@@ -5024,7 +4278,7 @@ CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *cur
 	CSearchCtx_Add(&localCtx, &nextCtx);
 
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
+	CResList_EraseAndFree(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
 
 	bucket = CSearchCtx_GetBucket(current);
 	CResList_Erase_ResManager(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outErased, direction);
@@ -5053,22 +4307,6 @@ CResManager_EraseEntry_Hint(CResManager *rm, CSearchCtx *output, CSearchCtx *cur
 }
 
 /*
- * 0x00464BE0 - CResList key list insert
- *
- * Appends a new key node carrying data.
- */
-CResListNode *
-CResList_KeyInsert(CResList *list, void *data)
-{
-	CResListNode *node;
-
-	node = CResList_AllocTailNodeHintVal(list);
-	if (node != NULL)
-		CResListNode_SetDataInt(node, (uint32_t *)data);
-	return node;
-}
-
-/*
  * 0x00464C10 - CResList::InsertOrSetData (hint variant)
  *
  * Appends a new hint-key node carrying data.
@@ -5078,7 +4316,7 @@ CResList_InsertOrSetDataHint(CResList *list, void *data)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNodeHintKey(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResListNode_SetDataHint(node, data);
 	return node;
@@ -5148,78 +4386,14 @@ CResManager_NextEntryHint(CResManager *rm, CSearchCtx *output, CSearchCtx *curre
 }
 
 /*
- * 0x00464D80 - CResList::AllocTailNode (hint val variant)
- *
- * Splices a fresh node in after the tail, or allocates the first node
- * when empty. Both paths call operator new.
- */
-CResListNode *
-CResList_AllocTailNodeHintVal(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_PushFront_ResManager(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
- * 0x00464E30 - Remove key node from keys list
- *
- * Erases keyNode and frees its owned data. Returns the successor.
- */
-void *
-CResList_RemoveKeyNode(CResList *list, uintptr_t keyNode, uint32_t direction)
-{
-	void *outData;
-	CResListNode *result;
-
-	result = CResList_Erase_ResManager2(list, (CResListNode *)keyNode, &outData, direction);
-	if (outData != NULL)
-		OperatorDelete(outData);
-	return result;
-}
-
-/*
  * 0x00464E80 - CResList::~CResList (hint key variant)
  *
- * Destructor for the hint-key list: calls CResList_ClearAll_HintKey.
+ * Destructor for the hint-key list: calls CResList_EraseAll.
  */
 void
 CResList_Destructor_HintKey(CResList *this)
 {
-	CResList_ClearAll_HintKey(this);
-}
-
-/*
- * 0x00464EA0 - CResList::AllocTailNode (hint key variant)
- *
- * Recycles a tail slot, or allocates the first node when empty.
- */
-static CResListNode *
-CResList_AllocTailNodeHintKey(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_PushFront_ResManager2(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
+	CResList_EraseAll(this);
 }
 
 /*
@@ -5305,139 +4479,6 @@ CResListValNode_ScalarDelete_HintVar(CResListNode *this, int flags)
 	if (flags & 1)
 		OperatorDelete(this);
 	return this;
-}
-
-/*
- * 0x004650D0 - CResList::InsertAfter (hint val variant)
- *
- * Allocates a new CResListNode and inserts it after position.
- */
-static CResListNode *
-CResList_PushFront_ResManager(CResList *list, CResListNode *position)
-{
-	CResListNode *newNode, *next;
-	void *raw;
-
-	if (position == NULL)
-		return NULL;
-
-	next = CResList_Begin((CResList *)position);
-
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	CResListNode_SetNext(newNode, next);
-	CResListNode_SetPrev(newNode, position);
-	CResListNode_SetNext(position, newNode);
-
-	if (next != NULL) {
-		CResListNode_SetPrev(next, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x004651C0 - CResList::Erase (hint key variant)
- *
- * Unlinks node, extracts its data into *outData, destroys the node,
- * decrements count, and returns the next or prev neighbor per direction.
- */
-static CResListNode *
-CResList_Erase_ResManager2(CResList *list, CResListNode *node, void **outData, int direction)
-{
-	CResListNode *prev, *next;
-
-	*outData = NULL;
-	if (node == NULL)
-		return NULL;
-
-	prev = CResList_GetTail((CResList *)node);
-	next = CResList_Begin((CResList *)node);
-
-	if (prev != NULL)
-		CResListNode_SetNext(prev, next);
-	else
-		list->head = next;
-
-	if (next != NULL)
-		CResListNode_SetPrev(next, prev);
-	else
-		list->tail = prev;
-
-	*outData = CResListNode_SwapData(node, NULL);
-
-	if (node != NULL)
-		CResListNode_ScalarDelete(node, 1);
-
-	list->count--;
-
-	if (direction == 1)
-		return next;
-	return prev;
-}
-
-/*
- * 0x00465290 - CResList clear-all for hint keys
- *
- * Iterates and frees all key list nodes. Called by CResList_Destructor_HintKey.
- */
-static void
-CResList_ClearAll_HintKey(CResList *this)
-{
-	CResList *list = this;
-	CResListNode *node;
-
-	node = CResList_Begin(list);
-	while (CResList_IsValid(list, node)) {
-		node = CResList_RemoveKeyNode(list, (uintptr_t)node, 1);
-	}
-}
-
-/*
- * 0x004652D0 - CResList::InsertAfter (hint key variant)
- *
- * Allocates a new CResListNode and inserts it after position.
- */
-static CResListNode *
-CResList_PushFront_ResManager2(CResList *list, CResListNode *position)
-{
-	CResListNode *newNode, *next;
-	void *raw;
-
-	if (position == NULL)
-		return NULL;
-
-	next = CResList_Begin((CResList *)position);
-
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	CResListNode_SetNext(newNode, next);
-	CResListNode_SetPrev(newNode, position);
-	CResListNode_SetNext(position, newNode);
-
-	if (next != NULL) {
-		CResListNode_SetPrev(next, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -5641,24 +4682,6 @@ SearchCtx_IsEqual(CSearchCtx *a, CSearchCtx *b)
 }
 
 /*
- * 0x00473EB0 - CResList::RemoveAndFree
- *
- * Removes node from the list and frees its extracted data. Returns the
- * next node when direction=1, prev when direction=0.
- */
-CResListNode *
-CResList_RemoveAndFree(CResList *list, CResListNode *node, int direction)
-{
-	void *outData = NULL;
-	CResListNode *result;
-
-	result = CResList_RemoveNode_Bin(list, node, &outData, direction);
-	if (outData != NULL)
-		OperatorDelete(outData);
-	return result;
-}
-
-/*
  * 0x00473F00 - CResList::~CResList
  *
  * Destroys the list by freeing every node via CResList_EraseAll.
@@ -5667,111 +4690,6 @@ void
 CResList_Destructor(CResList *list)
 {
 	CResList_EraseAll(list);
-}
-
-/*
- * 0x00473F20 - CResList::InsertBack
- *
- * Appends a new node to the list and copies *dataPtr into its data cell.
- */
-void
-CResList_InsertBack(CResList *list, void *dataPtr)
-{
-	CResListNode *node;
-
-	node = CResList_AllocAndAppend(list);
-	if (node != NULL)
-		CResListNode_SetDataInt(node, dataPtr);
-}
-
-/*
- * 0x00473F50 - CResList::AllocAndAppend
- *
- * If tail exists, inserts a new node after it. Otherwise allocates a
- * fresh CResListNode and sets it as sole head+tail.
- */
-static CResListNode *
-CResList_AllocAndAppend(CResList *list)
-{
-	CResListNode *node;
-	void *mem;
-
-	if (list->tail != NULL) {
-		return CResList_InsertAfterNode(list, list->tail);
-	}
-
-	mem = OperatorNew(sizeof(CResListNode));
-	if (mem != NULL)
-		node = CResListNode_Constructor_bin(mem);
-	else
-		node = NULL;
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
- * 0x00474000 - CResList::RemoveNode
- *
- * Unlinks node, extracts its data into *outData, destroys the node,
- * decrements count, and returns the next/prev neighbor per direction.
- */
-static CResListNode *
-CResList_RemoveNode_Bin(CResList *list, CResListNode *node, void **outData, int direction)
-{
-	CResListNode *prev, *next, *tmp;
-
-	*outData = NULL;
-	if (node == NULL)
-		return NULL;
-
-	// CResList_GetTail on node: returns node->prev (shared +4 offset)
-	prev = CResList_GetTail((CResList *)node);
-	// CResList_Begin on node: returns node->next (shared +0 offset)
-	next = CResList_Begin((CResList *)node);
-
-	// Unlink: fix prev->next or head
-	if (prev != NULL)
-		CResListNode_SetNext(prev, next);
-	else
-		list->head = next;
-
-	// Unlink: fix next->prev or tail
-	if (next != NULL)
-		CResListNode_SetPrev(next, prev);
-	else
-		list->tail = prev;
-
-	// Extract data (swap node->data with NULL)
-	*outData = CResListNode_SwapData(node, NULL);
-
-	// Delete node via scalar deleting destructor (flags=1: dtor + free)
-	tmp = node;
-	if (tmp != NULL)
-		CResListNode_ScalarDelete(tmp, 1);
-
-	list->count--;
-
-	if (direction == 1)
-		return next;
-	return prev;
-}
-
-/*
- * 0x004740D0 - CResList::EraseAll
- *
- * Iterates and frees every node via CResList_RemoveAndFree.
- */
-void
-CResList_EraseAll(CResList *list)
-{
-	CResListNode *iter;
-
-	iter = CResList_Begin(list);
-	while (CResList_IsValid(list, iter))
-		iter = CResList_RemoveAndFree(list, iter, 1);
 }
 
 /*
@@ -5785,44 +4703,6 @@ CResList_DirectionNext(CResList *list, CResListNode *node, int direction)
 	if (direction == 1)
 		return CResList_Next(list, node);
 	return CResList_Prev(list, node);
-}
-
-/*
- * 0x00474140 - CResList::AllocAndInsertAfter
- *
- * Allocates a new node and splices it in after afterNode.
- */
-static CResListNode *
-CResList_InsertAfterNode(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *newNode;
-	CResListNode *nextNode;
-	void *raw;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	nextNode = CResList_Begin((CResList *)afterNode);
-
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = (CResListNode *)CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	CResListNode_SetNext(newNode, nextNode);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (nextNode != NULL) {
-		CResListNode_SetPrev(nextNode, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count += 1;
-	return newNode;
 }
 
 /*
@@ -5912,7 +4792,7 @@ CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 			return 0;
 	}
 
-	CResList_AppendInt_A(rm->keys[bucket], keyPtr);
+	CResList_AppendValue(rm->keys[bucket], keyPtr);
 	CResList_AppendData_B(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;
@@ -6060,7 +4940,7 @@ CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 			return 0;
 	}
 
-	CResList_KeyInsert(rm->keys[bucket], keyPtr);
+	CResList_AppendValue(rm->keys[bucket], keyPtr);
 	CResList_AppendData_C(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;
@@ -6116,9 +4996,9 @@ CResManager_EraseMultiB(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	CResManager_NextIterInternalMultiB(rm, &nextCtx, current, direction);
 	CSearchCtx_Add(&localCtx, &nextCtx);
 
-	// Erase key node via CResList_RemoveKeyNode
+	// Erase key node via CResList_EraseAndFree
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
+	CResList_EraseAndFree(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
 
 	// Erase val node via CResList_Erase_MultiVal
 	bucket = CSearchCtx_GetBucket(current);
@@ -6311,9 +5191,9 @@ CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 	CResManager_NextIterInternalMultiA(rm, &nextCtx, current, direction);
 	CSearchCtx_Add(&localCtx, &nextCtx);
 
-	// Erase key node via CResList_EraseAndFree_MultiA
+	// Erase key node via CResList_EraseAndFree
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_EraseAndFree_MultiA(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
+	CResList_EraseAndFree(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
 
 	// Erase val node via CResList_Erase_MultiKey
 	bucket = CSearchCtx_GetBucket(current);
@@ -6348,28 +5228,12 @@ CResManager_EraseMultiA(CResManager *rm, CSearchCtx *output, CSearchCtx *current
 /*
  * 0x0047BA00 - CResList::~CResList (multi key variant A)
  *
- * Delegates to CResList_ClearAll_MultiA.
+ * Delegates to CResList_EraseAll.
  */
 void
 CResList_Destructor_MultiA(CResList *list)
 {
-	CResList_ClearAll_MultiA(list);
-}
-
-/*
- * 0x0047BA20 - CResList::AppendInt_A
- *
- * Appends a node at the tail and stores *valuePtr in it.
- */
-static void *
-CResList_AppendInt_A(CResList *this, uint32_t *valuePtr)
-{
-	CResListNode *node;
-
-	node = CResList_AppendNode_A(this);
-	if (node != NULL)
-		CResListNode_SetDataInt(node, valuePtr);
-	return node;
+	CResList_EraseAll(list);
 }
 
 /*
@@ -6393,7 +5257,7 @@ CResList_AppendData_B(CResList *this, void *data)
 {
 	void *node;
 
-	node = CResList_AppendNode_B(this);
+	node = CResList_AllocTail(this);
 	if (node != NULL)
 		CResList_ReplaceData_B((CResListNode *)node, data);
 	return node;
@@ -6570,7 +5434,7 @@ CResList_AppendData_C(CResList *this, void *data)
 {
 	void *node;
 
-	node = CResList_AppendNode_C(this);
+	node = CResList_AllocTail(this);
 	if (node != NULL)
 		CResList_ReplaceData_C((CResListNode *)node, data);
 	return node;
@@ -6599,83 +5463,6 @@ CResManager_NextIter_KeyVal_A(CResManager *this, CSearchCtx *output, CSearchCtx 
 	CSearchCtx_SetEntity(&ctx, CResList_IsValid(this->keys[CSearchCtx_GetBucket(&ctx)], (CResListNode *)(uintptr_t)ctx.keyNode));
 	CResManager_CreateBucket(output, &ctx);
 	return output;
-}
-
-/*
- * 0x0047C100 - CResList::AppendNode (multi variant A)
- *
- * Returns the tail after ensuring there is one: pushes a new node after tail
- * if the list already has entries, otherwise creates the single node.
- */
-static CResListNode *
-CResList_AppendNode_A(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_PushFront_MultiA(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
- * 0x0047C1B0 - CResList::EraseAndFree (multi variant A)
- *
- * Unlinks node via CResList_Erase_MultiC and frees the detached data.
- */
-CResListNode *
-CResList_EraseAndFree_MultiA(CResList *list, CResListNode *node, int direction)
-{
-	void *deletedPtr = NULL;
-	CResListNode *result;
-
-	result = (CResListNode *)CResList_Erase_MultiC(list, (void *)node, &deletedPtr, direction);
-	if (deletedPtr != NULL)
-		OperatorDelete(deletedPtr);
-	return result;
-}
-
-/*
- * 0x0047C200 - CResList::ClearAll (multi variant A)
- *
- * Erases and frees every node in the multi-A variant list.
- */
-static void
-CResList_ClearAll_MultiA(CResList *list)
-{
-	CResListNode *node = CResList_Begin(list);
-	while (CResList_IsValid(list, node))
-		node = CResList_EraseAndFree_MultiA(list, node, 1);
-}
-
-/*
- * 0x0047C240 - CResList::AppendNode (multi variant B)
- *
- * Same as variant A but uses CResList_PushFront_MultiB.
- */
-static CResListNode *
-CResList_AppendNode_B(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_PushFront_MultiB(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -6817,29 +5604,6 @@ CResManager_NextIter_KeyVal_B(CResManager *this, CSearchCtx *output, CSearchCtx 
 }
 
 /*
- * 0x0047C640 - CResList::AppendNode (multi variant C)
- *
- * Returns the tail after ensuring there is one: pushes a new node after tail
- * if the list already has entries, otherwise creates the single node.
- */
-static void *
-CResList_AppendNode_C(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL) {
-		return CResList_PushFront_MultiC(list, list->tail);
-	}
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x0047C6F0 - CResList::ClearAll (multi value variant)
  *
  * Erases and frees every node in the multi-val variant list.
@@ -6870,118 +5634,6 @@ CResList_ReplaceData_C(CResListNode *this, void *data)
 }
 
 /*
- * 0x0047CBF0 - CResList::PushFront (variant A)
- *
- * Inserts a new node immediately after afterNode, fixing up head/tail if the
- * list was empty or afterNode was the tail.
- */
-static CResListNode *
-CResList_PushFront_MultiA(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *oldNext;
-	CResListNode *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	oldNext = afterNode->next;
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	newNode->next = oldNext;
-	newNode->prev = afterNode;
-	afterNode->next = newNode;
-
-	if (oldNext != NULL) {
-		oldNext->prev = newNode;
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x0047CCE0 - CResList::Erase (variant C)
- *
- * Unlinks node and scalar-deletes it with the generic node destructor.
- */
-CResListNode *
-CResList_Erase_MultiC(CResList *list, CResListNode *node, void **outData, int direction)
-{
-	CResListNode *prev, *next;
-
-	*outData = NULL;
-	if (node == NULL)
-		return NULL;
-
-	prev = node->prev;
-	next = node->next;
-
-	if (prev != NULL)
-		prev->next = next;
-	else
-		list->head = next;
-
-	if (next != NULL)
-		next->prev = prev;
-	else
-		list->tail = prev;
-
-	*outData = CResListNode_SwapData(node, NULL);
-
-	if (node != NULL)
-		CResListNode_ScalarDelete(node, 1);
-
-	list->count--;
-
-	if (direction == 1)
-		return next;
-	return prev;
-}
-
-/*
- * 0x0047CDB0 - CResList::PushFront template (variant B)
- *
- * Inserts a new node immediately after afterNode.
- */
-static CResListNode *
-CResList_PushFront_MultiB(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *oldNext;
-	CResListNode *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	oldNext = afterNode->next;
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	newNode->next = oldNext;
-	newNode->prev = afterNode;
-	afterNode->next = newNode;
-
-	if (oldNext != NULL) {
-		oldNext->prev = newNode;
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x0047CEA0 - CResList::EraseAndFree template (multi variant B)
  *
  * Unlinks node and destroys its owned CMultiDef.
@@ -6998,42 +5650,6 @@ CResList_EraseAndFree_MultiB(CResList *list, CResListNode *node, int direction)
 			CMultiDef_ScalarDelete(data, 1);
 	}
 	return result;
-}
-
-/*
- * 0x0047CF50 - CResList::PushFront template (variant C)
- *
- * Inserts a new node immediately after afterNode.
- */
-static CResListNode *
-CResList_PushFront_MultiC(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *oldNext;
-	CResListNode *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	oldNext = afterNode->next;
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	newNode->next = oldNext;
-	newNode->prev = afterNode;
-	afterNode->next = newNode;
-
-	if (oldNext != NULL) {
-		oldNext->prev = newNode;
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -7128,7 +5744,7 @@ CResManager_Insert_ByFile(CResManager *rm, uint32_t *keyPtr, void *value)
 			return 0;
 	}
 
-	CResList_KeyInsert(rm->keys[bucket], keyPtr);
+	CResList_AppendValue(rm->keys[bucket], keyPtr);
 	CResList_InsertVal_ByFile(rm->vals[bucket], value);
 
 	rm->count++;
@@ -7178,10 +5794,10 @@ CResManager_FindByKey_ByFile(CResManager *rm, CSearchCtx *output, uint32_t *keyP
 		}
 	}
 
-	newKeyNode = CResList_KeyInsert(rm->keys[bucket], keyPtr);
+	newKeyNode = CResList_AppendValue(rm->keys[bucket], keyPtr);
 	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)newKeyNode);
 
-	tailValNode = CResList_GetTailVal_ByFile((CResList *)rm->vals[bucket]);
+	tailValNode = CResList_AllocTail((CResList *)rm->vals[bucket]);
 	CSearchCtx_SetValNode(&localCtx, (uintptr_t)tailValNode);
 
 	CSearchCtx_SetBucket(&localCtx, bucket);
@@ -7495,7 +6111,7 @@ CResManager_InternalErase_ByFile(CResManager *rm, CSearchCtx *eraseOut, CSearchC
 	CSearchCtx_Add(&localCtx, (CSearchCtx *)CResManager_NextIterErase_ByFile(rm, &nextCtx, current, direction));
 
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
+	CResList_EraseAndFree(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
 
 	CResList_RemoveVal_ByFile(rm->vals[bucket], CSearchCtx_GetValNode(current), outErased, direction);
 
@@ -7513,34 +6129,6 @@ CResManager_InternalErase_ByFile(CResManager *rm, CSearchCtx *eraseOut, CSearchC
 	rm->count--;
 	CResManager_CreateBucket(eraseOut, &localCtx);
 	return eraseOut;
-}
-
-/*
- * 0x004A7360 - Get tail val node for ByFile vals list
- *
- * Returns the tail after ensuring there is one: pushes a new node after tail
- * if the list already has entries, otherwise creates the single node.
- */
-static void *
-CResList_GetTailVal_ByFile(CResList *list)
-{
-	CResListNode *newNode;
-	void *raw;
-
-	if (list->tail != NULL) {
-		return CResList_InsertAfter_ByFile(list, list->tail);
-	}
-
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = (CResListNode *)CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	list->tail = newNode;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -7568,7 +6156,7 @@ CResList_InsertVal_ByFile(CResList *list, void *value)
 {
 	void *tailNode;
 
-	tailNode = CResList_GetTailVal_ByFile(list);
+	tailNode = CResList_AllocTail(list);
 	if (tailNode != NULL)
 		CResList_StoreVal_ByFile(tailNode, value);
 	return tailNode;
@@ -7682,8 +6270,8 @@ CResManager_FindOrCreate_ByNameAll(CResManager *rm, CSearchCtx *findCtx, uint32_
 		}
 	}
 
-	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)CResList_KeyInsert(rm->keys[bucket], keyPtr));
-	CSearchCtx_SetValNode(&localCtx, (uintptr_t)CResList_GetOrCreateTail_ByNameAll(rm->vals[bucket]));
+	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)CResList_AppendValue(rm->keys[bucket], keyPtr));
+	CSearchCtx_SetValNode(&localCtx, (uintptr_t)CResList_AllocTail(rm->vals[bucket]));
 	CSearchCtx_SetBucket(&localCtx, bucket);
 	CSearchCtx_SetEntity(&localCtx, 1);
 	rm->count++;
@@ -7718,9 +6306,9 @@ CResManager_InternalErase_ByNameAll(CResManager *rm, CSearchCtx *eraseOut, CSear
 	CSearchCtx_Add(&localCtx, (CSearchCtx *)CResManager_NextIterErase_ByNameAll(rm, &nextCtx, current, direction));
 
 	bucket = CSearchCtx_GetBucket(current);
-	CResList_RemoveKeyNode(rm->keys[bucket], current->keyNode, direction);
+	CResList_EraseAndFree(rm->keys[bucket], (CResListNode *)current->keyNode, direction);
 
-	CResList_RemoveVal_ByNameAll(rm->vals[bucket], CSearchCtx_GetValNode(current), outErased, direction);
+	CResList_EraseNode(rm->vals[bucket], (CResListNode *)CSearchCtx_GetValNode(current), outErased, direction);
 
 	if (!rm->keys[bucket]->count) {
 		keyList = rm->keys[bucket];
@@ -7860,45 +6448,6 @@ CResManager_NextIterErase_ByFile(CResManager *rm, CSearchCtx *out, CSearchCtx *c
 end:
 	CResManager_CreateBucket(out, &ctx);
 	return out;
-}
-
-/*
- * 0x004A7B90 - CResList::InsertAfter (ByFile val)
- *
- * Allocates a new node and splices it in after position, updating head/tail.
- */
-static void *
-CResList_InsertAfter_ByFile(CResList *list, CResListNode *position)
-{
-	CResListNode *afterNode;
-	CResListNode *newNode;
-	void *raw;
-
-	if (position == NULL)
-		return NULL;
-
-	afterNode = CResList_Begin((CResList *)position);
-
-	raw = OperatorNew(sizeof(CResListNode));
-	if (raw != NULL)
-		newNode = (CResListNode *)CResListNode_Constructor_bin((CResListNode *)raw);
-	else
-		newNode = NULL;
-
-	CResListNode_SetNext(newNode, afterNode);
-	CResListNode_SetPrev(newNode, position);
-	CResListNode_SetNext(position, newNode);
-
-	if (afterNode != NULL) {
-		CResListNode_SetPrev(afterNode, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -8338,7 +6887,7 @@ CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr)
 			return 0;
 	}
 
-	CResList_AppendInt_A(rm->keys[bucket], (uint32_t *)keyPtr);
+	CResList_AppendValue(rm->keys[bucket], (uint32_t *)keyPtr);
 
 	CResList_AllocForwardF(rm->vals[bucket], valPtr);
 
@@ -8441,7 +6990,7 @@ CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
 			return 0;
 	}
 
-	CResList_AppendInt_A(rm->keys[bucket], (uint32_t *)keyPtr);
+	CResList_AppendValue(rm->keys[bucket], (uint32_t *)keyPtr);
 	CResList_AllocForwardG(rm->vals[bucket], valPtr);
 
 	rm->count++;
@@ -8809,14 +7358,14 @@ CResList_Destructor_TemplatesVal(CResList *this)
 /*
  * 0x004C1640 - CResList::AllocForward (templates)
  *
- * Allocates a node via CResList_BeginIterF and stores srcData in it.
+ * Allocates a node via CResList_AllocTail and stores srcData in it.
  */
 static CResListNode *
 CResList_AllocForwardF(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_BeginIterF(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResListNode_ReplaceDataF(node, srcData);
 	return node;
@@ -8884,14 +7433,14 @@ CResList_Destructor_NameTableVal(CResList *this)
 /*
  * 0x004C1760 - CResList::AllocForward (name table)
  *
- * Allocates a node via CResList_AllocTailNodeG and stores srcData in it.
+ * Allocates a node via CResList_AllocTail and stores srcData in it.
  */
 static CResListNode *
 CResList_AllocForwardG(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNodeG(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResListNode_ReplaceDataG(node, srcData);
 	return node;
@@ -8937,7 +7486,7 @@ CResManager_SearchBucket_DefinesStr(CResManager *rm, CSearchCtx *output, void *s
  *
  * Hashes key and ensures a bucket exists. If flags==1 and key already present,
  * returns an empty ctx; otherwise inserts new key and tail-allocates a value
- * node via CResList_AllocTailNodeA.
+ * node via CResList_AllocTail.
  */
 static CSearchCtx *
 CResManager_FindOrInsertH(CResManager *rm, CSearchCtx *output, CString *key)
@@ -8973,7 +7522,7 @@ CResManager_FindOrInsertH(CResManager *rm, CSearchCtx *output, CString *key)
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], key);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)keyNode);
 
-	valNode = CResList_AllocTailNodeA(rm->vals[bucket]);
+	valNode = CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&ctx, bucket);
@@ -9129,7 +7678,7 @@ CResManager_ClearK(CResManager *rm)
  *
  * Hashes key and ensures a bucket exists. If flags==1 and key already present,
  * returns an empty ctx; otherwise inserts new key and tail-allocates a value
- * node via CResList_GetOrCreateTail_ByNameAll.
+ * node via CResList_AllocTail.
  */
 CSearchCtx *
 CResManager_FindOrInsertK(CResManager *rm, CSearchCtx *output, CString *key)
@@ -9165,7 +7714,7 @@ CResManager_FindOrInsertK(CResManager *rm, CSearchCtx *output, CString *key)
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], key);
 	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)keyNode);
 
-	valNode = (CResListNode *)CResList_GetOrCreateTail_ByNameAll(rm->vals[bucket]);
+	valNode = (CResListNode *)CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&ctx, bucket);
@@ -9285,30 +7834,6 @@ CResManager_NextIterInternal_TemplatesB(CResManager *rm, CSearchCtx *output, CSe
 }
 
 /*
- * 0x004C2330 - CResList::BeginIter (templates val)
- *
- * Returns the tail, recycling it via CResList_RecycleNodeF, or allocates a
- * fresh node as head/tail when the list is empty.
- */
-static CResListNode *
-CResList_BeginIterF(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeF(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x004C23E0 - CResList::ClearInternal (templates val)
  *
  * Iterates and erases every node via CResList_ReplaceDataJ2.
@@ -9378,31 +7903,6 @@ CResManager_NextIterInternal_NameTable(CResManager *rm, CSearchCtx *output, CSea
 
 	CResManager_CreateBucket(output, &result);
 	return output;
-}
-
-/*
- * 0x004C2560 - CResList::AllocTailNode (name table val)
- *
- * Splices a fresh node in after the tail, or allocates the first node
- * as head and tail when the list is empty. Both paths call operator
- * new; nothing is reused.
- */
-static CResListNode *
-CResList_AllocTailNodeG(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_InsertNodeAfterG(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -9516,38 +8016,14 @@ CResManager_NextIterInternal_Labels(CResManager *rm, CSearchCtx *output, CSearch
 }
 
 /*
- * 0x004C2870 - CResList::BeginIter (labels val)
- *
- * Returns the tail, recycling it via CResList_RecycleNodeJ, or allocates a
- * fresh node as head/tail when the list is empty.
- */
-CResListNode *
-CResList_BeginIterJ(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_RecycleNodeJ(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
-}
-
-/*
  * 0x004C2920 - CResList::~CResList (templates)
  *
- * Delegates to CResList_ClearAll_NameTable.
+ * Delegates to CResList_EraseAll.
  */
 static void
 CResList_Destructor_TemplatesVariant(CResList *this)
 {
-	CResList_ClearAll_NameTable(this);
+	CResList_EraseAll(this);
 }
 
 /*
@@ -9577,7 +8053,7 @@ CResList_FindOrAddPair(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNode_TemplatesKey(list);
+	node = CResList_AllocHead(list);
 	if (node != NULL)
 		CResList_AllocForward_LabelsWrapper(node, srcData);
 	return node;
@@ -9593,7 +8069,7 @@ CResList_AllocForward_Labels(CResList *list, void *srcData)
 {
 	CResListNode *node;
 
-	node = CResList_AllocTailNode_LabelsVal(list);
+	node = CResList_AllocTail(list);
 	if (node != NULL)
 		CResList_AllocForward_LabelsWrapper(node, srcData);
 	return node;
@@ -9628,40 +8104,6 @@ CResList_ValNodeDestructor_NameTable(CNameEntry *this)
 }
 
 /*
- * 0x004C2B60 - CResList::RecycleNode (templates val)
- *
- * Allocates a new node and splices it in after afterNode.
- */
-static CResListNode *
-CResList_RecycleNodeF(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x004C2C50 - CResList::EraseAndFree (templates val)
  *
  * Unlinks node via CResList_UnlinkNodeF, deletes its CTemplate data, and
@@ -9680,40 +8122,6 @@ CResList_ReplaceDataJ2(CResList *list, CResListNode *node, int direction)
 }
 
 /*
- * 0x004C2CB0 - CResList::InsertNodeAfter (name table val)
- *
- * Allocates a new node and splices it in after afterNode.
- */
-static CResListNode *
-CResList_InsertNodeAfterG(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
  * 0x004C2DA0 - CResList::EraseAndFree (name table val)
  *
  * Unlinks node via CResList_UnlinkNodeG, deletes its value-node data, and
@@ -9729,104 +8137,6 @@ CResList_ReplaceData_G(CResList *list, CResListNode *node, int direction)
 	if (outData != NULL)
 		CResListValNode_ScalarDelete_NameTbl((CNameEntry *)outData, 1);
 	return result;
-}
-
-/*
- * 0x004C2E00 - CResList::RecycleNode (labels val)
- *
- * Allocates a new node and splices it in after afterNode.
- */
-static CResListNode *
-CResList_RecycleNodeJ(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *head, *newNode;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	head = CResList_Begin((CResList *)afterNode);
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, head);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (head != NULL) {
-		CResListNode_SetPrev(head, newNode);
-	} else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x004C2EF0 - CResList clear-all for name table
- *
- * Iterates and erases every node via CResList_EraseAndFree_K.
- */
-static void
-CResList_ClearAll_NameTable(CResList *this)
-{
-	CResList *list = this;
-	CResListNode *node;
-
-	node = CResList_Begin(list);
-	while (CResList_IsValid(list, node)) {
-		node = CResList_EraseAndFree_K(list, node, 1);
-	}
-}
-
-/*
- * 0x004C2F30 - CResList::AllocTailNode (templates key)
- *
- * Inserts a new node before head, or creates the first node when empty.
- */
-static CResListNode *
-CResList_AllocTailNode_TemplatesKey(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->head != NULL)
-		return CResList_InsertBeforeJ(list, list->head);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->head = node;
-	list->tail = list->head;
-	list->count++;
-	return list->head;
-}
-
-/*
- * 0x004C2FE0 - CResList::AllocTailNode (labels val)
- *
- * Recycles tail via CResList_AllocTailNodeK, or creates the first node when
- * empty.
- */
-static CResListNode *
-CResList_AllocTailNode_LabelsVal(CResList *list)
-{
-	CResListNode *node;
-
-	if (list->tail != NULL)
-		return CResList_AllocTailNodeK(list, list->tail);
-
-	node = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (node != NULL)
-		CResListNode_Constructor_bin(node);
-
-	list->tail = node;
-	list->head = list->tail;
-	list->count++;
-	return list->tail;
 }
 
 /*
@@ -9982,25 +8292,6 @@ CResList_UnlinkNodeG(CResList *list, CResListNode *node, void **outData, int dir
 }
 
 /*
- * 0x004C3390 - CResList::EraseAndFree (default variant K)
- *
- * Unlinks node via CResList_UnlinkNode_K and frees its data.
- */
-static CResListNode *
-CResList_EraseAndFree_K(CResList *list, CResListNode *node, int direction)
-{
-	void *outData = NULL;
-	CResListNode *result;
-
-	result = CResList_UnlinkNode_K(list, node, &outData, direction);
-
-	if (outData != NULL)
-		OperatorDelete(outData);
-
-	return result;
-}
-
-/*
  * 0x004C33E0 - CResList::IsValid
  *
  * Returns 1 if node is non-NULL (iterator not past end).
@@ -10010,76 +8301,6 @@ CResList_IsValid(CResList *list, CResListNode *node)
 {
 	USED(list);
 	return node != NULL;
-}
-
-/*
- * 0x004C3400 - CResList::InsertBefore (labels)
- *
- * Allocates a new node and splices it in before afterNode.
- */
-static CResListNode *
-CResList_InsertBeforeJ(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *newNode, *prev;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	prev = afterNode->prev;
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetPrev(newNode, prev);
-	CResListNode_SetNext(newNode, afterNode);
-	CResListNode_SetPrev(afterNode, newNode);
-
-	if (prev != NULL)
-		CResListNode_SetNext(prev, newNode);
-	else {
-		list->head = newNode;
-		if (list->tail == NULL)
-			list->tail = newNode;
-	}
-
-	list->count++;
-	return newNode;
-}
-
-/*
- * 0x004C34F0 - CResList::AllocTailNode (default variant K)
- *
- * Allocates a new node and splices it in after afterNode.
- */
-static CResListNode *
-CResList_AllocTailNodeK(CResList *list, CResListNode *afterNode)
-{
-	CResListNode *newNode, *next;
-
-	if (afterNode == NULL)
-		return NULL;
-
-	next = afterNode->next;
-
-	newNode = (CResListNode *)OperatorNew(sizeof(CResListNode));
-	if (newNode != NULL)
-		CResListNode_Constructor_bin(newNode);
-
-	CResListNode_SetNext(newNode, next);
-	CResListNode_SetPrev(newNode, afterNode);
-	CResListNode_SetNext(afterNode, newNode);
-
-	if (next != NULL)
-		CResListNode_SetPrev(next, newNode);
-	else {
-		list->tail = newNode;
-		if (list->head == NULL)
-			list->head = newNode;
-	}
-
-	list->count++;
-	return newNode;
 }
 
 /*
@@ -10190,46 +8411,6 @@ CResListNodeG_Destructor(CResListNode *node)
 		CResListValNode_ScalarDelete_NameTbl((CNameEntry *)node->data, 1);
 		node->data = NULL;
 	}
-}
-
-/*
- * 0x004C37E0 - CResList::UnlinkNode (default variant K)
- *
- * Unlinks node, hands its data to *outData, frees via
- * CResListNode_ScalarDelete, and returns the neighbor chosen by direction.
- */
-static CResListNode *
-CResList_UnlinkNode_K(CResList *list, CResListNode *node, void **outData, int direction)
-{
-	CResListNode *prev, *next;
-
-	*outData = NULL;
-	if (node == NULL)
-		return NULL;
-
-	prev = node->prev;
-	next = node->next;
-
-	if (prev != NULL)
-		CResListNode_SetNext(prev, next);
-	else
-		list->head = next;
-
-	if (next != NULL)
-		CResListNode_SetPrev(next, prev);
-	else
-		list->tail = prev;
-
-	*outData = CResListNode_SwapData(node, NULL);
-
-	if (node != NULL)
-		CResListNode_ScalarDelete(node, 1);
-
-	list->count--;
-
-	if (direction == 1)
-		return next;
-	return prev;
 }
 
 /*

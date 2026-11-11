@@ -805,7 +805,7 @@ RegionManager_SortedAreaInsert(CRegion *region, CResList *list)
 		CRegion *existing;
 
 		if (!CResList_IsValid(list, node)) {
-			CResList_AppendAndStore_ByNameAll(list, (uint32_t *)&region);
+			CResList_AppendValue(list, (uint32_t *)&region);
 			return;
 		}
 
@@ -927,7 +927,7 @@ RegionManager_FilterEmptyDesc(CResList *list)
 	while (CResList_IsValid(list, node)) {
 		CRegion *region = *(CRegion **)CResList_GetData(list, node);
 		if (strcmp(region->name2, "") == 0) {
-			node = (CResListNode *)CResList_EraseAndFree_ByNameAllVal(list, node, 1);
+			node = (CResListNode *)CResList_EraseAndFree(list, node, 1);
 		} else {
 			node = CResList_Next(list, node);
 		}
@@ -1094,7 +1094,7 @@ RegionManager_SearchByPrefix(CLocation *loc, CString prefix, CResList *outList)
 		char *regionName = ((CRegion *)(*iter))->name;
 
 		if (strncasecmp(regionName, CString_GetBuffer(&prefix), prefixLen) == 0) {
-			CResList_AppendAndStore_ByNameAll(outList, (uint32_t *)iter);
+			CResList_AppendValue(outList, (uint32_t *)iter);
 		}
 		iter++;
 	}

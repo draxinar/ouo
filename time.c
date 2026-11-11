@@ -211,7 +211,7 @@ GlobalLightManager_Tick(uint32_t arg)
 void
 CLightManager_RegisterScript(ScriptAttachNode *scriptNode)
 {
-	CResList_InsertBack(&g_lightScriptList, &scriptNode);
+	CResList_AppendValue(&g_lightScriptList, &scriptNode);
 }
 
 /*
@@ -226,7 +226,7 @@ CLightManager_UnregisterScript(ScriptAttachNode *scriptNode)
 
 	found = CResList_FindByValue(&g_lightScriptList, &scriptNode, NULL, 1);
 	if (CResList_IsValid(&g_lightScriptList, found))
-		CResList_RemoveAndFree(&g_lightScriptList, found, 1);
+		CResList_EraseAndFree(&g_lightScriptList, found, 1);
 }
 
 /*

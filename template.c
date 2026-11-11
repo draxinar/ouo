@@ -3022,7 +3022,7 @@ CTemplateManager_FindFieldByLabel(CResManager *rm, CSearchCtx *output, CString *
 	keyNode = CResList_InsertTailStr(rm->keys[bucket], label);
 	CSearchCtx_SetKeyNode(&localCtx, (uintptr_t)keyNode);
 
-	valNode = CResList_BeginIterJ(rm->vals[bucket]);
+	valNode = CResList_AllocTail(rm->vals[bucket]);
 	CSearchCtx_SetValNode(&localCtx, (uintptr_t)valNode);
 
 	CSearchCtx_SetBucket(&localCtx, bucket);

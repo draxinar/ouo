@@ -300,7 +300,6 @@ int CEntityMap_GetBlockIdx(CEntityMap *this, int x, int y); // 0x00457C80
 void CEntityMap_RangeQuery(CEntityMap *this, CVector *list, int x, int y, int range); // 0x00457DC0
 void LoadAll_LoginScriptEntries(void); // 0x0045A76A
 void Player_AttachStartupScripts_Inner(CItem *item); // 0x0045A8B3
-void CPlayerList_DisconnectAll(CResList *list); // 0x0045F520
 void MobileMap_Init(void); // 0x00460AB0
 void MobileMap_Insert(CItem *entity); // 0x00460B4B
 void MobileMap_Remove(CItem *entity); // 0x00460B78

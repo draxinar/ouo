@@ -6065,28 +6065,12 @@ CPlayerList_DispatchAssistanceSpeech(CResList *list, uint8_t *buf, int unused)
 /*
  * 0x0045F2E0 - CPlayerList destructor
  *
- * Thiscall. Calls CPlayerList_DisconnectAll.
+ * Thiscall. Calls CResList_EraseAll.
  */
 static void
 CPlayerList_Destructor(CResList *this)
 {
-	CPlayerList_DisconnectAll(this);
-}
-
-/*
- * 0x0045F520 - CPlayerList::DisconnectAll
- *
- * Empties a CResList of players, erasing and freeing each node.
- */
-void
-CPlayerList_DisconnectAll(CResList *list)
-{
-	CResListNode *node;
-
-	node = CResList_Begin(list);
-	while (CResList_IsValid(list, node)) {
-		node = CResList_EraseAndFree_Spawn(list, node, 1);
-	}
+	CResList_EraseAll(this);
 }
 
 /*
@@ -6139,7 +6123,7 @@ MobileMap_Remove(CItem *entity)
  * 0x00469510 - CPlayerList dtor wrapper
  *
  * Thiscall wrapper. Delegates to CPlayerList_Destructor which in turn
- * calls CPlayerList_DisconnectAll. Registered via atexit for
+ * calls CResList_EraseAll. Registered via atexit for
  * global CPlayerList at 0x006999A0.
  */
 static __attribute__((unused)) void
