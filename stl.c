@@ -2536,9 +2536,11 @@ StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source)
  * 0x00426440 - CVector::CVector wrapper
  *
  * Wrapper that passes a local (uninitialized) type byte pointer to
- * CVector_Constructor and returns this. MSVC emitted a byte-identical
- * twin at 0x004A6470, which CMobile::SendUpdateToList hands to the
- * array-constructor iterator.
+ * CVector_Constructor and returns this. The default constructor closure
+ * at 0x004A6470 makes the same call and returns void. The array
+ * constructions in CMobile::SendUpdateToList and CRegionGrid::CRegionGrid
+ * pass it to the CRT's eh vector constructor iterator, and our loops
+ * call CVector_Constructor directly, as for the list closures.
  */
 void *
 CVector_ConstructorWrapper(CVector *this)
