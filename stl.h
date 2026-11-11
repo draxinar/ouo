@@ -47,6 +47,10 @@ struct CIosBase {
 // A std::ostream manipulator: takes and returns the stream.
 typedef void *(*OStreamManip)(void *);
 
+// A sort comparator: the operator() of an empty functor, called with the
+// functor's address as this. Returns whether a sorts before b.
+typedef int (*SortPred)(void *this, uintptr_t a, uintptr_t b);
+
 // std::ios_base::fmtflags bits used by the stream inserters.
 #define IOS_ADJUSTFIELD 0x1C0
 #define IOS_LEFT        0x040
@@ -244,6 +248,7 @@ uint8_t StdGetByte(uint32_t val); // 0x00404720
 void Fill16_Str(void *first, void *last, void *value); // 0x00404730
 void *CopyBackward16_Str(void *first, void *last, void *dest); // 0x00404760
 char CBasicIos_Fill(CIosBase *this); // 0x00404CA0
+void CVector_PushBack(CVector *list, uintptr_t value); // 0x004066C0
 StdPtrNode **StdPtrIter_Constructor(StdPtrNode **iter); // 0x004066F0
 void vector_Fill(void *first, void *last, void *value); // 0x00406A00
 void StdPtrList_Destructor(StdPtrList *this); // 0x00420D30
@@ -261,11 +266,14 @@ void *StdTree_FindInsertPos_Int(StdMapTree *tree, int *keyPtr); // 0x004234E0
 void StdMap_TreeInc(void *iter); // 0x004237F0
 void Vector_SortByZ(void *begin, void *end, char typeTag); // 0x00423900
 void Vector_SortByType(void *begin, void *end, uint8_t typeTag); // 0x00423930
+void SortByPred_Main(uintptr_t *first, uintptr_t *last, SortPred pred, int depth); // 0x00423A10
 int GameCentMon_GetPlayerCount(void); // 0x00423AA0
-void StdPtrList_ConstructorWithType(StdPtrList *list, void *typeBytePtr); // 0x00424D30
-void StdPtrList_PushBack_4DD0(StdPtrList *list, void *value); // 0x00424DD0
+StdPtrList *StdPtrList_Init(StdPtrList *list, void *init); // 0x00424D30
+void StdPtrList_Clear(StdPtrList *list); // 0x00424D70
+void StdPtrList_PushBack(StdPtrList *list, void *value); // 0x00424DD0
 void StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00424E00
-void *StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00424F70
+StdPtrNode **StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00424EC0
+StdPtrNode **StdPtrList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00424F70
 void CVector_Destroy4_Range(CVector *this, void *first, void *last); // 0x00422740
 CVector *CVector_Constructor(CVector *list, const char *typeFlag); // 0x00426460
 void *CVector_ConstructorWrapper(CVector *this); // 0x00426440
@@ -273,22 +281,16 @@ void CVector_Destructor(CVector *list); // 0x004264A0
 void *vector_CopyBackward(void *first, void *last, void *dest_end); // 0x00426820
 void *CVector_Allocate1C(CVector *this, int count, int unused_arg); // 0x00479B50
 StdPtrNode **StdPtrList_Begin(StdPtrList *list, StdPtrNode **outIter); // 0x00426CA0
-void StdPtrList_PushBack(StdPtrList *list, void *value); // 0x00426CD0
 void StdPtrList_DoInsert_424FC0(StdPtrList *this, void *dest, void *source); // 0x00424FC0
-void StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00426D00
 int StdPtrIter_Eq(StdPtrNode **a, StdPtrNode **b); // 0x00426E00
-void CVector_PushBack(CVector *list, uintptr_t value); // 0x0042FF00
-void CVector_PushBack_C960(CVector *this, uintptr_t *value); // 0x0046C960
 uint32_t CVector_GetCount(CVector *list); // 0x004301A0
 StdPtrNode **StdPtrIter_PostInc(StdPtrNode **iter, StdPtrNode **outIter, int dummy); // 0x0044D770
 StdPtrNode **StdPtrNode_GetPrev(StdPtrNode *node); // 0x0044F710
 void **StdPtrNode_GetValue(StdPtrNode *node); // 0x0044F720
 void *StdPtrList_Charalloc(StdPtrList *list, uint32_t size); // 0x0044F750
-StdPtrList *StdPtrList_Init(StdPtrList *list, const void *init); // 0x00457BB0
-void StdPtrList_Clear(StdPtrList *list); // 0x00457BF0
-StdPtrNode **StdPtrList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00457D70
 void Vector_SortRaw(void *begin, void *end); // 0x00457F90
 void CFileEntry_Destructor(CFileEntry *self); // 0x00458F80
+void *StdPtrList16_Constructor(StdPtrList *this, const void *init); // 0x00458FB0
 StdPtrNode *StdPtrNode_GetNext(StdPtrNode *node); // 0x0045AC80
 StdPtrNode **StdPtrIter_Inc(StdPtrNode **iter); // 0x0045AC90
 StdPtrNode **StdPtrList_End(StdPtrList *list, StdPtrNode **outIter); // 0x00462050
@@ -301,7 +303,6 @@ __extension__ typedef struct StdPtrIterFull StdPtrIterFull;
 StdPtrIterFull *StdPtrIter_Next(StdPtrIterFull *this); // 0x00420E80
 StdPtrIterFull *StdPtrIter_Prev(StdPtrIterFull *this); // 0x00420EA0
 void Vector_SortByDistPair(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00462390
-void *StdPtrList_InitLogin(StdPtrList *this, const void *init); // 0x0045AAB0
 void *CFragment_ScalarDelete(CFragment *this, int flags); // 0x0044D710
 void *CDefine_ScalarDelete(CDefine *this, int flags); // 0x0044D740
 void vector_SwapWrapper(uintptr_t *a, uintptr_t *b); // 0x00463990
@@ -338,7 +339,6 @@ void SortDist_Dispatch(void *first, void *last, CLocation cmpLoc); // 0x0047BF30
 void Vector_SortByDist(void *begin, void *end, CLocation refLoc); // 0x0047F2B0
 void *PacketGetDynamicSize(uint8_t *buf); // 0x0047F350
 int PacketIsEDEDEDED(uint8_t *buf); // 0x0047F3A0
-void *StdPtrList16_Constructor(StdPtrList *this, const void *init); // 0x004845E0
 void StdPtrList_Destructor_NPC(StdPtrList *list); // 0x00484620
 void StdPtrList16_InsertEnd(StdPtrList *list, void *value); // 0x00484680
 void StdPtrList_Erase16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x004846B0

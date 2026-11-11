@@ -5270,13 +5270,10 @@ void
 CEntityMap_Insert(CEntityMap *this, CItem *entity, int x, int y)
 {
 	int idx;
-	StdPtrNode *endIter;
-	StdPtrNode *result;
 
 	idx = CEntityMap_GetBlockIdx(this, x, y);
 
-	StdPtrList_End(&this->blocks[idx], &endIter);
-	StdPtrList_DoInsert(&this->blocks[idx], &result, endIter, entity);
+	StdPtrList_PushBack(&this->blocks[idx], entity);
 
 	this->count++;
 }
@@ -5773,7 +5770,7 @@ static __attribute__((unused)) void
 StaticInit_LoginScriptList(void)
 {
 	uint8_t initByte = 0;
-	StdPtrList_InitLogin(&g_loginScriptList, &initByte);
+	StdPtrList_Init(&g_loginScriptList, &initByte);
 }
 
 /*

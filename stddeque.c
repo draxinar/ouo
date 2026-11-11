@@ -125,10 +125,7 @@ ArenaAllocator_Alloc(uint32_t size, void **outPtr)
 	else
 		page = NULL;
 
-	{
-		uintptr_t value = (uintptr_t)page;
-		CVector_PushBack_C960(&g_arenaPageVec, &value);
-	}
+	CVector_PushBack(&g_arenaPageVec, (uintptr_t)page);
 	goto alloc_from_page;
 
 reuse_page:

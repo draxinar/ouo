@@ -87,8 +87,8 @@ void *CResList_EraseAndFree_ByNameAllVal(CResList *list, CResListNode *node, int
 void *CResList_InsertAndStore_ByNameAll(CResList *list, CResListNode *position, uint32_t *valuePtr); // 0x00430460
 void *CResList_AppendAndStore_ByNameAll(CResList *list, uint32_t *valuePtr); // 0x004304A0
 void *CResList_GetOrCreateTail_ByNameAll(CResList *list); // 0x00430810
-int CEntityMap_CompareLocation(CEntityMap *this, CItem *a, CItem *b); // 0x00430C20
-int CEntityMap_CompareBySerial(CEntityMap *this, uint32_t serialA, uint32_t serialB); // 0x00430E20
+int CEntityMap_CompareLocation(void *this, uintptr_t a, uintptr_t b); // 0x00430C20
+int CEntityMap_CompareBySerial(void *this, uintptr_t serialA, uintptr_t serialB); // 0x00430E20
 CStringList *CStringList_ScalarDelete(CStringList *sl, int flags); // 0x0043D580
 CResList *CResList_ScalarDeleteA(CResList *list, int flags); // 0x0043D5B0
 CStringList *CStringList_ScalarDeleteEffects(CStringList *sl, int flags); // 0x0043D5E0

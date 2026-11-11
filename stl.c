@@ -26,17 +26,26 @@
 #include "packet_handler.h"
 #include "player.h"
 #include "region.h"
+#include "resbank.h"
 #include "stddeque.h"
 #include "terrain.h"
 
 #include "weapon.h"
 #include "wombat_stl.h"
 
+static void SortByPred_InsertionEntry(uintptr_t *first, uintptr_t *last, SortPred pred); // 0x00423B90
+static void SortByPred_Quicksort(uintptr_t *first, uintptr_t *last, SortPred pred, int depth); // 0x00423BC0
+static void SortByPred_UnguardedInsert(uintptr_t *pos, uintptr_t val, SortPred pred); // 0x00423C90
+static void SortByPred_Insertion(uintptr_t *first, uintptr_t *last, SortPred pred, int depth); // 0x00423F60
+static uintptr_t SortByPred_Median3(uintptr_t a, uintptr_t b, uintptr_t c, SortPred pred); // 0x00423FF0
+static uintptr_t *SortByPred_Partition(uintptr_t *first, uintptr_t *last, uintptr_t pivot, SortPred pred); // 0x004240C0
+static void *CVector_Insert(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x00406710
+static void CVector_InsertN(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x00406760
+static uintptr_t *CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest); // 0x00406980
+static void CVector_UfillN(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value); // 0x004069C0
 static StdPtrIterFull *StdPtrIter_Begin(StdPtrIterFull *this, StdPtrNode *sentinel); // 0x00420E50
 static int StdPtrIter_IsValid(StdPtrIterFull *this); // 0x00420F40
 static void StdMap_Destructor(StdMapTree *this); // 0x00421450
-static void *StdTree_Ucopy_19D0(StdAllocator *this, void *first, void *last, void *dest); // 0x004219D0
-static void StdTree_UfillN_1A10(StdAllocator *this, void *dest, uint32_t count, void *valuePtr); // 0x00421A10
 static void *StdMap_Init(StdMapTree *this, void *arg1, int unused, void *arg3); // 0x00421A50
 void *StdMap_Begin(StdMapTree *this, void *outIter); // 0x00421A90
 static void *StdTree_InsertWombat(StdMapTree *this, void *outIter, void *keyPtr); // 0x00421AC0
@@ -67,42 +76,12 @@ static void *StdTree_Buynode(StdMapTree *this, void *parentNode, int value); // 
 static void StdTree_ConstructorPair(StdAllocator *this, void *node, void *pair); // 0x00423600
 static void *StdMap_IterInc(void *iter); // 0x00423620
 static void StdMap_TreeDec(void *iter); // 0x00423640
-static void *StdAllocator_Ucopy(StdAllocator *this, void *first, void *last, void *dest); // 0x00423750
-static void StdAllocator_UfillN(StdAllocator *this, void *dest, uint32_t count, void *valuePtr); // 0x00423790
 static void *StdMap_GetRoot(StdMapTree *this); // 0x004237D0
 static void *Vector_AllocElements(int count); // 0x00423960
 static void *StdTree_ConstructorNode(void *node, void *pair); // 0x00423990
-static void SortByZ_Main(uintptr_t *begin, uintptr_t *end, char typeTag, int depth); // 0x00423A10
-static void SortByType_Entry(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth); // 0x00423AB0
-static void SortByZ_InsertionEntry(uintptr_t *begin, uintptr_t *end, char typeTag); // 0x00423B90
-static void SortByZ_Quicksort(uintptr_t *begin, uintptr_t *end, char typeTag, int depth); // 0x00423BC0
-static void SortByZ_UnguardedInsert(uintptr_t *pos, uintptr_t val, char typeTag); // 0x00423C90
-static int SortByZ_Compare(uintptr_t a, uintptr_t b); // 0x00423CE0
-static int SortByType_Compare(uintptr_t a, uintptr_t b); // 0x00423E60
-static void SortByType_MoveBackward(uintptr_t *pos, uintptr_t value, uint8_t typeTag); // 0x00423E10
-static void SortByType_Quicksort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth); // 0x00423D40
-static void SortByType_InsertionEntry(uintptr_t *begin, uintptr_t *end, uint8_t typeTag); // 0x00423D10
-static void SortByZ_Insertion(uintptr_t *begin, uintptr_t *end, char typeTag, int depth); // 0x00423F60
-static uintptr_t SortByZ_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char typeTag); // 0x00423FF0
-static uintptr_t *SortByZ_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, char typeTag); // 0x004240C0
-static uintptr_t *SortByType_Partition(uintptr_t *lo, uintptr_t *hi, uintptr_t pivot, uint8_t typeTag); // 0x004242A0
-static uintptr_t SortByType_MedianOfThree(uintptr_t a, uintptr_t b, uintptr_t c, uint8_t typeTag); // 0x004241D0
-static void SortByType_InsertionSort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth); // 0x00424140
+static int SortByZ_Compare(void *this, uintptr_t a, uintptr_t b); // 0x00423CE0
+static int SortByType_Compare(void *this, uintptr_t a, uintptr_t b); // 0x00423E60
 static void vector_SwapImpl(uintptr_t *a, uintptr_t *b); // 0x00424340
-static void StdPtrList_ClearAndDestroy_4D70(StdPtrList *list); // 0x00424D70
-static void StdPtrList_Insert(StdPtrList *this, void *resultIter, StdPtrNode *pos, void *value); // 0x00424EC0
-static void *CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest); // 0x004267A0
-static void CVector_UfillN_67E0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004267E0
-static void *StdPtrList_EraseRange_6DB0(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode); // 0x00426DB0
-static void StdPtrList_ClearAndDestroy_6C40(StdPtrList *list); // 0x00426C40
-static void *CVector_Ucopy_E990(CVector *this, void *first, void *last, void *dest); // 0x0042E990
-static void CVector_UfillN_E9D0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x0042E9D0
-static void *CVector_Ucopy_EA10(CVector *this, void *first, void *last, void *dest); // 0x0042EA10
-static void CVector_UfillN_EA50(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x0042EA50
-static void *CVector_Ucopy_EA90(CVector *this, void *first, void *last, void *dest); // 0x0042EA90
-static void CVector_UfillN_EAD0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x0042EAD0
-static uintptr_t *CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest); // 0x004301E0
-static void CVector_UfillN_0220(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value); // 0x00430220
 static void SortRaw_Main(uintptr_t *begin, uintptr_t *end, int depth); // 0x00457FC0
 static void SortRaw_InsertionEntry(uintptr_t *begin, uintptr_t *end); // 0x00458040
 static void SortRaw_Quicksort(uintptr_t *begin, uintptr_t *end, int depth); // 0x00458070
@@ -112,8 +91,6 @@ static uintptr_t SortRaw_Median3(uintptr_t a, uintptr_t b, uintptr_t c); // 0x00
 static uintptr_t *SortRaw_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot); // 0x00458260
 static int SortRaw_SkipN(const char *str, int count); // 0x004582C0
 static int CRT_atoi(char **pStr); // 0x00458854
-static StdPtrNode **StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x0045AC30
-static void StdPtrList_DestructorLogin(StdPtrList *list); // 0x0045AAF0
 static void *CFileEntry_ScalarDelete(CFileEntry *self, int flags); // 0x00459290
 static void *CFileEntry_CopyConstructor(CFileEntry *self, CFileEntry *src); // 0x00459220
 static void *FileEntry_Constructor(void *dst, void *src); // 0x004591E0
@@ -123,37 +100,17 @@ static void StdFileList_Destroy(void *list, void *element); // 0x00459190
 static void StdFileList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x004590E0
 static void StdFileList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos); // 0x00459020
 static void StdFileList_PushBack(StdPtrList *list, void *value); // 0x00458FF0
-static void *StdFileList_Init(StdPtrList *list, void *src); // 0x00458FB0
 static void *CFileEntry_Constructor(CFileEntry *self, const char *name, int nameLength, int fileOffset, int fileSize); // 0x00458F20
 static uint32_t CRT_divmod(uint32_t *pValue, uint32_t divisor); // 0x00458EF0
-static void *StdPtrList_Init_EntityMap(StdPtrList *list, void *typeBytePtr); // 0x00461FB0
-static StdPtrNode **StdPtrList_EraseRangeGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00462150
-static void StdPtrList_DoInsertGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x004620A0
-static void StdPtrList_PushBackGrid(StdPtrList *list, void *value); // 0x00462070
-static void *CVector_Ucopy_BA0(CVector *this, void *first, void *last, void *dest); // 0x00462BA0
-static void CVector_UfillN_BE0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x00462BE0
-static void *CVector_Ucopy_C20(CVector *this, void *first, void *last, void *dest); // 0x00462C20
-static void CVector_UfillN_C60(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x00462C60
-static void SortByDist_Main_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00462CA0
-static void SortByDist_Main_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00462DB0
-static void SortByDist_InsertionEntry_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00462EC0
-static void SortByDist_Quicksort_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00462F30
-static void SortByDist_UnguardedInsert_Pair(uintptr_t *pos, uintptr_t val, CLocation refLoc); // 0x00463080
-static void SortByDist_InsertionEntry_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00463110
-static void SortByDist_Quicksort_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00463180
-static void SortByDist_UnguardedInsert_Pair2(uintptr_t *pos, uintptr_t val, CLocation refLoc); // 0x004632D0
+static void SortByDist_Main(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00462CA0
+static void SortByDist_InsertionEntry(uintptr_t *begin, uintptr_t *end, CLocation refLoc); // 0x00462EC0
+static void SortByDist_Quicksort(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00462F30
+static void SortByDist_UnguardedInsert(uintptr_t *pos, uintptr_t val, CLocation refLoc); // 0x00463080
 static int SortByDist_Compare(CLocation *refLoc, uintptr_t a, uintptr_t b); // 0x00463360
-static void SortByDist_Insertion_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x004633B0
-static uintptr_t SortByDist_Median3_Pair(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc); // 0x00463480
-static uintptr_t *SortByDist_Partition_Pair(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc); // 0x004635A0
-static void SortByDist_Insertion_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x00463660
-static uintptr_t SortByDist_Median3_Pair2(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc); // 0x00463730
-static uintptr_t *SortByDist_Partition_Pair2(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc); // 0x00463850
+static void SortByDist_Insertion(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth); // 0x004633B0
+static uintptr_t SortByDist_Median3(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc); // 0x00463480
+static uintptr_t *SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc); // 0x004635A0
 static void *CRT_PrintlInit(uint32_t *this); // 0x0046CCA0
-static void CVector_UfillN_CC60(CVector *this, uintptr_t *dest, uint32_t count, uintptr_t *src); // 0x0046CC60
-static uintptr_t *CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *dest); // 0x0046CC20
-static void CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x0046CA00
-static void *CVector_Insert_C990(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x0046C990
 static void SortSurface_SwapImpl(SurfaceInfo *a, SurfaceInfo *b, int depth); // 0x0046C700
 static void SortSurface_Swap(SurfaceInfo *a, SurfaceInfo *b); // 0x0046C6D0
 static SurfaceInfo *SortSurface_Partition(SurfaceInfo *begin, SurfaceInfo *end, SurfaceInfo *pivot, char typeTag); // 0x0046C650
@@ -166,8 +123,6 @@ static void CVector_UfillNSI(CVector *this, SurfaceInfo *dest, uint32_t count, S
 static SurfaceInfo *CVector_UcopySI(CVector *this, SurfaceInfo *first, SurfaceInfo *last, SurfaceInfo *dest); // 0x0046BE00
 static uint32_t CVector_GetCountC(CVector *list); // 0x0046BDC0
 static void CVector_InsertSI(CVector *this, SurfaceInfo *pos, uint32_t count, SurfaceInfo *value); // 0x0046BB80
-static void *CVector_Insert_FF30(CVector *this, uintptr_t *pos, uintptr_t *value); // 0x0042FF30
-static void CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value); // 0x0042FF80
 static void *CVector_InsertAtSI(CVector *this, uintptr_t index, SurfaceInfo *value); // 0x0046BB00
 static void *CVector_Allocate4(CVector *this, uint32_t count, int unused); // 0x0047A350
 static CVector *CVector_AssignOp4(CVector *this, CVector *src); // 0x004791F0
@@ -178,27 +133,9 @@ static void *SortMultiInt_Partition(void *first, void *last, uintptr_t pivot, in
 static uintptr_t SortMultiInt_Median3(uintptr_t a, uintptr_t b, uintptr_t c, int cmpVal); // 0x0047D130
 static void SortMultiDist_Quicksort(void *first, void *last, CLocation cmpLoc, int unused); // 0x0047C970
 static void SortMultiInt_Quicksort(void *first, void *last, uint8_t cmpVal, int unused); // 0x0047C810
-static void SortByDist_Main(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth); // 0x0047F3F0
-static void SortByDist_InsertionEntry(uintptr_t *begin, uintptr_t *end, CLocation *refLoc); // 0x0047F500
-static void SortByDist_Quicksort(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth); // 0x0047F570
-static void SortByDist_UnguardedInsert(uintptr_t *pos, uintptr_t val, CLocation *refLoc); // 0x0047F6C0
-static void SortByDist_Insertion(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth); // 0x0047F750
-static uintptr_t SortByDist_Median3(uintptr_t a, uintptr_t b, uintptr_t c, CLocation *refLoc); // 0x0047F820
-static uintptr_t *SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation *refLoc); // 0x0047F940
 static void StdPtrList_DestructorWrapper_EntityMgr(void); // 0x00491DF0
-static StdPtrNode **StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x00484B40
-static void StdPtrList16_DestroyAll(StdPtrList *list); // 0x00484A00
-static void *StdPtrList_Constructor_NPC(StdPtrList *this, const void *init); // 0x004849C0
 static StdPtrNode **StdPtrList16_EraseAll(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last); // 0x004848D0
 static void StdPtrList_Insert16(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value); // 0x00484820
-static void UninitFillN_CRegionPtr(CVector *this, void **first, uint32_t count, void **value); // 0x004A6830
-static void **UninitCopy_CRegionPtr(CVector *this, void **first, void **last, void **dest); // 0x004A67F0
-static void *CVector_Ucopy_F490(CVector *this, void *first, void *last, void *dest); // 0x004CF490
-static void CVector_UfillN_F4D0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004CF4D0
-static void *CVector_Ucopy_F510(CVector *this, void *first, void *last, void *dest); // 0x004CF510
-static void CVector_UfillN_F550(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004CF550
-static void *CVector_Ucopy_F590(CVector *this, void *first, void *last, void *dest); // 0x004CF590
-static void CVector_UfillN_F5D0(CVector *this, void *dest, uint32_t count, void *valuePtr); // 0x004CF5D0
 static void StdPtrList_DoInsert_4CF610(void *dest, void *source); // 0x004CF610
 static void *vector_Copy(void *first, void *last, void *dest); // 0x004D9760
 static void *StdTree_CopyIter(void *dest, void *srcPtr, void *srcByte); // 0x004E3500
@@ -503,7 +440,42 @@ CBasicIos_Fill(CIosBase *this)
 }
 
 /*
+ * 0x004066C0 - CVector_PushBack
+ * 0x00421330 - CVector_PushBack
+ * 0x00421550 - CVector_PushBack
+ * 0x00426500 - CVector_PushBack
+ * 0x0042E190 - CVector_PushBack
+ * 0x0042E1C0 - CVector_PushBack
+ * 0x0042E1F0 - CVector_PushBack
+ * 0x0042FF00 - CVector_PushBack
+ * 0x004367A0 - CVector_PushBack
+ * 0x00462640 - CVector_PushBack
+ * 0x00462670 - CVector_PushBack
+ * 0x0046C960 - CVector_PushBack
+ * 0x00473860 - CVector_PushBack
+ * 0x00479020 - CVector_PushBack
+ * 0x00479050 - CVector_PushBack
+ * 0x004A6490 - CVector_PushBack
+ * 0x004CECB0 - CVector_PushBack
+ * 0x004CECE0 - CVector_PushBack
+ * 0x004CED10 - CVector_PushBack
+ *
+ * vector::push_back for a vector of 4-byte elements: inserts value at
+ * end(). UoDemo.exe carries nineteen instantiations, one per element
+ * type, and they are one stream. The binary takes the value by const
+ * reference and reads end() through the +8 getter at 0x00403280, which
+ * our C types as StdList_GetSize returning int, so the field is read
+ * directly and the value is passed by value.
+ */
+void
+CVector_PushBack(CVector *list, uintptr_t value)
+{
+	CVector_Insert(list, (uintptr_t *)list->end, &value);
+}
+
+/*
  * 0x004066F0 - std::list<void*>::iterator constructor
+ * 0x0049E590 - SearchNode_IterConstructor
  *
  * Calls _Container_base ctor (0x004E30A0, no-op). Returns iterator. C++
  * object construction ceremony with no effect.
@@ -513,6 +485,196 @@ StdPtrIter_Constructor(StdPtrNode **iter)
 {
 	StdPtrIter_BaseConstructor(iter);
 	return iter;
+}
+
+/*
+ * 0x00406710 - CVector_Insert
+ * 0x00421760 - CVector_Insert
+ * 0x004226F0 - CVector_Insert
+ * 0x00426530 - CVector_Insert
+ * 0x0042E240 - CVector_Insert
+ * 0x0042E290 - CVector_Insert
+ * 0x0042E2E0 - CVector_Insert
+ * 0x0042FF30 - CVector_Insert
+ * 0x004367D0 - CVector_Insert
+ * 0x004626C0 - CVector_Insert
+ * 0x00462710 - CVector_Insert
+ * 0x0046C990 - CVector_Insert
+ * 0x00473890 - CVector_Insert
+ * 0x00479540 - CVector_Insert
+ * 0x00479590 - CVector_Insert
+ * 0x004A6580 - CVector_Insert
+ * 0x004CED40 - CVector_Insert
+ * 0x004CED90 - CVector_Insert
+ * 0x004CEDE0 - CVector_Insert
+ *
+ * vector::insert(pos, value): records pos as an index, inserts one element
+ * there through CVector_InsertN, and returns the position again from the
+ * possibly reallocated buffer. The binary computes the index with >> 2,
+ * its elements being 32-bit. The step here is the pointer width, which
+ * 64-bit builds need.
+ */
+static void *
+CVector_Insert(CVector *this, uintptr_t *pos, uintptr_t *value)
+{
+	uintptr_t bucket;
+	int offset;
+
+	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
+	offset = (int)(((uintptr_t)pos - bucket) / sizeof(uintptr_t));
+	CVector_InsertN(this, pos, 1, value);
+	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
+	return (void *)(bucket + (uintptr_t)offset * sizeof(uintptr_t));
+}
+
+/*
+ * 0x00406760 - CVector_InsertN
+ * 0x004217B0 - CVector_InsertN
+ * 0x004232C0 - CVector_InsertN
+ * 0x00426580 - CVector_InsertN
+ * 0x0042E330 - CVector_InsertN
+ * 0x0042E550 - CVector_InsertN
+ * 0x0042E770 - CVector_InsertN
+ * 0x0042FF80 - CVector_InsertN
+ * 0x00436820 - CVector_InsertN
+ * 0x00462760 - CVector_InsertN
+ * 0x00462980 - CVector_InsertN
+ * 0x0046CA00 - CVector_InsertN
+ * 0x004738E0 - CVector_InsertN
+ * 0x00479BB0 - CVector_InsertN
+ * 0x00479DD0 - CVector_InsertN
+ * 0x004A65D0 - CVector_InsertN
+ * 0x004CEE30 - CVector_InsertN
+ * 0x004CF050 - CVector_InsertN
+ * 0x004CF270 - CVector_InsertN
+ *
+ * vector::_Insert_n(pos, count, value): inserts count copies of value
+ * before pos. When the spare capacity is too small it allocates
+ * size + max(count, size) elements, copies the head, fills the new
+ * elements, copies the tail, then destroys and frees the old buffer.
+ * Otherwise it shifts in place.
+ */
+static void
+CVector_InsertN(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value)
+{
+	uint32_t curCapacity;
+	uint32_t totalCapacity;
+	uintptr_t *newBuf;
+	uintptr_t *newEnd;
+
+	curCapacity = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->end) / sizeof(uintptr_t));
+
+	if (curCapacity < count) {
+		uint32_t growTo;
+
+		if (count < CVector_GetCount(this))
+			growTo = CVector_GetCount(this);
+		else
+			growTo = count;
+
+		totalCapacity = CVector_GetCount(this) + growTo;
+
+		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity, 0);
+
+		newEnd = (uintptr_t *)CVector_Ucopy((StdAllocator *)this, this->begin, pos, newBuf);
+
+		CVector_UfillN((StdAllocator *)this, newEnd, count, value);
+
+		CVector_Ucopy((StdAllocator *)this, pos, this->end, newEnd + count);
+
+		CVector_Destroy4_Range(this, this->begin, this->end);
+		{
+			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
+			StdDeque_DeallocSI(this, this->begin, oldCount);
+		}
+
+		this->capacity = (void *)(newBuf + totalCapacity);
+		this->end = (void *)(newBuf + CVector_GetCount(this) + count);
+		this->begin = newBuf;
+	} else {
+		uint32_t afterCount = (uint32_t)(((uintptr_t)this->end - (uintptr_t)pos) / sizeof(uintptr_t));
+
+		if (afterCount < count) {
+			CVector_Ucopy((StdAllocator *)this, pos, this->end, pos + count);
+			CVector_UfillN((StdAllocator *)this, (uintptr_t *)this->end, count - afterCount, value);
+			vector_Fill(pos, this->end, value);
+			this->end = (void *)((uintptr_t *)this->end + count);
+		} else if (count > 0) {
+			CVector_Ucopy((StdAllocator *)this, (uintptr_t *)this->end - count, this->end, this->end);
+			vector_CopyBackward(pos, (uintptr_t *)this->end - count, this->end);
+			vector_Fill(pos, pos + count, value);
+			this->end = (void *)((uintptr_t *)this->end + count);
+		}
+	}
+}
+
+/*
+ * 0x00406980 - CVector_Ucopy
+ * 0x004219D0 - CVector_Ucopy
+ * 0x00423750 - CVector_Ucopy
+ * 0x004267A0 - CVector_Ucopy
+ * 0x0042E990 - CVector_Ucopy
+ * 0x0042EA10 - CVector_Ucopy
+ * 0x0042EA90 - CVector_Ucopy
+ * 0x004301E0 - CVector_Ucopy
+ * 0x00436A40 - CVector_Ucopy
+ * 0x00462BA0 - CVector_Ucopy
+ * 0x00462C20 - CVector_Ucopy
+ * 0x0046CC20 - CVector_Ucopy
+ * 0x00473B00 - CVector_Ucopy
+ * 0x0047A2D0 - CVector_Ucopy
+ * 0x0047A370 - CVector_Ucopy
+ * 0x004A67F0 - CVector_Ucopy
+ * 0x004CF490 - CVector_Ucopy
+ * 0x004CF510 - CVector_Ucopy
+ * 0x004CF590 - CVector_Ucopy
+ *
+ * vector::_Ucopy: copies the elements of [begin, end) to dest through the
+ * construct call and returns the end of what it wrote.
+ */
+static uintptr_t *
+CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest)
+{
+	while (begin != end) {
+		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, dest, begin);
+		dest++;
+		begin++;
+	}
+	return dest;
+}
+
+/*
+ * 0x004069C0 - CVector_UfillN
+ * 0x00421A10 - CVector_UfillN
+ * 0x00423790 - CVector_UfillN
+ * 0x004267E0 - CVector_UfillN
+ * 0x0042E9D0 - CVector_UfillN
+ * 0x0042EA50 - CVector_UfillN
+ * 0x0042EAD0 - CVector_UfillN
+ * 0x00430220 - CVector_UfillN
+ * 0x00436A80 - CVector_UfillN
+ * 0x00462BE0 - CVector_UfillN
+ * 0x00462C60 - CVector_UfillN
+ * 0x0046CC60 - CVector_UfillN
+ * 0x00473B40 - CVector_UfillN
+ * 0x0047A310 - CVector_UfillN
+ * 0x0047A3B0 - CVector_UfillN
+ * 0x004A6830 - CVector_UfillN
+ * 0x004CF4D0 - CVector_UfillN
+ * 0x004CF550 - CVector_UfillN
+ * 0x004CF5D0 - CVector_UfillN
+ *
+ * vector::_Ufill: constructs count elements at first from *value, reading
+ * the same source on every pass.
+ */
+static void
+CVector_UfillN(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value)
+{
+	while (count > 0) {
+		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, first, value);
+		count--;
+		first++;
+	}
 }
 
 /*
@@ -851,46 +1013,6 @@ CEntityMap_RangeQueryToList(CEntityMap *this, CList *list, int x, int y, int ran
 		}
 		// Skip to next row: advance by gridW - rowWidth
 		blockIdx += this->gridW - rowWidth;
-	}
-}
-
-/*
- * 0x004219D0 - std::_Ucopy range (std::_Tree instantiation 1)
- *
- * Copies 4-byte elements from [first, last) to dest by calling construct
- * (0x00424FC0) per element. Returns pointer past the last written
- * destination element.
- */
-static __attribute__((unused)) void *
-StdTree_Ucopy_19D0(StdAllocator *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x00421A10 - std::_Ufill_n (std::_Tree instantiation 1)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-StdTree_UfillN_1A10(StdAllocator *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
 	}
 }
 
@@ -1884,46 +2006,6 @@ StdMap_TreeDec(void *iter)
 }
 
 /*
- * 0x00423750 - std::_Ucopy range (std::_Tree instantiation 2)
- *
- * Copies 4-byte elements from [first, last) to dest by calling construct
- * (0x00424FC0) per element. Returns pointer past the last written
- * destination element.
- */
-static __attribute__((unused)) void *
-StdAllocator_Ucopy(StdAllocator *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x00423790 - std::_Ufill_n (std::_Tree instantiation 2)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-StdAllocator_UfillN(StdAllocator *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
  * 0x004237D0 - std::_Tree::_Root
  *
  * Returns &_Parent(_Myhead) - the header node's +0x04 slot, which holds
@@ -1978,9 +2060,8 @@ StdMap_TreeInc(void *iter)
 /*
  * 0x00423900 - std::sort by z-coordinate
  *
- * Sort entry point for CVector of entity pointers. Calls
- * GameCentMon_GetPlayerCount (always returns 0) for depth limit, then
- * delegates to the main sort function.
+ * Sorts entity pointers by z through SortByPred_Main. SortByZ_Compare is
+ * the operator() of the one-byte functor the binary passes.
  *
  * Callers: Script_areObjectsOn, CItem_CollectSurfaceItems,
  * CMultiSlave_GetItems.
@@ -1988,21 +2069,28 @@ StdMap_TreeInc(void *iter)
 void
 Vector_SortByZ(void *begin, void *end, char typeTag)
 {
-	int depth = GameCentMon_GetPlayerCount();
-	SortByZ_Main((uintptr_t *)begin, (uintptr_t *)end, typeTag, depth);
+	int depth;
+
+	USED(typeTag);
+	depth = GameCentMon_GetPlayerCount();
+	SortByPred_Main((uintptr_t *)begin, (uintptr_t *)end, SortByZ_Compare, depth);
 }
 
 /*
  * 0x00423930 - Vector_SortByType
  *
- * Dispatches to SortByType_Entry, passing the unused depth-limit returned
- * by GameCentMon_GetPlayerCount.
+ * Sorts players by bug stat, highest first, through SortByPred_Main.
+ * SortByType_Compare is the operator() of the one-byte functor the binary
+ * passes.
  */
 void
 Vector_SortByType(void *begin, void *end, uint8_t typeTag)
 {
-	int depth = GameCentMon_GetPlayerCount();
-	SortByType_Entry((uintptr_t *)begin, (uintptr_t *)end, typeTag, depth);
+	int depth;
+
+	USED(typeTag);
+	depth = GameCentMon_GetPlayerCount();
+	SortByPred_Main((uintptr_t *)begin, (uintptr_t *)end, SortByType_Compare, depth);
 }
 
 /*
@@ -2045,31 +2133,32 @@ StdTree_ConstructorNode(void *node, void *pair)
 }
 
 /*
- * 0x00423A10 - std::sort main
+ * 0x00423A10 - SortByZ_Main
+ * 0x00423AB0 - SortByType_Entry
+ * 0x004308C0 - SortByLocation_Main
+ * 0x00430950 - SortBySerial_Main
  *
- * If count <= 16, insertion sort directly. Otherwise, quicksort loop to
- * partitions of <=16 elements, then insertion sort the first 16, then
- * unguarded linear insertion on the rest.
+ * std::sort's _Sort_0 for the four sorts whose functor is an empty class:
+ * by z, by bug stat, by location and by serial. Up to 16 elements it is
+ * an insertion sort, otherwise the quicksort, an insertion sort of the
+ * first 16, and an unguarded insert of each element after them. pred
+ * stands where the binary passes its one-byte functor and is the
+ * comparator that functor's operator() is.
  */
-static void
-SortByZ_Main(uintptr_t *begin, uintptr_t *end, char typeTag, int depth)
+void
+SortByPred_Main(uintptr_t *first, uintptr_t *last, SortPred pred, int depth)
 {
-	int count;
 	uintptr_t *cur;
 
 	USED(depth);
-	count = (int)(end - begin);
-	if (count <= 16) {
-		SortByZ_InsertionEntry(begin, end, typeTag);
+	if ((int)(last - first) <= 16) {
+		SortByPred_InsertionEntry(first, last, pred);
 		return;
 	}
-	SortByZ_Quicksort(begin, end, typeTag, 0);
-	SortByZ_InsertionEntry(begin, begin + 16, typeTag);
-	cur = begin + 16;
-	while (cur != end) {
-		SortByZ_UnguardedInsert(cur, *cur, typeTag);
-		cur++;
-	}
+	SortByPred_Quicksort(first, last, pred, 0);
+	SortByPred_InsertionEntry(first, first + 16, pred);
+	for (cur = first + 16; cur != last; cur++)
+		SortByPred_UnguardedInsert(cur, *cur, pred);
 }
 
 /*
@@ -2089,98 +2178,69 @@ GameCentMon_GetPlayerCount(void)
 }
 
 /*
- * 0x00423AB0 - std::sort entry for Vector_SortByType
+ * 0x00423B90 - SortByZ_InsertionEntry
+ * 0x00423D10 - SortByType_InsertionEntry
+ * 0x00430AD0 - SortByLocation_InsertionEntry
+ * 0x00430CD0 - SortBySerial_InsertionEntry
  *
- * Introsort dispatch: if count <= 16, uses insertion sort directly.
- * Otherwise, quicksort first, then insertion sort the first 16 elements,
- * then unguarded insertion sort on the rest. typeTag is passed through but
- * unused by comparison functions. The depth argument is passed by the
- * caller but ignored by this entry.
+ * _Insertion_sort: runs the insertion sort with the _Val_type tag.
  */
 static void
-SortByType_Entry(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth)
+SortByPred_InsertionEntry(uintptr_t *first, uintptr_t *last, SortPred pred)
 {
-	int count;
-	uintptr_t *cur;
+	int depth;
 
-	USED(depth);
-	count = (int)(end - begin);
-	if (count <= 16) {
-		SortByType_InsertionEntry(begin, end, typeTag);
-		return;
-	}
-	SortByType_Quicksort(begin, end, typeTag, 0);
-	SortByType_InsertionEntry(begin, begin + 16, typeTag);
-	cur = begin + 16;
-	while (cur != end) {
-		SortByType_MoveBackward(cur, *cur, typeTag);
-		cur++;
-	}
+	depth = GameCentMon_GetPlayerCount();
+	SortByPred_Insertion(first, last, pred, depth);
 }
 
 /*
- * 0x00423B90 - std::sort insertion entry
+ * 0x00423BC0 - SortByZ_Quicksort
+ * 0x00423D40 - SortByType_Quicksort
+ * 0x00430B00 - SortByLocation_Quicksort
+ * 0x00430D00 - SortBySerial_Quicksort
  *
- * Wrapper for insertion sort. Calls GameCentMon_GetPlayerCount (returns 0)
- * for depth, then delegates to the actual insertion sort.
+ * _Sort: while more than 16 elements remain, partitions around the median
+ * of the first, middle and last elements, recurses on the right part when
+ * it is no larger than the left and on the left part otherwise, and loops
+ * on the other.
  */
 static void
-SortByZ_InsertionEntry(uintptr_t *begin, uintptr_t *end, char typeTag)
-{
-	int depth = GameCentMon_GetPlayerCount();
-	SortByZ_Insertion(begin, end, typeTag, depth);
-}
-
-/*
- * 0x00423BC0 - std::sort quicksort loop
- *
- * Quicksort with median-of-three pivot. Recurses on smaller half, iterates
- * on larger. Stops at partitions of <=16 elements.
- */
-static void
-SortByZ_Quicksort(uintptr_t *begin, uintptr_t *end, char typeTag, int depth)
+SortByPred_Quicksort(uintptr_t *first, uintptr_t *last, SortPred pred, int depth)
 {
 	uintptr_t pivot;
 	uintptr_t *mid;
-	int rightCount, leftCount;
 
 	USED(depth);
-	for (;;) {
-		if ((int)(end - begin) <= 16)
-			return;
-		pivot = SortByZ_Median3(*begin, begin[(int)(end - begin) / 2], *(end - 1), typeTag);
-		mid = SortByZ_Partition(begin, end, pivot, typeTag);
-		rightCount = (int)(end - mid);
-		leftCount = (int)(mid - begin);
-		if (rightCount > leftCount) {
-			SortByZ_Quicksort(begin, mid, typeTag, GameCentMon_GetPlayerCount());
-			begin = mid;
+	while ((int)(last - first) > 16) {
+		pivot = SortByPred_Median3(*first, first[(int)(last - first) / 2], *(last - 1), pred);
+		mid = SortByPred_Partition(first, last, pivot, pred);
+		if ((int)(last - mid) <= (int)(mid - first)) {
+			SortByPred_Quicksort(mid, last, pred, GameCentMon_GetPlayerCount());
+			last = mid;
 		} else {
-			SortByZ_Quicksort(mid, end, typeTag, GameCentMon_GetPlayerCount());
-			end = mid;
+			SortByPred_Quicksort(first, mid, pred, GameCentMon_GetPlayerCount());
+			first = mid;
 		}
 	}
 }
 
 /*
- * 0x00423C90 - std::sort unguarded linear insert
+ * 0x00423C90 - SortByZ_UnguardedInsert (pred: SortByZ_Compare)
+ * 0x00423E10 - SortByType_MoveBackward (pred: SortByType_Compare)
+ * 0x00430BD0 - SortByLocation_LinearInsert (pred: CEntityMap_CompareLocation)
+ * 0x00430DD0 - SortBySerial_LinearInsert (pred: CEntityMap_CompareBySerial)
  *
- * Shifts elements right from pos while val.z < preceding element.z, then
- * places val at the correct sorted position.
+ * _Unguarded_insert: moves val down past every element it sorts before.
+ * The element at the front of the range stops it.
  */
 static void
-SortByZ_UnguardedInsert(uintptr_t *pos, uintptr_t val, char typeTag)
+SortByPred_UnguardedInsert(uintptr_t *pos, uintptr_t val, SortPred pred)
 {
-	uintptr_t *cur = pos;
+	uintptr_t *prev;
 
-	USED(typeTag);
-	for (;;) {
-		cur--;
-		if (!SortByZ_Compare(val, *cur))
-			break;
-		*pos = *cur;
-		pos = cur;
-	}
+	for (prev = pos; pred(&pred, val, *--prev) & 0xFF; pos = prev)
+		*pos = *prev;
 	*pos = val;
 }
 
@@ -2190,80 +2250,14 @@ SortByZ_UnguardedInsert(uintptr_t *pos, uintptr_t val, char typeTag)
  * Returns 1 when a.z < b.z (ascending z order).
  */
 static int
-SortByZ_Compare(uintptr_t a, uintptr_t b)
+SortByZ_Compare(void *this, uintptr_t a, uintptr_t b)
 {
 	int zA, zB;
 
+	USED(this);
 	zA = CEntity_GetLocation((CEntity *)a)->z;
 	zB = CEntity_GetLocation((CEntity *)b)->z;
 	return zA < zB;
-}
-
-/*
- * 0x00423D10 - std::sort insertion entry for SortByType
- *
- * Calls GameCentMon_GetPlayerCount (returns 0) for depth limit, then
- * delegates to SortByType_InsertionSort. typeTag and depth are passed
- * through to InsertionSort in the binary but unused.
- */
-static void __attribute__((unused))
-SortByType_InsertionEntry(uintptr_t *begin, uintptr_t *end, uint8_t typeTag)
-{
-	int depth = GameCentMon_GetPlayerCount();
-	SortByType_InsertionSort(begin, end, typeTag, depth);
-}
-
-/*
- * 0x00423D40 - _Quicksort
- *
- * Recursive quicksort with median-of-three pivot. Stops at partitions of
- * 16 or fewer elements. Tail-call optimized: recurses on smaller half,
- * loops on larger.
- */
-static void
-SortByType_Quicksort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth)
-{
-	uintptr_t pivot;
-	uintptr_t *mid;
-	int rightCount, leftCount;
-
-	USED(depth);
-	for (;;) {
-		if ((int)(end - begin) <= 16)
-			return;
-		pivot = SortByType_MedianOfThree(*begin, begin[(int)(end - begin) / 2], *(end - 1), typeTag);
-		mid = SortByType_Partition(begin, end, pivot, typeTag);
-		rightCount = (int)(end - mid);
-		leftCount = (int)(mid - begin);
-		if (rightCount > leftCount) {
-			SortByType_Quicksort(begin, mid, typeTag, GameCentMon_GetPlayerCount());
-			begin = mid;
-		} else {
-			SortByType_Quicksort(mid, end, typeTag, GameCentMon_GetPlayerCount());
-			end = mid;
-		}
-	}
-}
-
-/*
- * 0x00423E10 - _Move_backward
- *
- * Shifts elements right from pos, inserting value at the correct sorted
- * position. Walks backward while compare(value, *(pos-1)).
- */
-static void
-SortByType_MoveBackward(uintptr_t *pos, uintptr_t value, uint8_t typeTag)
-{
-	uintptr_t *cur;
-
-	USED(typeTag);
-
-	cur = pos;
-	while (SortByType_Compare(value, *(cur - 1))) {
-		*cur = *(cur - 1);
-		cur--;
-	}
-	*cur = value;
 }
 
 /*
@@ -2272,167 +2266,87 @@ SortByType_MoveBackward(uintptr_t *pos, uintptr_t value, uint8_t typeTag)
  * Returns 1 when GetBugStat(a) > GetBugStat(b) (descending order).
  */
 static int
-SortByType_Compare(uintptr_t a, uintptr_t b)
+SortByType_Compare(void *this, uintptr_t a, uintptr_t b)
 {
+	USED(this);
 	return CPlayer_GetBugStat((CItem *)a) > CPlayer_GetBugStat((CItem *)b);
 }
 
 /*
- * 0x00423F60 - std::sort insertion sort
+ * 0x00423F60 - SortByZ_Insertion (pred: SortByZ_Compare)
+ * 0x00424140 - SortByType_InsertionSort (pred: SortByType_Compare)
+ * 0x00430E80 - SortByLocation_Insertion (pred: CEntityMap_CompareLocation)
+ * 0x00431060 - SortBySerial_Insertion (pred: CEntityMap_CompareBySerial)
  *
- * Walks forward from begin+1. If new element < first, shifts all elements
- * right via CopyBackward and places it at begin. Otherwise, uses unguarded
- * linear insert (safe because begin acts as sentinel).
+ * _Insertion_sort_1: inserts each element after the first, moving the
+ * whole prefix up when it sorts before the first element.
  */
 static void
-SortByZ_Insertion(uintptr_t *begin, uintptr_t *end, char typeTag, int depth)
+SortByPred_Insertion(uintptr_t *first, uintptr_t *last, SortPred pred, int depth)
 {
 	uintptr_t *cur;
-	uintptr_t saved;
+	uintptr_t val;
 
 	USED(depth);
-	if (begin == end)
+	if (first == last)
 		return;
-	cur = begin;
-	for (;;) {
-		cur++;
-		if (cur == end)
-			return;
-		saved = *cur;
-		if (SortByZ_Compare(saved, *begin)) {
-			vector_CopyBackward(begin, cur, cur + 1);
-			*begin = saved;
+	for (cur = first + 1; cur != last; cur++) {
+		val = *cur;
+		if (!(pred(&pred, val, *first) & 0xFF)) {
+			SortByPred_UnguardedInsert(cur, val, pred);
 		} else {
-			SortByZ_UnguardedInsert(cur, saved, typeTag);
+			vector_CopyBackward(first, cur, cur + 1);
+			*first = val;
 		}
 	}
 }
 
 /*
- * 0x00423FF0 - std::sort median of three
+ * 0x00423FF0 - SortByZ_Median3 (pred: SortByZ_Compare)
+ * 0x004241D0 - SortByType_MedianOfThree (pred: SortByType_Compare)
+ * 0x00430F10 - SortByLocation_Median3 (pred: CEntityMap_CompareLocation)
+ * 0x004310F0 - SortBySerial_Median3 (pred: CEntityMap_CompareBySerial)
  *
- * Returns the median value of three entity pointers using the z-coordinate
- * comparator for pivot selection.
+ * _Median: the median of a, b and c under pred.
  */
 static uintptr_t
-SortByZ_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char typeTag)
+SortByPred_Median3(uintptr_t a, uintptr_t b, uintptr_t c, SortPred pred)
 {
-	USED(typeTag);
-	if (SortByZ_Compare(a, b)) {
-		if (SortByZ_Compare(b, c))
+	if (pred(&pred, a, b) & 0xFF) {
+		if (pred(&pred, b, c) & 0xFF)
 			return b;
-		else if (SortByZ_Compare(a, c))
+		if (pred(&pred, a, c) & 0xFF)
 			return c;
-		else
-			return a;
-	} else {
-		if (SortByZ_Compare(a, c))
-			return a;
-		else if (SortByZ_Compare(b, c))
-			return c;
-		else
-			return b;
+		return a;
 	}
+	if (pred(&pred, a, c) & 0xFF)
+		return a;
+	if (pred(&pred, b, c) & 0xFF)
+		return c;
+	return b;
 }
 
 /*
- * 0x004240C0 - std::sort partition
+ * 0x004240C0 - SortByZ_Partition (pred: SortByZ_Compare)
+ * 0x004242A0 - SortByType_Partition (pred: SortByType_Compare)
+ * 0x00430FE0 - SortByLocation_Partition (pred: CEntityMap_CompareLocation)
+ * 0x004311C0 - SortBySerial_Partition (pred: CEntityMap_CompareBySerial)
  *
- * Hoare partition scheme. Scans forward for elements >= pivot, backward
- * for elements <= pivot, swaps them. Returns partition point.
+ * _Unguarded_partition: Hoare partition around pivot. Returns the first
+ * element of the right part.
  */
 static uintptr_t *
-SortByZ_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, char typeTag)
+SortByPred_Partition(uintptr_t *first, uintptr_t *last, uintptr_t pivot, SortPred pred)
 {
-	USED(typeTag);
-	for (;;) {
-		while (SortByZ_Compare(*begin, pivot))
-			begin++;
-		end--;
-		while (SortByZ_Compare(pivot, *end))
-			end--;
-		if (end <= begin)
-			return begin;
-		vector_SwapWrapper(begin, end);
-		begin++;
-	}
-}
-
-/*
- * 0x00424140 - _Unguarded_insert (insertion sort)
- *
- * Walks forward from begin to end, inserting each element into its sorted
- * position via MoveBackward or CopyBackward.
- */
-static void
-SortByType_InsertionSort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth)
-{
-	uintptr_t *cur;
-	uintptr_t saved;
-
-	USED(depth);
-	if (begin == end)
-		return;
-	cur = begin;
-	for (;;) {
-		cur++;
-		if (cur == end)
-			return;
-		saved = *cur;
-		if (SortByType_Compare(saved, *begin)) {
-			vector_CopyBackward(begin, cur, cur + 1);
-			*begin = saved;
-		} else {
-			SortByType_MoveBackward(cur, saved, typeTag);
-		}
-	}
-}
-
-/*
- * 0x004241D0 - _Median_of_three
- *
- * Returns the median value of three elements for pivot selection.
- */
-static uintptr_t
-SortByType_MedianOfThree(uintptr_t a, uintptr_t b, uintptr_t c, uint8_t typeTag)
-{
-	USED(typeTag);
-	if (SortByType_Compare(a, b)) {
-		if (SortByType_Compare(b, c))
-			return b;
-		else if (SortByType_Compare(a, c))
-			return c;
-		else
-			return a;
-	} else {
-		if (SortByType_Compare(a, c))
-			return a;
-		else if (SortByType_Compare(b, c))
-			return c;
-		else
-			return b;
-	}
-}
-
-/*
- * 0x004242A0 - _Partition (Hoare partition scheme)
- *
- * Partitions [lo, hi) around pivot. Returns partition point.
- */
-static uintptr_t *
-SortByType_Partition(uintptr_t *lo, uintptr_t *hi, uintptr_t pivot, uint8_t typeTag)
-{
-	USED(typeTag);
-	for (;;) {
-		while (SortByType_Compare(*lo, pivot))
-			lo++;
-		hi--;
-		while (SortByType_Compare(pivot, *hi))
-			hi--;
-		if (hi <= lo)
-			return lo;
-		vector_SwapWrapper(lo, hi);
-		lo++;
+	for (;; first++) {
+		while (pred(&pred, *first, pivot) & 0xFF)
+			first++;
+		do
+			last--;
+		while (pred(&pred, pivot, *last) & 0xFF);
+		if (last <= first)
+			return first;
+		vector_SwapWrapper(first, last);
 	}
 }
 
@@ -2452,56 +2366,71 @@ vector_SwapImpl(uintptr_t *a, uintptr_t *b)
 }
 
 /*
- * 0x00424D30 - std::list<void*> constructor with type byte
+ * 0x00424D30 - StdPtrList_Init_PendingReturn
+ * 0x00426C00 - StdPtrList_Init_PendingFree
+ * 0x00457BB0 - StdPtrList_Init_EntityMgr
+ * 0x0045AAB0 - StdPtrList_Init_Login
+ * 0x00461FB0 - StdPtrList_Init_MobileMap
+ * 0x004849C0 - StdPtrList_Init_NPCMap
  *
- * 0x00426C00 (COMDAT)
- *
- * Copies type byte from arg, calls _Buynode(0, 0) to allocate sentinel,
- * sets head and size=0. This is the binary's std::list constructor.
+ * std::list<void*>::list, one body for the six lists of pointers: the
+ * deferred script-node returns and tag frees, the entity manager list and
+ * the ItemMap blocks, the login scripts, and the MobileMap and NPCMap
+ * blocks. Copies the allocator byte from *init, allocates the sentinel
+ * through StdPtrList_Buynode, and empties the list. Returns this.
  */
-__attribute__((unused)) void
-StdPtrList_ConstructorWithType(StdPtrList *list, void *typeBytePtr)
+StdPtrList *
+StdPtrList_Init(StdPtrList *list, void *init)
 {
-	*(uint8_t *)list = *(uint8_t *)typeBytePtr;
+	*(uint8_t *)list = *(uint8_t *)init;
 	list->head = StdPtrList_Buynode(list, NULL, NULL);
 	list->size = 0;
+
+	return list;
 }
 
 /*
- * 0x00424D70 - std::list<void*> clear and destroy
+ * 0x00424D70 - StdPtrList_Clear_PendingReturn
+ * 0x00426C40 - StdPtrList_Clear_PendingFree
+ * 0x00457BF0 - StdPtrList_Clear_EntityMgr
+ * 0x0045AAF0 - StdPtrList_Clear_Login
+ * 0x00461FF0 - StdPtrList_Clear_MobileMap
+ * 0x00484A00 - StdPtrList_Clear_NPCMap
  *
- * Gets begin/end iterators, calls StdPtrList_EraseRange_4F70 to remove all
- * elements, then frees the sentinel node via operator delete and zeroes
- * head/size.
+ * std::list<void*>::~list: erases every element through
+ * StdPtrList_EraseRange, frees the sentinel, and zeroes head and size.
  */
-static __attribute__((unused)) void
-StdPtrList_ClearAndDestroy_4D70(StdPtrList *list)
+void
+StdPtrList_Clear(StdPtrList *list)
 {
-	StdPtrNode *endIter, *beginIter;
-	StdPtrNode *result;
+	StdPtrNode *endIter, *beginIter, *result;
 
 	StdPtrList_End(list, &endIter);
-	beginIter = *StdPtrList_Begin(list, &(StdPtrNode *){ NULL });
-	StdPtrList_EraseRange_4F70(list, &result, beginIter, endIter);
+	StdPtrList_Begin(list, &beginIter);
+	StdPtrList_EraseRange(list, &result, beginIter, endIter);
 	free(list->head);
 	list->head = NULL;
 	list->size = 0;
 }
 
 /*
- * 0x00424DD0 - std::list<void*>::push_back (scalar deleting instantiation)
+ * 0x00424DD0 - StdPtrList_PushBack_PendingReturn
+ * 0x00426CD0 - StdPtrList_PushBack_PendingFree
+ * 0x00457C50 - StdPtrList_PushBack_EntityMgr
+ * 0x0045AB50 - StdPtrList_PushBack_Login
+ * 0x00462070 - StdPtrList_PushBack_MobileMap
+ * 0x00484A60 - StdPtrList_PushBack_NPCMap
  *
- * COMDAT twin of StdPtrList_PushBack (0x00426CD0). Gets end iterator,
- * calls the local StdPtrList_Insert (0x00424EC0) to insert before it.
+ * std::list<void*>::push_back: inserts value before end().
  */
 void
-StdPtrList_PushBack_4DD0(StdPtrList *list, void *value)
+StdPtrList_PushBack(StdPtrList *list, void *value)
 {
 	StdPtrNode *endIter;
 	StdPtrNode *result;
 
 	StdPtrList_End(list, &endIter);
-	StdPtrList_Insert(list, &result, endIter, value);
+	StdPtrList_DoInsert(list, &result, endIter, value);
 }
 
 /*
@@ -2526,25 +2455,29 @@ StdPtrList_Erase(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos)
 }
 
 /*
- * 0x00424EC0 - StdPtrList::Insert
+ * 0x00424EC0 - StdPtrList_DoInsert_PendingReturn
+ * 0x00426D00 - StdPtrList_DoInsert_PendingFree
+ * 0x00457CC0 - StdPtrList_DoInsert_EntityMgr
+ * 0x0045AB80 - StdPtrList_DoInsert_Login
+ * 0x004620A0 - StdPtrList_DoInsert_MobileMap
+ * 0x00484A90 - StdPtrList_DoInsert_NPCMap
  *
- * Inserts value before pos, the iterator the caller passes by value:
- * allocates the node with StdPtrList_Buynode, links it in front of pos,
- * copies the value through StdPtrList_DoInsert_424FC0, increments the size
- * and stores the new node in the result iterator. The binary reads pos
- * through the [this+0] getter at 0x00421000, which our C types as
- * returning int, so pos is used as passed.
+ * std::list<void*>::_Insert: inserts value before pos, the iterator the
+ * caller passes by value. Allocates the node through StdPtrList_Buynode,
+ * links it in front of pos, copies the value through
+ * StdPtrList_DoInsert_424FC0, increments the size, and stores the new
+ * node in *result, which it returns. The binary reads pos through the
+ * [this+0] getter at 0x00421000, which our C types as returning int, so
+ * pos is used as passed.
  *
- * MSVC STL's _Insert takes _Val by const reference (const _Ty&), which
- * lowers to a pointer-to-pointer in the x86 ABI, and DoInsert_4CF610
- * dereferences that reference to read the value. Our top-level API
- * takes a raw void*, so the reference is synthesized here by passing
- * &value on.
+ * _Insert takes the value by const reference, a pointer in the x86 ABI,
+ * and StdPtrList_DoInsert_4CF610 reads the value through it. Our callers
+ * pass the value itself, so the reference is made here by passing &value
+ * on.
  */
-static void
-StdPtrList_Insert(StdPtrList *this, void *resultIter, StdPtrNode *pos, void *value)
+StdPtrNode **
+StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value)
 {
-	StdPtrList *list = this;
 	StdPtrNode *node;
 	StdPtrNode *newNode;
 
@@ -2553,31 +2486,37 @@ StdPtrList_Insert(StdPtrList *this, void *resultIter, StdPtrNode *pos, void *val
 	node = *StdPtrNode_GetPrev(pos);
 	StdPtrNode_GetNext(*StdPtrNode_GetPrev(node))->next = node;
 
-	StdPtrList_DoInsert_424FC0(this, StdPtrNode_GetValue(node), &value);
+	StdPtrList_DoInsert_424FC0(list, StdPtrNode_GetValue(node), &value);
 
 	list->size = list->size + 1;
-	CIterCtx_Set(resultIter, node);
+	CIterCtx_Set(result, node);
+	return result;
 }
 
 /*
- * 0x00424F70 - std::list<void*> erase range
+ * 0x00424F70 - StdPtrList_EraseRange_PendingReturn
+ * 0x00426DB0 - StdPtrList_EraseRange_PendingFree
+ * 0x00457D70 - StdPtrList_EraseRange_EntityMgr
+ * 0x0045AC30 - StdPtrList_EraseRange_Login
+ * 0x00462150 - StdPtrList_EraseRange_MobileMap
+ * 0x00484B40 - StdPtrList_EraseRange_NPCMap
  *
- * Erases all elements from begin to end iterators. Loops while begin !=
- * end, calling post-increment (0x00484990) to advance and erase
- * (0x00424E00) to remove each node. Stores final iterator in result.
+ * std::list<void*>::erase(first, last): while first differs from last,
+ * steps first past its node and erases that node. Stores first, equal to
+ * last by then, in *result and returns result.
  */
-void *
-StdPtrList_EraseRange_4F70(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode)
+StdPtrNode **
+StdPtrList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
 {
-	StdPtrNode *result;
+	StdPtrNode *postIncTemp;
+	StdPtrNode *eraseResult;
 
-	while (StdPtrIter_Neq(&beginNode, &endNode) & 0xFF) {
-		StdPtrNode *next;
-		StdPtrIter_PostInc(&beginNode, &next, 0);
-		StdPtrList_Erase(list, &result, *(StdPtrNode **)&next);
+	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
+		StdPtrIter_PostInc(&first, &postIncTemp, 0);
+		StdPtrList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncTemp);
 	}
-	*(StdPtrNode **)resultIter = beginNode;
-	return resultIter;
+	*result = first;
+	return result;
 }
 
 /*
@@ -2645,47 +2584,6 @@ CVector_Destructor(CVector *list)
 }
 
 /*
- * 0x004267A0 - std::_Ucopy range (CVector)
- *
- * Copies 4-byte elements from [first, last) to dest by calling construct
- * (0x00424FC0) per element. Returns pointer past the last written
- * destination element.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x004267E0 - std::_Ufill_n (CVector)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element with the value pointed to by valuePtr. Returns void (no
- * return value used).
- */
-static __attribute__((unused)) void
-CVector_UfillN_67E0(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
  * 0x00426820 - std::copy_backward (uint32_t)
  *
  * Copies [first, last) backward into memory ending at dest_end. Returns
@@ -2708,27 +2606,6 @@ vector_CopyBackward(void *first, void *last, void *dest_end)
 }
 
 /*
- * 0x00426C40 - std::list<void*> clear and destroy (TagNode pool)
- *
- * Gets begin/end iterators, runs the erase loop to remove all elements,
- * then frees the sentinel node and zeroes head/size. Template instantiation
- * for TagNode pool's deferred free list.
- */
-static __attribute__((unused)) void
-StdPtrList_ClearAndDestroy_6C40(StdPtrList *list)
-{
-	StdPtrNode *endIter, *beginIter;
-	StdPtrNode *result;
-
-	StdPtrList_End(list, &endIter);
-	beginIter = *StdPtrList_Begin(list, &(StdPtrNode *){ NULL });
-	StdPtrList_EraseRange_6DB0(list, &result, beginIter, endIter);
-	free(list->head);
-	list->head = NULL;
-	list->size = 0;
-}
-
-/*
  * 0x00426CA0 - std::list<void*>::begin
  *
  * Returns iterator to first element. Stores head->next (first real node or
@@ -2739,84 +2616,6 @@ StdPtrList_Begin(StdPtrList *list, StdPtrNode **outIter)
 {
 	*outIter = list->head->next;
 	return outIter;
-}
-
-/*
- * 0x00426CD0 - std::list<void*>::push_back
- *
- * 0x0045AB50, 0x00457C50, 0x00484A60 (COMDAT)
- *
- * Appends value to end of list. Calls end() to get sentinel, then
- * _Insert() to insert before sentinel.
- */
-void
-StdPtrList_PushBack(StdPtrList *list, void *value)
-{
-	StdPtrNode *endIter;
-	StdPtrNode *result;
-
-	StdPtrList_End(list, &endIter);
-	StdPtrList_DoInsert(list, &result, endIter, value);
-}
-
-/*
- * 0x00426D00 - std::list<void*>::_Insert
- *
- * 0x0045AB80, 0x00457CC0, 0x00484A90 (COMDAT)
- *
- * Inserts a new node before pos with the given value. Uses _Buynode to
- * allocate node with next/prev hints, then links into list via
- * _Prevnode/_Nextnode accessors, copies value via direct assignment
- * (binary uses _Constructor + placement new with reference semantics;
- * adapted to C value semantics), increments size.
- */
-void
-StdPtrList_DoInsert(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value)
-{
-	StdPtrNode *node;
-	StdPtrNode *newNode;
-
-	node = pos;
-
-	// _Buynode(list, pos, pos->prev) - alloc with next=pos, prev=pos->prev
-	newNode = StdPtrList_Buynode(list, node, *StdPtrNode_GetPrev(node));
-
-	// pos->prev = newNode
-	*StdPtrNode_GetPrev(node) = newNode;
-
-	// Read back pos->prev (= newNode), overwrite node variable
-	node = *StdPtrNode_GetPrev(node);
-
-	// prevNode->next = newNode (via _Nextnode identity accessor)
-	StdPtrNode_GetNext(*StdPtrNode_GetPrev(node))->next = node;
-
-	// Copy value (binary: _Constructor -> _PlacementCopy with ref semantics)
-	*StdPtrNode_GetValue(node) = value;
-
-	list->size = list->size + 1;
-
-	CIterCtx_Set(result, node);
-}
-
-/*
- * 0x00426DB0 - std::list<void*> erase range (TagNode pool)
- *
- * Erases every element in [begin, end), advancing via post-increment then
- * removing each node. Stores the final iterator into *resultIter. Template
- * instantiation for TagNode pool's deferred free list.
- */
-static void *
-StdPtrList_EraseRange_6DB0(StdPtrList *list, void *resultIter, StdPtrNode *beginNode, StdPtrNode *endNode)
-{
-	StdPtrNode *result;
-
-	while (StdPtrIter_Neq(&beginNode, &endNode) & 0xFF) {
-		StdPtrNode *next;
-		StdPtrIter_PostInc(&beginNode, &next, 0);
-		StdPtrList_Erase(list, &result, *(StdPtrNode **)&next);
-	}
-	*(StdPtrNode **)resultIter = beginNode;
-	return resultIter;
 }
 
 /*
@@ -2831,236 +2630,6 @@ StdPtrIter_Eq(StdPtrNode **a, StdPtrNode **b)
 }
 
 /*
- * 0x0042E990 - std::_Ucopy range (CVector instantiation 3)
- *
- * Copies 4-byte elements from [first, last) to dest by calling construct
- * (0x00424FC0) per element. Returns pointer past the last written
- * destination element. Template instantiation reached from
- * EventParamBlock::AddParam.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_E990(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x0042E9D0 - std::_Ufill_n (CVector instantiation 3)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-CVector_UfillN_E9D0(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
- * 0x0042EA10 - std::_Ucopy range (CVector instantiation 4)
- *
- * Copies 4-byte elements from [first, last) to dest by calling construct
- * (0x00424FC0) per element. Returns pointer past the last written
- * destination element. Template instantiation reached from
- * EventParamBlock::AddParam.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_EA10(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x0042EA50 - std::_Ufill_n (CVector instantiation 4)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-CVector_UfillN_EA50(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
- * 0x0042EA90 - std::_Ucopy range (CVector instantiation 5)
- *
- * Copies 4-byte elements from [first, last) to dest by calling construct
- * (0x00424FC0) per element. Returns pointer past the last written
- * destination element. Template instantiation reached from
- * EventParamBlock::AddParam.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_EA90(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x0042EAD0 - std::_Ufill_n (CVector instantiation 5)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-CVector_UfillN_EAD0(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
- * 0x0042FF00 - CVector::PushBack
- *
- * The same template instantiated seventeen times, each with its own
- * insert helper and all instruction-identical: 0x004066C0, 0x00421330,
- * 0x00421550, 0x00426500, 0x0042E190, 0x0042E1C0, 0x0042E1F0,
- * 0x004367A0, 0x00462640, 0x00462670, 0x00473860, 0x00479020,
- * 0x00479050, 0x004A6490, 0x004CECB0, 0x004CECE0, 0x004CED10.
- *
- * Calls End() to get insert position, then vector insert at end. This is
- * STL vector<uint32>::push_back via insert-at-end chain: 0x0042FF00 ->
- * 0x0042FF30 -> 0x0042FF80 (vector::insert).
- */
-void
-CVector_PushBack(CVector *list, uintptr_t value)
-{
-	// The binary reads end() through the folded accessor at 0x00403280,
-	// which our C types as StdList_GetSize returning int - lossy for a
-	// pointer on 64-bit, so the field is read directly.
-	CVector_Insert_FF30(list, (uintptr_t *)list->end, &value);
-}
-
-/*
- * 0x0042FF30 - CVector::insert (single element)
- *
- * Records the insert position as an index, inserts one element there, and
- * returns the position again from the possibly-reallocated buffer.
- *
- * 64-bit: the binary computes the index with >> 2 because its elements are
- * 32-bit; the step here is the pointer width.
- */
-static void *
-CVector_Insert_FF30(CVector *this, uintptr_t *pos, uintptr_t *value)
-{
-	uintptr_t bucket;
-	int offset;
-
-	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
-	offset = (int)(((uintptr_t)pos - bucket) / sizeof(uintptr_t));
-	CVector_Insert_FF80(this, pos, 1, value);
-	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
-	return (void *)(bucket + (uintptr_t)offset * sizeof(uintptr_t));
-}
-
-/*
- * 0x0042FF80 - CVector::_Insert_n
- *
- * Inserts count copies of value before pos. When the spare capacity is too
- * small it allocates curCount + max(count, curCount) elements, copies the
- * head, fills the new elements, copies the tail, then destroys and frees the
- * old buffer. Otherwise it shifts in place.
- */
-static void
-CVector_Insert_FF80(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value)
-{
-	uint32_t curCapacity;
-	uint32_t totalCapacity;
-	uintptr_t *newBuf;
-	uintptr_t *newEnd;
-
-	curCapacity = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->end) / sizeof(uintptr_t));
-
-	if (curCapacity < count) {
-		uint32_t curCount = CVector_GetCount(this);
-		uint32_t growTo;
-
-		if (count < curCount)
-			growTo = curCount;
-		else
-			growTo = count;
-
-		totalCapacity = curCount + growTo;
-
-		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity, 0);
-
-		newEnd = (uintptr_t *)CVector_Ucopy((StdAllocator *)this, this->begin, pos, newBuf);
-
-		CVector_UfillN_0220((StdAllocator *)this, newEnd, count, value);
-
-		CVector_Ucopy((StdAllocator *)this, pos, this->end, newEnd + count);
-
-		CVector_Destroy4_Range(this, this->begin, this->end);
-		{
-			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
-			StdDeque_DeallocSI(this, this->begin, oldCount);
-		}
-
-		this->capacity = (void *)(newBuf + totalCapacity);
-		this->end = (void *)(newBuf + CVector_GetCount(this) + count);
-		this->begin = newBuf;
-	} else {
-		uint32_t afterCount = (uint32_t)(((uintptr_t)this->end - (uintptr_t)pos) / sizeof(uintptr_t));
-
-		if (afterCount < count) {
-			CVector_Ucopy((StdAllocator *)this, pos, this->end, pos + count);
-			CVector_UfillN_0220((StdAllocator *)this, (uintptr_t *)this->end, count - afterCount, value);
-			vector_Fill(pos, this->end, value);
-			this->end = (void *)((uintptr_t *)this->end + count);
-		} else if (count > 0) {
-			CVector_Ucopy((StdAllocator *)this, (uintptr_t *)this->end - count, this->end, this->end);
-			vector_CopyBackward(pos, (uintptr_t *)this->end - count, this->end);
-			vector_Fill(pos, pos + count, value);
-			this->end = (void *)((uintptr_t *)this->end + count);
-		}
-	}
-}
-
-/*
  * 0x004301A0 - CVector::GetCount
  *
  * Returns element count: (end - begin) / 4, or 0 if begin is NULL.
@@ -3071,73 +2640,6 @@ CVector_GetCount(CVector *list)
 	if (list->begin == NULL)
 		return 0;
 	return ((uintptr_t *)list->end - (uintptr_t *)list->begin);
-}
-
-/*
- * 0x004301E0 - std::_Ucopy
- *
- * Copies uint32_t elements from [begin, end) to dest via a construct
- * callback. Returns pointer past last written element. Used by
- * CVector::insert to copy existing elements to a new buffer.
- */
-static __attribute__((unused)) uintptr_t *
-CVector_Ucopy(void *alloc, uintptr_t *begin, uintptr_t *end, uintptr_t *dest)
-{
-	while (begin != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, dest, begin);
-		dest++;
-		begin++;
-	}
-	return dest;
-}
-
-/*
- * 0x00430220 - std::_Ufill_n
- *
- * Fills count uint32_t slots at first with the value at *value; the
- * binary re-reads the same source every pass. Used by CVector::insert
- * to seed newly inserted elements.
- */
-static __attribute__((unused)) void
-CVector_UfillN_0220(void *alloc, uintptr_t *first, uint32_t count, uintptr_t *value)
-{
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, first, value);
-		count--;
-		first++;
-	}
-}
-
-/*
- * 0x00436A40 - std::deque copy forward
- *
- * Copies 4-byte elements from [first, last) into dest. Returns the
- * final dest pointer.
- */
-static __attribute__((unused)) uintptr_t *
-StdDeque_CopyForward(void *alloc, uintptr_t *first, uintptr_t *last, uintptr_t *dest)
-{
-	while (first != last) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, dest, first);
-		dest++;
-		first++;
-	}
-	return dest;
-}
-
-/*
- * 0x00436A80 - std::deque copy N
- *
- * Fills count 4-byte elements at dest with *value.
- */
-static __attribute__((unused)) void
-StdDeque_CopyN(void *alloc, uintptr_t *dest, uint32_t count, uintptr_t *value)
-{
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)alloc, dest, value);
-		dest++;
-		count--;
-	}
 }
 
 /*
@@ -3228,62 +2730,6 @@ StdPtrList_Charalloc(StdPtrList *list, uint32_t size)
 {
 	USED(list);
 	return OperatorNew_Clamp(size, NULL);
-}
-
-/*
- * 0x00457BB0 - StdPtrList_Init
- *
- * Copies allocator byte from *init, allocates sentinel via Buynode(0, 0),
- * sets size=0. Returns this.
- */
-StdPtrList *
-StdPtrList_Init(StdPtrList *list, const void *init)
-{
-	*(uint8_t *)list = *(const uint8_t *)init;
-	list->head = StdPtrList_Buynode(list, NULL, NULL);
-	list->size = 0;
-
-	return list;
-}
-
-/*
- * 0x00457BF0 - StdPtrList_Clear
- *
- * Gets begin/end iterators, calls StdPtrList_EraseRange to erase all,
- * frees the sentinel node, sets head=NULL and size=0.
- */
-void
-StdPtrList_Clear(StdPtrList *list)
-{
-	StdPtrNode *endIter, *beginIter, *result;
-
-	StdPtrList_End(list, &endIter);
-	StdPtrList_Begin(list, &beginIter);
-	StdPtrList_EraseRange(list, &result, beginIter, endIter);
-	free(list->head);
-	list->head = NULL;
-	list->size = 0;
-}
-
-/*
- * 0x00457D70 - StdPtrList_EraseRange
- *
- * Template instantiation of erase range for entity manager list. While
- * first != last: post-increments first (0x00484990), extracts value,
- * erases old position from list. Stores final iterator to *result.
- */
-StdPtrNode **
-StdPtrList_EraseRange(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
-{
-	StdPtrNode *postIncTemp;
-	StdPtrNode *eraseResult;
-
-	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
-		StdPtrList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncTemp);
-	}
-	*result = first;
-	return result;
 }
 
 /*
@@ -3581,17 +3027,20 @@ CFileEntry_Destructor(CFileEntry *self)
 
 /*
  * 0x00458FB0 - std::list<CFileEntry>::_Init
+ * 0x004845E0 - StdPtrList16_Constructor
  *
- * Copies allocator byte from source, allocates sentinel via Buynode,
- * and zeroes the count. Returns self.
+ * Copies the allocator byte from init, allocates the sentinel through
+ * StdFileList_Buynode, and leaves the list empty. Returns this. The
+ * CFileEntry and CString lists share it: both elements are 16 bytes, so
+ * one node size serves both.
  */
-static __attribute__((unused)) void *
-StdFileList_Init(StdPtrList *list, void *src)
+void *
+StdPtrList16_Constructor(StdPtrList *this, const void *init)
 {
-	*(uint8_t *)list = *(uint8_t *)src;
-	list->head = StdFileList_Buynode(list, NULL, NULL);
-	list->size = 0;
-	return list;
+	*(uint8_t *)this = *(const uint8_t *)init;
+	this->head = StdFileList_Buynode(this, NULL, NULL);
+	this->size = 0;
+	return this;
 }
 
 /*
@@ -3759,61 +3208,6 @@ CFileEntry_ScalarDelete(CFileEntry *self, int flags)
 }
 
 /*
- * 0x0045AAB0 - std::list<void*>::_Init (login script list)
- *
- * Copies byte from *arg to this[0], calls _Buynode(0, 0) to create
- * self-referencing sentinel at this+4, sets this+8 (count) = 0. Template
- * instantiation of std::list constructor for g_loginScriptList.
- */
-void *
-StdPtrList_InitLogin(StdPtrList *this, const void *init)
-{
-	*(uint8_t *)this = *(const uint8_t *)init;
-	this->head = StdPtrList_Buynode(this, NULL, NULL);
-	this->size = 0;
-	return this;
-}
-
-/*
- * 0x0045AAF0 - std::list<void*>::~list (login script list)
- *
- * Gets begin and end iterators, erases the entire range, frees the
- * sentinel node, and zeroes head and size.
- */
-static __attribute__((unused)) void
-StdPtrList_DestructorLogin(StdPtrList *list)
-{
-	StdPtrNode *endNode, *beginNode, *result;
-
-	StdPtrList_End(list, &endNode);
-	StdPtrList_Begin(list, &beginNode);
-	StdPtrList_EraseRangeLogin(list, &result, beginNode, endNode);
-	free(list->head);
-	list->head = NULL;
-	list->size = 0;
-}
-
-/*
- * 0x0045AC30 - std::list<void*>::erase range (login script list)
- *
- * While first != last: post-increments first (0x00484990), erases old
- * position via StdPtrList_Erase. Stores final iterator to *result.
- */
-static StdPtrNode **
-StdPtrList_EraseRangeLogin(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
-{
-	StdPtrNode *postIncTemp;
-
-	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
-		StdPtrList_Erase(list, &postIncTemp, *(StdPtrNode **)&postIncTemp);
-	}
-	*result = first;
-
-	return result;
-}
-
-/*
  * 0x0045AC80 - std::list<void*>::_Next
  *
  * Identity function. Returns node unchanged. In MSVC STL, _Next returns a
@@ -3846,22 +3240,6 @@ StdPtrIter_Inc(StdPtrNode **iter)
 }
 
 /*
- * 0x00461FB0 - StdPtrList::Init (EntityMap variant)
- *
- * Copies byte from arg to this[0]. Calls StdPtrList_Buynode(this, 0, 0) to
- * allocate sentinel, stores in this->head. Sets this->size = 0. Returns
- * this.
- */
-static __attribute__((unused)) void *
-StdPtrList_Init_EntityMap(StdPtrList *list, void *typeBytePtr)
-{
-	*(uint8_t *)list = *(uint8_t *)typeBytePtr;
-	list->head = StdPtrList_Buynode(list, NULL, NULL);
-	list->size = 0;
-	return list;
-}
-
-/*
  * 0x00462050 - std::list<void*>::end
  *
  * Returns iterator to past-the-end (sentinel node). Stores head (sentinel)
@@ -3875,94 +3253,42 @@ StdPtrList_End(StdPtrList *list, StdPtrNode **outIter)
 }
 
 /*
- * 0x00462070 - std::list<void*>::push_back (grid variant)
- *
- * Template instantiation of push_back for CEntityMap grid blocks. Called
- * from CEntityMap_GridInsert (0x00461F10). Identical logic to
- * StdPtrList_PushBack (0x00426CD0): calls end() then _Insert().
- */
-static __attribute__((unused)) void
-StdPtrList_PushBackGrid(StdPtrList *list, void *value)
-{
-	StdPtrNode *endIter;
-	StdPtrNode *result;
-
-	StdPtrList_End(list, &endIter);
-	StdPtrList_DoInsertGrid(list, &result, endIter, value);
-}
-
-/*
- * 0x004620A0 - std::list<void*>::_Insert (grid variant)
- *
- * Template instantiation of _Insert for CEntityMap grid blocks. Called
- * from StdPtrList_PushBackGrid (0x00462070). Identical logic to
- * StdPtrList_DoInsert (0x00426D00): allocates node via _Buynode, links
- * into list, copies value, increments size.
- */
-static void
-StdPtrList_DoInsertGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *pos, void *value)
-{
-	StdPtrNode *node;
-	StdPtrNode *newNode;
-
-	node = pos;
-
-	newNode = StdPtrList_Buynode(list, node, *StdPtrNode_GetPrev(node));
-	*StdPtrNode_GetPrev(node) = newNode;
-	node = *StdPtrNode_GetPrev(node);
-	StdPtrNode_GetNext(*StdPtrNode_GetPrev(node))->next = node;
-	*StdPtrNode_GetValue(node) = value;
-	list->size = list->size + 1;
-	CIterCtx_Set(result, node);
-}
-
-/*
- * 0x00462150 - std::list<void*>::erase range (grid variant)
- *
- * Template instantiation of erase range for CEntityMap grid blocks. While
- * first != last: post-increments first (0x00484990), erases old position
- * via StdPtrList_Erase. Stores final iterator to *result.
- */
-static __attribute__((unused)) StdPtrNode **
-StdPtrList_EraseRangeGrid(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
-{
-	StdPtrNode *postIncTemp;
-	StdPtrNode *eraseResult;
-
-	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
-		StdPtrList_Erase(list, &eraseResult, *(StdPtrNode **)&postIncTemp);
-	}
-	*result = first;
-	return result;
-}
-
-/*
  * 0x00462390 - std::sort by distance for pair arrays
  *
- * Sort entry point for entity query pair arrays. Calls
- * GameCentMon_GetPlayerCount for the depth limit, then delegates to
- * SortByDist_Main_Pair. Called from ProcessCrimeWitness.
+ * Sort entry called from ProcessCrimeWitness. The functor holds refLoc
+ * and is passed by value: the binary copies it through
+ * CLocation_CopyFromSrc before every call that takes it, and runs its
+ * destructor on every exit, the empty function at 0x00461F80 that
+ * CResBankMagicCtx_PostInit shares. _Val_type runs before the copy.
  */
 void
 Vector_SortByDistPair(uintptr_t *begin, uintptr_t *end, CLocation refLoc)
 {
-	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Main_Pair(begin, end, refLoc, depth);
+	int depth;
+	CLocation arg;
+
+	depth = GameCentMon_GetPlayerCount();
+	CLocation_CopyFromSrc(&arg, &refLoc);
+	SortByDist_Main(begin, end, arg, depth);
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
 }
 
 /*
  * 0x004625D0 - std::sort by distance for pair arrays (entry)
  *
- * Sort entry point. Calls GameCentMon_GetPlayerCount for depth, then
- * delegates to SortByDist_Main_Pair2. Called from
- * CombatManager_SpawnGuards.
+ * The distance sort's entry called from CombatManager_SpawnGuards, the
+ * same code as Vector_SortByDistPair at its own address.
  */
 void
 Vector_SortByDistPairEntry(uintptr_t *begin, uintptr_t *end, CLocation refLoc)
 {
-	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Main_Pair2(begin, end, refLoc, depth);
+	int depth;
+	CLocation arg;
+
+	depth = GameCentMon_GetPlayerCount();
+	CLocation_CopyFromSrc(&arg, &refLoc);
+	SortByDist_Main(begin, end, arg, depth);
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
 }
 
 /*
@@ -3978,263 +3304,113 @@ StdPtrIter_Deref(StdPtrNode **iter)
 }
 
 /*
- * 0x00462BA0 - std::_Ucopy (CVector instantiation 6)
+ * 0x00462CA0 - SortByDist_Main_Witness
+ * 0x00462DB0 - SortByDist_Main_Guards
+ * 0x0047F3F0 - SortByDist_Main_Broadcast
  *
- * Copies 4-byte elements from [first, last) to dest via construct
- * callback. Returns pointer past last written element.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_BA0(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x00462BE0 - std::_Ufill_n (CVector instantiation 6)
- *
- * Fills count 4-byte elements at dest by calling construct per element
- * with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-CVector_UfillN_BE0(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
- * 0x00462C20 - std::_Ucopy (CVector instantiation 7)
- *
- * Copies 4-byte elements from [first, last) to dest via construct
- * callback. Returns pointer past last written element.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_C20(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x00462C60 - std::_Ufill_n (CVector instantiation 7)
- *
- * Fills count 4-byte elements at dest by calling construct per element
- * with the value pointed to by valuePtr.
- */
-static __attribute__((unused)) void
-CVector_UfillN_C60(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-/*
- * 0x00462CA0 - std::sort main for pair array distance sort
- *
- * Introsort dispatch for entity query pair arrays: if count <= 16,
- * insertion sort; otherwise quicksort + insertion sort.
+ * _Sort_0: insertion sort alone up to 16 elements, otherwise the
+ * quicksort, an insertion sort of the first 16 and an unguarded insert of
+ * each element after them. Each call takes its own copy of refLoc.
  */
 static void
-SortByDist_Main_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
+SortByDist_Main(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
 {
-	int count;
-	uintptr_t *cur;
+	CLocation arg;
 
 	USED(depth);
-	count = (int)(end - begin);
-	if (count <= 16) {
-		SortByDist_InsertionEntry_Pair(begin, end, refLoc);
-		return;
-	}
-	SortByDist_Quicksort_Pair(begin, end, refLoc, 0);
-	SortByDist_InsertionEntry_Pair(begin, begin + 16, refLoc);
-	cur = begin + 16;
-	while (cur != end) {
-		SortByDist_UnguardedInsert_Pair(cur, *cur, refLoc);
-		cur++;
-	}
-}
-
-/*
- * 0x00462DB0 - std::sort main for pair arrays (variant 2)
- *
- * Introsort dispatch. Called from Vector_SortByDistPairEntry. If count <=
- * 16, insertion sort; otherwise quicksort + insertion sort.
- */
-static void
-SortByDist_Main_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
-{
-	int count;
-	uintptr_t *cur;
-
-	USED(depth);
-	count = (int)(end - begin);
-	if (count <= 16) {
-		SortByDist_InsertionEntry_Pair2(begin, end, refLoc);
-		return;
-	}
-	SortByDist_Quicksort_Pair2(begin, end, refLoc, 0);
-	SortByDist_InsertionEntry_Pair2(begin, begin + 16, refLoc);
-	cur = begin + 16;
-	while (cur != end) {
-		SortByDist_UnguardedInsert_Pair2(cur, *cur, refLoc);
-		cur++;
-	}
-}
-
-/*
- * 0x00462EC0 - std::sort insertion entry for pair arrays
- *
- * Wrapper. Reads the unused depth limit from GameCentMon_GetPlayerCount
- * and delegates to SortByDist_Insertion_Pair.
- */
-static void
-SortByDist_InsertionEntry_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc)
-{
-	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Insertion_Pair(begin, end, refLoc, depth);
-}
-
-/*
- * 0x00462F30 - std::sort quicksort for pair arrays
- *
- * Quicksort with median-of-three pivot. Recurses on smaller half, iterates
- * on larger. Stops at partitions of <=16 elements.
- */
-static void
-SortByDist_Quicksort_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
-{
-	uintptr_t pivot;
-	uintptr_t *mid;
-	int rightCount, leftCount;
-
-	USED(depth);
-	for (;;) {
-		if ((int)(end - begin) <= 16)
-			return;
-		pivot = SortByDist_Median3_Pair(*begin, begin[(int)(end - begin) / 2], *(end - 1), refLoc);
-		mid = SortByDist_Partition_Pair(begin, end, pivot, refLoc);
-		rightCount = (int)(end - mid);
-		leftCount = (int)(mid - begin);
-		if (rightCount > leftCount) {
-			SortByDist_Quicksort_Pair(begin, mid, refLoc, GameCentMon_GetPlayerCount());
-			begin = mid;
-		} else {
-			SortByDist_Quicksort_Pair(mid, end, refLoc, GameCentMon_GetPlayerCount());
-			end = mid;
+	if ((int)(end - begin) <= 16) {
+		CLocation_CopyFromSrc(&arg, &refLoc);
+		SortByDist_InsertionEntry(begin, end, arg);
+	} else {
+		CLocation_CopyFromSrc(&arg, &refLoc);
+		SortByDist_Quicksort(begin, end, arg, 0);
+		CLocation_CopyFromSrc(&arg, &refLoc);
+		SortByDist_InsertionEntry(begin, begin + 16, arg);
+		for (begin += 16; begin != end; begin++) {
+			CLocation_CopyFromSrc(&arg, &refLoc);
+			SortByDist_UnguardedInsert(begin, *begin, arg);
 		}
 	}
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
 }
 
 /*
- * 0x00463080 - Unguarded linear insert for pair arrays
+ * 0x00462EC0 - SortByDist_InsertionEntry_Witness
+ * 0x00463110 - SortByDist_InsertionEntry_Guards
+ * 0x0047F500 - SortByDist_InsertionEntry_Broadcast
+ *
+ * Wrapper. Reads the unused depth limit from GameCentMon_GetPlayerCount
+ * and delegates to SortByDist_Insertion.
+ */
+static void
+SortByDist_InsertionEntry(uintptr_t *begin, uintptr_t *end, CLocation refLoc)
+{
+	int depth;
+	CLocation arg;
+
+	depth = GameCentMon_GetPlayerCount();
+	CLocation_CopyFromSrc(&arg, &refLoc);
+	SortByDist_Insertion(begin, end, arg, depth);
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
+}
+
+/*
+ * 0x00462F30 - SortByDist_Quicksort_Witness
+ * 0x00463180 - SortByDist_Quicksort_Guards
+ * 0x0047F570 - SortByDist_Quicksort_Broadcast
+ *
+ * _Sort: while more than 16 elements remain, partitions around the median
+ * of the first, middle and last elements, recurses on the right part when
+ * it is no larger than the left and on the left part otherwise, and loops
+ * on the other. The partition's copy of refLoc is made before the
+ * median's.
+ */
+static void
+SortByDist_Quicksort(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
+{
+	CLocation partArg, medArg, arg;
+	uintptr_t pivot;
+	uintptr_t *mid;
+	int valType;
+
+	USED(depth);
+	while ((int)(end - begin) > 16) {
+		CLocation_CopyFromSrc(&partArg, &refLoc);
+		CLocation_CopyFromSrc(&medArg, &refLoc);
+		pivot = SortByDist_Median3(*begin, begin[(int)(end - begin) / 2], *(end - 1), medArg);
+		mid = SortByDist_Partition(begin, end, pivot, partArg);
+		if ((int)(end - mid) <= (int)(mid - begin)) {
+			valType = GameCentMon_GetPlayerCount();
+			CLocation_CopyFromSrc(&arg, &refLoc);
+			SortByDist_Quicksort(mid, end, arg, valType);
+			end = mid;
+		} else {
+			valType = GameCentMon_GetPlayerCount();
+			CLocation_CopyFromSrc(&arg, &refLoc);
+			SortByDist_Quicksort(begin, mid, arg, valType);
+			begin = mid;
+		}
+	}
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
+}
+
+/*
+ * 0x00463080 - SortByDist_UnguardedInsert_Witness
+ * 0x004632D0 - SortByDist_UnguardedInsert_Guards
+ * 0x0047F6C0 - SortByDist_UnguardedInsert_Broadcast
  *
  * Shifts elements right from pos while val is closer than the preceding
  * element, then places val at correct position.
  */
 static void
-SortByDist_UnguardedInsert_Pair(uintptr_t *pos, uintptr_t val, CLocation refLoc)
+SortByDist_UnguardedInsert(uintptr_t *pos, uintptr_t val, CLocation refLoc)
 {
-	uintptr_t *cur = pos;
+	uintptr_t *prev;
 
-	for (;;) {
-		cur--;
-		if (!SortByDist_Compare(&refLoc, val, *cur))
-			break;
-		*pos = *cur;
-		pos = cur;
-	}
+	for (prev = pos; SortByDist_Compare(&refLoc, val, *--prev) & 0xFF; pos = prev)
+		*pos = *prev;
 	*pos = val;
-}
-
-/*
- * 0x00463110 - std::sort insertion entry for pair arrays (variant 2)
- *
- * Wrapper. Reads the unused depth limit from GameCentMon_GetPlayerCount
- * and delegates to SortByDist_Insertion_Pair2.
- */
-static void
-SortByDist_InsertionEntry_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc)
-{
-	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Insertion_Pair2(begin, end, refLoc, depth);
-}
-
-/*
- * 0x00463180 - std::sort quicksort for pair arrays (variant 2)
- *
- * Quicksort with median-of-three pivot. Recurses on smaller half.
- */
-static void
-SortByDist_Quicksort_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
-{
-	uintptr_t pivot;
-	uintptr_t *mid;
-	int rightCount, leftCount;
-
-	USED(depth);
-	for (;;) {
-		if ((int)(end - begin) <= 16)
-			return;
-		pivot = SortByDist_Median3_Pair2(*begin, begin[(int)(end - begin) / 2], *(end - 1), refLoc);
-		mid = SortByDist_Partition_Pair2(begin, end, pivot, refLoc);
-		rightCount = (int)(end - mid);
-		leftCount = (int)(mid - begin);
-		if (rightCount > leftCount) {
-			SortByDist_Quicksort_Pair2(begin, mid, refLoc, GameCentMon_GetPlayerCount());
-			begin = mid;
-		} else {
-			SortByDist_Quicksort_Pair2(mid, end, refLoc, GameCentMon_GetPlayerCount());
-			end = mid;
-		}
-	}
-}
-
-/*
- * 0x004632D0 - Unguarded linear insert for pair arrays (variant 2)
- *
- * Shifts elements right from pos while val is closer than the preceding
- * element, then places val at correct position.
- */
-static void
-SortByDist_UnguardedInsert_Pair2(uintptr_t *pos, uintptr_t val, CLocation refLoc)
-{
-	uintptr_t *cur = pos;
-
-	for (;;) {
-		cur--;
-		if (!SortByDist_Compare(&refLoc, val, *cur))
-			break;
-		*pos = *cur;
-		pos = cur;
-	}
-	*pos = val;
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
 }
 
 /*
@@ -4254,155 +3430,92 @@ SortByDist_Compare(CLocation *refLoc, uintptr_t a, uintptr_t b)
 }
 
 /*
- * 0x004633B0 - Insertion sort for pair arrays
+ * 0x004633B0 - SortByDist_Insertion_Witness
+ * 0x00463660 - SortByDist_Insertion_Guards
+ * 0x0047F750 - SortByDist_Insertion_Broadcast
  *
  * Standard insertion sort for entity pointer arrays. If new element is
  * closer than first, shifts all right via CopyBackward. Otherwise uses
  * unguarded insert.
  */
 static void
-SortByDist_Insertion_Pair(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
+SortByDist_Insertion(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
 {
+	CLocation arg;
 	uintptr_t *cur;
-	uintptr_t saved;
+	uintptr_t val;
 
 	USED(depth);
-	if (begin == end)
-		return;
-	cur = begin;
-	for (;;) {
-		cur++;
-		if (cur == end)
-			return;
-		saved = *cur;
-		if (SortByDist_Compare(&refLoc, saved, *begin)) {
-			vector_CopyBackward(begin, cur, cur + 1);
-			*begin = saved;
-		} else {
-			SortByDist_UnguardedInsert_Pair(cur, saved, refLoc);
+	if (begin != end) {
+		for (cur = begin + 1; cur != end; cur++) {
+			val = *cur;
+			if (!(SortByDist_Compare(&refLoc, val, *begin) & 0xFF)) {
+				CLocation_CopyFromSrc(&arg, &refLoc);
+				SortByDist_UnguardedInsert(cur, val, arg);
+			} else {
+				vector_CopyBackward(begin, cur, cur + 1);
+				*begin = val;
+			}
 		}
 	}
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
 }
 
 /*
- * 0x00463480 - Median of three for pair arrays
+ * 0x00463480 - SortByDist_Median3_Witness
+ * 0x00463730 - SortByDist_Median3_Guards
+ * 0x0047F820 - SortByDist_Median3_Broadcast
  *
- * Returns median of three values using distance comparator.
+ * Returns the median of a, b and c by distance from refLoc. Each of its
+ * two returns runs the functor's destructor first.
  */
 static uintptr_t
-SortByDist_Median3_Pair(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc)
+SortByDist_Median3(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc)
 {
-	if (SortByDist_Compare(&refLoc, a, b)) {
-		if (SortByDist_Compare(&refLoc, b, c))
-			return b;
-		else if (SortByDist_Compare(&refLoc, a, c))
-			return c;
+	uintptr_t r;
+
+	if (SortByDist_Compare(&refLoc, a, b) & 0xFF) {
+		if (SortByDist_Compare(&refLoc, b, c) & 0xFF)
+			r = b;
+		else if (SortByDist_Compare(&refLoc, a, c) & 0xFF)
+			r = c;
 		else
-			return a;
-	} else {
-		if (SortByDist_Compare(&refLoc, a, c))
-			return a;
-		else if (SortByDist_Compare(&refLoc, b, c))
-			return c;
-		else
-			return b;
+			r = a;
+		CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
+		return r;
 	}
+	if (SortByDist_Compare(&refLoc, a, c) & 0xFF)
+		r = a;
+	else if (SortByDist_Compare(&refLoc, b, c) & 0xFF)
+		r = c;
+	else
+		r = b;
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
+	return r;
 }
 
 /*
- * 0x004635A0 - Partition for pair arrays
+ * 0x004635A0 - SortByDist_Partition_Witness
+ * 0x00463850 - SortByDist_Partition_Guards
+ * 0x0047F940 - SortByDist_Partition_Broadcast
  *
  * Hoare partition using distance comparator.
  */
 static uintptr_t *
-SortByDist_Partition_Pair(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc)
+SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc)
 {
-	for (;;) {
-		while (SortByDist_Compare(&refLoc, *begin, pivot))
+	for (;; begin++) {
+		while (SortByDist_Compare(&refLoc, *begin, pivot) & 0xFF)
 			begin++;
-		end--;
-		while (SortByDist_Compare(&refLoc, pivot, *end))
+		do
 			end--;
+		while (SortByDist_Compare(&refLoc, pivot, *end) & 0xFF);
 		if (end <= begin)
-			return begin;
+			break;
 		vector_SwapWrapper(begin, end);
-		begin++;
 	}
-}
-
-/*
- * 0x00463660 - Insertion sort for pair arrays (variant 2)
- *
- * Standard insertion sort for entity pointer arrays.
- */
-static void
-SortByDist_Insertion_Pair2(uintptr_t *begin, uintptr_t *end, CLocation refLoc, int depth)
-{
-	uintptr_t *cur;
-	uintptr_t saved;
-
-	USED(depth);
-	if (begin == end)
-		return;
-	cur = begin;
-	for (;;) {
-		cur++;
-		if (cur == end)
-			return;
-		saved = *cur;
-		if (SortByDist_Compare(&refLoc, saved, *begin)) {
-			vector_CopyBackward(begin, cur, cur + 1);
-			*begin = saved;
-		} else {
-			SortByDist_UnguardedInsert_Pair2(cur, saved, refLoc);
-		}
-	}
-}
-
-/*
- * 0x00463730 - Median of three for pair arrays (variant 2)
- *
- * Returns median of three values using distance comparator.
- */
-static uintptr_t
-SortByDist_Median3_Pair2(uintptr_t a, uintptr_t b, uintptr_t c, CLocation refLoc)
-{
-	if (SortByDist_Compare(&refLoc, a, b)) {
-		if (SortByDist_Compare(&refLoc, b, c))
-			return b;
-		else if (SortByDist_Compare(&refLoc, a, c))
-			return c;
-		else
-			return a;
-	} else {
-		if (SortByDist_Compare(&refLoc, a, c))
-			return a;
-		else if (SortByDist_Compare(&refLoc, b, c))
-			return c;
-		else
-			return b;
-	}
-}
-
-/*
- * 0x00463850 - Partition for pair arrays (variant 2)
- *
- * Hoare partition using distance comparator.
- */
-static uintptr_t *
-SortByDist_Partition_Pair2(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation refLoc)
-{
-	for (;;) {
-		while (SortByDist_Compare(&refLoc, *begin, pivot))
-			begin++;
-		end--;
-		while (SortByDist_Compare(&refLoc, pivot, *end))
-			end--;
-		if (end <= begin)
-			return begin;
-		vector_SwapWrapper(begin, end);
-		begin++;
-	}
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
+	return begin;
 }
 
 /*
@@ -4951,148 +4064,6 @@ CCriticalSection_Lock(uint32_t *this)
 }
 
 /*
- * 0x0046C960 - CVector::push_back (uint32_t variant)
- *
- * Calls StdList_GetSize (returns end offset) then CVector_Insert_C990.
- */
-void
-CVector_PushBack_C960(CVector *this, uintptr_t *value)
-{
-	void *endPtr = ((CVector *)this)->end;
-	CVector_Insert_C990(this, (uintptr_t *)endPtr, value);
-}
-
-/*
- * 0x0046C990 - CVector::Insert (uint32_t variant)
- *
- * Computes offset from CSearchCtx_GetBucket, calls _Insert with count=1,
- * then recomputes offset from bucket base.
- */
-static void *
-CVector_Insert_C990(CVector *this, uintptr_t *pos, uintptr_t *value)
-{
-	uintptr_t bucket;
-	int offset;
-
-	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
-	offset = (int)(((uintptr_t)pos - bucket) / sizeof(uintptr_t));
-	CVector_Insert_CA00(this, pos, 1, value);
-	bucket = (uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)this);
-	return (void *)(bucket + (uintptr_t)offset * sizeof(uintptr_t));
-}
-
-/*
- * 0x0046CA00 - CVector::_Insert (uint32_t variant)
- *
- * Complex insert with reallocation logic matching MSVC CVector::_Insert.
- */
-static void
-CVector_Insert_CA00(CVector *this, uintptr_t *pos, uint32_t count, uintptr_t *value)
-{
-	uint32_t curCapacity;
-	uint32_t totalCapacity;
-	uintptr_t *newBuf;
-	uintptr_t *newEnd;
-
-	curCapacity = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->end) / sizeof(uintptr_t));
-
-	if (curCapacity < count) {
-		// Reallocation path
-		uint32_t curCount = CVector_GetCount(this);
-		uint32_t growTo;
-
-		if (count < curCount)
-			growTo = curCount;
-		else
-			growTo = count;
-
-		totalCapacity = curCount + growTo;
-
-		// CVector_Allocate4
-		newBuf = (uintptr_t *)CVector_Allocate4(this, totalCapacity, 0);
-
-		// Copy elements before pos
-		newEnd = CVector_Ucopy_CC20(this, (uintptr_t *)this->begin, pos, newBuf);
-
-		// Fill new elements
-		CVector_UfillN_CC60(this, newEnd, count, value);
-
-		// Copy elements after pos
-		CVector_Ucopy_CC20(this, pos, (uintptr_t *)this->end, newEnd + count);
-
-		CVector_Destroy4_Range(this, this->begin, this->end);
-		// StdDeque_Dealloc
-		{
-			uint32_t oldCount = (uint32_t)(((uintptr_t)this->capacity - (uintptr_t)this->begin) / sizeof(uintptr_t));
-			StdDeque_DeallocSI(this, this->begin, oldCount);
-		}
-
-		// Set new pointers
-		this->capacity = (void *)(newBuf + totalCapacity);
-		this->end = (void *)(newBuf + CVector_GetCount(this) + count);
-		this->begin = newBuf;
-	} else {
-		// In-place insert
-		uint32_t afterCount = (uint32_t)(((uintptr_t)this->end - (uintptr_t)pos) / sizeof(uintptr_t));
-
-		if (afterCount < count) {
-			// Copy existing tail past new elements
-			CVector_Ucopy_CC20(this, pos, (uintptr_t *)this->end, pos + count);
-
-			// Fill gap with value
-			CVector_UfillN_CC60(this, (uintptr_t *)this->end, count - afterCount, value);
-
-			// Fill existing range with value
-			vector_Fill(pos, this->end, value);
-
-			this->end = (void *)((uintptr_t *)this->end + count);
-		} else if (count > 0) {
-			// Copy backward to make room
-			CVector_Ucopy_CC20(this, (uintptr_t *)this->end - count, (uintptr_t *)this->end, (uintptr_t *)this->end);
-
-			vector_CopyBackward(pos, (uintptr_t *)this->end - count, (uintptr_t *)this->end);
-
-			vector_Fill(pos, pos + count, value);
-
-			this->end = (void *)((uintptr_t *)this->end + count);
-		}
-	}
-}
-
-/*
- * 0x0046CC20 - std::_Ucopy (uint32_t variant)
- *
- * Copies 4-byte elements from [first, last) to dest via construct callback
- * (0x00424FC0) per element. Returns pointer past last written element.
- */
-static uintptr_t *
-CVector_Ucopy_CC20(CVector *this, uintptr_t *first, uintptr_t *last, uintptr_t *dest)
-{
-	while (first != last) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dest, first);
-		dest++;
-		first++;
-	}
-	return dest;
-}
-
-/*
- * 0x0046CC60 - std::_Ufill_n (uint32_t variant)
- *
- * Fills count 4-byte elements at dest via construct callback (0x00424FC0)
- * per element with the value pointed to by src.
- */
-static void
-CVector_UfillN_CC60(CVector *this, uintptr_t *dest, uint32_t count, uintptr_t *src)
-{
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dest, src);
-		count--;
-		dest++;
-	}
-}
-
-/*
  * 0x0046CCA0 - CRT printl init
  *
  * MSVC CRT internal: initializes print-level configuration. Reads "printl"
@@ -5372,7 +4343,7 @@ CVector_CopyConstruct4(CVector *this, CVector *src)
 {
 	this->type = src->type;
 	this->begin = CVector_Allocate4(this, CVector_GetCount(src), 0);
-	this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
+	this->end = CVector_Ucopy((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 	this->capacity = this->end;
 	return this;
 }
@@ -5405,13 +4376,13 @@ CVector_AssignOp4(CVector *this, CVector *src)
 		if (srcCount <= dstCap) {
 			void *splitPt = (char *)CSearchCtx_GetBucket((CSearchCtx *)src) + dstCount * sizeof(uintptr_t);
 			vector_Copy((void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), splitPt, this->begin);
-			StdTree_Ucopy_19D0((StdAllocator *)this, splitPt, src->end, this->end);
+			CVector_Ucopy((StdAllocator *)this, splitPt, src->end, this->end);
 			this->end = (char *)this->begin + srcCount * sizeof(uintptr_t);
 		} else {
 			CVector_Destroy4_Range(this, this->begin, this->end);
 			StdDeque_DeallocSI(this, this->begin, (int)(((char *)this->capacity - (char *)this->begin) / (ptrdiff_t)sizeof(uintptr_t)));
 			this->begin = CVector_Allocate4(this, srcCount, 0);
-			this->end = StdTree_Ucopy_19D0((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
+			this->end = CVector_Ucopy((StdAllocator *)this, (void *)(uintptr_t)CSearchCtx_GetBucket((CSearchCtx *)src), src->end, this->begin);
 			this->capacity = this->end;
 		}
 	}
@@ -5825,15 +4796,20 @@ SortMultiDist_Partition(void *first, void *last, uintptr_t pivot, CLocation cmpL
 /*
  * 0x0047F2B0 - std::sort by distance
  *
- * Sort entry point for CVector of entity pointers, ordering by Chebyshev
- * distance from a reference location (ascending). Used by BroadcastToNearby
- * and BroadcastToRangeWithLOS.
+ * The distance sort's entry called from BroadcastToNearby and
+ * BroadcastToRangeWithLOS, the same code as Vector_SortByDistPair at its
+ * own address.
  */
 void
 Vector_SortByDist(void *begin, void *end, CLocation refLoc)
 {
-	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Main((uintptr_t *)begin, (uintptr_t *)end, &refLoc, depth);
+	int depth;
+	CLocation arg;
+
+	depth = GameCentMon_GetPlayerCount();
+	CLocation_CopyFromSrc(&arg, &refLoc);
+	SortByDist_Main((uintptr_t *)begin, (uintptr_t *)end, arg, depth);
+	CResBankMagicCtx_PostInit((CResListNode **)&refLoc);
 }
 
 /*
@@ -5871,194 +4847,6 @@ PacketIsEDEDEDED(uint8_t *buf)
 	else
 		memcpy(&v, buf + 1, 4);
 	return (v == 0xEDEDEDED);
-}
-
-/*
- * 0x0047F3F0 - std::sort main for distance sort
- *
- * If count <= 16, insertion sort directly. Otherwise, quicksort loop to
- * partitions of <=16 elements, then insertion sort the first 16, then
- * unguarded linear insertion on the rest.
- */
-static void
-SortByDist_Main(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth)
-{
-	int count;
-	uintptr_t *cur;
-
-	USED(depth);
-	count = (int)(end - begin);
-	if (count <= 16) {
-		SortByDist_InsertionEntry(begin, end, refLoc);
-		return;
-	}
-	SortByDist_Quicksort(begin, end, refLoc, 0);
-	SortByDist_InsertionEntry(begin, begin + 16, refLoc);
-	cur = begin + 16;
-	while (cur != end) {
-		SortByDist_UnguardedInsert(cur, *cur, refLoc);
-		cur++;
-	}
-}
-
-/*
- * 0x0047F500 - std::sort insertion entry for distance sort
- *
- * Wrapper that reads the unused depth limit from GameCentMon_GetPlayerCount
- * and delegates to the actual insertion sort.
- */
-static void
-SortByDist_InsertionEntry(uintptr_t *begin, uintptr_t *end, CLocation *refLoc)
-{
-	int depth = GameCentMon_GetPlayerCount();
-	SortByDist_Insertion(begin, end, refLoc, depth);
-}
-
-/*
- * 0x0047F570 - std::sort quicksort loop for distance sort
- *
- * Quicksort with median-of-three pivot. Recurses on smaller half,
- * iterates on larger. Stops at partitions of <=16 elements.
- */
-static void
-SortByDist_Quicksort(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth)
-{
-	uintptr_t pivot;
-	uintptr_t *mid;
-	int rightCount, leftCount;
-
-	USED(depth);
-	for (;;) {
-		if ((int)(end - begin) <= 16)
-			return;
-		pivot = SortByDist_Median3(*begin, begin[(int)(end - begin) / 2], *(end - 1), refLoc);
-		mid = SortByDist_Partition(begin, end, pivot, refLoc);
-		rightCount = (int)(end - mid);
-		leftCount = (int)(mid - begin);
-		if (rightCount > leftCount) {
-			SortByDist_Quicksort(begin, mid, refLoc, GameCentMon_GetPlayerCount());
-			begin = mid;
-		} else {
-			SortByDist_Quicksort(mid, end, refLoc, GameCentMon_GetPlayerCount());
-			end = mid;
-		}
-	}
-}
-
-/*
- * 0x0047F6C0 - std::sort unguarded linear insert for distance sort
- *
- * Shifts elements right from pos while val is closer than the preceding
- * element, then places val at the correct sorted position.
- */
-static void
-SortByDist_UnguardedInsert(uintptr_t *pos, uintptr_t val, CLocation *refLoc)
-{
-	uintptr_t *cur = pos;
-
-	for (;;) {
-		cur--;
-		if (!SortByDist_Compare(refLoc, val, *cur))
-			break;
-		*pos = *cur;
-		pos = cur;
-	}
-	*pos = val;
-}
-
-/*
- * 0x0047F750 - std::sort insertion sort for distance sort
- *
- * Walks forward from begin+1. If new element is closer than first, shifts
- * all elements right via CopyBackward and places it at begin. Otherwise,
- * uses unguarded linear insert.
- */
-static void
-SortByDist_Insertion(uintptr_t *begin, uintptr_t *end, CLocation *refLoc, int depth)
-{
-	uintptr_t *cur;
-	uintptr_t saved;
-
-	USED(depth);
-	if (begin == end)
-		return;
-	cur = begin;
-	for (;;) {
-		cur++;
-		if (cur == end)
-			return;
-		saved = *cur;
-		if (SortByDist_Compare(refLoc, saved, *begin)) {
-			vector_CopyBackward(begin, cur, cur + 1);
-			*begin = saved;
-		} else {
-			SortByDist_UnguardedInsert(cur, saved, refLoc);
-		}
-	}
-}
-
-/*
- * 0x0047F820 - std::sort median of three for distance sort
- *
- * Returns the median value of three entity pointers using the distance
- * comparator for pivot selection.
- */
-static uintptr_t
-SortByDist_Median3(uintptr_t a, uintptr_t b, uintptr_t c, CLocation *refLoc)
-{
-	if (SortByDist_Compare(refLoc, a, b)) {
-		if (SortByDist_Compare(refLoc, b, c))
-			return b;
-		else if (SortByDist_Compare(refLoc, a, c))
-			return c;
-		else
-			return a;
-	} else {
-		if (SortByDist_Compare(refLoc, a, c))
-			return a;
-		else if (SortByDist_Compare(refLoc, b, c))
-			return c;
-		else
-			return b;
-	}
-}
-
-/*
- * 0x0047F940 - std::sort partition for distance sort
- *
- * Hoare partition scheme using distance comparator. Scans forward for
- * elements not closer than pivot, backward for elements not farther than
- * pivot, swaps them. Returns partition point.
- */
-static uintptr_t *
-SortByDist_Partition(uintptr_t *begin, uintptr_t *end, uintptr_t pivot, CLocation *refLoc)
-{
-	for (;;) {
-		while (SortByDist_Compare(refLoc, *begin, pivot))
-			begin++;
-		end--;
-		while (SortByDist_Compare(refLoc, pivot, *end))
-			end--;
-		if (end <= begin)
-			return begin;
-		vector_SwapWrapper(begin, end);
-		begin++;
-	}
-}
-
-/*
- * 0x004845E0 - StdPtrList16::StdPtrList16
- *
- * Copies the allocator byte from init, allocates a sentinel via Buynode,
- * and initializes an empty 16-byte element std::list.
- */
-void *
-StdPtrList16_Constructor(StdPtrList *this, const void *init)
-{
-	*(uint8_t *)this = *(const uint8_t *)init;
-	this->head = StdFileList_Buynode(this, NULL, NULL);
-	this->size = 0;
-	return this;
 }
 
 /*
@@ -6156,10 +4944,10 @@ StdPtrList16_VecDtor(StdPtrList *this, int flags)
 		StdPtrList *arr = this;
 		int i;
 		for (i = count - 1; i >= 0; i--)
-			StdPtrList16_DestroyAll(&arr[i]);
+			StdPtrList_Clear(&arr[i]);
 		OperatorDelete((char *)this - sizeof(uintptr_t));
 	} else {
-		StdPtrList16_DestroyAll(this);
+		StdPtrList_Clear(this);
 		if (flags & 1)
 			OperatorDelete(this);
 	}
@@ -6246,61 +5034,6 @@ StdFileList_Buynode(StdPtrList *list, StdPtrNode *nextHint, StdPtrNode *prevHint
 	*StdPtrNode_GetPrev(newNode) = prevVal;
 
 	return newNode;
-}
-
-/*
- * 0x004849C0 - StdPtrList::StdPtrList
- *
- * Copies the allocator byte from init, allocates a sentinel via
- * StdPtrList_Buynode, and initializes an empty std::list.
- */
-static __attribute__((unused)) void *
-StdPtrList_Constructor_NPC(StdPtrList *this, const void *init)
-{
-	*(uint8_t *)this = *(const uint8_t *)init;
-	this->head = StdPtrList_Buynode(this, NULL, NULL);
-	this->size = 0;
-	return this;
-}
-
-/*
- * 0x00484A00 - StdPtrList16::DestroyAll
- *
- * Gets Begin and End iterators, erases entire range via
- * StdPtrList_EraseRange16, frees sentinel node, zeroes head/size.
- */
-static void
-StdPtrList16_DestroyAll(StdPtrList *list)
-{
-	StdPtrNode *endNode, *beginNode, *result;
-
-	StdPtrList_End(list, &endNode);
-	StdPtrList_Begin(list, &beginNode);
-	StdPtrList_EraseRange16(list, &result, beginNode, endNode);
-	free(list->head);
-	list->head = NULL;
-	list->size = 0;
-}
-
-/*
- * 0x00484B40 - std::list<16-byte>::erase range
- *
- * Erases nodes from first to last (exclusive). While first != last,
- * post-increments first and erases the old node via StdPtrList_Erase.
- * Stores final iterator to *result.
- */
-static StdPtrNode **
-StdPtrList_EraseRange16(StdPtrList *list, StdPtrNode **result, StdPtrNode *first, StdPtrNode *last)
-{
-	StdPtrNode *postIncTemp;
-
-	while (StdPtrIter_Neq(&first, &last) & 0xFF) {
-		StdPtrIter_PostInc(&first, &postIncTemp, 0);
-		StdPtrList_Erase(list, &postIncTemp, *(StdPtrNode **)&postIncTemp);
-	}
-	*result = first;
-
-	return result;
 }
 
 /*
@@ -6410,153 +5143,6 @@ CVector_Erase(CVector *vec, void *first, void *last)
 	vec->end = newEnd;
 
 	return first;
-}
-
-/*
- * 0x004A67F0 - std::_Uninit_copy for CVector<CRegion*>
- *
- * Forward copy of 4-byte pointer elements from [first, last) to dest.
- * Template instantiation for CVector<CRegion*> used in RegionGrid. Returns
- * pointer past last copied element.
- */
-static __attribute__((unused)) void **
-UninitCopy_CRegionPtr(CVector *this, void **first, void **last, void **dest)
-{
-	while (first != last) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dest, first);
-		dest++;
-		first++;
-	}
-	return dest;
-}
-
-/*
- * 0x004A6830 - std::_Uninit_fill_n for CVector<CRegion*>
- *
- * Fills count 4-byte pointer slots starting at first with *value. Template
- * instantiation for CVector<CRegion*> used in RegionGrid.
- */
-static __attribute__((unused)) void
-UninitFillN_CRegionPtr(CVector *this, void **first, uint32_t count, void **value)
-{
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, first, value);
-		first++;
-		count--;
-	}
-}
-
-/*
- * 0x004CF490 - std::_Ucopy (CTagListManager::WalkScriptNodes variant)
- *
- * Copies 4-byte elements from [first, last) to dest via construct
- * (0x00424FC0). Returns pointer past last dest element.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_F490(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x004CF4D0 - std::_Ufill_n (CTagListManager::WalkScriptNodes variant)
- *
- * Fills count 4-byte elements at dest by calling construct (0x00424FC0)
- * per element.
- */
-static __attribute__((unused)) void
-CVector_UfillN_F4D0(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
- * 0x004CF510 - std::_Ucopy (CTagListManager::GetTagDefList variant)
- *
- * Identical to 0x004CF490.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_F510(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x004CF550 - std::_Ufill_n (CTagListManager::GetTagDefList variant)
- *
- * Identical to 0x004CF4D0.
- */
-static __attribute__((unused)) void
-CVector_UfillN_F550(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
-}
-
-/*
- * 0x004CF590 - std::_Ucopy (CTagList CVector variant)
- *
- * Identical to 0x004CF490.
- */
-static __attribute__((unused)) void *
-CVector_Ucopy_F590(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x004CF5D0 - std::_Ufill_n (CTagList CVector variant)
- *
- * Identical to 0x004CF4D0.
- */
-static __attribute__((unused)) void
-CVector_UfillN_F5D0(CVector *this, void *dest, uint32_t count, void *valuePtr)
-{
-	uintptr_t *dst = (uintptr_t *)dest;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, valuePtr);
-		count--;
-		dst++;
-	}
 }
 
 /*

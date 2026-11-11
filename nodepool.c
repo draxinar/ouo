@@ -88,7 +88,7 @@ static void
 PendingReturnB_Init(void)
 {
 	char typeByte;
-	StdPtrList_ConstructorWithType(&g_pendingReturnB, &typeByte);
+	StdPtrList_Init(&g_pendingReturnB, &typeByte);
 }
 
 /*
@@ -123,7 +123,7 @@ void
 CScriptInstance_ReturnToPool(ScriptAttachNode *node)
 {
 	CScriptInstance_Clear(node);
-	StdPtrList_PushBack_4DD0(&g_pendingReturnB, node);
+	StdPtrList_PushBack(&g_pendingReturnB, node);
 }
 
 /*
@@ -262,7 +262,7 @@ static void
 PendingFreeA_Init(void)
 {
 	char typeByte;
-	StdPtrList_ConstructorWithType(&g_pendingFreeA, &typeByte);
+	StdPtrList_Init(&g_pendingFreeA, &typeByte);
 }
 
 /*

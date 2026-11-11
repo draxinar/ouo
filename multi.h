@@ -336,7 +336,6 @@ void *CDeque6_InsertAtEnd(CVector *this, void *endPos, void *element); // 0x0047
 void CVector_Destroy16_Single(CVector *this, void *element); // 0x004798B0
 void CVector_Destroy1C_Single(CVector *this, void *element); // 0x00479B90
 void CVector_Destroy6_Single(CVector *this, void *element); // 0x00479FF0
-void *Uninit_Copy4_Fwd2(CVector *this, void *first, void *last, void *dest); // 0x0047A370
 void *Uninit_Copy16_Fwd(void *first, void *last, void *dest); // 0x0047B160
 void *Allocate1C(int count, const void *hint); // 0x0047B1D0
 void *CResList_ScalarDelete_MultiA(CResList *this, int flags); // 0x0047B430

@@ -80,9 +80,6 @@ static void CopyFrom1C(CVector *this, void *dst, void *src); // 0x00479B70
 static void CDeque6_Insert(void *deque, void *pos, uint32_t count, void *element); // 0x0047A010
 static void Uninit_FillN_16(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A250
 static void Uninit_FillN_1C(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A290
-static void *Uninit_Copy4_Fwd(CVector *this, void *first, void *last, void *dest); // 0x0047A2D0
-static void Uninit_FillN_4(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A310
-static void Uninit_FillN_4v2(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A3B0
 static void *Uninit_Copy6_Fwd(CVector *this, void *first, void *last, void *dest); // 0x0047A430
 static void Uninit_FillN_6(CVector *this, void *ptr, uint32_t count, void *source); // 0x0047A470
 static void CLocation_CopySingle(CVector *this, CLocation *dest, CLocation *source); // 0x0047A4D0
@@ -4033,79 +4030,6 @@ Uninit_FillN_1C(CVector *this, void *ptr, uint32_t count, void *source)
 
 	while (count > 0) {
 		CopyFrom1C(this, p, source);
-		count--;
-		p++;
-	}
-}
-
-/*
- * 0x0047A2D0 - std::_Uninit_copy for pointer elements (forward)
- *
- * Copies elements from [first, last) to dest; returns end. The binary's
- * element is a 32-bit pointer, so the step is the pointer width.
- */
-static __attribute__((unused)) void *
-Uninit_Copy4_Fwd(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x0047A310 - std::_Uninit_fill_n for 4-byte elements
- *
- * Fills count 4-byte slots at ptr with the value at source.
- */
-static __attribute__((unused)) void
-Uninit_FillN_4(CVector *this, void *ptr, uint32_t count, void *source)
-{
-	uint32_t *p = (uint32_t *)ptr;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, p, source);
-		count--;
-		p++;
-	}
-}
-
-/*
- * 0x0047A370 - std::_Uninit_copy for 4-byte elements (forward, variant 2)
- *
- * Second instantiation of Uninit_Copy4_Fwd; same body, same element width.
- */
-void *
-Uninit_Copy4_Fwd2(CVector *this, void *first, void *last, void *dest)
-{
-	uintptr_t *src = (uintptr_t *)first;
-	uintptr_t *end = (uintptr_t *)last;
-	uintptr_t *dst = (uintptr_t *)dest;
-	while (src != end) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, dst, src);
-		dst++;
-		src++;
-	}
-	return dst;
-}
-
-/*
- * 0x0047A3B0 - std::_Uninit_fill_n for 4-byte elements (variant 2)
- *
- * Second instantiation of Uninit_FillN_4; identical body.
- */
-static __attribute__((unused)) void
-Uninit_FillN_4v2(CVector *this, void *ptr, uint32_t count, void *source)
-{
-	uint32_t *p = (uint32_t *)ptr;
-
-	while (count > 0) {
-		StdPtrList_DoInsert_424FC0((StdPtrList *)this, p, source);
 		count--;
 		p++;
 	}

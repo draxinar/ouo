@@ -33,21 +33,7 @@ static void SortByLocation_Entry(uintptr_t *first, uintptr_t *last, char cmp); /
 static void *CResList_InsertBefore_ByNameAll(CResList *list, CResListNode *position); // 0x00430720
 static void *CResManager_NextIterErase_ByNameAll(CResManager *rm, CSearchCtx *out, CSearchCtx *current, uint32_t direction); // 0x004305D0
 static void *CResManager_FindNextBucket_ByNameAll(CResManager *rm, CSearchCtx *out, uint32_t bucket, uint32_t direction); // 0x004304D0
-static void SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x004308C0
-static void SortBySerial_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00430950
 static void *CResList_InsertAfter_ByNameAll(CResList *list, CResListNode *position); // 0x004309E0
-static void SortByLocation_InsertionEntry(uintptr_t *first, uintptr_t *last, char cmp); // 0x00430AD0
-static void SortByLocation_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00430B00
-static void SortByLocation_LinearInsert(uintptr_t *pos, uintptr_t value, char cmp); // 0x00430BD0
-static void SortBySerial_InsertionEntry(uintptr_t *first, uintptr_t *last, char cmp); // 0x00430CD0
-static void SortBySerial_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00430D00
-static void SortBySerial_LinearInsert(uintptr_t *pos, uintptr_t value, char cmp); // 0x00430DD0
-static void SortByLocation_Insertion(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00430E80
-static uintptr_t SortByLocation_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp); // 0x00430F10
-static uintptr_t *SortByLocation_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, char cmp); // 0x00430FE0
-static void SortBySerial_Insertion(uintptr_t *first, uintptr_t *last, char cmp, int depth); // 0x00431060
-static uintptr_t SortBySerial_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp); // 0x004310F0
-static uintptr_t *SortBySerial_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, char cmp); // 0x004311C0
 static CResListNode *CStringList_InsertEntry(CStringList *sl, void *data, int direction); // 0x0043F3D0
 static CStringListNode *CStringListEntry_Constructor(CStringListNode *this, CString *name, int weight); // 0x0043F2F0
 static CResList *CResList_ScalarDeleteT(CResList *list, int flags); // 0x0043F2A0
@@ -468,16 +454,18 @@ CResManager_NextIterWrapper(CResManager *rm, CSearchCtx *output, CSearchCtx *cur
 /*
  * 0x004302B0 - std::sort entry wrapper (location variant)
  *
- * Delegates to SortByLocation_Main. Calls GameCentMon_GetPlayerCount for the
- * (ignored) recursion-depth argument that the binary's sort driver expects.
+ * Sorts entities by (x, y, z) through SortByPred_Main.
+ * CEntityMap_CompareLocation is the operator() of the one-byte functor the
+ * binary passes.
  */
 static __attribute__((unused)) void
 SortByLocation_Entry(uintptr_t *first, uintptr_t *last, char cmp)
 {
 	int depth;
 
+	USED(cmp);
 	depth = GameCentMon_GetPlayerCount();
-	SortByLocation_Main(first, last, cmp, depth);
+	SortByPred_Main(first, last, CEntityMap_CompareLocation, depth);
 }
 
 /*
@@ -534,15 +522,18 @@ CEntityMap_ValidateEntityZ(CEntityMap *this, CItem *entity)
 /*
  * 0x004303C0 - std::sort entry wrapper (serial variant)
  *
- * Serial-key counterpart of SortByLocation_Entry.
+ * Sorts serials by the location of the entities they name, through
+ * SortByPred_Main. CEntityMap_CompareBySerial is the operator() of the
+ * one-byte functor the binary passes.
  */
 void
 SortBySerial_Entry(uintptr_t *first, uintptr_t *last, char cmp)
 {
 	int depth;
 
+	USED(cmp);
 	depth = GameCentMon_GetPlayerCount();
-	SortBySerial_Main(first, last, cmp, depth);
+	SortByPred_Main(first, last, CEntityMap_CompareBySerial, depth);
 }
 
 /*
@@ -776,61 +767,6 @@ CResList_GetOrCreateTail_ByNameAll(CResList *list)
 }
 
 /*
- * 0x004308C0 - std::sort entry for CEntityMap location sort
- *
- * If count <= 16, runs insertion sort only. Otherwise quicksorts to
- * partitions of <= 16, runs insertion sort over the first 16, then does an
- * unguarded linear insert for the rest. The comparator is a 1-byte
- * std::less<> functor.
- */
-static void
-SortByLocation_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth)
-{
-	int count;
-	uintptr_t *cur;
-
-	USED(depth);
-	count = (int)(last - first);
-	if (count <= 16) {
-		SortByLocation_InsertionEntry(first, last, cmp);
-		return;
-	}
-	SortByLocation_Quicksort(first, last, cmp, 0);
-	SortByLocation_InsertionEntry(first, first + 16, cmp);
-	cur = first + 16;
-	while (cur != last) {
-		SortByLocation_LinearInsert(cur, *cur, cmp);
-		cur++;
-	}
-}
-
-/*
- * 0x00430950 - std::sort entry for CEntityMap serial sort
- *
- * Same structure as location sort but uses serial comparator chain.
- */
-static void
-SortBySerial_Main(uintptr_t *first, uintptr_t *last, char cmp, int depth)
-{
-	int count;
-	uintptr_t *cur;
-
-	USED(depth);
-	count = (int)(last - first);
-	if (count <= 16) {
-		SortBySerial_InsertionEntry(first, last, cmp);
-		return;
-	}
-	SortBySerial_Quicksort(first, last, cmp, 0);
-	SortBySerial_InsertionEntry(first, first + 16, cmp);
-	cur = first + 16;
-	while (cur != last) {
-		SortBySerial_LinearInsert(cur, *cur, cmp);
-		cur++;
-	}
-}
-
-/*
  * 0x004309E0 - CResList::InsertAfter (ByName/All val)
  *
  * Allocates a new node and splices it in after position, updating head/tail.
@@ -870,93 +806,19 @@ CResList_InsertAfter_ByNameAll(CResList *list, CResListNode *position)
 }
 
 /*
- * 0x00430AD0 - std::sort insertion entry (location variant)
- *
- * Calls GameCentMon_GetPlayerCount (returns 0, arg ignored),
- * then delegates to insertion sort with depth as 4th arg (unused).
- */
-static void
-SortByLocation_InsertionEntry(uintptr_t *first, uintptr_t *last, char cmp)
-{
-	int depth;
-
-	depth = GameCentMon_GetPlayerCount();
-	SortByLocation_Insertion(first, last, cmp, depth);
-}
-
-/*
- * 0x00430B00 - std::sort quicksort for CEntityMap location sort
- *
- * Recursive introsort. Partitions array, recurses on smaller half,
- * iterates on larger half. Uses median-of-3 pivot selection.
- * Stops when partition <= 16 elements (handled by insertion sort).
- * 4th arg (depth) is always 0 (GameCentMon_GetPlayerCount returns 0).
- */
-static void
-SortByLocation_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth)
-{
-	int count;
-	uintptr_t pivot;
-	uintptr_t *mid;
-	int leftCount, rightCount;
-
-	USED(depth);
-
-	for (;;) {
-		count = (int)(last - first);
-		if (count <= 16)
-			return;
-
-		pivot = SortByLocation_Median3(*first, first[((int)(last - first)) / 2], *(last - 1), cmp);
-		mid = SortByLocation_Partition(first, last, pivot, cmp);
-
-		rightCount = (int)(last - mid);
-		leftCount = (int)(mid - first);
-
-		if (rightCount <= leftCount) {
-			SortByLocation_Quicksort(mid, last, cmp, GameCentMon_GetPlayerCount());
-			last = mid;
-		} else {
-			SortByLocation_Quicksort(first, mid, cmp, GameCentMon_GetPlayerCount());
-			first = mid;
-		}
-	}
-}
-
-/*
- * 0x00430BD0 - std::sort unguarded linear insert (location variant)
- *
- * Inserts value at correct position by shifting elements right.
- * Walks backward from pos, comparing value against each element
- * using CompareLocation. No bounds check (sentinel guaranteed).
- */
-static void
-SortByLocation_LinearInsert(uintptr_t *pos, uintptr_t value, char cmp)
-{
-	uintptr_t *cursor;
-
-	cursor = pos;
-	for (;;) {
-		cursor--;
-		if (!CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)value, (CItem *)*cursor))
-			break;
-		*pos = *cursor;
-		pos = cursor;
-	}
-	*pos = value;
-}
-
-/*
  * 0x00430C20 - CEntityMap::CompareLocation
  *
  * Returns 1 iff a sorts before b by (x, y, z) location.
  */
 int
-CEntityMap_CompareLocation(CEntityMap *this, CItem *a, CItem *b)
+CEntityMap_CompareLocation(void *this, uintptr_t ea, uintptr_t eb)
 {
+	CItem *a, *b;
 	int xA, xB, yA, yB, zA, zB;
 
 	USED(this);
+	a = (CItem *)ea;
+	b = (CItem *)eb;
 
 	xA = (int)CEntity_GetLocation(&a->resourceEntity.entity)->x;
 	xB = (int)CEntity_GetLocation(&b->resourceEntity.entity)->x;
@@ -980,241 +842,21 @@ CEntityMap_CompareLocation(CEntityMap *this, CItem *a, CItem *b)
 }
 
 /*
- * 0x00430CD0 - std::sort insertion entry (serial variant)
- *
- * Calls GameCentMon_GetPlayerCount (returns 0, arg ignored),
- * then delegates to insertion sort with depth as 4th arg (unused).
- */
-static void
-SortBySerial_InsertionEntry(uintptr_t *first, uintptr_t *last, char cmp)
-{
-	int depth;
-
-	depth = GameCentMon_GetPlayerCount();
-	SortBySerial_Insertion(first, last, cmp, depth);
-}
-
-/*
- * 0x00430D00 - std::sort quicksort for CEntityMap serial sort
- *
- * Same structure as location quicksort but uses serial comparator chain.
- */
-static void
-SortBySerial_Quicksort(uintptr_t *first, uintptr_t *last, char cmp, int depth)
-{
-	int count;
-	uintptr_t pivot;
-	uintptr_t *mid;
-	int leftCount, rightCount;
-
-	USED(depth);
-
-	for (;;) {
-		count = (int)(last - first);
-		if (count <= 16)
-			return;
-
-		pivot = SortBySerial_Median3(*first, first[((int)(last - first)) / 2], *(last - 1), cmp);
-		mid = SortBySerial_Partition(first, last, pivot, cmp);
-
-		rightCount = (int)(last - mid);
-		leftCount = (int)(mid - first);
-
-		if (rightCount <= leftCount) {
-			SortBySerial_Quicksort(mid, last, cmp, GameCentMon_GetPlayerCount());
-			last = mid;
-		} else {
-			SortBySerial_Quicksort(first, mid, cmp, GameCentMon_GetPlayerCount());
-			first = mid;
-		}
-	}
-}
-
-/*
- * 0x00430DD0 - std::sort unguarded linear insert (serial variant)
- *
- * Same as location variant but uses CompareBySerial comparator.
- */
-static void
-SortBySerial_LinearInsert(uintptr_t *pos, uintptr_t value, char cmp)
-{
-	uintptr_t *cursor;
-
-	cursor = pos;
-	for (;;) {
-		cursor--;
-		if (!CEntityMap_CompareBySerial((CEntityMap *)&cmp, value, *cursor))
-			break;
-		*pos = *cursor;
-		pos = cursor;
-	}
-	*pos = value;
-}
-
-/*
  * 0x00430E20 - CEntityMap::CompareBySerial
  *
  * Resolves both serials in g_World and delegates to CompareLocation. Returns
  * 0 if either serial no longer exists.
  */
 int
-CEntityMap_CompareBySerial(CEntityMap *this, uint32_t serialA, uint32_t serialB)
+CEntityMap_CompareBySerial(void *this, uintptr_t serialA, uintptr_t serialB)
 {
 	CItem *a, *b;
 
-	a = CWorld_FindBySerial(g_World, serialA);
-	b = CWorld_FindBySerial(g_World, serialB);
+	a = CWorld_FindBySerial(g_World, (uint32_t)serialA);
+	b = CWorld_FindBySerial(g_World, (uint32_t)serialB);
 	if (a == NULL || b == NULL)
 		return 0;
-	return CEntityMap_CompareLocation(this, a, b);
-}
-
-/*
- * 0x00430E80 - std::sort insertion sort (location variant)
- *
- * Insertion sort of a CItem* range using CompareLocation.
- */
-static void
-SortByLocation_Insertion(uintptr_t *first, uintptr_t *last, char cmp, int depth)
-{
-	uintptr_t *cursor;
-	uintptr_t saved;
-
-	USED(depth);
-
-	if (first == last)
-		return;
-	cursor = first;
-	for (;;) {
-		cursor++;
-		if (cursor == last)
-			return;
-		saved = *cursor;
-		if (!(CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)saved, (CItem *)*first) & 0xFF)) {
-			SortByLocation_LinearInsert(cursor, saved, cmp);
-		} else {
-			vector_CopyBackward(first, cursor, cursor + 1);
-			*first = saved;
-		}
-	}
-}
-
-/*
- * 0x00430F10 - std::sort median-of-3 for XY location sort
- *
- * Selects the median of three values using the CompareLocation comparator
- * (standard introsort pivot).
- */
-static uintptr_t
-SortByLocation_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp)
-{
-	if (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)a, (CItem *)b)) {
-		if (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)b, (CItem *)c))
-			return b;
-		if (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)a, (CItem *)c))
-			return c;
-		return a;
-	}
-	if (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)a, (CItem *)c))
-		return a;
-	if (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)b, (CItem *)c))
-		return c;
-	return b;
-}
-
-/*
- * 0x00430FE0 - std::sort partition (location variant)
- *
- * Hoare partition. Advances left while *left < pivot, decrements right
- * while pivot < *right. Swaps when both stop, returns partition point.
- */
-static uintptr_t *
-SortByLocation_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, char cmp)
-{
-	for (;;) {
-		while (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)*left, (CItem *)pivot))
-			left++;
-		do {
-			right--;
-		} while (CEntityMap_CompareLocation((CEntityMap *)&cmp, (CItem *)pivot, (CItem *)*right));
-		if (right <= left)
-			return left;
-		vector_SwapWrapper(left, right);
-		left++;
-	}
-}
-
-/*
- * 0x00431060 - std::sort insertion sort (serial variant)
- *
- * Same as location variant but uses CompareBySerial comparator.
- */
-static void
-SortBySerial_Insertion(uintptr_t *first, uintptr_t *last, char cmp, int depth)
-{
-	uintptr_t *cursor;
-	uintptr_t saved;
-
-	USED(depth);
-
-	if (first == last)
-		return;
-	cursor = first;
-	for (;;) {
-		cursor++;
-		if (cursor == last)
-			return;
-		saved = *cursor;
-		if (!(CEntityMap_CompareBySerial((CEntityMap *)&cmp, saved, *first) & 0xFF)) {
-			SortBySerial_LinearInsert(cursor, saved, cmp);
-		} else {
-			vector_CopyBackward(first, cursor, cursor + 1);
-			*first = saved;
-		}
-	}
-}
-
-/*
- * 0x004310F0 - std::sort median-of-3 for serial sort
- *
- * Same as location variant but uses CompareBySerial comparator.
- */
-static uintptr_t
-SortBySerial_Median3(uintptr_t a, uintptr_t b, uintptr_t c, char cmp)
-{
-	if (CEntityMap_CompareBySerial((CEntityMap *)&cmp, a, b)) {
-		if (CEntityMap_CompareBySerial((CEntityMap *)&cmp, b, c))
-			return b;
-		if (CEntityMap_CompareBySerial((CEntityMap *)&cmp, a, c))
-			return c;
-		return a;
-	}
-	if (CEntityMap_CompareBySerial((CEntityMap *)&cmp, a, c))
-		return a;
-	if (CEntityMap_CompareBySerial((CEntityMap *)&cmp, b, c))
-		return c;
-	return b;
-}
-
-/*
- * 0x004311C0 - std::sort partition (serial variant)
- *
- * Same as location variant but uses CompareBySerial comparator.
- */
-static uintptr_t *
-SortBySerial_Partition(uintptr_t *left, uintptr_t *right, uintptr_t pivot, char cmp)
-{
-	for (;;) {
-		while (CEntityMap_CompareBySerial((CEntityMap *)&cmp, *left, pivot))
-			left++;
-		do {
-			right--;
-		} while (CEntityMap_CompareBySerial((CEntityMap *)&cmp, pivot, *right));
-		if (right <= left)
-			return left;
-		vector_SwapWrapper(left, right);
-		left++;
-	}
+	return CEntityMap_CompareLocation(this, (uintptr_t)a, (uintptr_t)b);
 }
 
 /*

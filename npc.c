@@ -85,7 +85,6 @@ static int Path_AtStep(PathNode *step, CLocation *loc, int dir); // 0x00484C50
 static PathNode *Path_GetCurrentStep(CNPC *npc, PathNode *out); // 0x0049DF20
 static void Path_AdvanceStep(CNPC *npc); // 0x0049DF51
 static int Path_StepCheck(CNPC *npc, PathNode *node, int dir, PathNode *result); // 0x0049DFA4
-static StdPtrNode **SearchNode_IterConstructor(StdPtrNode **self); // 0x0049E590
 static double PathNode_ComputeInterp(double x); // 0x0049E690
 static void PathNode_SetFromLoc(PathNode *this, CLocation *loc, int16_t dir); // 0x0049E650
 static PathNode *PathNode_Copy(PathNode *this, PathNode *src); // 0x0049E600
@@ -3496,18 +3495,6 @@ found_path:
 		i = nodes[i].parentIdx;
 		parentCost--;
 	}
-}
-
-/*
- * 0x0049E590 - SearchNode::IterConstructor
- *
- * Iterator ctor thunk invoked from CNPC::SetupPath.
- */
-static __attribute__((unused)) StdPtrNode **
-SearchNode_IterConstructor(StdPtrNode **self)
-{
-	StdPtrIter_BaseConstructor(self);
-	return self;
 }
 
 /*
