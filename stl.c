@@ -4132,16 +4132,21 @@ CVector_EraseBack(CVector *vec)
  *
  * The this pointer is an iterator context: a pointer to a slot holding
  * the current iterator position (a vector end pointer). Saves the slot
- * value into *out, decrements the slot by one element, and returns out.
- * Call sites pass &local_var where local_var was initialized by
+ * value, decrements the slot by one element, stores the saved value into
+ * *out, and returns out. An element is pointer-width, as SerialIter_Deref
+ * reads it, which is the binary's 4 bytes on the 32-bit build. Call sites
+ * pass &local_var where local_var was initialized by
  * CMultiComponent_GetIterator (via CIterCtx_Set) to vec->end.
  */
 uintptr_t **
 CVector_PopBack(uint32_t **iter, uintptr_t **out, int dummy)
 {
+	uint32_t *saved;
+
 	USED(dummy);
-	*out = (uintptr_t *)*iter;
-	*iter = (uint32_t *)((char *)*iter - 4);
+	saved = *iter;
+	*iter = (uint32_t *)((char *)*iter - sizeof(uintptr_t));
+	*out = (uintptr_t *)saved;
 	return out;
 }
 
