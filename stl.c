@@ -1692,13 +1692,14 @@ StdMap_GetHead(StdMapTree *this)
 }
 
 /*
- * 0x00422E50 - std::_Tree::_Rrotate
+ * 0x00422E50 - std::_Tree::_Lrotate
  *
- * Right rotation about node: its left child takes its place, the child's
- * right subtree becomes node's left, and the root or the grandparent's
- * matching child pointer is retargeted. The binary brackets the walk in
- * a std::_Lockit critical section, which we omit along with every other
- * lock in the single-threaded port.
+ * Left rotation about node: its right child takes its place, the child's
+ * left subtree becomes node's right, and the root or the parent's
+ * matching child pointer is retargeted. The node accessors reach _Left,
+ * _Parent and _Right, as StdMap_TreeMin describes. The binary brackets
+ * the walk in a std::_Lockit critical section, which we omit along with
+ * every other lock in the single-threaded port.
  */
 static void
 StdMap_TreeSplice(StdMapTree *this, void *node)
@@ -1706,27 +1707,27 @@ StdMap_TreeSplice(StdMapTree *this, void *node)
 	void *savedChild;
 	void *childNextAddr;
 
-	// Get left child of node
+	// The right child rises.
 	savedChild = *(void **)StdPtrNode_GetValue((StdPtrNode *)node);
 
-	// Copy savedChild's next into node's value (left child slot)
+	// Its left subtree becomes node's right.
 	childNextAddr = StdPtrNode_GetNext((StdPtrNode *)savedChild);
 	*(void **)StdPtrNode_GetValue((StdPtrNode *)node) = *(void **)childNextAddr;
 
-	// If savedChild's next is not sentinel, fix its prev pointer
+	// Reparent that subtree unless it is the nil node.
 	if (*(void **)StdPtrNode_GetNext((StdPtrNode *)savedChild) != g_StdTreeNilNode) {
 		void *childNext = *(void **)StdPtrNode_GetNext((StdPtrNode *)savedChild);
 		*(void **)StdPtrNode_GetPrev((StdPtrNode *)childNext) = node;
 	}
 
-	// Copy node's prev into savedChild's prev
+	// The child takes node's parent.
 	{
 		void *nodePrevAddr = StdPtrNode_GetPrev((StdPtrNode *)node);
 		void *childPrevAddr = StdPtrNode_GetPrev((StdPtrNode *)savedChild);
 		*(void **)childPrevAddr = *(void **)nodePrevAddr;
 	}
 
-	// Update parent's pointer to node -> savedChild
+	// The root or the parent's matching child now points at the child.
 	if (node == *(void **)StdMap_GetRoot(this)) {
 		*(void **)StdMap_GetRoot(this) = savedChild;
 	} else {
@@ -1739,7 +1740,7 @@ StdMap_TreeSplice(StdMapTree *this, void *node)
 		}
 	}
 
-	// Link: savedChild->next = node, node->prev = savedChild
+	// node becomes the child's left.
 	*(void **)StdPtrNode_GetNext((StdPtrNode *)savedChild) = node;
 	*(void **)StdPtrNode_GetPrev((StdPtrNode *)node) = savedChild;
 }
@@ -1786,10 +1787,10 @@ StdMap_TreeMin(void *node)
 }
 
 /*
- * 0x004230C0 - std::_Tree::_Root accessor
+ * 0x004230C0 - std::_Tree::_Rmost
  *
- * Returns pointer to the value field of the head node at this[+4]. In MSVC
- * STL the value field of the header node holds the root pointer.
+ * Returns &_Right(_Myhead), the header node's +0x08 slot, which holds the
+ * rightmost node.
  */
 static void *
 StdMap_GetRmost(StdMapTree *this)
@@ -1799,9 +1800,9 @@ StdMap_GetRmost(StdMapTree *this)
 }
 
 /*
- * 0x004230E0 - std::_Tree::_Lrotate
+ * 0x004230E0 - std::_Tree::_Rrotate
  *
- * Left rotation about node, the mirror of StdMap_TreeSplice: its right
+ * Right rotation about node, the mirror of StdMap_TreeSplice: its left
  * child takes its place. The binary's std::_Lockit bracket is omitted
  * as elsewhere.
  */
@@ -1811,27 +1812,27 @@ StdMap_TreeSplice2(StdMapTree *this, void *node)
 	void *savedChild;
 	void *childValAddr;
 
-	// Get right child of node
+	// The left child rises.
 	savedChild = *(void **)StdPtrNode_GetNext((StdPtrNode *)node);
 
-	// Copy savedChild's value (left) into node's next (right child slot)
+	// Its right subtree becomes node's left.
 	childValAddr = StdPtrNode_GetValue((StdPtrNode *)savedChild);
 	*(void **)StdPtrNode_GetNext((StdPtrNode *)node) = *(void **)childValAddr;
 
-	// If savedChild's value is not sentinel, fix its prev pointer
+	// Reparent that subtree unless it is the nil node.
 	if (*(void **)StdPtrNode_GetValue((StdPtrNode *)savedChild) != g_StdTreeNilNode) {
 		void *childVal = *(void **)StdPtrNode_GetValue((StdPtrNode *)savedChild);
 		*(void **)StdPtrNode_GetPrev((StdPtrNode *)childVal) = node;
 	}
 
-	// Copy node's prev into savedChild's prev
+	// The child takes node's parent.
 	{
 		void *nodePrevAddr = StdPtrNode_GetPrev((StdPtrNode *)node);
 		void *childPrevAddr = StdPtrNode_GetPrev((StdPtrNode *)savedChild);
 		*(void **)childPrevAddr = *(void **)nodePrevAddr;
 	}
 
-	// Update parent's pointer to node -> savedChild
+	// The root or the parent's matching child now points at the child.
 	if (node == *(void **)StdMap_GetRoot(this)) {
 		*(void **)StdMap_GetRoot(this) = savedChild;
 	} else {
@@ -1844,7 +1845,7 @@ StdMap_TreeSplice2(StdMapTree *this, void *node)
 		}
 	}
 
-	// Link: savedChild->value = node, node->prev = savedChild
+	// node becomes the child's right.
 	*(void **)StdPtrNode_GetValue((StdPtrNode *)savedChild) = node;
 	*(void **)StdPtrNode_GetPrev((StdPtrNode *)node) = savedChild;
 }
