@@ -744,10 +744,13 @@ ntohs_inplace(uint16_t *v)
 }
 
 /*
+ * 0x004B3841 - WriteInt32LE
+ * 0x004B38AB - WriteInt32LE
  * 0x004B38E6 - WriteInt32LE
+ * 0x004B3921 - WriteInt32LE
  *
  * Writes a 32-bit little-endian integer at *cursor and advances
- * *cursor by 4.
+ * *cursor by 4. MSVC kept four byte-identical instantiations.
  */
 void
 WriteInt32LE(char **cursor, int32_t value)
@@ -758,10 +761,26 @@ WriteInt32LE(char **cursor, int32_t value)
 }
 
 /*
+ * 0x004B387C - WriteRaw32
+ *
+ * Writes 4 bytes at *cursor and advances *cursor by 4, the WriteInt32LE
+ * instantiation for a type with no SwapEndian call.
+ */
+void
+WriteRaw32(char **cursor, uint32_t value)
+{
+	memcpy(*cursor, &value, 4);
+	*cursor += 4;
+}
+
+/*
+ * 0x004B395C - WriteInt16LE
+ * 0x004B3997 - WriteInt16LE
  * 0x004B39D2 - WriteInt16LE
+ * 0x004B3A0D - WriteInt16LE
  *
  * Writes a 16-bit little-endian integer at *cursor and advances
- * *cursor by 2.
+ * *cursor by 2. MSVC kept four byte-identical instantiations.
  */
 void
 WriteInt16LE(char **cursor, int16_t value)
