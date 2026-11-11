@@ -896,7 +896,7 @@ CMultiSlave_Move(CMultiSlave *slave, CLocation *loc)
 		// The binary builds a 12-byte {oldLoc, newLoc} pair on the
 		// stack through CMultiDef::SetExtents and passes it by value.
 		CLocationPair extents;
-		void *relocOut;
+		CLocationPair relocOut;
 
 		CMultiDef_SetExtents((CMultiDef *)&extents, &savedLoc, loc);
 		RelocateItems_Raw(&relocOut, (uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, extents);
@@ -989,7 +989,7 @@ CMultiSlave_MoveCheck(CMultiSlave *slave, CLocation *loc, int checkFlag)
 		// The binary builds a 12-byte {oldLoc, newLoc} pair on the
 		// stack through CMultiDef::SetExtents and passes it by value.
 		CLocationPair extents;
-		void *relocOut;
+		CLocationPair relocOut;
 
 		CMultiDef_SetExtents((CMultiDef *)&extents, &savedLoc, loc);
 		RelocateItems_Raw(&relocOut, (uintptr_t *)itemList.begin, (uintptr_t *)itemList.end, extents);
@@ -4115,7 +4115,9 @@ VT_HIDE_Single(StdAllocator *this, CItem *item)
 /*
  * 0x0047AD40 - RelocateItems_Raw
  *
- * Relocates every CItem in [first, last) relative to newLoc.
+ * Relocates every CItem in [first, last) relative to newLoc. Returns
+ * the functor as std::for_each does, copying both locations of
+ * extents into output, so output must hold a CLocationPair.
  */
 static void *
 RelocateItems_Raw(void *output, uintptr_t *first, uintptr_t *last, CLocationPair extents)
