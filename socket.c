@@ -280,9 +280,10 @@ Socket_DestructAll()
  * Uses epoll on Linux, poll elsewhere. Both have no fd value limit,
  * matching the Windows behavior.
  *
- * MODIFIED: the binary stops adding sockets once a set holds 64 (0x0047FAB2,
- * 0x0047FAE3, 0x0047FB23), so past the 64th it starves every remaining
- * socket each tick. The replacement registers all of them.
+ * MODIFIED: the binary stops adding sockets once a set holds 64 (the
+ * checks at 0x0047FAB2, 0x0047FAE3 and 0x0047FB23), so past the 64th it
+ * starves every remaining socket each tick. The replacement registers all
+ * of them.
  *
  * MODIFIED: the binary puts every socket in the exception set with no
  * predicate and calls Close when select flags it, which for Winsock means

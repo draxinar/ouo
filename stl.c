@@ -89,7 +89,6 @@ static uintptr_t *SortByType_Partition(uintptr_t *lo, uintptr_t *hi, uintptr_t p
 static uintptr_t SortByType_MedianOfThree(uintptr_t a, uintptr_t b, uintptr_t c, uint8_t typeTag); // 0x004241D0
 static void SortByType_InsertionSort(uintptr_t *begin, uintptr_t *end, uint8_t typeTag, int depth); // 0x00424140
 static void vector_SwapImpl(uintptr_t *a, uintptr_t *b); // 0x00424340
-// 0x00424DD0 - StdPtrList_PushBack_4DD0 exposed in stl.h
 static void StdPtrList_ClearAndDestroy_4D70(StdPtrList *list); // 0x00424D70
 static void StdPtrList_Insert(StdPtrList *this, void *resultIter, void *searchPos, void *value); // 0x00424EC0
 static void *CVector_Ucopy_67A0(CVector *this, void *first, void *last, void *dest); // 0x004267A0
