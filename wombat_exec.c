@@ -14537,7 +14537,7 @@ Script_getDefaultAlignment(int templateId)
 {
 	NPCTemplate *tmpl;
 
-	if (!CResManager_HasByInt(&g_TemplatesRM, templateId))
+	if (!CResManager_HasByInt(&g_TemplateManager.templates, templateId))
 		return 0;
 	tmpl = CResManager_GetTemplateByID(templateId);
 	return (int)tmpl->alignment;

@@ -1518,7 +1518,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 			// Exact match on runtime names
 			int i;
 			for (i = 0; i < TEMPLATE_CHAIN_SIZE; i++) {
-				if (g_TemplateNames[i] != NULL && strcasecmp(g_TemplateNames[i], arg) == 0) {
+				if (g_TemplateManager.names[i] != NULL && strcasecmp(g_TemplateManager.names[i], arg) == 0) {
 					templateId = i;
 					break;
 				}
@@ -1542,7 +1542,7 @@ GmCommandDispatch(CHelpQueue *q, CPlayer *player, const char *text)
 		PacketManager_MakePacket_TARGET(tbuf, 1, 0, 0);
 		SendPacketToPlayer(player, tbuf, -1);
 		char msg[80];
-		snprintf(msg, sizeof(msg), "Select location to spawn %s (#%d)", g_TemplateNames[templateId] ? g_TemplateNames[templateId] : "?", templateId);
+		snprintf(msg, sizeof(msg), "Select location to spawn %s (#%d)", g_TemplateManager.names[templateId] ? g_TemplateManager.names[templateId] : "?", templateId);
 		CPlayer_SystemMessage(player, msg);
 		return;
 	}
@@ -4385,7 +4385,7 @@ GM_TargetInfo(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, uint16
 	// Template ID (NPCs and templated items)
 	int tid = CResourceEntity_GetTemplateIndex(target) & 0xFFFF;
 	if (tid != 0xFFFF) {
-		const char *tname = (tid < TEMPLATE_CHAIN_SIZE && g_TemplateNames[tid]) ? g_TemplateNames[tid] : NULL;
+		const char *tname = (tid < TEMPLATE_CHAIN_SIZE && g_TemplateManager.names[tid]) ? g_TemplateManager.names[tid] : NULL;
 		if (!tname)
 			tname = GMNameEntry_ReverseLookup(gm_template_names, GM_TEMPLATE_NAMES_COUNT, tid);
 		snprintf(msg, sizeof(msg), "Template=%d (%s)", tid, tname ? tname : "?");
@@ -5029,7 +5029,8 @@ GM_TargetSpawnNPC(CPlayer *player, uint8_t type, uint32_t serial, uint16_t x, ui
 		// production nodes are never accounted for.
 		DeductSpawnFromBank((uint16_t)templateId, &spawnLoc);
 		char spawnMsg[120];
-		snprintf(spawnMsg, sizeof(spawnMsg), "Spawned %s (#%d) serial=0x%08X", g_TemplateNames[templateId] ? g_TemplateNames[templateId] : "?", templateId, npc->serial);
+		snprintf(spawnMsg, sizeof(spawnMsg), "Spawned %s (#%d) serial=0x%08X", g_TemplateManager.names[templateId] ? g_TemplateManager.names[templateId] : "?", templateId,
+		        npc->serial);
 		CPlayer_SystemMessage(player, spawnMsg);
 	} else {
 		g_PendingSpawnFame = 0;

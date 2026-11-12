@@ -3179,7 +3179,7 @@ CMobile_SetCorpseLookAtText(CMobile *mob, CItem *corpse)
 
 	// Path 1: template corpseName
 	if ((tmplIdx & 0xFFFF) != 0xFFFF) {
-		if (CResManager_HasByInt(&g_TemplatesRM, (uint32_t)(tmplIdx & 0xFFFF))) {
+		if (CResManager_HasByInt(&g_TemplateManager.templates, (uint32_t)(tmplIdx & 0xFFFF))) {
 			tmpl = CResManager_GetTemplateByID(tmplIdx & 0xFFFF);
 			if (!CString_IsEmpty(&tmpl->corpseName)) {
 				tmpl = CResManager_GetTemplateByID(tmplIdx & 0xFFFF);

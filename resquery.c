@@ -24,6 +24,7 @@
 #include "player.h"
 #include "region.h"
 #include "resbank.h"
+#include "template.h"
 #include "terrain.h"
 #include "time.h"
 #include "vtable.h"
@@ -596,10 +597,10 @@ case9_done:
 			char *name;
 			int nameLen;
 
-			if (!CResManager_HasByInt(&g_TemplatesRM, i))
+			if (!CResManager_HasByInt(&g_TemplateManager.templates, i))
 				continue;
 
-			name = g_TemplateNames[i];
+			name = g_TemplateManager.names[i];
 			if (name == NULL)
 				continue;
 

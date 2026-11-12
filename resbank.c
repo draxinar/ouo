@@ -118,14 +118,7 @@ struct CResBankDistrib {
  */
 CMagicItemFactory g_MagicItemFactory;
 
-/*
- * CResManager instances matching binary's CTemplateManager at 0x006933F8.
- * Binary offsets: templates at +0x000, names at +0x218, defines at +0x430.
- * Types and functions are in searchCtx.h / searchCtx.c.
- */
-CResManager g_TemplatesRM;  // +0x000: integer-keyed (templateId -> NPCTemplate*)
-CResManager g_NameTableRM;  // +0x218: integer-keyed (entryId -> CNameEntry*)
-CResManager g_DefinesRM;    // +0x430: string-keyed (name -> DefineEntry*)
+CTemplateManager g_TemplateManager; // 0x006933F8
 
 // 0x006E7674 - spawn counter for templateId==0xC
 int g_SpawnType12Count;
@@ -230,8 +223,6 @@ const uint8_t g_FieldCaseTable[48] = {
 CItem *g_TemplateChain[TEMPLATE_CHAIN_SIZE];
 // 0x0068F3A8 - per-template entity counts.
 int g_TemplateChainCount[TEMPLATE_CHAIN_SIZE];
-// 0x00693A40 - per-template name pointers (indexed by templateId).
-char *g_TemplateNames[TEMPLATE_CHAIN_SIZE];
 
 /*
  * 0x004331D0 - CResBankDistrib::FindRegion
@@ -861,14 +852,14 @@ CheckTemplateOverLimit(int templateId)
 /*
  * 0x004AD1DE - GetTemplateName
  *
- * Returns g_TemplateNames[templateId], or "Template #N" formatted
+ * Returns g_TemplateManager.names[templateId], or "Template #N" formatted
  * into a shared static buffer if the slot is empty.
  */
 __attribute__((unused)) static char *
 GetTemplateName(int templateId)
 {
-	if (g_TemplateNames[templateId] != NULL)
-		return g_TemplateNames[templateId];
+	if (g_TemplateManager.names[templateId] != NULL)
+		return g_TemplateManager.names[templateId];
 
 	sprintf(g_TemplateNameBuf, "Template #%d", templateId);
 	return g_TemplateNameBuf;
@@ -2038,12 +2029,12 @@ ResBankLimitCheck(void *arg1, void *arg2)
 /*
  * 0x004AF0A9 - HasTemplateInManager
  *
- * Returns 1 if the template id is registered in g_TemplatesRM.
+ * Returns 1 if the template id is registered in g_TemplateManager.templates.
  */
 int
 HasTemplateInManager(int templateId)
 {
-	return CResManager_HasByInt(&g_TemplatesRM, templateId) != 0;
+	return CResManager_HasByInt(&g_TemplateManager.templates, templateId) != 0;
 }
 
 /*
@@ -2268,7 +2259,7 @@ ClassifyTemplateItems(int templateId)
 	int hasSpecial = 0;
 	int hasOther = 0;
 
-	if (!CResManager_HasByInt(&g_TemplatesRM, (uint32_t)templateId))
+	if (!CResManager_HasByInt(&g_TemplateManager.templates, (uint32_t)templateId))
 		return 0;
 
 	tmpl = CResManager_GetTemplateByID(templateId);
@@ -2315,7 +2306,7 @@ CResBankRegion_CanSpawnTemplate(CResBankRegion *region, uint16_t templateId)
 	NPCTemplate *tmpl;
 	CResourceNode *node;
 
-	if (!CResManager_HasByInt(&g_TemplatesRM, (uint32_t)templateId))
+	if (!CResManager_HasByInt(&g_TemplateManager.templates, (uint32_t)templateId))
 		return 0;
 
 	tmpl = CResManager_GetTemplateByID(templateId);
@@ -5586,7 +5577,7 @@ CResBankMagicCtx_CopyConstructor(CResListNode **obj, CResListNode **src)
 CResManager *
 Spawn_GetTemplatesRM(void)
 {
-	return &g_TemplatesRM;
+	return &g_TemplateManager.templates;
 }
 
 /*

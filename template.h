@@ -41,6 +41,13 @@ struct CTemplateManager {
 };
 
 /*
+ * The template manager: the templates table (templateId to NPCTemplate),
+ * the name table (entryId to CNameEntry), the defines (name to
+ * DefineEntry) and the name pointers indexed by templateId.
+ */
+extern CTemplateManager g_TemplateManager; // 0x006933F8
+
+/*
  * Parsed template payload (0x1060 bytes), constructor 0x004C05C0. A large
  * flat data blob followed by three CStringLists, creature metadata, and
  * a name CString.

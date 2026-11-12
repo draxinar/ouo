@@ -146,7 +146,7 @@ static void
 CTemplateManager_ClearResManager2(CTemplateManager *this)
 {
 	USED(this);
-	CResManager_Clear_NameTable(&g_NameTableRM);
+	CResManager_Clear_NameTable(&g_TemplateManager.nameTable);
 }
 
 /*
@@ -236,7 +236,7 @@ CTemplateManager_LoadNameTable(void)
 			// Every comparison against it comes back through
 			// *(uint32_t *), so only the low word is ever read.
 			uintptr_t key = (uintptr_t)nameTableIdx;
-			CResManager_InsertIntEntryG(&g_NameTableRM, &key, nameEntry);
+			CResManager_InsertIntEntryG(&g_TemplateManager.nameTable, &key, nameEntry);
 		}
 
 advance:
@@ -306,14 +306,14 @@ CTemplateManager_SetRealNameFromTemplate(CItem *entity, char *dataCursor)
 		// unconstructed temp; FindByInt writes all four fields on
 		// every path, so the roles are interchangeable.
 		CSearchCtx_Constructor(&found);
-		CSearchCtx_Add(&found, (CSearchCtx *)CResManager_FindByInt(&g_NameTableRM, &ctx, &key, 1));
+		CSearchCtx_Add(&found, (CSearchCtx *)CResManager_FindByInt(&g_TemplateManager.nameTable, &ctx, &key, 1));
 		if (!CSearchCtx_Find(&found)) {
 			CMobile_SetName(mob, "error");
 			return;
 		}
 		// The binary re-derives the entry from the context at every
 		// access below; the context does not change, so it is read once.
-		entry = (CNameEntry *)CResManager_GetResultCtx(&g_NameTableRM, &found);
+		entry = (CNameEntry *)CResManager_GetResultCtx(&g_TemplateManager.nameTable, &found);
 	}
 
 	genderList = &entry->lists[genderIdx];
@@ -351,7 +351,7 @@ static void
 CTemplateManager_ClearDefines(CTemplateManager *this)
 {
 	USED(this);
-	CResManager_Clear_Defines(&g_DefinesRM);
+	CResManager_Clear_Defines(&g_TemplateManager.defines);
 }
 
 /*
@@ -392,7 +392,7 @@ CTemplateManager_LoadDefines(void)
 
 		CString_AssignCStr(&key, tokenBuf);
 		CString_AssignCStr(&value, valueBuf);
-		CResManager_InsertStrEntry_Defines(&g_DefinesRM, &key, &value);
+		CResManager_InsertStrEntry_Defines(&g_TemplateManager.defines, &key, &value);
 	}
 
 	fclose_ServerSide(fp);
@@ -446,11 +446,11 @@ CTemplateManager_ResolveDefines(CString *input, CString *output)
 		else
 			isFirst = 0;
 
-		CResManager_FindByStr(&g_DefinesRM, &findCtx, &token, 1);
+		CResManager_FindByStr(&g_TemplateManager.defines, &findCtx, &token, 1);
 		CSearchCtx_Add(&ctx, &findCtx);
 
 		if (CSearchCtx_Find(&ctx)) {
-			CString *val = (CString *)CResManager_GetResultCtx(&g_DefinesRM, &ctx);
+			CString *val = (CString *)CResManager_GetResultCtx(&g_TemplateManager.defines, &ctx);
 			CString_ConcatCString(output, val);
 			resolved = 1;
 		} else {
@@ -1650,14 +1650,14 @@ CTemplateManager_CreateEntity(uint16_t templateId, CLocation *loc, int *amount, 
 
 	{
 		uint32_t tmplKey = (uint32_t)templateId;
-		CResManager_FindByInt(&g_TemplatesRM, &tmplCtx, &tmplKey, 1);
+		CResManager_FindByInt(&g_TemplateManager.templates, &tmplCtx, &tmplKey, 1);
 	}
 	if (!CSearchCtx_Find(&tmplCtx)) {
 		CResManager_ClearJ_Thunk(&eqRM);
 		return NULL;
 	}
 
-	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &tmplCtx);
+	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplateManager.templates, &tmplCtx);
 
 	cursor = GetValue(tmpl->rawFields[0].data, subtypeBuf);
 	CString_DefaultConstructor(&bodyTypeStr);
@@ -1952,7 +1952,7 @@ CTemplateManager_LoadTemplates(void)
 		}
 
 		// Peek at the first data line; if it starts with '#', cache
-		// the template name in g_TemplateNames.
+		// the template name in g_TemplateManager.names.
 		filePos = ftell_ServerSide(curFile);
 		fgets_ServerSide(lineBuf, 0x4F, curFile);
 		fseek_ServerSide(curFile, filePos, 0);
@@ -1962,12 +1962,12 @@ CTemplateManager_LoadTemplates(void)
 			while (lineBuf[lineLen] != '\r' && lineBuf[lineLen] != '\n' && lineBuf[lineLen] != '\0' && lineBuf[lineLen] != '<')
 				lineLen++;
 
-			if (g_TemplateNames[fileCounter] != NULL)
-				OperatorDelete(g_TemplateNames[fileCounter]);
+			if (g_TemplateManager.names[fileCounter] != NULL)
+				OperatorDelete(g_TemplateManager.names[fileCounter]);
 
 			lineBuf[lineLen] = '\0';
-			g_TemplateNames[fileCounter] = (char *)OperatorNew(lineLen);
-			strcpy(g_TemplateNames[fileCounter], &lineBuf[1]);
+			g_TemplateManager.names[fileCounter] = (char *)OperatorNew(lineLen);
+			strcpy(g_TemplateManager.names[fileCounter], &lineBuf[1]);
 		}
 
 		tmpl = (NPCTemplate *)OperatorNew(sizeof(NPCTemplate));
@@ -2213,7 +2213,7 @@ inner_done:
 		tmpl->createsnpcsTemplateId = (uint32_t)createVar;
 		{
 			uintptr_t keyBuf = (uint32_t)fileCounter;
-			CResManager_InsertIntEntryF(&g_TemplatesRM, &keyBuf, tmpl);
+			CResManager_InsertIntEntryF(&g_TemplateManager.templates, &keyBuf, tmpl);
 		}
 
 next_template:
@@ -2293,7 +2293,7 @@ CTemplateManager_Shutdown(void)
 {
 	CTemplateManager_ClearResManager2(NULL);
 	CTemplateManager_ClearDefines(NULL);
-	CResManager_Destructor_Templates(&g_TemplatesRM);
+	CResManager_Destructor_Templates(&g_TemplateManager.templates);
 }
 
 /*
@@ -2426,10 +2426,10 @@ CResManager_GetTemplateByID(uint32_t id)
 	CSearchCtx ctx;
 	uint32_t key = id;
 
-	CResManager_FindByInt(&g_TemplatesRM, &ctx, &key, 1);
+	CResManager_FindByInt(&g_TemplateManager.templates, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return NULL;
-	return (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &ctx);
+	return (NPCTemplate *)CResManager_GetResultCtx(&g_TemplateManager.templates, &ctx);
 }
 
 /*
@@ -2739,10 +2739,10 @@ CTemplateManager_HasAnimationVariant(int bodyId)
 
 	if (bodyId >= 0 && bodyId <= 0x5DB)
 		return 1;
-	CResManager_FindByInt(&g_TemplatesRM, &ctx, (uint32_t *)&bodyId, 1);
+	CResManager_FindByInt(&g_TemplateManager.templates, &ctx, (uint32_t *)&bodyId, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
-	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &ctx);
+	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplateManager.templates, &ctx);
 	return tmpl->createsnpcsTemplateId;
 }
 
@@ -2759,11 +2759,11 @@ CTemplateManager_HasAnimation(uint16_t templateId)
 	uint32_t key;
 
 	key = (uint32_t)templateId;
-	CResManager_FindByInt(&g_TemplatesRM, &ctx, &key, 1);
+	CResManager_FindByInt(&g_TemplateManager.templates, &ctx, &key, 1);
 	if (!CSearchCtx_Find(&ctx))
 		return 0;
 
-	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplatesRM, &ctx);
+	tmpl = (NPCTemplate *)CResManager_GetResultCtx(&g_TemplateManager.templates, &ctx);
 	return tmpl->type == 4;
 }
 

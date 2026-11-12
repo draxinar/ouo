@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /*
- * NPC template system. g_TemplatesRM (0x006933F8) parses namestable.dat,
+ * NPC template system. g_TemplateManager.templates (0x006933F8) parses namestable.dat,
  * defines, and templatestable.dat into the template table that drives
  * the RESBANK spawn path in egg.c.
  */
@@ -244,14 +244,10 @@ struct CResBankRegion;
 
 extern CItem *g_TemplateChain[TEMPLATE_CHAIN_SIZE]; // 0x0068B3A8
 extern int g_TemplateChainCount[TEMPLATE_CHAIN_SIZE]; // 0x0068F3A8
-extern CResManager g_TemplatesRM; // 0x006933F8
-extern char *g_TemplateNames[TEMPLATE_CHAIN_SIZE]; // 0x00693A40
 extern CMagicItemFactory g_MagicItemFactory; // 0x00697A50
 extern int g_SpawnType12Count; // 0x006E7674
 extern int g_SpawnTotalCount; // 0x006E7678
 extern CNPC *g_VendorListHead; // 0x006EFECC
-extern CResManager g_NameTableRM;
-extern CResManager g_DefinesRM;
 extern const uint8_t g_FieldCaseTable[48];
 
 void LoadAll_ResBankDistrib(void); // 0x004341BD
