@@ -1198,10 +1198,12 @@ StdMap_TreeErase(StdMapTree *this, void *outIter, void *pos)
 
 	*(int *)StdTreeNode_Color(x) = 1;
 
+	// clang-format off
 done: {
 	void *kvPtr = StdTreeNode_KeyValuePtr(y);
 	CVector_Destroy6_Single((CVector *)this, kvPtr);
 }
+	// clang-format on
 	free(y);
 	{
 		StdMapTree *tree = (StdMapTree *)this;

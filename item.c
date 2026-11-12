@@ -1708,6 +1708,7 @@ CItem_Setup(CItem *item, int type, CLocation *loc, int flags, int expand)
 			}
 			goto done;
 		}
+		// clang-format off
 fallback: {
 	uint16_t bodyType = CEntity_GetBodyType(item) & 0xFFFF;
 	node = g_ResEntitySlots[bodyType].nodeHead;
@@ -1716,6 +1717,7 @@ fallback: {
 		node = node->next;
 	}
 }
+		// clang-format on
 done:;
 	}
 }

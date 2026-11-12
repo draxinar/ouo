@@ -1713,8 +1713,8 @@ DispatchHandler(CExecThread *thread, const BuiltinHandlerEntry *handler)
 		retObj = ((uintptr_t (*)(uintptr_t, uintptr_t, uintptr_t))handler->handler)(slot[1].value, slot[2].value, slot[3].value);
 		break;
 	case 79: {
-		        // Binary: handler writes location into tmpLoc and returns
-		        // tmpLoc pointer in EAX. CLocation_SetLoc copies from that pointer.
+		// Binary: handler writes location into tmpLoc and returns
+		// tmpLoc pointer in EAX. CLocation_SetLoc copies from that pointer.
 		uint8_t tmpLoc[8];
 		((void (*)(void *, uintptr_t))handler->handler)(tmpLoc, slot[1].value);
 		CLocation_SetLoc((CLocation *)&retObj, (CLocation *)tmpLoc);
@@ -9457,12 +9457,14 @@ doDamageCore(uint32_t attackerSerial, uint32_t defenderSerial, uint32_t weaponSe
 		}
 	}
 
+	// clang-format off
 third_resolve: {
 	CItem *reAttacker = FindEntityValidated(attackerSerial, 0);
 	CItem *reDefender = FindMobileValidated(defenderSerial, 0);
 	if (attacker != reAttacker || defender != reDefender)
 		return;
 }
+	// clang-format on
 
 	if (g_ScriptReturnFlag == 1) {
 		damage = g_ScriptReturnValue;

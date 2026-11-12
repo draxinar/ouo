@@ -135,7 +135,7 @@ UserSock_DoHandlePacket(CUserSock *this)
 		{
 			PendingAuth *pa = PendingAuth_Find(seed);
 			if (pa) {
-                        // Game connection - cipher config from login handoff.
+				// Game connection - cipher config from login handoff.
 				if (pa->gameCipher == GAME_BF_TF && this->curr <= 4)
 					return 0;
 				this->packetTable = pa->packetTable;
@@ -143,8 +143,8 @@ UserSock_DoHandlePacket(CUserSock *this)
 					this->detectedKeyIndex = pa->clientEnum;
 				switch (pa->gameCipher) {
 				case GAME_BF_TF:
-                                // 2.0.0c-2.0.3: BF with rotation + TF.
-                                // Trial decrypt: try TF+BF, fall back to BF only.
+					// 2.0.0c-2.0.3: BF with rotation + TF.
+					// Trial decrypt: try TF+BF, fall back to BF only.
 					this->gameCrypt = (CGameCrypt *)malloc(sizeof(CGameCrypt));
 					if (this->gameCrypt)
 						CGameCrypt_InitWithRotation(this->gameCrypt, pa->bfIndex);
@@ -177,7 +177,7 @@ UserSock_DoHandlePacket(CUserSock *this)
 					}
 					break;
 				case GAME_TF:
-                                // 2.0.4+: Twofish only.
+					// 2.0.4+: Twofish only.
 					this->twofishCrypt = (TwofishCipher *)malloc(sizeof(TwofishCipher));
 					TwofishCipher_Init(this->twofishCrypt, htonl(seed));
 					this->socket.sendCipher = malloc(sizeof(TwofishSendCipher));
@@ -186,7 +186,7 @@ UserSock_DoHandlePacket(CUserSock *this)
 						TwofishCipher_Decrypt(this->twofishCrypt, &this->buf[4], this->curr - 4);
 					break;
 				case GAME_BF:
-                                // 1.26.0-2.0.0b: Blowfish only (no rotation).
+					// 1.26.0-2.0.0b: Blowfish only (no rotation).
 					this->gameCrypt = (CGameCrypt *)malloc(sizeof(CGameCrypt));
 					if (this->gameCrypt)
 						CGameCrypt_Init(this->gameCrypt, pa->bfIndex);
@@ -194,7 +194,7 @@ UserSock_DoHandlePacket(CUserSock *this)
 						CGameCrypt_Decrypt(this->gameCrypt, &this->buf[4], this->curr - 4);
 					break;
 				case GAME_NONE:
-                                // Plaintext or 1.25.x XOR inherited from login.
+					// Plaintext or 1.25.x XOR inherited from login.
 					if (pa->xorVersion >= 0) {
 						const ClientVersionInfo *xorInfo = Version_Find(pa->xorVersion);
 						if (xorInfo) {
@@ -216,8 +216,8 @@ UserSock_DoHandlePacket(CUserSock *this)
 				if (this->curr <= 4)
 					return 0;
 				if (g_NoCrypt) {
-                                // Nocrypt auto-detect: data is plaintext, skip cipher trials.
-                                // CLIENT_VERSION (0xBD) refines detectedKeyIndex later.
+					// Nocrypt auto-detect: data is plaintext, skip cipher trials.
+					// CLIENT_VERSION (0xBD) refines detectedKeyIndex later.
 					if (!AutoDetectPlaintext(&this->buf[4], this->curr - 4)) {
 						this->socket.status = SocketClosing;
 						return 0;

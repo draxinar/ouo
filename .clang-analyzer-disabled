@@ -6,6 +6,8 @@ unix.MallocSizeof
 core.NonNullParamChecker
 core.CallAndMessage
 core.UndefinedBinaryOperatorResult
+unix.cstring.UninitializedRead
 core.uninitialized.Assign
 core.uninitialized.UndefReturn
+core.uninitialized.Branch
 core.FixedAddressDereference

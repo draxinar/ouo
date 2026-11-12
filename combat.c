@@ -2035,10 +2035,12 @@ CMobile_SwingResolve(CMobile *mob)
 	}
 	return;
 
+	// clang-format off
 miss_handler: {
 	int missGainPct = VT_IsPlayer((CItem *)mob) ? 50 : 100;
 	CMobile_SkillCheck(target, (int8_t)defenderSkillId, attackSkill, 50, 1, missGainPct, 1);
 }
+	// clang-format on
 
 	if (weapon == NULL || !CItem_IsRangedWeapon(weapon))
 		Combat_PlayMeleeMissSfx((CItem *)mob, (CItem *)target, weapon);
@@ -2765,6 +2767,7 @@ struct CrimeType {
 
 // 0x00619930 - five-entry witness-phrase table (range, count, phrases, fmts)
 static const struct CrimeType g_CrimeTypes[5] = {
+
 	// 0: Murder/Attack - range 9, 21 phrases
 	{ 9, 21, g_CrimePhrases_Murder, "DEBUG! THERE SHOULD ALWAYS BE A VICTIM IN A MURDER!", "You see %s attacking %s%s!", NULL },
 	// 1: Theft - range 7, 21 phrases

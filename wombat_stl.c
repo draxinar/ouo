@@ -140,7 +140,7 @@ static int32_t g_StdioStreamDefault; /* 0x009A3C00 - MSVC CRT default stream pos
 static uintptr_t g_vt_IosBase[] = { 0 };            /* 0x005EE000 */
 static uintptr_t g_vt_BasicFstream_Vbptr[] = { 0 };  /* 0x005EE004 */
 static uintptr_t g_vt_BasicFstream[] = {
-	                                           /* 0x005EE008 */
+	/* 0x005EE008 */
 	0,         // [0] offset to self
 	offsetof(CBasicFstream, ios)                  // [1] offset from vbptr to virtual base (CIosBase)
 };

@@ -4011,11 +4011,13 @@ drop_fail:
 
 	goto success;
 
+	// clang-format off
 success: {
 	uint8_t okPkt[4];
 	PacketManager_MakePacket_DROPOBJ_OK(okPkt);
 	SendToClient((CItem *)this, okPkt, -1);
 }
+	// clang-format on
 
 	if (CWorld_FindBySerial(g_World, serialItem) != item)
 		item = NULL;
@@ -8014,12 +8016,14 @@ next_tag_entity:
 		}
 	}
 
+	// clang-format off
 epilogue: {
 	int32_t respDataLen = (int32_t)(writeCur - localBuf);
 
 	BuildTriggerEditResponse(responseBuf, mode, connIndex, localBuf, (uint16_t)respDataLen);
 	SendToClient((CItem *)this, responseBuf, -1);
 }
+	// clang-format on
 }
 
 /*

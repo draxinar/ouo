@@ -225,11 +225,13 @@ AutoDetectXorKeys(CUserSock *this, uint32_t seed, uint8_t *encrypted, int len)
 			this->detectedBfIndex = info->bfIndex;
 			this->detectedKeyIndex = info->clientEnum;
 			this->packetTable = Version_GetPacketTable(info->protocol);
+			// clang-format off
 			Log_Auth(this->addr, "auto-detected client version: %s (%s)", info->name,
 			        info->gameCipher == GAME_TF      ? "Twofish"
 			        : info->gameCipher == GAME_BF_TF ? "Blowfish+Twofish"
 			        : info->gameCipher == GAME_BF    ? "Blowfish"
 			                                         : "XOR only");
+			// clang-format on
 			return 1;
 		}
 	}
