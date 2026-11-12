@@ -79,7 +79,7 @@ void CTemplateManager_ResetMobile(CMobile *mob); // 0x004BCF88
 char *CTemplateManager_GetNextEqValue(char *dataCursor, CString *out); // 0x004BD456
 void Template_SetRealName(CItem *item, char *text); // 0x004BD67A
 void CTemplateManager_startup(void); // 0x004BF86F
-void CTemplateManager_Shutdown(void); // 0x004BF892
+void CTemplateManager_Shutdown(CTemplateManager *this); // 0x004BF892
 CItem *CTemplateManager_CreateFromTemplate(uint16_t templateId, CLocation *loc, int restockFlag, int depth, CItem *existingMob); // 0x004BF8B5
 NPCTemplate *CResManager_GetTemplateByID(uint32_t id); // 0x004BFBAA
 int CTemplateManager_GetTemplateColorCount(uint16_t bodyType); // 0x004BFBD7

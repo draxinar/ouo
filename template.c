@@ -145,8 +145,7 @@ CTemplate_LoadSex(CMobile *mob, char *dataCursor)
 static void
 CTemplateManager_ClearResManager2(CTemplateManager *this)
 {
-	USED(this);
-	CResManager_Clear_NameTable(&g_TemplateManager.nameTable);
+	CResManager_Clear_NameTable(&this->nameTable);
 }
 
 /*
@@ -350,8 +349,7 @@ CTemplateManager_SetRealNameFromTemplate(CItem *entity, char *dataCursor)
 static void
 CTemplateManager_ClearDefines(CTemplateManager *this)
 {
-	USED(this);
-	CResManager_Clear_Defines(&g_TemplateManager.defines);
+	CResManager_Clear_Defines(&this->defines);
 }
 
 /*
@@ -2263,7 +2261,7 @@ CTemplateManager_Destructor(CTemplateManager *this)
 			OperatorDelete(this->names[i]);
 	}
 
-	CTemplateManager_Shutdown();
+	CTemplateManager_Shutdown(this);
 
 	CResManager_Destructor_Defines(&this->defines);
 	CResManager_Destructor_NameTable(&this->nameTable);
@@ -2286,14 +2284,14 @@ CTemplateManager_startup(void)
 /*
  * 0x004BF892 - CTemplateManager::Shutdown
  *
- * Clears the name table, defines, and templates CResManagers.
+ * Clears the manager's name table, defines and templates table.
  */
 void
-CTemplateManager_Shutdown(void)
+CTemplateManager_Shutdown(CTemplateManager *this)
 {
-	CTemplateManager_ClearResManager2(NULL);
-	CTemplateManager_ClearDefines(NULL);
-	CResManager_Destructor_Templates(&g_TemplateManager.templates);
+	CTemplateManager_ClearResManager2(this);
+	CTemplateManager_ClearDefines(this);
+	CResManager_Destructor_Templates(&this->templates);
 }
 
 /*

@@ -838,7 +838,7 @@ GameCentMon_BroadcastEvent(char *data, int len)
 	}
 
 	case 8: // Event 9: reload templates.
-		CTemplateManager_Shutdown();
+		CTemplateManager_Shutdown(&g_TemplateManager);
 		CTemplateManager_startup();
 		break;
 
