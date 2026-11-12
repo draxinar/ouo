@@ -5578,21 +5578,27 @@ StdTree_RBErase(StdMapTree *tree, StdTreeNode **ret, StdTreeNode *pos)
  * 0x004E6A30 - std::_Tree::erase range
  *
  * Erases all nodes in [first, last) and returns the iterator that follows
- * the erased range. If range covers the entire tree, uses the fast
- * _EraseSubtree path. Otherwise erases one-by-one. The binary returns the
- * iterator through a hidden sret pointer; we return it directly, since the
- * port models a tree iterator as the bare node pointer. Its std::_Lockit
- * bracket is omitted as elsewhere.
+ * the erased range. When the range is the whole tree it runs
+ * _Erase(_Root()) with the first level inlined, as the binary does:
+ * StdTree_EraseSubtree takes each right subtree and the loop frees the
+ * nodes down the left spine. Otherwise it erases one by one. The binary
+ * returns the iterator through a hidden sret pointer, and we return it
+ * directly, since the port models a tree iterator as the bare node
+ * pointer. Its std::_Lockit brackets are omitted as elsewhere.
  */
 static StdTreeNode *
 StdTree_EraseRange(StdMapTree *tree, StdTreeNode *first, StdTreeNode *last)
 {
 	StdTreeNode *head = tree->head;
-	StdTreeNode *tmp;
+	StdTreeNode *tmp, *x, *y;
 
 	if (tree->size != 0 && first == head->left && last == head) {
-		// Full range: bulk erase.
-		StdTree_EraseSubtree(tree, head->parent);
+		x = head->parent;
+		for (y = x; y != g_HandleMapNil; x = y) {
+			StdTree_EraseSubtree(tree, y->right);
+			y = y->left;
+			OperatorDelete(x);
+		}
 		head->parent = g_HandleMapNil;
 		tree->size = 0;
 		head->left = head;
