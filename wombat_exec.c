@@ -20884,6 +20884,7 @@ static int
 CHintManager_CreateBucketPair(CResManager *rm, void *keyPtr, void *valuePtr)
 {
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResList *newList;
 
 	bucket = ResManager_HashInt(*(uint32_t *)keyPtr, 0x41);
@@ -20905,7 +20906,8 @@ CHintManager_CreateBucketPair(CResManager *rm, void *keyPtr, void *valuePtr)
 			return 0;
 	}
 
-	CResList_AppendValue(rm->keys[bucket], keyPtr);
+	wideKey = *(uint32_t *)keyPtr;
+	CResList_AppendValue(rm->keys[bucket], &wideKey);
 	CResList_InsertOrSetDataHint(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;

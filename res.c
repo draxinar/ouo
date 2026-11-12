@@ -3393,8 +3393,10 @@ CResList_FindByValue(CResList *list, void *keyPtr, CResListNode *startNode, int 
  *
  * Stores *srcPtr into node->data, allocating the slot on first use.
  *
- * 64-bit: binary stores a 4-byte DWORD; callers pass pointer-sized
- * values, so we use uintptr_t to preserve the full pointer.
+ * 64-bit: the binary stores a 4-byte DWORD. Callers pass pointer-sized
+ * values, so we use uintptr_t to preserve the full pointer, and the
+ * int-key inserts copy their 4-byte key into a zero-extended uintptr_t
+ * first.
  */
 void
 CResListNode_SetDataInt(CResListNode *node, void *srcPtr)
@@ -4047,6 +4049,7 @@ int
 CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valuePtr)
 {
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResList *keyList, *valList;
 
 	bucket = ResManager_HashInt(*keyPtr, 0x41);
@@ -4068,7 +4071,8 @@ CResManager_FindOrInsertMultiA(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 			return 0;
 	}
 
-	CResList_AppendValue(rm->keys[bucket], keyPtr);
+	wideKey = *keyPtr;
+	CResList_AppendValue(rm->keys[bucket], &wideKey);
 	CResList_AppendData_B(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;
@@ -4140,6 +4144,7 @@ static __attribute__((unused)) int
 CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr)
 {
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResList *keyList, *valList;
 
 	bucket = ResManager_HashInt(*keyPtr, 0x41);
@@ -4161,7 +4166,8 @@ CResManager_FindOrInsertMultiB(CResManager *rm, uint32_t *keyPtr, void *valuePtr
 			return 0;
 	}
 
-	CResList_AppendValue(rm->keys[bucket], keyPtr);
+	wideKey = *keyPtr;
+	CResList_AppendValue(rm->keys[bucket], &wideKey);
 	CResList_AppendData_C(rm->vals[bucket], valuePtr);
 	rm->count++;
 	return 1;
@@ -4596,6 +4602,7 @@ __attribute__((unused)) int
 CResManager_Insert_ByFile(CResManager *rm, uint32_t *keyPtr, void *value)
 {
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResListNode *keyNode;
 	CResListNode *valNode;
 	void *raw;
@@ -4623,7 +4630,8 @@ CResManager_Insert_ByFile(CResManager *rm, uint32_t *keyPtr, void *value)
 			return 0;
 	}
 
-	CResList_AppendValue(rm->keys[bucket], keyPtr);
+	wideKey = *keyPtr;
+	CResList_AppendValue(rm->keys[bucket], &wideKey);
 	CResList_InsertVal_ByFile(rm->vals[bucket], value);
 
 	rm->count++;
@@ -4644,6 +4652,7 @@ CResManager_FindOrInsertInt(CResManager *rm, CSearchCtx *output, uint32_t *keyPt
 {
 	CSearchCtx ctx;
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResList *list;
 	void *raw;
 
@@ -4672,7 +4681,8 @@ CResManager_FindOrInsertInt(CResManager *rm, CSearchCtx *output, uint32_t *keyPt
 		return output;
 	}
 
-	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)CResList_AppendValue(rm->keys[bucket], keyPtr));
+	wideKey = *keyPtr;
+	CSearchCtx_SetKeyNode(&ctx, (uintptr_t)CResList_AppendValue(rm->keys[bucket], &wideKey));
 	CSearchCtx_SetValNode(&ctx, (uintptr_t)CResList_AllocTail(rm->vals[bucket]));
 	CSearchCtx_SetBucket(&ctx, bucket);
 	CSearchCtx_SetEntity(&ctx, 1);
@@ -5365,6 +5375,7 @@ int
 CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr)
 {
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResListNode *found;
 
 	bucket = ResManager_HashInt(*(uint32_t *)keyPtr, 0x41);
@@ -5387,7 +5398,8 @@ CResManager_InsertIntEntryF(CResManager *rm, void *keyPtr, void *valPtr)
 			return 0;
 	}
 
-	CResList_AppendValue(rm->keys[bucket], (uint32_t *)keyPtr);
+	wideKey = *(uint32_t *)keyPtr;
+	CResList_AppendValue(rm->keys[bucket], &wideKey);
 
 	CResList_AllocForwardF(rm->vals[bucket], valPtr);
 
@@ -5439,6 +5451,7 @@ int
 CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
 {
 	uint32_t bucket;
+	uintptr_t wideKey;
 	CResListNode *found;
 
 	bucket = ResManager_HashInt(*(uint32_t *)keyPtr, 0x41);
@@ -5461,7 +5474,8 @@ CResManager_InsertIntEntryG(CResManager *rm, void *keyPtr, void *valPtr)
 			return 0;
 	}
 
-	CResList_AppendValue(rm->keys[bucket], (uint32_t *)keyPtr);
+	wideKey = *(uint32_t *)keyPtr;
+	CResList_AppendValue(rm->keys[bucket], &wideKey);
 	CResList_AllocForwardG(rm->vals[bucket], valPtr);
 
 	rm->count++;
